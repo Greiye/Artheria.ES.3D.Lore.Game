@@ -6,7 +6,7 @@ tags: [villain, act-2]
 ---
 # The Stagecoach
 
-I'm testing an .md edit. 10:41AM 16 Oct 2026A tan, bald, overweight giant of a man who rules the low-magic frontier.
+A tan, bald, overweight giant of a man who rules the low-magic frontier.
 
 ![The Stagecoach — placeholder art](assets/images/stagecoach-placeholder.svg)
 
