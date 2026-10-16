@@ -2,7 +2,7 @@
 title: VS Test
 contributor: Mike
 created: 2026-10-16
-tags: [character, place, poem, song, food, world]
+tags: [world]
 ---
 # Is this working?
 
