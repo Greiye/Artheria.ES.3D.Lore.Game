@@ -45,6 +45,14 @@ function toonify(root: THREE.Object3D) {
   });
 }
 
+declare const __MODEL_IDS__: string[];
+// Which slots have a file: the build's list of public/models/*.glb. `?models=a,b` overrides it (tests).
+// A double-clicked file:// page can't fetch files, so it keeps placeholders unless a test opts in.
+const params = new URLSearchParams(location.search);
+export const availableModels: Set<string> = params.has('models')
+  ? new Set(params.get('models')!.split(',').filter(Boolean))
+  : new Set(location.protocol === 'file:' ? [] : __MODEL_IDS__);
+
 export const loadedModels = new Map<string, THREE.Object3D>();
 export const failedModels = new Map<string, string>();
 
@@ -63,6 +71,7 @@ export function loadModel(id: string): Promise<THREE.Object3D | null> {
 
 // Fit a loaded model to its slot: scale to `height`, feet at the placeholder's base, same position.
 export async function fillSlot(slot: ModelSlot): Promise<boolean> {
+  if (!availableModels.has(slot.id)) return false;
   const model = await loadModel(slot.id);
   if (!model) return false;
   const box = new THREE.Box3().setFromObject(model);

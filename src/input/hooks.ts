@@ -1,5 +1,6 @@
 import type { Book } from '../book';
 import type { Player } from '../player';
+import type { Crossbow } from '../crossbow';
 
 export type State = 'title' | 'play' | 'book' | 'pause' | 'resume' | 'editor' | 'charcreate' | 'dialogue' | 'inventory';
 export type InputMode = 'mouse' | 'touch' | 'pad';
@@ -9,6 +10,9 @@ export interface GameHooks {
   state(): State;
   player: Player;
   book: Book;
+  crossbow: Crossbow;
+  fire(): void;
+  hasCrossbow(): boolean;
   begin(): void;
   pause(): void;
   resume(): void;

@@ -16,6 +16,7 @@ import { loadCharacter, saveCharacter, type Character } from './character';
 import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
+import { Crossbow, ZONE } from './crossbow';
 import natalieScript from '../content/dialogue/natalie.json';
 import { fillSlots, loadedModels, failedModels, type ModelSlot } from './models';
 
@@ -119,6 +120,7 @@ ui.innerHTML = `
     <div id="crosshair"></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
     <div id="toast" class="hidden"></div>
+    <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
     <button id="writeLoreHud"><kbd>L</kbd> — Write lore</button>
     <div id="status"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
@@ -214,7 +216,7 @@ let state: State = 'title';
 let lockSupported = true;
 let expectUnlock = false;
 let mouseHeld = false;
-let lookingAt: 'book' | 'natalie' | null = null;   // F3.1 / F3: what E would activate
+let lookingAt: 'book' | 'natalie' | 'bolt' | null = null;   // F3.1 / F3: what E would activate
 let inputMode: InputMode = coarse ? 'touch' : 'mouse';
 
 function setMode(m: InputMode) {
@@ -343,6 +345,32 @@ $('relockBtn').addEventListener('click', () => void resumePlay());
 const dialogue = new DialogueBox();
 const inventory = new Inventory();
 inventory.root.querySelector('.inv-close')!.addEventListener('click', () => closeInventory());
+// ---------- F4 crossbow ----------
+world.scene.add(camera);   // the first-person crossbow rides on the camera
+const crossbow = new Crossbow(world.scene, camera, player, inventory, world.solids, () => settings.fov);
+crossbow.onFire = () => audio.crossbowTwang();
+crossbow.onReloadClick = () => audio.reloadClick();
+const ammoText = $('ammoText'), reloadBar = $('reloadBar'), reloadFill = reloadBar.querySelector<HTMLElement>('.fill')!;
+reloadBar.querySelector<HTMLElement>('.zone')!.style.cssText = `left:${ZONE.start * 100}%;width:${(ZONE.end - ZONE.start) * 100}%`;
+function updateAmmoHud() {
+  show('ammo', crossbow.equipped);
+  if (!crossbow.equipped) return;
+  const r = crossbow.reload;
+  const st = r.active ? (r.mode === 'jam' ? 'JAMMED' : r.mode === 'fast' ? 'Perfect!' : 'Reloading… R in the bright zone') : crossbow.loaded ? (crossbow.bonusNextShot ? 'Loaded · 2× damage' : 'Loaded') : 'Empty · R to reload';
+  const t = `Bolts ${inventory.count('bolt')} · ${st}`;
+  if (ammoText.textContent !== t) ammoText.textContent = t;
+  show('reloadBar', r.active);
+  if (r.active) reloadFill.style.width = Math.min(100, (r.t / (r.mode === 'normal' ? 2 : r.total)) * 100) + '%';
+  reloadBar.classList.toggle('jam', r.active && r.mode === 'jam');
+}
+function fire() {
+  if (state !== 'play' || !crossbow.equipped) return;
+  if (!crossbow.fire() && !crossbow.loaded && !crossbow.reloading) toast(inventory.count('bolt') ? 'Empty: press R to reload' : 'No bolts left. Pick spent ones up with E.', 1800);
+}
+function equip(on: boolean) {
+  if (on && !crossbow.equip()) { toast('You have no crossbow yet.', 1800); return; }
+  if (!on) crossbow.unequip();
+}
 let toastTimer = 0;
 function toast(msg: string, ms = 3000) {
   const el = $('toast');
@@ -385,6 +413,10 @@ function activate() {
   if (state !== 'play') return;
   if (lookingAt === 'book') void openBook();
   else if (lookingAt === 'natalie') talkToNatalie();
+  else if (lookingAt === 'bolt') {
+    const b = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange);
+    if (b) { crossbow.pickUp(b); toast('Bolt recovered', 1200); }
+  }
 }
 
 // ---------- book open / close (F3.2, F3.6) ----------
@@ -467,6 +499,9 @@ const hooks: GameHooks = {
   advanceDialogue: () => dialogue.advance(),
   closeInventory,
   openInventory,
+  crossbow,
+  fire,
+  hasCrossbow: () => inventory.count('crossbow') > 0,
   toggleRun: () => toggleRun(),
   setMode,
 };
@@ -504,6 +539,12 @@ window.addEventListener('keydown', (e) => {
   if (state !== 'play') return;
   if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
+  if (!e.repeat) {
+    const w = actionFor(e.code, ['equipCrossbow', 'equipHands', 'reload']);
+    if (w === 'equipCrossbow') { equip(true); return; }
+    if (w === 'equipHands') { equip(false); return; }
+    if (w === 'reload') { crossbow.pressReload(); return; }
+  }
   const a = actionFor(e.code, ALL);
   if (!a) return;
   if (MOVE.includes(a)) { player.held.add(a); return; }
@@ -525,8 +566,13 @@ window.addEventListener('blur', () => player.held.clear());
 
 // ---------- mouse look ----------
 window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') setMode('mouse'); });
-window.addEventListener('mousedown', (e) => { if (e.button === 0 && state === 'play') mouseHeld = true; });
-window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseHeld = false; });
+window.addEventListener('mousedown', (e) => {
+  if (state !== 'play') return;
+  if (e.button === 0) { mouseHeld = true; if (crossbow.equipped && (e.target === canvas || document.pointerLockElement)) fire(); }   // F4.1 LMB fires
+  if (e.button === 2) crossbow.setADS(true);                                // F4.1 RMB aims
+});
+window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseHeld = false; if (e.button === 2) crossbow.setADS(false); });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('click', () => { if (state === 'dialogue') dialogue.advance(); });
 window.addEventListener('mousemove', (e) => {
   if (state !== 'play') return;
@@ -645,14 +691,17 @@ function frame() {
     ray.set(player.eyePos, lookDir);
     const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget], false)[0];
     lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : 'natalie';
+    if (!lookingAt && crossbow.boltAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'bolt';   // F4.4
     show('prompt', lookingAt !== null);
-    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : 'Read';
+    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     const s = (player.sneaking ? 'SNEAK' : player.speed() === controls.speeds.sprint ? 'SPRINT' : player.speed() === controls.speeds.run ? 'RUN' : 'WALK')
       + (settings.alwaysRun ? '' : ' · always-run off');
     if (s !== lastStatus) { statusEl.textContent = s; lastStatus = s; }
+    crossbow.update(dt);
     touch?.update();
-  } else lookingAt = null;
+  } else { lookingAt = null; crossbow.setADS(false); }
+  updateAmmoHud();
   renderer.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
@@ -670,4 +719,4 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
 }));
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

@@ -15,6 +15,9 @@ export const controls = {
     activate: ['KeyE'],
     pov: ['KeyF'],                          // D2 / F2.4: toggle 1st / 3rd person
     inventory: ['KeyI'],                    // F3.4
+    equipCrossbow: ['Digit1'],              // F4.1 (§5: 1/2 crossbow/hands)
+    equipHands: ['Digit2'],
+    reload: ['KeyR'],                       // F4.3 active reload
     close: ['Tab'],                         // close book / back
     pause: ['Escape'],
     pagePrev: ['KeyA', 'ArrowLeft'],        // F3.3 (book open only)
@@ -52,6 +55,10 @@ export const controls = {
       pause: 9,      // Start / Options
       dpadLeft: 14,
       dpadRight: 15,
+      fire: 7,       // RT (F4.1)
+      aim: 6,        // LT (hold, F4.1)
+      reload: 2,     // X (F4.3)
+      equip: 12,     // D-pad up: crossbow / hands toggle
     },
     deadzone: 0.18,
     lookSpeed: 2.6,  // rad/s at full deflection, multiplied by mouse sensitivity setting

@@ -62,6 +62,11 @@ export class GamepadControls {
       if (pressed(B.toggleRun)) this.g.toggleRun();
       if (pressed(B.activate)) this.g.activate();
       if (pressed(B.pause)) this.g.pause();
+      const cb = this.g.crossbow;   // F4
+      if (pressed(B.equip)) { if (cb.equipped) cb.unequip(); else cb.equip(); }
+      if (pressed(B.fire)) this.g.fire();
+      if (pressed(B.reload)) cb.pressReload();
+      cb.setADS(!!now[B.aim]);
     } else {
       this.release();
       if (st === 'book') {

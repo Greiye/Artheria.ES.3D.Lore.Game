@@ -21,7 +21,8 @@ export interface World {
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
   doorOpen: boolean;
   openDoor(): void;             // F3.4 `unlock:library_door`
-  standees: Record<string, THREE.Object3D>; // .glb model slots: public/models/<id>.glb replaces the standee
+  standees: Record<string, THREE.Object3D>;
+  solids: THREE.Object3D[];     // F4.2: what a bolt can stick in (the ground is handled separately) // .glb model slots: public/models/<id>.glb replaces the standee
   update(t: number): void;
   setOutlines(on: boolean): void;  // F1.1
   setShadows(on: boolean): void;   // F1.1
@@ -406,6 +407,7 @@ export function buildWorld(): World {
     libraryDoor,
     natalieTarget,
     standees,
+    solids: shadowCasters,
     get doorOpen() { return doorOpen; },
     openDoor() {
       if (doorOpen) return;

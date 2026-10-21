@@ -39,10 +39,23 @@ Spec doc v0.05.
 - E on Natalie shows "E — Talk to Natalie"; talking again replays her lines without duplicating items.
 - `test/e2e-v0.04.mjs`.
 
+### Roadmap 0.05 — F4 crossbow
+
+- **F4.1:** 1 equips the scout's crossbow (once Natalie has given it), 2 puts it away. RMB aims down sights
+  (FOV −15°), LMB fires. Placeholder box crossbow in first person (A6).
+- **F4.2:** bolts fly at 60 m/s with gravity and stick in walls, trees, rocks or the ground for 30 s.
+- **F4.3 Active reload:** R starts a 2 s bar. R again inside the bright 15% zone = 0.5 s reload and 2× damage
+  on the next shot; outside it = a 3 s jam.
+- **F4.4:** every shot uses a bolt; E on a stuck bolt picks it back up. HUD shows bolts and reload state.
+- Gamepad: RT fire, LT aim, X reload, D-pad up crossbow/hands. Touch: Bow, Reload, Aim, Fire buttons.
+- Creativity check: none for 0.05 (combat only, as §8 states).
+- `test/e2e-v0.05.mjs`.
+
 ### .glb models (owner request)
 
 - Drop `public/models/<slot>.glb` into the repo and that slot's placeholder is replaced by the model:
-  `natalie`, `stagecoach`, `hero`, `player`. Missing or broken files keep the placeholder silently.
+  `natalie`, `stagecoach`, `hero`, `player`. The build lists which files exist, so absent slots are never
+  requested; broken files keep the placeholder.
 - Draco (decoder in `public/draco/`) and Meshopt compression supported. Models are fetched next to
   `index.html`, not inlined, so they only cost download time when they exist.
 - Textured models render unlit so hand-painted, baked lighting shows (Mega Man Legends style, see

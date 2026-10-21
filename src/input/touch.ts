@@ -22,6 +22,12 @@ export class TouchControls {
       <button class="t-btn t-menu" data-act="menu" aria-label="Menu">☰</button>
       <button class="t-btn t-read hidden" data-act="read">Use</button>
       <button class="t-btn t-inv" data-act="inventory" aria-label="Inventory">Bag</button>
+      <div class="t-bow hidden">
+        <button class="t-btn" data-act="bow">Bow</button>
+        <button class="t-btn" data-act="reload">Reload</button>
+        <button class="t-btn" data-act="aim">Aim</button>
+        <button class="t-btn t-fire" data-act="fire">Fire</button>
+      </div>
       <div class="t-cluster">
         <button class="t-btn" data-act="sprint">Sprint</button>
         <button class="t-btn" data-act="pov">View</button>
@@ -53,6 +59,10 @@ export class TouchControls {
         else if (act === 'read') this.g.activate();
         else if (act === 'menu') this.g.pause();
         else if (act === 'inventory') this.g.openInventory();
+        else if (act === 'bow') { if (this.g.crossbow.equipped) this.g.crossbow.unequip(); else this.g.crossbow.equip(); }
+        else if (act === 'reload') this.g.crossbow.pressReload();
+        else if (act === 'fire') this.g.fire();
+        else if (act === 'aim') this.g.crossbow.setADS(!this.g.crossbow.ads);
       });
       const release = () => { b.classList.remove('on'); if (act === 'sprint') this.g.player.held.delete('sprint'); };
       b.addEventListener('pointerup', release);
@@ -116,7 +126,14 @@ export class TouchControls {
     this.readBtn.classList.toggle('hidden', !(this.g.state() === 'play' && this.g.lookingAtBook()));
     const sneak = this.root.querySelector('[data-act="sneak"]')!;
     sneak.classList.toggle('latched', this.g.player.sneaking);
+    const cb = this.g.crossbow;   // F4: crossbow buttons once Natalie has handed it over
+    const bow = this.root.querySelector('.t-bow')!;
+    bow.classList.toggle('hidden', !(this.g.state() === 'play' && (cb.equipped || this.hasBow())));
+    bow.querySelectorAll('[data-act="fire"], [data-act="reload"], [data-act="aim"]').forEach((b) => b.classList.toggle('hidden', !cb.equipped));
+    this.root.querySelector('[data-act="aim"]')!.classList.toggle('latched', cb.ads);
   }
+
+  private hasBow() { return this.g.hasCrossbow(); }
 
   reset() {
     this.stickId = null; this.looks.clear();

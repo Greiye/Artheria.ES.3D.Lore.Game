@@ -28,7 +28,7 @@ try {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
-  await page.goto('file://' + file);
+  await page.goto('file://' + file + '?models=natalie,player,stagecoach');
   await page.waitForFunction(() => window.__gametool);
   await page.evaluate(() => window.__gametool.modelsReady);
   const r = await page.evaluate(() => {
@@ -45,7 +45,7 @@ try {
   });
   check('A .glb in models/ replaces its placeholder (natalie, player)', r.loaded.join() === 'natalie,player' && r.natalieHidden && r.nubHidden, JSON.stringify(r.loaded));
   check('The model is scaled to the slot height', Math.abs(r.natalieH - 1.75) < 0.01, r.natalieH.toFixed(3) + ' m');
-  check('Missing model (hero) keeps the placeholder', r.heroShown && r.failed.includes('hero'));
+  check('Missing model (hero) keeps the placeholder, without requesting it', r.heroShown && !r.failed.includes('hero'));
   check('Broken model (stagecoach) keeps the placeholder', r.stagecoachShown && r.failed.includes('stagecoach'));
   check('No page errors from model loading', errors.length === 0, errors.join(' | '));
 } finally {

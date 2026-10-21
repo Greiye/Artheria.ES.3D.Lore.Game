@@ -3,6 +3,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 
 // Dev only: re-run `npm run lore` whenever a lore file changes, so saving a .md updates the book.
 function loreWatch(): Plugin {
@@ -28,4 +29,8 @@ export default defineConfig({
   plugins: [viteSingleFile(), loreWatch()],
   server: { host: true }, // also reachable from a phone on the same Wi-Fi for testing
   build: { assetsInlineLimit: 100_000_000, chunkSizeWarningLimit: 2000 },
+  // .glb slots that actually exist in public/models (so the game never requests a missing file).
+  define: {
+    __MODEL_IDS__: JSON.stringify(fs.existsSync('public/models') ? fs.readdirSync('public/models').filter((f) => f.endsWith('.glb')).map((f) => f.slice(0, -4)) : []),
+  },
 });
