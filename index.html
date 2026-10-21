@@ -22,7 +22,33 @@
       #credit { position: fixed; right: calc(8px + env(safe-area-inset-right)); bottom: calc(4px + env(safe-area-inset-bottom)); z-index: 90;
         font: 11px/1.4 system-ui, sans-serif; color: rgba(239,227,196,.75); text-shadow: 0 1px 2px #000; pointer-events: none; user-select: none; }
       #loader i { display: block; height: 100%; width: 10%; background: #3FE0E8; transition: width .3s ease; }
+      #loader .msg { max-width: min(560px, 88vw); margin-top: 18px; color: #EFE3C4; font: 15px/1.5 system-ui, sans-serif; text-align: center; }
+      #loader .msg code { background: #1E2420; padding: 1px 6px; border-radius: 4px; color: #3FE0E8; }
     </style>
+    <script>
+      // F2.1 guard: the load screen must never hang silently. If the game script can't start (for example this
+      // source index.html double-clicked instead of the built dist/index.html), or throws while loading,
+      // say what happened and how to play instead of leaving a black screen.
+      (function () {
+        function say(html) {
+          var l = document.getElementById('loader');
+          if (!l || window.__gametool) return;
+          var m = l.querySelector('.msg') || l.appendChild(document.createElement('div'));
+          m.className = 'msg'; m.innerHTML = html;
+          l.style.display = 'grid'; l.style.alignContent = 'center';
+        }
+        var SOURCE = '<b>This is the source page, not the game.</b><br>Open <code>dist/index.html</code> after <code>npm run build</code>, or run <code>npm run dev</code> and open the link it prints.';
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (t && t.tagName === 'SCRIPT' && /\/src\/main\.ts/.test(t.src || '')) say(SOURCE);
+          else if (!window.__gametool) say('<b>The game hit an error while loading.</b><br>' + String(e.message || e.error || 'Unknown error').replace(/</g, '&lt;') + '<br>Try reloading; if it keeps happening, tell Mike.');
+        }, true);
+        window.addEventListener('DOMContentLoaded', function () {
+          if (location.protocol === 'file:' && document.querySelector('script[src*="/src/main.ts"]')) say(SOURCE);
+        });
+        setTimeout(function () { if (!window.__gametool) say('<b>Still loading…</b><br>If this screen doesn\'t go away, reload the page. Playing from a file? Use <code>dist/index.html</code>, not the one at the top of the repo.'); }, 12000);
+      })();
+    </script>
   </head>
   <body>
     <div id="loader" aria-label="Loading"><div class="bar"><i></i></div></div>
