@@ -28,8 +28,14 @@ const teleport = async (page, x, z, yaw = 0, pitch = 0) => {
 const clearColliders = (page) => G(page, () => { const gt = window.__gametool; gt.parked = gt.world.colliders.splice(0); });
 const restoreColliders = (page) => G(page, () => { const gt = window.__gametool; gt.world.colliders.push(...gt.parked); });
 
+// Character creation (feature promoted 2026-10-18) only gates the very first "Click to begin".
+// These tests exercise movement/book/touch/gamepad behaviour, not that one-time form (which has
+// its own coverage), so pre-seed a completed character before every test loads the page.
+const seedCharacter = () => localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test Player', motivation: '', secret: '', created: true }));
+
 async function open(opts, init) {
   const ctx = await browser.newContext(opts);
+  await ctx.addInitScript(seedCharacter);
   if (init) await ctx.addInitScript(init);
   const page = await ctx.newPage();
   const errors = [];

@@ -2,6 +2,7 @@ import { renderMarkdown } from './markdown';
 import { resolveImage, type LoreEntry } from './lore';
 import { controls } from './controls';
 import { saveSettings, type Settings } from './settings';
+import { audio } from './audio';
 
 // M4 — interactive lore book. Covers F3.2–F3.7 (opening/closing input is wired in main.ts).
 // Content is paginated block by block into fixed-size pages; paragraphs and lists that do not
@@ -119,6 +120,7 @@ export class Book {
   private turnTo(s: number, dir: 'next' | 'prev') {
     this.first = s;
     this.render();
+    audio.pageTurn(); // A7
     // Visual-only flip; input is never blocked by it, so fast readers can keep turning.
     this.flip.className = 'flip ' + dir;
     void this.flip.offsetWidth;
@@ -200,7 +202,7 @@ export class Book {
     });
     if (!items.length) {
       const p = document.createElement('p');
-      p.textContent = 'No lore yet. Add a Markdown file to campaign/lore/ and run `npm run lore`.';
+      p.textContent = 'No lore yet. Add a Markdown file to content/lore/ and run `npm run lore`.';
       return [h, p];
     }
     return [h, ...items];

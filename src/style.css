@@ -165,3 +165,30 @@ body[data-input="touch"] #status { left: calc(16px + env(safe-area-inset-left));
   .chapter h1 { font-size: 22px; }
   .page-inner img { max-height: calc(var(--pw) * .62 * .55); }
 }
+
+/* ---------- Lore editor (in-browser, publishes via GitHub Contents API) ---------- */
+button.secondary { background: transparent; color: var(--stone-l); border: 1px solid var(--stone-d); padding: 8px 16px; margin-top: 10px; width: 100%; }
+button.secondary:hover { border-color: var(--rune); color: var(--parchment); }
+#writeLoreHud { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(14px + env(safe-area-inset-bottom));
+  pointer-events: auto; background: rgba(30,36,32,.75); color: var(--parchment); border: 1px solid var(--stone-d); padding: 7px 12px; font-size: 13px; }
+#writeLoreHud:hover { border-color: var(--rune); }
+body[data-input="touch"] #writeLoreHud, body[data-input="pad"] #writeLoreHud { display: none; }
+.editcard { width: min(560px, 100%); display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--stone-l); }
+.field input, .field textarea { font: 14px var(--ui); color: var(--parchment); background: rgba(122,125,128,.12);
+  border: 1px solid var(--stone-d); border-radius: 6px; padding: 8px 10px; resize: vertical; }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--rune); }
+.field .hint { color: var(--stone); font-weight: 400; font-size: 11px; }
+#eMsg { min-height: 1.4em; color: var(--rune); }
+.row { display: flex; gap: 8px; }
+.row button { flex: 1; }
+#eSettings { font-size: 13px; color: var(--stone-l); border-top: 1px solid rgba(122,125,128,.25); padding-top: 10px; }
+#eSettings summary { cursor: pointer; color: var(--parchment); }
+#eSettings .field { margin-top: 8px; }
+#eSettings button { margin-top: 8px; }
+#versionLabel { color: var(--stone); font-weight: 400; }
+#graphicsSettings, #audioSettings { font-size: 13px; color: var(--stone-l); border-top: 1px solid rgba(122,125,128,.25); padding-top: 10px; margin-top: 4px; }
+#graphicsSettings summary, #audioSettings summary { cursor: pointer; color: var(--parchment); }
+#graphicsSettings .field, #audioSettings label { margin-top: 8px; }
+.field select { font: 14px var(--ui); color: var(--parchment); background: rgba(122,125,128,.12);
+  border: 1px solid var(--stone-d); border-radius: 6px; padding: 6px 8px; }

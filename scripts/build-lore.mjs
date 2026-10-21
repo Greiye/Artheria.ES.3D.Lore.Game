@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// M2 / D5 / F4: `npm run lore` — parse campaign/lore/*.md frontmatter and write campaign/lore/index.json.
+// M2 / D5 / F4: `npm run lore` — parse content/lore/*.md frontmatter and write content/lore/index.json.
 // Browsers cannot list folders, so this index is how the game finds entries.
 // Files starting with "_" (the template) are skipped. Missing fields fail with the file name (F4.2).
 import fs from 'node:fs';
@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dir = path.join(root, 'campaign', 'lore');
+const dir = path.join(root, 'content', 'lore');
 const REQUIRED = ['title', 'contributor', 'created', 'tags'];
 
 function parseFrontmatter(src, file) {
@@ -60,4 +60,4 @@ if (errors.length) {
 }
 entries.sort((a, b) => a.created.localeCompare(b.created) || a.title.localeCompare(b.title));
 fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ schemaVersion: 1, entries }, null, 2) + '\n');
-console.log(`Lore index written: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} -> campaign/lore/index.json`);
+console.log(`Lore index written: ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} -> content/lore/index.json`);

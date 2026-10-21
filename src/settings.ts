@@ -1,30 +1,94 @@
-// F2.3 / F3.7 / §4 Settings: persisted to localStorage key 'gametool.settings'.
+// F2.3 / F3.7 / §4 Settings: persisted to localStorage key 'gametool.settings'. §0 rule 7 (H7):
+// a schemaVersion tags the blob so a later format change can migrate instead of discarding it.
+export type Preset = 'low' | 'medium' | 'high';
+export type FpsCap = 30 | 60 | 0; // 0 = uncapped (F1.1 "∞")
+
+export interface AudioSettings {
+  master: number; music: number; sfx: number; dialogue: number; // F1.2: 0-100 per bus
+  muteMaster: boolean; muteMusic: boolean; muteSfx: boolean; muteDialogue: boolean;
+}
+
 export interface Settings {
+  schemaVersion: 1;
   sensitivity: number; // default 1.0
-  fov: number;         // default 75 (D2)
+  fov: number;         // F1.1: 60-100 (D2)
   invertY: boolean;
   alwaysRun: boolean;  // default true
   lastPage: number;
+  // F1.1 graphics
+  preset: Preset;
+  renderScale: number; // 50-100 (%)
+  shadows: boolean;
+  outlines: boolean;
+  fogDistance: number;  // far-plane distance, 20-120 m; near is derived (F1.1)
+  fpsCap: FpsCap;
+  // F1.2 audio
+  audio: AudioSettings;
 }
 
+// F1.1: each preset is a bundle of starting values for the sliders/toggles above it.
+// Picking a preset just fills the sliders — the owner can still fine-tune afterward.
+export const PRESETS: Record<Preset, Pick<Settings, 'renderScale' | 'shadows' | 'outlines' | 'fogDistance' | 'fpsCap'>> = {
+  low: { renderScale: 50, shadows: false, outlines: false, fogDistance: 45, fpsCap: 30 },
+  medium: { renderScale: 75, shadows: false, outlines: true, fogDistance: 85, fpsCap: 60 },
+  high: { renderScale: 100, shadows: true, outlines: true, fogDistance: 120, fpsCap: 0 },
+};
+
 const KEY = 'gametool.settings';
-export const defaults: Settings = { sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, lastPage: 0 };
+const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 90, muteMaster: false, muteMusic: false, muteSfx: false, muteDialogue: false };
+export const defaults: Settings = {
+  schemaVersion: 1,
+  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, lastPage: 0,
+  preset: 'medium', ...PRESETS.medium,
+  audio: { ...defaultAudio },
+};
+
+const clamp = (v: unknown, lo: number, hi: number, fallback: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
+const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
+
+function loadAudio(a: unknown): AudioSettings {
+  const s = (a && typeof a === 'object' ? a : {}) as Partial<AudioSettings>;
+  return {
+    master: clamp(s.master, 0, 100, defaultAudio.master),
+    music: clamp(s.music, 0, 100, defaultAudio.music),
+    sfx: clamp(s.sfx, 0, 100, defaultAudio.sfx),
+    dialogue: clamp(s.dialogue, 0, 100, defaultAudio.dialogue),
+    muteMaster: bool(s.muteMaster, false),
+    muteMusic: bool(s.muteMusic, false),
+    muteSfx: bool(s.muteSfx, false),
+    muteDialogue: bool(s.muteDialogue, false),
+  };
+}
 
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...defaults };
+    if (!raw) return structuredCloneSettings(defaults);
     const s = JSON.parse(raw) as Partial<Settings>;
+    const preset: Preset = s.preset === 'low' || s.preset === 'medium' || s.preset === 'high' ? s.preset : defaults.preset;
     return {
-      sensitivity: typeof s.sensitivity === 'number' ? Math.min(3, Math.max(0.1, s.sensitivity)) : defaults.sensitivity,
-      fov: typeof s.fov === 'number' ? Math.min(110, Math.max(50, s.fov)) : defaults.fov,
-      invertY: typeof s.invertY === 'boolean' ? s.invertY : defaults.invertY,
-      alwaysRun: typeof s.alwaysRun === 'boolean' ? s.alwaysRun : defaults.alwaysRun,
+      schemaVersion: 1,
+      sensitivity: clamp(s.sensitivity, 0.1, 3, defaults.sensitivity),
+      fov: clamp(s.fov, 60, 100, defaults.fov),
+      invertY: bool(s.invertY, defaults.invertY),
+      alwaysRun: bool(s.alwaysRun, defaults.alwaysRun),
       lastPage: Number.isInteger(s.lastPage) && (s.lastPage as number) >= 0 ? (s.lastPage as number) : 0,
+      preset,
+      renderScale: clamp(s.renderScale, 50, 100, PRESETS[preset].renderScale),
+      shadows: bool(s.shadows, PRESETS[preset].shadows),
+      outlines: bool(s.outlines, PRESETS[preset].outlines),
+      fogDistance: clamp(s.fogDistance, 20, 120, PRESETS[preset].fogDistance),
+      fpsCap: (s.fpsCap === 30 || s.fpsCap === 60 || s.fpsCap === 0) ? s.fpsCap : PRESETS[preset].fpsCap,
+      audio: loadAudio(s.audio),
     };
   } catch {
-    return { ...defaults };
+    return structuredCloneSettings(defaults);
   }
+}
+
+function structuredCloneSettings(s: Settings): Settings {
+  return { ...s, audio: { ...s.audio } };
 }
 
 export function saveSettings(s: Settings): void {

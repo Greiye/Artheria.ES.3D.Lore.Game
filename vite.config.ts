@@ -14,8 +14,8 @@ function loreWatch(): Plugin {
     name: 'lore-watch',
     apply: 'serve',
     configureServer(server) {
-      server.watcher.add('campaign/lore');
-      const onFile = (f: string) => { if (/campaign[\\/]lore[\\/][^\\/]+\.md$/.test(f)) run(); };
+      server.watcher.add('content/lore');
+      const onFile = (f: string) => { if (/content[\\/]lore[\\/][^\\/]+\.md$/.test(f)) run(); };
       server.watcher.on('change', onFile);
       server.watcher.on('add', onFile);
       server.watcher.on('unlink', onFile);

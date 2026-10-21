@@ -17,6 +17,9 @@ export interface World {
   spawn: { pos: THREE.Vector3; yaw: number };
   bounds: number;               // half-size of the walkable square (F1.3)
   update(t: number): void;
+  setOutlines(on: boolean): void;  // F1.1
+  setShadows(on: boolean): void;   // F1.1
+  setFogDistance(far: number): void; // F1.1
 }
 
 const HALF = 50; // F1.2: ~100 x 100 m start area
@@ -83,6 +86,9 @@ export function buildWorld(): World {
   const scene = new THREE.Scene();
   const colliders: Collider[] = [];
   const R = rng(20261016);
+  // F1.1: toggled by setOutlines()/setShadows()/setFogDistance() below.
+  const outlineObjs: THREE.Object3D[] = [];
+  const shadowCasters: THREE.Object3D[] = [];
 
   // F1.4: palette-tinted sky + distance fog, hemisphere + directional sun.
   scene.background = new THREE.Color(palette.sky);
@@ -90,6 +96,11 @@ export function buildWorld(): World {
   scene.add(new THREE.HemisphereLight(palette.sky, palette.hemiGround, 1.6));
   const sun = new THREE.DirectionalLight(palette.sun, 1.9);
   sun.position.set(30, 50, 18);
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -55; sun.shadow.camera.right = 55;
+  sun.shadow.camera.top = 55; sun.shadow.camera.bottom = -55;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 120;
+  sun.shadow.bias = -0.0015;
   scene.add(sun);
 
   // A5: the one 256 px swatch texture, shared by every toon mesh.
@@ -143,7 +154,8 @@ export function buildWorld(): World {
       });
       body.computeBoundingSphere();
       scene.add(body);
-      if (line) { line.computeBoundingSphere(); scene.add(line); }
+      shadowCasters.push(body);
+      if (line) { line.computeBoundingSphere(); scene.add(line); outlineObjs.push(line); }
     });
   };
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -151,6 +163,7 @@ export function buildWorld(): World {
   // Ground (no outline: it would only draw a seam at the horizon).
   const ground = new THREE.Mesh(paint(new THREE.PlaneGeometry(HALF * 2 + 60, HALF * 2 + 60, 1, 1).rotateX(-Math.PI / 2), 'moss'), toon);
   scene.add(ground);
+  ground.receiveShadow = false; // flipped by setShadows()
 
   // Paved path spawn -> lectern, echoing the reference's broken paving.
   for (let z = 1.6; z <= 9; z += 0.7) {
@@ -181,8 +194,10 @@ export function buildWorld(): World {
     const o = new THREE.Mesh(outlineGeometry(m.geometry), oMat(0.03));
     o.position.copy(m.position); o.scale.copy(m.scale); o.rotation.copy(m.rotation);
     lectern.add(o);
+    outlineObjs.push(o);
   });
   scene.add(lectern);
+  shadowCasters.push(lectern);
   colliders.push({ kind: 'circle', x: 0, z: 0, r: 0.45 });
 
   // The lore book (3D placeholder): open pages + cover, tilted with the lectern top.
@@ -281,6 +296,15 @@ export function buildWorld(): World {
     update(t: number) {
       ring.rotation.y = t * 0.8;
       ring.position.y = 1.62 + Math.sin(t * 1.6) * 0.05;
+    },
+    setOutlines(on: boolean) { outlineObjs.forEach((o) => { o.visible = on; }); },
+    setShadows(on: boolean) {
+      sun.castShadow = on;
+      ground.receiveShadow = on;
+      shadowCasters.forEach((o) => { o.castShadow = on; o.receiveShadow = on; });
+    },
+    setFogDistance(far: number) {
+      if (scene.fog instanceof THREE.Fog) { scene.fog.near = far * 0.33; scene.fog.far = far; }
     },
   };
 }

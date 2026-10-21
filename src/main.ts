@@ -5,10 +5,14 @@ import { Player } from './player';
 import { Book } from './book';
 import { lore } from './lore';
 import { controls, actionFor, type Action } from './controls';
-import { loadSettings, saveSettings } from './settings';
+import { loadSettings, saveSettings, PRESETS, type Preset, type FpsCap } from './settings';
+import { audio } from './audio';
+import { VERSION } from './version';
 import { TouchControls } from './input/touch';
 import { GamepadControls } from './input/gamepad';
 import type { State, InputMode, GameHooks } from './input/hooks';
+import { loadGitHub, saveGitHub, loadAuthor, saveAuthor, slugify, buildMarkdown, publishToGitHub, downloadMarkdown } from './editor';
+import { loadCharacter, saveCharacter, type Character } from './character';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -16,11 +20,25 @@ import type { State, InputMode, GameHooks } from './input/hooks';
 const settings = loadSettings();
 const app = document.getElementById('app')!;
 
+// Belt-and-suspenders flush: saveSettings() already writes on every change, but re-save once more
+// right before the page is torn down (reload/navigate/close tab) in case a write landed just before
+// a change that didn't get a chance to persist yet.
+window.addEventListener('pagehide', () => saveSettings(settings));
+
+// F1.2: prime the audio engine's cached levels before the first user gesture creates the AudioContext.
+(['master', 'music', 'sfx', 'dialogue'] as const).forEach((b) => {
+  audio.setLevel(b, settings.audio[b]);
+  audio.setMuted(b, settings.audio[('mute' + b[0].toUpperCase() + b.slice(1)) as 'muteMaster' | 'muteMusic' | 'muteSfx' | 'muteDialogue']);
+});
+
 // ---------- renderer / camera (D2, D4) ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 const coarse = matchMedia('(pointer: coarse)').matches;
-// Phones: cap the render resolution so mid-range devices hold frame rate.
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.5 : 2));
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// F1.1: device pixel ratio capped (phones hold frame rate), then scaled by the render-scale setting.
+const basePixelRatio = Math.min(window.devicePixelRatio, coarse ? 1.5 : 2);
+function applyRenderScale() { renderer.setPixelRatio(basePixelRatio * (settings.renderScale / 100)); }
+applyRenderScale();
 renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);
 const canvas = renderer.domElement;
@@ -33,6 +51,10 @@ window.addEventListener('resize', () => {
 });
 
 const world = buildWorld();
+renderer.shadowMap.enabled = settings.shadows;
+world.setShadows(settings.shadows);
+world.setOutlines(settings.outlines);
+world.setFogDistance(settings.fogDistance);
 const player = new Player(camera, settings, world.colliders, world.bounds);
 player.spawn(world.spawn.pos, world.spawn.yaw);
 const book = new Book(lore.entries, settings);
@@ -42,10 +64,12 @@ const ui = document.createElement('div');
 ui.innerHTML = `
   <div id="title" class="screen">
     <div class="card">
-      <div class="eyebrow">Video Gametool Project</div>
+      <div class="eyebrow">Video Gametool Project <span id="versionLabel"></span></div>
       <h1>The Campaign Book</h1>
       <p class="lead">Walk the start area and read the lore your friends wrote.</p>
       <button id="begin" class="primary">Click to begin</button>
+      <button id="writeLoreTitle" class="secondary">Write lore</button>
+      <button id="openSettingsTitle" class="secondary">Settings</button>
       <table class="keys only-touch">
         <tr><td>Left thumb</td><td>Move (small push walks, full push runs)</td></tr>
         <tr><td>Right thumb</td><td>Drag to look</td></tr>
@@ -72,6 +96,7 @@ ui.innerHTML = `
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — Read</div>
+    <button id="writeLoreHud"><kbd>L</kbd> — Write lore</button>
     <div id="status"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
@@ -83,10 +108,81 @@ ui.innerHTML = `
       <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
       <label class="check"><input id="invert" type="checkbox"> Invert Y</label>
       <label class="check"><input id="always" type="checkbox"> Always run (Caps Lock)</label>
+      <details id="graphicsSettings">
+        <summary>Graphics (F1.1)</summary>
+        <label class="field">Preset
+          <select id="preset"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+        </label>
+        <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="50" max="100" step="5"></label>
+        <label class="check"><input id="shadows" type="checkbox"> Shadows</label>
+        <label class="check"><input id="outlines" type="checkbox"> Outlines</label>
+        <label>Fog distance <output id="fogOut"></output><input id="fogDistance" type="range" min="20" max="120" step="5"></label>
+        <label class="field">FPS cap
+          <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>
+        </label>
+      </details>
+      <details id="audioSettings">
+        <summary>Audio (F1.2)</summary>
+        <label>Master <output id="audioMasterOut"></output><input id="audioMaster" type="range" min="0" max="100" step="5"></label>
+        <label class="check"><input id="muteMaster" type="checkbox"> Mute master</label>
+        <label>Music <output id="audioMusicOut"></output><input id="audioMusic" type="range" min="0" max="100" step="5"></label>
+        <label class="check"><input id="muteMusic" type="checkbox"> Mute music</label>
+        <label>SFX <output id="audioSfxOut"></output><input id="audioSfx" type="range" min="0" max="100" step="5"></label>
+        <label class="check"><input id="muteSfx" type="checkbox"> Mute SFX</label>
+        <label>Dialogue <output id="audioDialogueOut"></output><input id="audioDialogue" type="range" min="0" max="100" step="5"></label>
+        <label class="check"><input id="muteDialogue" type="checkbox"> Mute dialogue</label>
+      </details>
       <p class="fine">Settings are saved in this browser.</p>
+      <button id="editCharacter" class="secondary">Character</button>
+      <button id="writeLorePause" class="secondary">Write lore</button>
     </div>
   </div>
-  <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>`;
+  <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>
+  <div id="charcreate" class="screen hidden">
+    <div class="card">
+      <div class="eyebrow">Before you set out</div>
+      <h1>Who are you?</h1>
+      <p class="lead">Three quick questions. Change your answers anytime from the pause menu.</p>
+      <label class="field">Character name<input id="ccName" type="text" maxlength="40" placeholder="e.g. Rill of the Dais"></label>
+      <label class="field">What does your character want more than anything? <span class="hint">optional</span>
+        <textarea id="ccMotivation" rows="2" placeholder="Revenge, a cure, a crown, to be forgiven..."></textarea>
+      </label>
+      <label class="field">What's one true thing about this world that only you know? <span class="hint">optional — makes great lore</span>
+        <textarea id="ccSecret" rows="2" placeholder="A secret, a rumor, a prophecy..."></textarea>
+      </label>
+      <div class="row">
+        <button id="ccSkip">Skip for now</button>
+        <button id="ccBegin" class="primary">Begin</button>
+      </div>
+    </div>
+  </div>
+  <div id="editor" class="screen hidden">
+    <div class="card editcard">
+      <div class="eyebrow">Add to the campaign</div>
+      <h1>Write lore</h1>
+      <label class="field">Your name<input id="eAuthor" type="text" maxlength="60" placeholder="Your name"></label>
+      <label class="field">Title<input id="eTitle" type="text" maxlength="80" placeholder="e.g. The Old Mill"></label>
+      <label class="field">Tags <span class="hint">comma-separated</span><input id="eTags" type="text" placeholder="character, place, rumor"></label>
+      <label class="field">Entry <span class="hint">Markdown: **bold**, *italic*, lists, images</span>
+        <textarea id="eBody" rows="8" placeholder="Write anything: a character, a place, a poem, a rumor..."></textarea>
+      </label>
+      <p id="eMsg" class="fine"></p>
+      <div class="row">
+        <button id="eCancel">Cancel</button>
+        <button id="eDownload">Download .md</button>
+        <button id="ePublish" class="primary">Publish to GitHub</button>
+      </div>
+      <details id="eSettings">
+        <summary>GitHub publish settings</summary>
+        <label class="field">Repo owner<input id="ghOwner" type="text" placeholder="e.g. Greiye"></label>
+        <label class="field">Repo name<input id="ghRepo" type="text" placeholder="e.g. Artheria.ES.3D.Lore.Game"></label>
+        <label class="field">Branch<input id="ghBranch" type="text" placeholder="main"></label>
+        <label class="field">Personal access token <span class="hint">stays only in this browser</span><input id="ghToken" type="password" placeholder="github_pat_..."></label>
+        <p class="fine">Create a fine-grained token at github.com → Settings → Developer settings → Personal access tokens, scoped to this one repo, permission "Contents: Read and write".</p>
+        <button id="ghSave">Save publish settings</button>
+      </details>
+    </div>
+  </div>`;
 document.body.appendChild(ui);
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const show = (id: string, on: boolean) => $(id).classList.toggle('hidden', !on);
@@ -113,6 +209,8 @@ function setState(s: State) {
   show('hud', s === 'play');
   show('pause', s === 'pause');
   show('relock', s === 'resume');
+  show('editor', s === 'editor');
+  show('charcreate', s === 'charcreate');
   show('nolock', s === 'play' && !lockSupported && inputMode === 'mouse');
   if (s !== 'play') {
     player.held.clear(); mouseHeld = false; show('prompt', false);
@@ -148,13 +246,14 @@ function requestLock(): Promise<boolean> {
 document.addEventListener('pointerlockchange', () => {
   if (document.pointerLockElement === canvas) return;
   if (expectUnlock) { expectUnlock = false; return; }
-  if (state === 'play') setState('pause');   // F2 Esc: browser released the pointer -> pause menu
+  if (state === 'play') { pauseFrom = 'play'; setState('pause'); }   // F2 Esc: browser released the pointer -> pause menu
 });
 
 // F1.1: title -> pointer lock -> spawned in first person.
 async function begin() {
   player.spawn(world.spawn.pos, world.spawn.yaw);
   setState('play');                             // in the world immediately, even before lock resolves
+  audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
     // Android: go fullscreen. iPhone Safari has no element fullscreen; Add to Home Screen does it.
     document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => undefined);
@@ -164,14 +263,41 @@ async function begin() {
   lockSupported = await requestLock();
   show('nolock', state === 'play' && !lockSupported && inputMode === 'mouse');
 }
+let character: Character = loadCharacter();
+let ccFrom: State = 'title';
+const ccName = $<HTMLInputElement>('ccName'), ccMotivation = $<HTMLTextAreaElement>('ccMotivation'), ccSecret = $<HTMLTextAreaElement>('ccSecret');
+
+function openCharCreate(from: State) {
+  ccFrom = from;
+  ccName.value = character.name; ccMotivation.value = character.motivation; ccSecret.value = character.secret;
+  setState('charcreate');
+  ccName.focus();
+}
+function closeCharCreate() {
+  character = { name: ccName.value.trim(), motivation: ccMotivation.value.trim(), secret: ccSecret.value.trim(), created: true };
+  saveCharacter(character);
+  if (ccFrom === 'title') void begin();
+  else setState(ccFrom);
+}
+$('ccBegin').addEventListener('click', () => closeCharCreate());
+$('ccSkip').addEventListener('click', () => {
+  character = { ...character, created: true };
+  saveCharacter(character);
+  if (ccFrom === 'title') void begin();
+  else setState(ccFrom);
+});
+$('editCharacter').addEventListener('click', () => openCharCreate('pause'));
+
 $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
+  if (!character.created) { openCharCreate('title'); return; }
   void begin();
 });
 
 function pause() {
   if (state !== 'play') return;
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  pauseFrom = 'play';
   setState('pause');
 }
 
@@ -182,7 +308,11 @@ async function resumePlay() {
   // Browsers refuse a re-lock right after Esc or without a user gesture: ask for one click.
   if (!ok && state === 'play') setState('resume');
 }
-$('resume').addEventListener('click', () => void resumePlay());
+// F1.3: Settings is also reachable from the title screen (no play session to resume to).
+let pauseFrom: State = 'play';
+function closePauseMenu() { if (pauseFrom === 'title') setState('title'); else void resumePlay(); }
+$('openSettingsTitle').addEventListener('click', () => { pauseFrom = 'title'; setState('pause'); });
+$('resume').addEventListener('click', () => closePauseMenu());
 $('relockBtn').addEventListener('click', () => void resumePlay());
 
 // ---------- book open / close (F3.2, F3.6) ----------
@@ -193,6 +323,64 @@ async function openBook() {
 }
 book.onClose = () => void resumePlay();
 $('prompt').addEventListener('click', () => { if (lookingAtBook) void openBook(); });
+
+// ---------- lore editor (backlog item promoted 2026-10-18) ----------
+let editorFrom: State = 'title';
+const eAuthor = $<HTMLInputElement>('eAuthor'), eTitle = $<HTMLInputElement>('eTitle');
+const eTags = $<HTMLInputElement>('eTags'), eBody = $<HTMLTextAreaElement>('eBody'), eMsg = $('eMsg');
+const ghOwner = $<HTMLInputElement>('ghOwner'), ghRepo = $<HTMLInputElement>('ghRepo');
+const ghBranch = $<HTMLInputElement>('ghBranch'), ghToken = $<HTMLInputElement>('ghToken');
+
+function openEditor() {
+  editorFrom = state;
+  if (state === 'play' && document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  const gh = loadGitHub();
+  ghOwner.value = gh.owner; ghRepo.value = gh.repo; ghBranch.value = gh.branch; ghToken.value = gh.token;
+  eAuthor.value = loadAuthor();
+  eMsg.textContent = '';
+  setState('editor');
+  eTitle.focus();
+}
+function closeEditor() {
+  if (editorFrom === 'play') void resumePlay();
+  else setState(editorFrom);
+}
+$('writeLoreTitle').addEventListener('click', () => openEditor());
+$('writeLorePause').addEventListener('click', () => openEditor());
+$('writeLoreHud').addEventListener('click', () => { if (state === 'play') openEditor(); });
+$('eCancel').addEventListener('click', () => closeEditor());
+$('ghSave').addEventListener('click', () => {
+  saveGitHub({ owner: ghOwner.value.trim(), repo: ghRepo.value.trim(), branch: ghBranch.value.trim() || 'main', token: ghToken.value.trim() });
+  eMsg.textContent = 'Publish settings saved in this browser.';
+});
+
+function entryFromForm(): { title: string; tags: string[]; slug: string; markdown: string } | null {
+  const title = eTitle.value.trim(), author = eAuthor.value.trim();
+  if (!title || !author) { eMsg.textContent = 'Title and your name are both required.'; return null; }
+  const tags = eTags.value.split(',').map((t) => t.trim()).filter(Boolean);
+  saveAuthor(author);
+  return { title, tags, slug: slugify(title), markdown: buildMarkdown(title, author, tags, eBody.value) };
+}
+$('eDownload').addEventListener('click', () => {
+  const e = entryFromForm();
+  if (!e) return;
+  downloadMarkdown(e.slug, e.markdown);
+  eMsg.textContent = `Downloaded ${e.slug}.md — upload it into content/lore/ on github.com (Add file → Upload files), then commit.`;
+});
+$('ePublish').addEventListener('click', () => {
+  const e = entryFromForm();
+  if (!e) return;
+  saveGitHub({ owner: ghOwner.value.trim(), repo: ghRepo.value.trim(), branch: ghBranch.value.trim() || 'main', token: ghToken.value.trim() });
+  eMsg.textContent = 'Publishing…';
+  void publishToGitHub(loadGitHub(), e.slug, e.markdown, e.title).then((r) => {
+    if (r.ok) {
+      eMsg.textContent = `Published. The site rebuilds in ~1–2 min — check ${r.actionsUrl}`;
+      eTitle.value = ''; eTags.value = ''; eBody.value = '';
+    } else {
+      eMsg.textContent = `Couldn't publish: ${r.error} You can still use "Download .md" instead.`;
+    }
+  });
+});
 
 // ---------- touch + gamepad ----------
 const hooks: GameHooks = {
@@ -226,15 +414,18 @@ function toggleRun() {
 window.addEventListener('keydown', (e) => {
   setMode('mouse');
   // Keys the browser would otherwise act on (focus change, menu bar, scrolling).
-  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && state !== 'pause') e.preventDefault();
+  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate'].includes(state)) e.preventDefault();
   if (e.code === 'CapsLock') {
     // Some platforms (macOS) send only a keyup when Caps Lock turns off; see keyup below.
     if (state === 'play' && !e.repeat) { toggleRun(); capsToggledAt = performance.now(); }
     return;
   }
   if (state === 'book') { if (!e.repeat) book.handleKey(e.code); return; }   // F3.2: world input ignored
-  if (state === 'pause' && e.code === 'Escape' && !lockSupported) { void resumePlay(); return; }
+  if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
+  if (state === 'charcreate') { if (e.code === 'Escape' && !e.repeat) closeCharCreate(); return; }
+  if (state === 'pause' && e.code === 'Escape' && !lockSupported) { closePauseMenu(); return; }
   if (state !== 'play') return;
+  if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
   const a = actionFor(e.code, ALL);
   if (!a) return;
   if (MOVE.includes(a)) { player.held.add(a); return; }
@@ -243,7 +434,7 @@ window.addEventListener('keydown', (e) => {
   else if (a === 'sneak') player.toggleSneak();
   else if (a === 'toggleRun') toggleRun();
   else if (a === 'activate' && lookingAtBook) void openBook();
-  else if (a === 'pause') setState('pause');               // only reaches here when the pointer isn't locked
+  else if (a === 'pause') { pauseFrom = 'play'; setState('pause'); }   // only reaches here when the pointer isn't locked
 });
 window.addEventListener('keyup', (e) => {
   if (e.code === 'AltLeft' || e.code === 'AltRight') e.preventDefault();
@@ -264,13 +455,36 @@ window.addEventListener('mousemove', (e) => {
   if (locked || (!lockSupported && mouseHeld)) player.look(e.movementX, e.movementY);
 });
 
-// ---------- pause menu (F2.3) ----------
+// ---------- pause menu (F1.1 / F1.2 / F2.3) ----------
+$('versionLabel').textContent = 'v' + VERSION;
 const sens = $<HTMLInputElement>('sens'), fov = $<HTMLInputElement>('fov');
 const inv = $<HTMLInputElement>('invert'), always = $<HTMLInputElement>('always');
+const presetSel = $<HTMLSelectElement>('preset'), renderScaleEl = $<HTMLInputElement>('renderScale');
+const shadowsEl = $<HTMLInputElement>('shadows'), outlinesEl = $<HTMLInputElement>('outlines');
+const fogDistanceEl = $<HTMLInputElement>('fogDistance'), fpsCapSel = $<HTMLSelectElement>('fpsCap');
+const audioEls = {
+  master: $<HTMLInputElement>('audioMaster'), muteMaster: $<HTMLInputElement>('muteMaster'),
+  music: $<HTMLInputElement>('audioMusic'), muteMusic: $<HTMLInputElement>('muteMusic'),
+  sfx: $<HTMLInputElement>('audioSfx'), muteSfx: $<HTMLInputElement>('muteSfx'),
+  dialogue: $<HTMLInputElement>('audioDialogue'), muteDialogue: $<HTMLInputElement>('muteDialogue'),
+};
 function syncMenu() {
   sens.value = String(settings.sensitivity); $('sensOut').textContent = settings.sensitivity.toFixed(2);
   fov.value = String(settings.fov); $('fovOut').textContent = settings.fov + '°';
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
+  presetSel.value = settings.preset;
+  renderScaleEl.value = String(settings.renderScale); $('renderScaleOut').textContent = settings.renderScale + '%';
+  shadowsEl.checked = settings.shadows; outlinesEl.checked = settings.outlines;
+  fogDistanceEl.value = String(settings.fogDistance); $('fogOut').textContent = settings.fogDistance + ' m';
+  fpsCapSel.value = String(settings.fpsCap);
+  audioEls.master.value = String(settings.audio.master); $('audioMasterOut').textContent = settings.audio.master + '%';
+  audioEls.muteMaster.checked = settings.audio.muteMaster;
+  audioEls.music.value = String(settings.audio.music); $('audioMusicOut').textContent = settings.audio.music + '%';
+  audioEls.muteMusic.checked = settings.audio.muteMusic;
+  audioEls.sfx.value = String(settings.audio.sfx); $('audioSfxOut').textContent = settings.audio.sfx + '%';
+  audioEls.muteSfx.checked = settings.audio.muteSfx;
+  audioEls.dialogue.value = String(settings.audio.dialogue); $('audioDialogueOut').textContent = settings.audio.dialogue + '%';
+  audioEls.muteDialogue.checked = settings.audio.muteDialogue;
 }
 sens.addEventListener('input', () => { settings.sensitivity = Number(sens.value); saveSettings(settings); syncMenu(); });
 fov.addEventListener('input', () => {
@@ -279,6 +493,28 @@ fov.addEventListener('input', () => {
 });
 inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSettings(settings); });
 always.addEventListener('change', () => { settings.alwaysRun = always.checked; saveSettings(settings); });
+
+// F1.1 graphics — a preset fills every slider below it; each slider then applies live on its own.
+presetSel.addEventListener('change', () => {
+  const p = presetSel.value as Preset;
+  settings.preset = p;
+  Object.assign(settings, PRESETS[p]);
+  saveSettings(settings); syncMenu();
+  applyRenderScale(); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows);
+  world.setOutlines(settings.outlines); world.setFogDistance(settings.fogDistance);
+});
+renderScaleEl.addEventListener('input', () => { settings.renderScale = Number(renderScaleEl.value); saveSettings(settings); syncMenu(); applyRenderScale(); });
+shadowsEl.addEventListener('change', () => { settings.shadows = shadowsEl.checked; saveSettings(settings); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows); });
+outlinesEl.addEventListener('change', () => { settings.outlines = outlinesEl.checked; saveSettings(settings); world.setOutlines(settings.outlines); });
+fogDistanceEl.addEventListener('input', () => { settings.fogDistance = Number(fogDistanceEl.value); saveSettings(settings); syncMenu(); world.setFogDistance(settings.fogDistance); });
+fpsCapSel.addEventListener('change', () => { settings.fpsCap = Number(fpsCapSel.value) as FpsCap; saveSettings(settings); });
+
+// F1.2 audio — one GainNode per bus; a slider/mute only ever touches its own bus (src/audio.ts).
+(['master', 'music', 'sfx', 'dialogue'] as const).forEach((b) => {
+  audioEls[b].addEventListener('input', () => { settings.audio[b] = Number(audioEls[b].value); saveSettings(settings); syncMenu(); audio.setLevel(b, settings.audio[b]); });
+  const muteKey = ('mute' + b[0].toUpperCase() + b.slice(1)) as 'muteMaster' | 'muteMusic' | 'muteSfx' | 'muteDialogue';
+  audioEls[muteKey].addEventListener('change', () => { settings.audio[muteKey] = audioEls[muteKey].checked; saveSettings(settings); audio.setMuted(b, settings.audio[muteKey]); });
+});
 syncMenu();
 
 // ---------- frame loop ----------
@@ -291,10 +527,19 @@ let lastStatus = '';
 const perf = { frames: 0, cpuMs: 0, worstMs: 0, simSeconds: 0 };
 const SIM_STEP = 1 / 120;
 let simAcc = 0;
+let stepTimer = 0;
+let lastFrameAt = 0;
+const MOVE_ACTIONS: Action[] = ['forward', 'left', 'back', 'right'];
 
 function frame() {
   requestAnimationFrame(frame);
-  const t0 = performance.now();
+  // F1.1 FPS cap: 30/60/∞. Skipping the whole body (not just the render call) also skips
+  // clock.getDelta() here, so the sim still advances correctly in bigger steps next time.
+  const now = performance.now();
+  const minFrameMs = settings.fpsCap > 0 ? 1000 / settings.fpsCap : 0;
+  if (minFrameMs > 0 && now - lastFrameAt < minFrameMs) return;
+  lastFrameAt = now;
+  const t0 = now;
   // Fixed 120 Hz simulation steps: speeds and jump height stay exact even when frames are slow.
   // Long stalls (tab in background) are capped at 0.25 s so the player doesn't teleport.
   const dt = Math.min(clock.getDelta(), 0.25);
@@ -302,7 +547,15 @@ function frame() {
   gamepad.update();
   if (state === 'play') {
     simAcc += dt;
-    while (simAcc >= SIM_STEP) { player.update(SIM_STEP); simAcc -= SIM_STEP; perf.simSeconds += SIM_STEP; }
+    while (simAcc >= SIM_STEP) {
+      player.update(SIM_STEP); simAcc -= SIM_STEP; perf.simSeconds += SIM_STEP;
+      // A7: footsteps while actually moving (not just holding a speed modifier) and not sneaking.
+      const moving = MOVE_ACTIONS.some((a) => player.held.has(a)) || Math.hypot(player.analog.x, player.analog.y) > 0.05;
+      if (moving && !player.sneaking) {
+        stepTimer -= SIM_STEP;
+        if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); }
+      } else stepTimer = 0;
+    }
     // F3.1: centre-screen ray, 2 m reach.
     ray.setFromCamera(centre, camera);
     lookingAtBook = ray.intersectObject(world.bookTarget, false).length > 0;
@@ -320,4 +573,4 @@ setState('title');
 frame();
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, player, book, renderer, world, perf, settings, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

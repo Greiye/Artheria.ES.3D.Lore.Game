@@ -22,6 +22,8 @@ export const palette = {
   sky: '#C9D6C0',       // F1.4 fog + background, palette-tinted so there are no black voids
   hemiGround: '#4F6B3A',
   sun: '#FFF4DC',
+  sunset: '#E8833A',    // A5 (spec v0.02+): Act 1 sunset sky (F2.2)
+  dusk: '#5B3A6B',
 } as const;
 
 export type Swatch = keyof typeof palette;
