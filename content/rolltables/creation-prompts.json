@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "lore": [
+    "A book your character would hide from everyone else.",
+    "The last page of a book whose first pages are missing.",
+    "Something the library knows that no one alive does.",
+    "A rule of this world, written by someone who broke it.",
+    "A letter that was never sent, shelved as if it were a book.",
+    "The same small event, told the way two friends remember it differently."
+  ],
+  "character": [
+    "Who were they before they had a name?",
+    "What do they carry that they refuse to use?",
+    "What are they saving (money, courage, an apology) and for whom?",
+    "What would the goblin say about them?",
+    "Which book in this library is theirs, and why is it shelved under someone else's name?",
+    "What do they do on the one day nobody is watching?"
+  ],
+  "song_food_art": [
+    "Song: the tune hummed on the walk to the library, not inside it.",
+    "Song: a lullaby for something that isn't a child.",
+    "Food: what Natalie's party ate the night before they went in.",
+    "Food: a meal from home, made with only what a forest offers.",
+    "Art: the sunset as seen by someone who has never left the library.",
+    "Art: a portrait of a friend's character, drawn from their book alone. Link it with [[slug]]."
+  ]
+}

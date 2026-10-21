@@ -7,12 +7,16 @@ import { lore } from './lore';
 import { controls, actionFor, type Action } from './controls';
 import { loadSettings, saveSettings, PRESETS, type Preset, type FpsCap } from './settings';
 import { audio } from './audio';
-import { VERSION } from './version';
+import { VERSION, AUTHOR } from './version';
 import { TouchControls } from './input/touch';
 import { GamepadControls } from './input/gamepad';
 import type { State, InputMode, GameHooks } from './input/hooks';
 import { loadGitHub, saveGitHub, loadAuthor, saveAuthor, slugify, buildMarkdown, publishToGitHub, downloadMarkdown } from './editor';
 import { loadCharacter, saveCharacter, type Character } from './character';
+import { promptOfTheDay } from './prompts';
+import { DialogueBox, type DialogueScript } from './dialogue';
+import { Inventory, ITEMS } from './inventory';
+import natalieScript from '../content/dialogue/natalie.json';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -50,13 +54,18 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+const loaderBar = document.querySelector<HTMLElement>('#loader i');
+const progress = (pct: number) => { if (loaderBar) loaderBar.style.width = pct + '%'; };
+progress(40);
 const world = buildWorld();
+progress(80);
 renderer.shadowMap.enabled = settings.shadows;
 world.setShadows(settings.shadows);
 world.setOutlines(settings.outlines);
 world.setFogDistance(settings.fogDistance);
 const player = new Player(camera, settings, world.colliders, world.bounds);
 player.spawn(world.spawn.pos, world.spawn.yaw);
+world.scene.add(player.body);
 const book = new Book(lore.entries, settings);
 
 // ---------- UI ----------
@@ -64,9 +73,10 @@ const ui = document.createElement('div');
 ui.innerHTML = `
   <div id="title" class="screen">
     <div class="card">
-      <div class="eyebrow">Video Gametool Project <span id="versionLabel"></span></div>
+      <div class="eyebrow">Artheria Lore Tool <span id="versionLabel"></span></div>
       <h1>Tales of Artheria</h1>
       <p class="lead">Walk Straphan Forest and read the lore your friends wrote, as compiled by Natalie Bourbon.</p>
+      <p class="daily"><span>Today's prompt</span><span id="dailyPrompt"></span></p>
       <button id="begin" class="primary">Click to begin</button>
       <button id="writeLoreTitle" class="secondary">Write lore</button>
       <button id="openSettingsTitle" class="secondary">Settings</button>
@@ -89,13 +99,15 @@ ui.innerHTML = `
         <tr><td>Alt</td><td>Sprint (hold)</td><td>Space</td><td>Jump</td></tr>
         <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
+        <tr><td>F</td><td>First / third person</td><td>L</td><td>Write lore</td></tr>
       </table>
       <p class="fine">Private project · all rights reserved.</p>
     </div>
   </div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
-    <div id="prompt" class="hidden"><kbd>E</kbd> — Read</div>
+    <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
+    <div id="toast" class="hidden"></div>
     <button id="writeLoreHud"><kbd>L</kbd> — Write lore</button>
     <div id="status"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
@@ -191,7 +203,7 @@ let state: State = 'title';
 let lockSupported = true;
 let expectUnlock = false;
 let mouseHeld = false;
-let lookingAtBook = false;
+let lookingAt: 'book' | 'natalie' | null = null;   // F3.1 / F3: what E would activate
 let inputMode: InputMode = coarse ? 'touch' : 'mouse';
 
 function setMode(m: InputMode) {
@@ -199,7 +211,7 @@ function setMode(m: InputMode) {
   inputMode = m;
   document.body.dataset.input = m;
   $('begin').textContent = m === 'touch' ? 'Tap to begin' : m === 'pad' ? 'Press A to begin' : 'Click to begin';
-  $('prompt').innerHTML = `<kbd>${m === 'pad' ? 'A' : 'E'}</kbd> — Read`;
+  $('prompt').querySelector('kbd')!.textContent = m === 'pad' ? 'A' : 'E';
   show('nolock', state === 'play' && !lockSupported && m === 'mouse');
 }
 
@@ -211,6 +223,7 @@ function setState(s: State) {
   show('relock', s === 'resume');
   show('editor', s === 'editor');
   show('charcreate', s === 'charcreate');
+  show('inventory', s === 'inventory');
   show('nolock', s === 'play' && !lockSupported && inputMode === 'mouse');
   if (s !== 'play') {
     player.held.clear(); mouseHeld = false; show('prompt', false);
@@ -315,6 +328,54 @@ $('openSettingsTitle').addEventListener('click', () => { pauseFrom = 'title'; se
 $('resume').addEventListener('click', () => closePauseMenu());
 $('relockBtn').addEventListener('click', () => void resumePlay());
 
+// ---------- F3 dialogue + inventory ----------
+const dialogue = new DialogueBox();
+const inventory = new Inventory();
+inventory.root.querySelector('.inv-close')!.addEventListener('click', () => closeInventory());
+let toastTimer = 0;
+function toast(msg: string, ms = 3000) {
+  const el = $('toast');
+  el.textContent = msg;
+  show('toast', true);
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => show('toast', false), ms);
+}
+// F3.4: dialogue actions. `give:<item>:<n>` happens once per session per node, so talking again is safe.
+const givenOnce = new Set<string>();
+dialogue.onAction = (a) => {
+  const [verb, id, n] = a.split(':');
+  if (verb === 'give') {
+    if (givenOnce.has(a)) return;
+    givenOnce.add(a);
+    inventory.give(id, Number(n) || 1);
+    toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1} (I: inventory)`);
+  } else if (verb === 'unlock' && id === 'library_door') {
+    world.openDoor();
+  } else console.warn('Unknown dialogue action', a);
+};
+dialogue.onLine = () => audio.pageTurn();
+dialogue.onEnd = () => {
+  if (world.doorOpen) toast('The library door is open.');
+  void resumePlay();
+};
+function talkToNatalie() {
+  setState('dialogue');   // F3.3: frees the pointer, freezes movement
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  dialogue.start(natalieScript as DialogueScript);
+}
+function openInventory() {
+  if (state !== 'play') return;
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  inventory.render();
+  setState('inventory');
+}
+function closeInventory() { if (state === 'inventory') void resumePlay(); }
+function activate() {
+  if (state !== 'play') return;
+  if (lookingAt === 'book') void openBook();
+  else if (lookingAt === 'natalie') talkToNatalie();
+}
+
 // ---------- book open / close (F3.2, F3.6) ----------
 async function openBook() {
   setState('book');
@@ -322,7 +383,7 @@ async function openBook() {
   await book.open();
 }
 book.onClose = () => void resumePlay();
-$('prompt').addEventListener('click', () => { if (lookingAtBook) void openBook(); });
+$('prompt').addEventListener('click', () => activate());
 
 // ---------- lore editor (backlog item promoted 2026-10-18) ----------
 let editorFrom: State = 'title';
@@ -390,8 +451,11 @@ const hooks: GameHooks = {
   begin: () => void begin(),
   pause,
   resume: () => void resumePlay(),
-  activate: () => { if (state === 'play' && lookingAtBook) void openBook(); },
-  lookingAtBook: () => lookingAtBook,
+  activate,
+  lookingAtBook: () => lookingAt !== null,
+  advanceDialogue: () => dialogue.advance(),
+  closeInventory,
+  openInventory,
   toggleRun: () => toggleRun(),
   setMode,
 };
@@ -402,7 +466,7 @@ $('begin').textContent = inputMode === 'touch' ? 'Tap to begin' : 'Click to begi
 
 // ---------- keyboard (F2.1) ----------
 const MOVE: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'sprint'];
-const ALL: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'toggleRun', 'sprint', 'jump', 'sneak', 'activate', 'close', 'pause'];
+const ALL: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'toggleRun', 'sprint', 'jump', 'sneak', 'activate', 'pov', 'close', 'pause'];
 let capsToggledAt = -1e9;
 
 function toggleRun() {
@@ -423,17 +487,21 @@ window.addEventListener('keydown', (e) => {
   if (state === 'book') { if (!e.repeat) book.handleKey(e.code); return; }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
   if (state === 'charcreate') { if (e.code === 'Escape' && !e.repeat) closeCharCreate(); return; }
+  if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
+  if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
   if (state === 'pause' && e.code === 'Escape' && !lockSupported) { closePauseMenu(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
+  if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   const a = actionFor(e.code, ALL);
   if (!a) return;
   if (MOVE.includes(a)) { player.held.add(a); return; }
   if (e.repeat) return;
   if (a === 'jump') player.jump();
   else if (a === 'sneak') player.toggleSneak();
+  else if (a === 'pov') player.togglePOV();
   else if (a === 'toggleRun') toggleRun();
-  else if (a === 'activate' && lookingAtBook) void openBook();
+  else if (a === 'activate') activate();
   else if (a === 'pause') { pauseFrom = 'play'; setState('pause'); }   // only reaches here when the pointer isn't locked
 });
 window.addEventListener('keyup', (e) => {
@@ -448,6 +516,7 @@ window.addEventListener('blur', () => player.held.clear());
 window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') setMode('mouse'); });
 window.addEventListener('mousedown', (e) => { if (e.button === 0 && state === 'play') mouseHeld = true; });
 window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseHeld = false; });
+canvas.addEventListener('click', () => { if (state === 'dialogue') dialogue.advance(); });
 window.addEventListener('mousemove', (e) => {
   if (state !== 'play') return;
   const locked = document.pointerLockElement === canvas;
@@ -457,6 +526,9 @@ window.addEventListener('mousemove', (e) => {
 
 // ---------- pause menu (F1.1 / F1.2 / F2.3) ----------
 $('versionLabel').textContent = 'v' + VERSION;
+$('credit').textContent = `v${VERSION} · ${AUTHOR}`;
+const dailyPrompt = promptOfTheDay();
+$('dailyPrompt').textContent = dailyPrompt;   // §8 0.03 creativity check
 const sens = $<HTMLInputElement>('sens'), fov = $<HTMLInputElement>('fov');
 const inv = $<HTMLInputElement>('invert'), always = $<HTMLInputElement>('always');
 const presetSel = $<HTMLSelectElement>('preset'), renderScaleEl = $<HTMLInputElement>('renderScale');
@@ -520,9 +592,10 @@ syncMenu();
 // ---------- frame loop ----------
 const ray = new THREE.Raycaster();
 ray.far = controls.activateRange;
-const centre = new THREE.Vector2(0, 0);
+const lookDir = new THREE.Vector3();
 const clock = new THREE.Clock();
 const statusEl = $('status');
+const promptVerb = $('promptVerb');
 let lastStatus = '';
 const perf = { frames: 0, cpuMs: 0, worstMs: 0, simSeconds: 0 };
 const SIM_STEP = 1 / 120;
@@ -556,21 +629,34 @@ function frame() {
         if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); }
       } else stepTimer = 0;
     }
-    // F3.1: centre-screen ray, 2 m reach.
-    ray.setFromCamera(centre, camera);
-    lookingAtBook = ray.intersectObject(world.bookTarget, false).length > 0;
-    show('prompt', lookingAtBook);
+    // F3.1: 2 m reach from the eyes along the view direction (same in 1st and 3rd person, F2.4).
+    camera.getWorldDirection(lookDir);
+    ray.set(player.eyePos, lookDir);
+    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget], false)[0];
+    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : 'natalie';
+    show('prompt', lookingAt !== null);
+    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : 'Read';
+    if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     const s = (player.sneaking ? 'SNEAK' : player.speed() === controls.speeds.sprint ? 'SPRINT' : player.speed() === controls.speeds.run ? 'RUN' : 'WALK')
       + (settings.alwaysRun ? '' : ' · always-run off');
     if (s !== lastStatus) { statusEl.textContent = s; lastStatus = s; }
     touch?.update();
-  } else lookingAtBook = false;
+  } else lookingAt = null;
   renderer.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
 }
 setState('title');
 frame();
+// F2.1: everything is built and the first frame is drawn; fade in from black over 2 s (no pop-in).
+renderer.compile(world.scene, camera);
+progress(100);
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  const loader = document.getElementById('loader');
+  if (!loader) return;
+  loader.classList.add('done');
+  setTimeout(() => loader.remove(), 2100);
+}));
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, camera, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

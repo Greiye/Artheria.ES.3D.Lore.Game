@@ -27,6 +27,8 @@ button:focus-visible { outline: 3px solid var(--parchment); outline-offset: 2px;
 .card h1 { font-family: var(--serif); font-weight: 600; font-size: 34px; margin: 6px 0 8px; color: var(--parchment); }
 .card.narrow h1 { font-size: 26px; margin: 0; }
 .lead { color: var(--stone-l); margin: 0 0 20px; }
+.daily { margin: -8px 0 20px; padding: 10px 12px; border-left: 3px solid var(--rune); background: rgba(63,224,232,.07); color: var(--parchment); font-style: italic; }
+.daily span:first-child { display: block; font-style: normal; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--rune); margin-bottom: 2px; }
 .keys { width: 100%; margin-top: 22px; border-collapse: collapse; font-size: 13px; color: var(--stone-l); }
 .keys td { padding: 5px 6px; border-top: 1px solid rgba(122,125,128,.25); }
 .keys td:nth-child(odd) { color: var(--parchment); font-weight: 600; white-space: nowrap; }
@@ -169,7 +171,7 @@ body[data-input="touch"] #status { left: calc(16px + env(safe-area-inset-left));
 /* ---------- Lore editor (in-browser, publishes via GitHub Contents API) ---------- */
 button.secondary { background: transparent; color: var(--stone-l); border: 1px solid var(--stone-d); padding: 8px 16px; margin-top: 10px; width: 100%; }
 button.secondary:hover { border-color: var(--rune); color: var(--parchment); }
-#writeLoreHud { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(14px + env(safe-area-inset-bottom));
+#writeLoreHud { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(28px + env(safe-area-inset-bottom));
   pointer-events: auto; background: rgba(30,36,32,.75); color: var(--parchment); border: 1px solid var(--stone-d); padding: 7px 12px; font-size: 13px; }
 #writeLoreHud:hover { border-color: var(--rune); }
 body[data-input="touch"] #writeLoreHud, body[data-input="pad"] #writeLoreHud { display: none; }
@@ -192,3 +194,28 @@ body[data-input="touch"] #writeLoreHud, body[data-input="pad"] #writeLoreHud { d
 #graphicsSettings .field, #audioSettings label { margin-top: 8px; }
 .field select { font: 14px var(--ui); color: var(--parchment); background: rgba(122,125,128,.12);
   border: 1px solid var(--stone-d); border-radius: 6px; padding: 6px 8px; }
+
+/* F3.1 dialogue box (Ren'Py style): bottom panel + name tag. */
+#dialogue { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+  width: min(760px, calc(100% - 32px)); background: rgba(30,36,32,.95); border: 2px solid var(--stone-d); border-radius: 10px;
+  padding: 26px 22px 16px; color: var(--parchment); cursor: pointer; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+#dialogue.hidden { display: none; }
+#dialogue .d-name { position: absolute; top: -14px; left: 18px; background: var(--rune); color: #1E2420; font-weight: 700;
+  padding: 3px 12px; border-radius: 6px; font-size: 14px; letter-spacing: .04em; }
+#dialogue .d-text { font-family: var(--serif); font-size: 19px; line-height: 1.5; min-height: 3em; }
+#dialogue .d-choices { display: grid; gap: 8px; margin-top: 12px; }
+#dialogue .d-choice { text-align: left; display: flex; gap: 10px; align-items: center; background: rgba(239,227,196,.06);
+  border: 1px solid var(--stone-d); color: var(--parchment); border-radius: 8px; padding: 9px 12px; font: inherit; cursor: pointer; }
+#dialogue .d-choice:hover, #dialogue .d-choice:focus-visible { border-color: var(--rune); }
+#dialogue .d-hint { margin-top: 8px; text-align: right; font-size: 11px; color: var(--stone-l); letter-spacing: .1em; text-transform: uppercase; }
+#dialogue .d-hint.hidden { display: none; }
+/* F3.4 inventory grid */
+.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.inv-cell { display: grid; justify-items: center; gap: 4px; padding: 12px 8px; border: 1px solid var(--stone-d); border-radius: 8px; background: rgba(239,227,196,.05); }
+.inv-icon { font-size: 28px; color: var(--rune); }
+.inv-name { font-size: 13px; text-align: center; color: var(--parchment); }
+.inv-count { font-size: 12px; color: var(--stone-l); }
+.inv-empty { color: var(--stone-l); font-style: italic; }
+#toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); background: rgba(30,36,32,.9); color: var(--parchment);
+  border: 1px solid var(--rune); border-radius: 8px; padding: 8px 14px; font-size: 14px; pointer-events: none; }
+.t-inv { position: absolute; right: calc(16px + env(safe-area-inset-right)); top: calc(70px + env(safe-area-inset-top)); }

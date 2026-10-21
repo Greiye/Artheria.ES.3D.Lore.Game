@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Video Gametool Project — private, all rights reserved (D8). -->
+<!-- Tales of Artheria (Video Gametool Project) — private, all rights reserved (§1). -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -8,14 +8,26 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Gametool" />
+    <meta name="apple-mobile-web-app-title" content="Artheria" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
     <link rel="icon" href="./icon-192.png" />
-    <title>Video Gametool</title>
+    <title>Tales of Artheria</title>
+    <meta name="description" content="Walk Straphan Forest and read the lore of Artheria, written by friends." />
+    <style>
+      /* F2.1: black load screen + progress bar, fades out over 2 s once the world is ready. */
+      #loader { position: fixed; inset: 0; z-index: 100; background: #000; display: grid; place-items: center; transition: opacity 2s ease; }
+      #loader.done { opacity: 0; pointer-events: none; }
+      #loader .bar { width: min(320px, 70vw); height: 6px; background: #1E2420; border-radius: 3px; overflow: hidden; }
+      #credit { position: fixed; right: calc(8px + env(safe-area-inset-right)); bottom: calc(4px + env(safe-area-inset-bottom)); z-index: 90;
+        font: 11px/1.4 system-ui, sans-serif; color: rgba(239,227,196,.75); text-shadow: 0 1px 2px #000; pointer-events: none; user-select: none; }
+      #loader i { display: block; height: 100%; width: 10%; background: #3FE0E8; transition: width .3s ease; }
+    </style>
   </head>
   <body>
+    <div id="loader" aria-label="Loading"><div class="bar"><i></i></div></div>
     <div id="app"></div>
+    <div id="credit" aria-label="Version and author"></div>
     <noscript>This game needs JavaScript and WebGL.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>

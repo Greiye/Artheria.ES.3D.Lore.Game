@@ -20,9 +20,11 @@ export class TouchControls {
       <div class="t-zone"></div>
       <div class="t-base hidden"><div class="t-knob"></div></div>
       <button class="t-btn t-menu" data-act="menu" aria-label="Menu">☰</button>
-      <button class="t-btn t-read hidden" data-act="read">Read</button>
+      <button class="t-btn t-read hidden" data-act="read">Use</button>
+      <button class="t-btn t-inv" data-act="inventory" aria-label="Inventory">Bag</button>
       <div class="t-cluster">
         <button class="t-btn" data-act="sprint">Sprint</button>
+        <button class="t-btn" data-act="pov">View</button>
         <button class="t-btn" data-act="sneak">Sneak</button>
         <button class="t-btn t-jump" data-act="jump">Jump</button>
       </div>`;
@@ -47,8 +49,10 @@ export class TouchControls {
         if (act === 'jump') p.jump();
         else if (act === 'sneak') { p.toggleSneak(); b.classList.toggle('latched', p.sneaking); }
         else if (act === 'sprint') p.held.add('sprint');
+        else if (act === 'pov') p.togglePOV();   // F2.4
         else if (act === 'read') this.g.activate();
         else if (act === 'menu') this.g.pause();
+        else if (act === 'inventory') this.g.openInventory();
       });
       const release = () => { b.classList.remove('on'); if (act === 'sprint') this.g.player.held.delete('sprint'); };
       b.addEventListener('pointerup', release);

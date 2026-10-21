@@ -16,6 +16,11 @@ export interface World {
   bookCenter: THREE.Vector3;
   spawn: { pos: THREE.Vector3; yaw: number };
   bounds: number;               // half-size of the walkable square (F1.3)
+  sunElevationDeg: number;      // F2.2: < 15° for the sunset
+  libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4 (0.04)
+  natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
+  doorOpen: boolean;
+  openDoor(): void;             // F3.4 `unlock:library_door`
   update(t: number): void;
   setOutlines(on: boolean): void;  // F1.1
   setShadows(on: boolean): void;   // F1.1
@@ -90,18 +95,42 @@ export function buildWorld(): World {
   const outlineObjs: THREE.Object3D[] = [];
   const shadowCasters: THREE.Object3D[] = [];
 
-  // F1.4: palette-tinted sky + distance fog, hemisphere + directional sun.
-  scene.background = new THREE.Color(palette.sky);
-  scene.fog = new THREE.Fog(palette.sky, 28, 85);
-  scene.add(new THREE.HemisphereLight(palette.sky, palette.hemiGround, 1.6));
-  const sun = new THREE.DirectionalLight(palette.sun, 1.9);
-  sun.position.set(30, 50, 18);
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -55; sun.shadow.camera.right = 55;
-  sun.shadow.camera.top = 55; sun.shadow.camera.bottom = -55;
-  sun.shadow.camera.near = 1; sun.shadow.camera.far = 120;
+  // F2.2 sunset: orange sun below 15°, purple (dusk) -> orange (sunset) sky, long shadows.
+  // Fog and the hemisphere fill stay warm and light so nothing goes pure black (F1.4).
+  const SUN_ELEV = 11, SUN_AZ = 38; // degrees; azimuth measured from -Z (straight ahead at spawn) toward +X
+  const el = THREE.MathUtils.degToRad(SUN_ELEV), az = THREE.MathUtils.degToRad(SUN_AZ);
+  const sunDir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+  scene.background = new THREE.Color(palette.sunsetFog);
+  scene.fog = new THREE.Fog(palette.sunsetFog, 28, 85);
+  scene.add(new THREE.HemisphereLight(palette.sunsetGlow, palette.hemiGround, 1.35));
+  const sun = new THREE.DirectionalLight(palette.sunLight, 2.1);
+  sun.position.copy(sunDir).multiplyScalar(90);
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
+  sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 200;
   sun.shadow.bias = -0.0015;
-  scene.add(sun);
+  scene.add(sun, sun.target);
+  // Sky dome: vertex-coloured gradient, dusk overhead fading to sunset at the horizon,
+  // warmest on the sun's side. PLACEHOLDER: replace with a proper sky shader if one is designed.
+  const skyGeo = new THREE.SphereGeometry(180, 32, 16);
+  const skyCol: number[] = [];
+  const cDusk = new THREE.Color(palette.dusk), cSet = new THREE.Color(palette.sunset), cGlow = new THREE.Color(palette.sunsetGlow), tmp = new THREE.Color();
+  const sp = skyGeo.attributes.position;
+  for (let i = 0; i < sp.count; i++) {
+    const v = new THREE.Vector3().fromBufferAttribute(sp, i).normalize();
+    const up = THREE.MathUtils.clamp(v.y, 0, 1);
+    const toSun = Math.max(0, v.dot(sunDir));
+    tmp.copy(cSet).lerp(cGlow, Math.pow(toSun, 6) * 0.8).lerp(cDusk, Math.pow(up, 0.55));
+    skyCol.push(tmp.r, tmp.g, tmp.b);
+  }
+  skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(skyCol, 3));
+  scene.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })));
+  // The sun disc itself, low over the treeline.
+  const sunDisc = new THREE.Mesh(new THREE.CircleGeometry(7, 24), new THREE.MeshBasicMaterial({ color: palette.sunsetGlow, fog: false, depthWrite: false }));
+  sunDisc.position.copy(sunDir).multiplyScalar(170);
+  sunDisc.lookAt(0, 0, 0);
+  scene.add(sunDisc);
 
   // A5: the one 256 px swatch texture, shared by every toon mesh.
   const swatchTex = new THREE.CanvasTexture(makeSwatchCanvas());
@@ -219,8 +248,75 @@ export function buildWorld(): World {
   bookTarget.position.set(0, 1.12, 0);
   scene.add(bookTarget);
 
-  // Keep-out zone for scattered props: dais + path + spawn.
-  const clear = (x: number, z: number, pad: number) => Math.hypot(x, z) < 4.5 + pad || (Math.abs(x) < 2 + pad && z > 0 && z < 12 + pad);
+  // ---------- F2.3 / D13: the Ruined Library ----------
+  // Giant scorched stone hall beyond the lectern, front face toward spawn, 3.4 m door (2x player).
+  // PLACEHOLDER: box walls + broken crenellations; the interior is F5 (0.06).
+  const LIB = { x: 0, front: -18, w: 26, d: 24, h: 8.5 };
+  const DOOR = { w: 1.8, h: 3.4 };
+  const back = LIB.front - LIB.d, midZ = LIB.front - LIB.d / 2, T = 0.8;
+  const wall = (x: number, y: number, z: number, w: number, h: number, d: number, sw: Swatch = 'scorch') => place('box', sw, V(x, y, z), V(w, h, d), 0, 0.03);
+  const side = (LIB.w - DOOR.w) / 2;
+  wall(-(DOOR.w / 2 + side / 2), LIB.h / 2, LIB.front, side, LIB.h, T);             // front, left of door
+  wall(DOOR.w / 2 + side / 2, LIB.h / 2, LIB.front, side, LIB.h, T);                // front, right of door
+  wall(0, DOOR.h + (LIB.h - DOOR.h) / 2, LIB.front, DOOR.w, LIB.h - DOOR.h, T);    // lintel
+  wall(-LIB.w / 2, LIB.h / 2, midZ, T, LIB.h, LIB.d);                               // sides
+  wall(LIB.w / 2, LIB.h / 2, midZ, T, LIB.h, LIB.d);
+  wall(0, LIB.h / 2, back, LIB.w, LIB.h, T);                                        // back
+  // Buttresses and a cornice band in lighter stone so the hall reads as built, then burned.
+  for (const x of [-LIB.w / 2, -LIB.w / 4, LIB.w / 4, LIB.w / 2]) wall(x, LIB.h * 0.4, LIB.front + 0.6, 1.2, LIB.h * 0.8, 1.2, 'stoneDark');
+  wall(0, LIB.h - 0.2, LIB.front + 0.1, LIB.w + 0.6, 0.4, T + 0.3, 'scorchLight');
+  // Door frame (stone) and broken crenellations along the roofline.
+  wall(-DOOR.w / 2 - 0.25, DOOR.h / 2 + 0.1, LIB.front + 0.45, 0.4, DOOR.h + 0.2, 0.3, 'stoneLight');
+  wall(DOOR.w / 2 + 0.25, DOOR.h / 2 + 0.1, LIB.front + 0.45, 0.4, DOOR.h + 0.2, 0.3, 'stoneLight');
+  wall(0, DOOR.h + 0.3, LIB.front + 0.45, DOOR.w + 0.9, 0.4, 0.3, 'stoneLight');
+  for (let x = -LIB.w / 2 + 0.8; x < LIB.w / 2; x += 1.9) {
+    if (R() < 0.3) continue; // missing merlons: the fire took them
+    const mh = 0.6 + R() * 0.7;
+    wall(x, LIB.h + mh / 2, LIB.front, 0.9, mh, T, R() < 0.5 ? 'scorch' : 'scorchLight');
+  }
+  // Fallen blocks at the base (orc fire, D13).
+  for (let i = 0; i < 9; i++) {
+    const x = (R() * 2 - 1) * (LIB.w / 2 - 1), z = LIB.front + 1.2 + R() * 2.5;
+    if (Math.abs(x) < 3.2) continue;
+    const s = 0.4 + R() * 0.6;
+    place('rock', R() < 0.5 ? 'scorch' : 'stoneDark', V(x, s * 0.4, z), V(s * 1.3, s * 0.8, s), R() * 6, 0.04);
+    colliders.push({ kind: 'circle', x, z, r: s * 1.1 });
+  }
+  // Colliders per wall so the hall can be entered once the door opens (the roof burned away: open sky).
+  const box = (minX: number, maxX: number, minZ: number, maxZ: number) => colliders.push({ kind: 'box', minX, maxX, minZ, maxZ });
+  box(-LIB.w / 2 - T / 2, -DOOR.w / 2, LIB.front - T / 2, LIB.front + 1.2);   // front left (incl. buttresses)
+  box(DOOR.w / 2, LIB.w / 2 + T / 2, LIB.front - T / 2, LIB.front + 1.2);     // front right
+  box(-LIB.w / 2 - T / 2, -LIB.w / 2 + T / 2, back - T / 2, LIB.front);       // left side
+  box(LIB.w / 2 - T / 2, LIB.w / 2 + T / 2, back - T / 2, LIB.front);         // right side
+  box(-LIB.w / 2, LIB.w / 2, back - T / 2, back + T / 2);                     // back
+  const doorCollider: Collider = { kind: 'box', minX: -DOOR.w / 2, maxX: DOOR.w / 2, minZ: LIB.front - T / 2, maxZ: LIB.front + 1.2 };
+  colliders.push(doorCollider);
+  // The door: its own mesh so 0.04 (F3.4 unlock:library_door) can open it.
+  const libraryDoor = new THREE.Mesh(geo('box', 'woodDark'), toon);
+  libraryDoor.name = 'library_door';
+  libraryDoor.scale.set(DOOR.w, DOOR.h, 0.2);
+  const doorLine = new THREE.Mesh(outlineGeometry(libraryDoor.geometry), oMat(0.03));
+  doorLine.scale.copy(libraryDoor.scale);
+  const doorLeaf = new THREE.Group();
+  libraryDoor.position.set(DOOR.w / 2, DOOR.h / 2, 0); doorLine.position.copy(libraryDoor.position);
+  doorLeaf.add(libraryDoor, doorLine);
+  const hinge = new THREE.Group();
+  hinge.position.set(-DOOR.w / 2, 0, LIB.front + 0.35);
+  hinge.add(doorLeaf);
+  scene.add(hinge);
+  outlineObjs.push(doorLine);
+  shadowCasters.push(libraryDoor);
+  // Paving continues from the dais to the door.
+  for (let z = -2.9; z >= LIB.front + 0.8; z -= 0.7) {
+    for (const x of [-0.36, 0.36]) {
+      if (R() < 0.22) continue;
+      place('box', R() < 0.5 ? 'stoneLight' : 'stone', V(x + (R() - 0.5) * 0.06, 0.02, z), V(0.62, 0.05, 0.62), (R() - 0.5) * 0.12, 0);
+    }
+  }
+
+  // Keep-out zone for scattered props: dais + path + spawn + library and its forecourt.
+  const clear = (x: number, z: number, pad: number) => Math.hypot(x, z) < 4.5 + pad || (Math.abs(x) < 2 + pad && z > LIB.front && z < 12 + pad)
+    || (Math.abs(x) < LIB.w / 2 + 2 + pad && z < LIB.front + 4 + pad && z > back - 2 - pad);
 
   // Trees: trunk (post) + canopy (blob) — canopy is the same mesh as the bushes (A1).
   const trees: [number, number][] = [];
@@ -285,8 +381,15 @@ export function buildWorld(): World {
   };
   standee('THE STAGECOACH', 'BBEG · 2D standee', 2.4, 3.4, '#C9A36B', -4.2, -2.2);
   standee('HERO', 'player · 2D standee', 1.0, 1.8, '#5C8AA0', 3.8, 3.2);
-  // v0.05 D13: Natalie Bourbon, the warner. Dialogue (content/dialogue/natalie.json) is wired at 0.04 (F3).
-  standee('NATALIE', 'warner · 2D standee', 1.0, 1.75, '#8A5C7A', -3.6, 3.4);
+  // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
+  // Dialogue (content/dialogue/natalie.json) is wired at 0.04 (F3).
+  const NAT = { x: -2.8, z: LIB.front + 1.8 };
+  standee('NATALIE', 'warner · 2D standee', 1.0, 1.75, '#8A5C7A', NAT.x, NAT.z);
+  const natalieTarget = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+  natalieTarget.name = 'natalie';
+  natalieTarget.position.set(NAT.x, 0.9, NAT.z);
+  scene.add(natalieTarget);
+  let doorOpen = false, doorAngle = 0;
 
   return {
     scene,
@@ -295,7 +398,22 @@ export function buildWorld(): World {
     bookCenter: new THREE.Vector3(0, 1.12, 0),
     spawn: { pos: new THREE.Vector3(0, 0, 8.5), yaw: 0 },  // yaw 0 looks toward -Z: the lectern
     bounds: HALF,
+    sunElevationDeg: SUN_ELEV,
+    libraryDoor,
+    natalieTarget,
+    get doorOpen() { return doorOpen; },
+    openDoor() {
+      if (doorOpen) return;
+      doorOpen = true;
+      colliders.splice(colliders.indexOf(doorCollider), 1);
+    },
     update(t: number) {
+      // F3.4: the unlocked door swings 100° inward over ~1 s.
+      const targetAngle = doorOpen ? THREE.MathUtils.degToRad(100) : 0;
+      if (doorAngle !== targetAngle) {
+        doorAngle = Math.min(targetAngle, doorAngle + 0.03);
+        hinge.rotation.y = doorAngle;
+      }
       ring.rotation.y = t * 0.8;
       ring.position.y = 1.62 + Math.sin(t * 1.6) * 0.05;
     },

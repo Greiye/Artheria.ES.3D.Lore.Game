@@ -1,4 +1,4 @@
-# Video Gametool — v0.02
+# Tales of Artheria (Video Gametool) — v0.02 (unreleased roadmap work in progress)
 
 Private project, all rights reserved (§1). Not open source.
 
@@ -80,9 +80,10 @@ in — either way it won't ask again on that browser. Revisit or change answers 
 | L | Write lore |
 | A/D, ←/→, page-edge click | Turn pages |
 | Tab / Esc / E | Close the book |
+| F | First / third person |
 | Esc | Pause menu: sensitivity, FOV, invert Y, always-run, character, write lore |
 
-**Touch (phones / tablets):** left thumb = floating joystick (small push walks, full push runs), right thumb = drag to look. Buttons: Jump, Sneak, Sprint (hold), Read (appears when you aim at the book), ☰ menu. In the book, swipe or tap a page edge; ✕ closes. Write lore and Character are in the ☰ pause menu (no touch/gamepad binding yet).
+**Touch (phones / tablets):** left thumb = floating joystick (small push walks, full push runs), right thumb = drag to look. Buttons: Jump, Sneak, Sprint (hold), View (first/third person), Read (appears when you aim at the book), ☰ menu. In the book, swipe or tap a page edge; ✕ closes. Write lore and Character are in the ☰ pause menu (no touch/gamepad binding yet).
 
 **Gamepad (Xbox / PlayStation / Switch Pro, Skyrim layout):**
 
@@ -138,6 +139,7 @@ test/e2e.mjs              automated Done-when checks (headless Chromium)
 | Mobile + gamepad | `src/input/*`, `src/book.ts`, `src/style.css`, `public/`, `.github/workflows/deploy.yml` | `test/e2e-mobile.mjs`: joystick walk/run, multi-touch, buttons, swipe, portrait and landscape book, mocked gamepad for every binding |
 | In-browser lore editor + character creation | `src/editor.ts`, `src/character.ts`, `src/main.ts`, `src/style.css` | `test/e2e-features.mjs`: character form gates first spawn and persists; editor publish (mocked GitHub API), validation, download fallback, L-key and HUD access |
 | v0.02 — F1 Settings, A7 Audio, version label (spec §8) | `src/settings.ts`, `src/audio.ts`, `src/version.ts`, `src/world.ts`, `src/main.ts`, `src/style.css`; `content/` renamed from `campaign/` (D7); `sunset`/`dusk` palette tokens added (A5) | `test/e2e-v0.02.mjs`: presets/sliders apply live and persist, bus mute isolation, version label, Low vs. High relative frame cost (informational, #30), no audio-engine errors during play |
+| v0.03 — F2 world/camera, §5, §6.3 prompts | `index.html`, `src/world.ts`, `src/player.ts`, `src/prompts.ts`, `src/main.ts`, `src/controls.ts`, `src/input/touch.ts`, `content/rolltables/creation-prompts.json` | `test/e2e-v0.03.mjs`: fade-in, daily prompt, sun < 15°, 3.4 m door visible from spawn and locked, F toggles POV while moving, camera wall collision |
 
 Run the checks with:
 

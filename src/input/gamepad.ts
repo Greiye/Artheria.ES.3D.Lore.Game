@@ -72,6 +72,10 @@ export class GamepadControls {
         if (Math.abs(lx) < 0.3) this.bookStickArmed = true;
         else if (this.bookStickArmed && Math.abs(lx) > 0.75) { this.bookStickArmed = false; (lx > 0 ? bk.next() : bk.prev()); }
         if (pressed(B.back) || pressed(B.activate) || pressed(B.pause)) bk.close();
+      } else if (st === 'dialogue') {
+        if (pressed(B.activate)) this.g.advanceDialogue();
+      } else if (st === 'inventory') {
+        if (pressed(B.back) || pressed(B.activate) || pressed(B.pause)) this.g.closeInventory();
       } else if (st === 'pause' || st === 'resume') {
         if (pressed(B.pause) || pressed(B.back) || pressed(B.activate)) this.g.resume();
       }

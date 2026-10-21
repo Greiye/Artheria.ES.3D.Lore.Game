@@ -13,6 +13,8 @@ export const controls = {
     jump: ['Space'],
     sneak: ['KeyC'],                        // toggle sneak / crouch
     activate: ['KeyE'],
+    pov: ['KeyF'],                          // D2 / F2.4: toggle 1st / 3rd person
+    inventory: ['KeyI'],                    // F3.4
     close: ['Tab'],                         // close book / back
     pause: ['Escape'],
     pagePrev: ['KeyA', 'ArrowLeft'],        // F3.3 (book open only)
@@ -33,6 +35,7 @@ export const controls = {
   pitchLimitDeg: 89,
   activateRange: 2.0,     // m (F3.1)
   analogRunThreshold: 0.7, // stick deflection above this runs, below it walks
+  thirdPerson: { back: 3, right: 0.5, wallPad: 0.2 }, // D2 default 3rd-person camera, m
 
   // Gamepad (standard mapping, Xbox names; PlayStation: A=Cross, B=Circle, X=Square, Y=Triangle).
   // Skyrim controller defaults where they exist.

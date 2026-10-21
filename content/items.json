@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "items": {
+    "crossbow": { "name": "Scout's Crossbow", "icon": "⌖", "note": "Natalie's scout won't be needing it tonight. Mind the reload." },
+    "bolt": { "name": "Crossbow Bolt", "icon": "➶", "note": "Pick spent bolts back up with E." }
+  }
+}
