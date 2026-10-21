@@ -2,14 +2,101 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
-## Unreleased — Artheria lore pass (spec v0.05, D13)
+## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
+
+One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
+Spec doc v0.05.
+
+### Roadmap 0.03 — F2 world/camera, §5, §6.3 prompts
+
+- **F2.1 Load + fade-in:** black load screen with a progress bar (`index.html`); 2 s fade once the world is
+  built and the first frame is drawn.
+- **F2.2 Sunset:** orange sun at 11° elevation, dusk-purple to sunset-orange sky dome, warm fog and fill
+  light, low sun for long shadows (Shadows on). New palette tokens `sunLight`, `sunsetFog`, `sunsetGlow`.
+- **F2.3 Ruined Library (D13):** a scorched stone hall beyond the lectern with a 3.4 m wooden door, broken
+  crenellations and fallen blocks; paving runs from the dais to the door. The door is locked (opens with
+  F3.4 at 0.04). Natalie's standee now stands left of the door (§3 step 4).
+- **F2.4 POV toggle:** F (touch: View) switches first/third person. Third person shows a capsule body with a
+  facing nub (A6), camera 3 m back and 0.5 m right, pulled in before it can enter a wall. Book reach (F3.1)
+  is now measured from the eyes so it works in both views.
+- **§6.3 / 0.03 creativity check:** the title screen shows one creation prompt from
+  `content/rolltables/creation-prompts.json`, rotating daily.
+- Page and app renamed *Tales of Artheria* (`index.html`, web manifest).
+- Version number and "Mike Go" shown in the bottom-right corner of every screen.
+- `test/e2e-v0.03.mjs`: checks for the above.
+
+### Roadmap 0.04 — F3 dialogue and inventory
+
+- **F3.1 Dialogue box:** Ren'Py-style bottom panel with a name tag, typewriter at 40 characters/s. Click,
+  Space or E first finishes the line, then advances. Scripts load from `content/dialogue/*.json` (§6.7).
+- **F3.2 Choices:** buttons (or number keys 1–9); a choice picks the next node.
+- **F3.3:** talking frees the pointer and freezes movement.
+- **F3.4 Inventory (I):** grid of name + count (touch: Bag). Items live in `content/items.json` (H4).
+  Dialogue actions `give:<item>:<n>` and `unlock:library_door` work: Natalie hands over the scout's crossbow
+  and 10 bolts, and the library door swings open. The roofless hall can be entered (interior is 0.06).
+- **0.04 creativity check:** Natalie's "I don't know what to make" answers with a random §6.3 prompt, then
+  still gives the crossbow.
+- E on Natalie shows "E — Talk to Natalie"; talking again replays her lines without duplicating items.
+- `test/e2e-v0.04.mjs`.
+
+### Roadmap 0.05 — F4 crossbow
+
+- **F4.1:** 1 equips the scout's crossbow (once Natalie has given it), 2 puts it away. RMB aims down sights
+  (FOV −15°), LMB fires. Placeholder box crossbow in first person (A6).
+- **F4.2:** bolts fly at 60 m/s with gravity and stick in walls, trees, rocks or the ground for 30 s.
+- **F4.3 Active reload:** R starts a 2 s bar. R again inside the bright 15% zone = 0.5 s reload and 2× damage
+  on the next shot; outside it = a 3 s jam.
+- **F4.4:** every shot uses a bolt; E on a stuck bolt picks it back up. HUD shows bolts and reload state.
+- Gamepad: RT fire, LT aim, X reload, D-pad up crossbow/hands. Touch: Bow, Reload, Aim, Fire buttons.
+- Creativity check: none for 0.05 (combat only, as §8 states).
+- `test/e2e-v0.05.mjs`.
+
+### Roadmap 0.06 — F5 library and books, §6.1–§6.5 (the creativity version)
+
+- **F5.1 Library interior:** 12 shelves (6 per side wall) with name plates, three tables with candles and
+  scrolls, crates, and the small exit door at the far end (it opens at 0.12). Static furniture is baked into
+  one mesh per colour to stay inside the draw-call budget.
+- **F5.2 `content/shelves.json`:** each shelf lists its red-book slugs and a grey-book count. Every slug must
+  resolve to an `.md`; a book missing from `shelves.json` is shelved automatically, so contributors never
+  have to edit it.
+- **F5.3 Grey books:** E shows a random line from `content/rolltables/grey-books.json` for 3 s.
+- **F5.4 Shelf reader:** E on a red book opens it alone in the parchment reader (no contents page; it doesn't
+  move the lectern book's saved page).
+- **F5.5 Tiers:** `fragment` / `note` / `work` from word count (a contributor may set it lower, never higher).
+  Tier shows in the byline and on the spine; fragments get a loose binding and an "unfinished on purpose" note.
+- **F5.6 Links:** `[[slug]]` is a tappable link that opens the linked book; a broken link is plain text with a
+  "missing page" note. `links: [slug]` makes a reply book ("In reply to *Title* by *credit_as*").
+- **§6.1 Creative types:** `content/artifacts/` holds characters (capsule + nameplate), songs (music box that
+  plays the `chords:` line on the Music bus), food (scroll + dish) and art (framed picture on the back wall).
+  Each opens its page in the reader. One placeholder of each ships.
+- **§6.2 Templates and validation:** `content/templates/` has one template per type (replaces
+  `content/lore/_template.md`). `npm run lore` now requires `title`, `contributor`, `credit_as`, `created` and
+  `type`; every problem is one plain line naming the file, the field and the fix. Old files with neither
+  `credit_as` nor `type` still build, with a warning, until 0.12.
+- The lectern book lists red-book lore only; artifacts live on their own objects in the library.
+- *Song of the Paved Road* moved to `content/artifacts/` as the song placeholder.
+- `test/e2e-v0.06.mjs`. The creativity check itself (a non-technical friend adds a book unaided in < 10 min)
+  needs a real person.
+
+### .glb models (owner request)
+
+- Drop `public/models/<slot>.glb` into the repo and that slot's placeholder is replaced by the model:
+  `natalie`, `stagecoach`, `hero`, `player`. The build lists which files exist, so absent slots are never
+  requested; broken files keep the placeholder.
+- Draco (decoder in `public/draco/`) and Meshopt compression supported. Models are fetched next to
+  `index.html`, not inlined, so they only cost download time when they exist.
+- Textured models render unlit so hand-painted, baked lighting shows (Mega Man Legends style, see
+  `docs/assumptions.md` #39); untextured ones use the world's toon ramp.
+- `test/e2e-models.mjs` (+ `test/fixtures/make-box-glb.mjs`).
+
+### Artheria lore pass (D13)
 
 - **Setting:** the book is now *Tales of Artheria*, compiled by Natalie Bourbon (title screen + contents page).
 - **Lore:** 11 entries adapted from the public-safe Artheria lore (third-party names already renamed per the
   IP-renames list; mature lines cut per the mapping's content pass). Contradictions are kept in-world as
   "Sources disagree" notes, per the retcon-attribution file. Each entry has a `source:` field naming the
   master-lore section it came from, so its text can be re-synced later.
-- **Natalie Bourbon (warner):** placeholder standee at spawn; draft dialogue in `content/dialogue/natalie.json`
+- **Natalie Bourbon (warner):** placeholder standee by the library door; draft dialogue in `content/dialogue/natalie.json`
   (not wired: the NPC/dialogue system is F3, v0.04). §6.5 exemplar *Natalie's Field Note* added.
 - **Credits (D9):** frontmatter `credit_as` is shown in the book byline and contents; defaults to `contributor`.
   Only Mike's own lore is shelved; friends' lore waits for their `credit_as` reply (D13).

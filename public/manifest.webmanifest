@@ -1,6 +1,6 @@
 {
-  "name": "Video Gametool",
-  "short_name": "Gametool",
+  "name": "Tales of Artheria",
+  "short_name": "Artheria",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

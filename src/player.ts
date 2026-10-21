@@ -19,8 +19,23 @@ export class Player {
   // Skyrim-style: a small deflection walks, a full one runs.
   readonly analog = { x: 0, y: 0 };
   readonly analogLook = { x: 0, y: 0 };   // rad/s, from the right stick
+  // D2 / F2.4: F toggles third person. A6 body = coloured capsule + facing nub, shown only in 3rd person.
+  thirdPerson = false;
+  readonly body = new THREE.Group();
+  readonly eyePos = new THREE.Vector3();   // F3.1 reach is measured from the eyes, not the 3rd-person camera
 
-  constructor(private camera: THREE.PerspectiveCamera, private settings: Settings, private colliders: Collider[], private bounds: number) {}
+  constructor(private camera: THREE.PerspectiveCamera, private settings: Settings, private colliders: Collider[], private bounds: number) {
+    // PLACEHOLDER: capsule body until character models exist (H9).
+    const mat = new THREE.MeshToonMaterial({ color: 0x5C8AA0 });
+    const capsule = new THREE.Mesh(new THREE.CapsuleGeometry(controls.playerRadius, controls.eyeHeight - controls.playerRadius * 2 + 0.1, 4, 10), mat);
+    capsule.position.y = (controls.eyeHeight + 0.1) / 2;
+    const nub = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.22), new THREE.MeshToonMaterial({ color: 0xEFE3C4 }));
+    nub.position.set(0, controls.eyeHeight - 0.15, -controls.playerRadius - 0.05);   // faces -Z = forward at yaw 0
+    this.body.add(capsule, nub);
+    this.body.visible = false;
+  }
+
+  togglePOV() { this.thirdPerson = !this.thirdPerson; this.syncCamera(); }
 
   spawn(p: THREE.Vector3, yaw: number) {
     this.pos.copy(p); this.yaw = yaw; this.pitch = 0; this.vy = 0; this.grounded = true; this.sneaking = false;
@@ -120,7 +135,34 @@ export class Player {
   }
 
   private syncCamera() {
-    this.camera.position.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
+    this.eyePos.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+    this.body.visible = this.thirdPerson;
+    this.body.position.set(this.pos.x, this.pos.y - (controls.eyeHeight - this.eye) * 0.5, this.pos.z);
+    this.body.scale.y = this.eye / controls.eyeHeight;
+    this.body.rotation.y = this.yaw;
+    if (!this.thirdPerson) { this.camera.position.copy(this.eyePos); return; }
+    // D2 default: 3 m back, 0.5 m right of the eyes, pulled in so it never ends up inside a collider.
+    const back = new THREE.Vector3(0, 0, 1).applyEuler(this.camera.rotation).multiplyScalar(controls.thirdPerson.back);
+    const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).multiplyScalar(controls.thirdPerson.right);
+    const offset = back.add(right);
+    const p = new THREE.Vector3();
+    let free = 0;
+    for (let t = 0.05; t <= 1.0001; t += 0.05) {
+      p.copy(this.eyePos).addScaledVector(offset, t);
+      if (p.y < 0.2 || this.blocked(p.x, p.z, controls.thirdPerson.wallPad)) break;
+      free = t;
+    }
+    this.camera.position.copy(this.eyePos).addScaledVector(offset, free);
+  }
+
+  // F2.4 camera wall collision: is this XZ point inside (or within `pad` of) a collider or past the edge?
+  private blocked(x: number, z: number, pad: number): boolean {
+    if (Math.abs(x) > this.bounds - pad || Math.abs(z) > this.bounds - pad) return true;
+    for (const c of this.colliders) {
+      if (c.kind === 'circle') { if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return true; }
+      else if (x > c.minX - pad && x < c.maxX + pad && z > c.minZ - pad && z < c.maxZ + pad) return true;
+    }
+    return false;
   }
 }

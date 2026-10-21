@@ -13,6 +13,11 @@ export const controls = {
     jump: ['Space'],
     sneak: ['KeyC'],                        // toggle sneak / crouch
     activate: ['KeyE'],
+    pov: ['KeyF'],                          // D2 / F2.4: toggle 1st / 3rd person
+    inventory: ['KeyI'],                    // F3.4
+    equipCrossbow: ['Digit1'],              // F4.1 (§5: 1/2 crossbow/hands)
+    equipHands: ['Digit2'],
+    reload: ['KeyR'],                       // F4.3 active reload
     close: ['Tab'],                         // close book / back
     pause: ['Escape'],
     pagePrev: ['KeyA', 'ArrowLeft'],        // F3.3 (book open only)
@@ -33,6 +38,7 @@ export const controls = {
   pitchLimitDeg: 89,
   activateRange: 2.0,     // m (F3.1)
   analogRunThreshold: 0.7, // stick deflection above this runs, below it walks
+  thirdPerson: { back: 3, right: 0.5, wallPad: 0.2 }, // D2 default 3rd-person camera, m
 
   // Gamepad (standard mapping, Xbox names; PlayStation: A=Cross, B=Circle, X=Square, Y=Triangle).
   // Skyrim controller defaults where they exist.
@@ -49,6 +55,10 @@ export const controls = {
       pause: 9,      // Start / Options
       dpadLeft: 14,
       dpadRight: 15,
+      fire: 7,       // RT (F4.1)
+      aim: 6,        // LT (hold, F4.1)
+      reload: 2,     // X (F4.3)
+      equip: 12,     // D-pad up: crossbow / hands toggle
     },
     deadzone: 0.18,
     lookSpeed: 2.6,  // rad/s at full deflection, multiplied by mouse sensitivity setting

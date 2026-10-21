@@ -62,6 +62,11 @@ export class GamepadControls {
       if (pressed(B.toggleRun)) this.g.toggleRun();
       if (pressed(B.activate)) this.g.activate();
       if (pressed(B.pause)) this.g.pause();
+      const cb = this.g.crossbow;   // F4
+      if (pressed(B.equip)) { if (cb.equipped) cb.unequip(); else cb.equip(); }
+      if (pressed(B.fire)) this.g.fire();
+      if (pressed(B.reload)) cb.pressReload();
+      cb.setADS(!!now[B.aim]);
     } else {
       this.release();
       if (st === 'book') {
@@ -72,6 +77,10 @@ export class GamepadControls {
         if (Math.abs(lx) < 0.3) this.bookStickArmed = true;
         else if (this.bookStickArmed && Math.abs(lx) > 0.75) { this.bookStickArmed = false; (lx > 0 ? bk.next() : bk.prev()); }
         if (pressed(B.back) || pressed(B.activate) || pressed(B.pause)) bk.close();
+      } else if (st === 'dialogue') {
+        if (pressed(B.activate)) this.g.advanceDialogue();
+      } else if (st === 'inventory') {
+        if (pressed(B.back) || pressed(B.activate) || pressed(B.pause)) this.g.closeInventory();
       } else if (st === 'pause' || st === 'resume') {
         if (pressed(B.pause) || pressed(B.back) || pressed(B.activate)) this.g.resume();
       }

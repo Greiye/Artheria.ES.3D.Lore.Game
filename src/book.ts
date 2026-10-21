@@ -1,5 +1,5 @@
 import { renderMarkdown } from './markdown';
-import { resolveImage, type LoreEntry } from './lore';
+import { resolveImage, entryById, type LoreEntry } from './lore';
 import { controls } from './controls';
 import { saveSettings, type Settings } from './settings';
 import { audio } from './audio';
@@ -29,10 +29,17 @@ export class Book {
   private turning = false;
   isOpen = false;
   onClose: () => void = () => {};
+  onLink: (slug: string) => void = () => {};   // F5.6
+  private contents: boolean;
+  private persist: boolean;
 
-  constructor(private entries: LoreEntry[], private settings: Settings) {
+  // The lectern book (contents page, remembers the last page read, F3.7) and the shelf reader (F5.4: one
+  // book at a time, no contents) are two instances of this class.
+  constructor(private entries: LoreEntry[], private settings: Settings, opts: { id?: string; contents?: boolean; persist?: boolean } = {}) {
+    this.contents = opts.contents ?? true;
+    this.persist = opts.persist ?? true;
     this.root = document.createElement('div');
-    this.root.id = 'book';
+    this.root.id = opts.id ?? 'book';
     this.root.className = 'book hidden';
     this.root.innerHTML = `
       <div class="spread">
@@ -65,6 +72,8 @@ export class Book {
     }, { passive: true });
     // F3.4: contents links jump to the entry.
     this.spread.addEventListener('click', (e) => {
+      const l = (e.target as HTMLElement).closest('[data-link]') as HTMLElement | null;
+      if (l) { e.preventDefault(); this.onLink(l.dataset.link!); return; }   // F5.6
       const a = (e.target as HTMLElement).closest('[data-entry]') as HTMLElement | null;
       if (a) { e.preventDefault(); this.goto(this.entryStart.get(a.dataset.entry!) ?? 0); }
     });
@@ -90,9 +99,19 @@ export class Book {
     this.root.classList.remove('hidden');
     this.applyMode();
     await this.layout(false);
-    this.first = this.align(Math.min(this.settings.lastPage, Math.max(0, this.pages.length - 1)));
+    const start = this.persist ? this.settings.lastPage : 0;
+    this.first = this.align(Math.min(start, Math.max(0, this.pages.length - 1)));
     this.render();
   }
+
+  // F5.4: show one entry (the shelf reader). Re-paginates for the new content.
+  async openEntries(entries: LoreEntry[]) {
+    this.entries = entries;
+    this.sizeKey = '';
+    this.pages = [];
+    await this.open();
+  }
+  get entryIds() { return this.entries.map((e) => e.id); }
 
   close() {
     if (!this.isOpen) return;
@@ -140,8 +159,7 @@ export class Book {
     show(this.right, this.folioR, this.perView === 2 ? this.first + 1 : -1);
     this.root.querySelector<HTMLButtonElement>('.edge.prev')!.disabled = this.first === 0;
     this.root.querySelector<HTMLButtonElement>('.edge.next')!.disabled = this.first + this.perView >= this.pages.length;
-    this.settings.lastPage = this.first;
-    saveSettings(this.settings);
+    if (this.persist) { this.settings.lastPage = this.first; saveSettings(this.settings); }
   }
 
   // ---------- pagination ----------
@@ -161,18 +179,37 @@ export class Book {
       const head = document.createElement('header');
       head.className = 'chapter';
       head.innerHTML = '<h1></h1><div class="byline"></div>';
+      head.classList.add('tier-' + (e.tier ?? 'note'));   // F5.5: tiers look different
       head.querySelector('h1')!.textContent = e.title;
-      // L3: every entry is credited to its contributor.
-      head.querySelector('.byline')!.textContent = `by ${e.credit_as} · ${e.created}${e.tags.length ? ' · ' + e.tags.join(', ') : ''}`;
+      // L3 / D9: every entry is credited by its own credit_as. F5.5: the tier is shown, never hidden.
+      const kind = e.type && e.type !== 'lore' ? e.type + ' · ' : '';
+      head.querySelector('.byline')!.textContent = `${kind}by ${e.credit_as} · ${e.created} · ${e.tier ?? 'note'}${e.tags.length ? ' · ' + e.tags.join(', ') : ''}`;
+      // §6.4 reply book: "In reply to <title> by <credit_as>", from the linked file's own frontmatter.
+      for (const r of e.replyTo ?? []) {
+        const t = entryById.get(r);
+        const line = document.createElement('div');
+        line.className = 'reply-to';
+        line.innerHTML = 'In reply to <a href="#" class="wikilink"></a> by <span></span>';
+        const a = line.querySelector('a')!;
+        if (t) { a.textContent = t.title; a.dataset.link = t.id; line.querySelector('span')!.textContent = t.credit_as; }
+        else { line.textContent = `In reply to ${r} (missing page)`; }
+        head.appendChild(line);
+      }
+      if (e.tier === 'fragment') {
+        const f = document.createElement('div');
+        f.className = 'tier-note';
+        f.textContent = 'A fragment: unfinished on purpose.';
+        head.appendChild(f);
+      }
       blocks.push(head, ...renderMarkdown(stripTitle(e.body, e.title), resolveImage));
       await decodeImages(blocks);
       starts.push([e.id, entryPages.length]);
       for (const p of this.paginate(blocks)) entryPages.push({ ...p, entryId: e.id });
     }
-    const contents = this.paginate(this.contentsBlocks(starts, 0));
+    const contents = this.contents ? this.paginate(this.contentsBlocks(starts, 0)) : [];
     const offset = contents.length;
     // Second pass with real page numbers (same line count, so same page count).
-    const contentsFinal = this.paginate(this.contentsBlocks(starts, offset));
+    const contentsFinal = this.contents ? this.paginate(this.contentsBlocks(starts, offset)) : [];
     this.pages = [...contentsFinal, ...entryPages];
     starts.forEach(([id, p]) => this.entryStart.set(id, p + offset));
     if (keepPosition && anchor) {

@@ -82,6 +82,33 @@ class AudioEngine {
     this.windGain = gain;
   }
 
+  // §6.1 song: the music box plays an arpeggio of the song's chord line on the Music bus.
+  // Returns the number of notes scheduled (0 when audio is unavailable).
+  arpeggio(chordLine: string): number {
+    if (!this.ensure() || !this.ctx || !this.bus) return 0;
+    const NOTE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+    const chords = chordLine.split(/\s+/).map((c) => /^([A-G])([#b]?)(m?)/.exec(c)).filter((m): m is RegExpExecArray => !!m);
+    const t0 = this.ctx.currentTime + 0.05;
+    let n = 0;
+    chords.forEach((m, ci) => {
+      const root = 60 + NOTE[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+      const tones = [root, root + (m[3] ? 3 : 4), root + 7, root + 12];
+      tones.forEach((midi, i) => {
+        const t = t0 + ci * 0.8 + i * 0.18;
+        const o = this.ctx!.createOscillator(), g = this.ctx!.createGain();
+        o.type = 'triangle';
+        o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.25, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+        o.connect(g).connect(this.bus!.music);
+        o.start(t); o.stop(t + 0.65);
+        n++;
+      });
+    });
+    return n;
+  }
+
   // PLACEHOLDER: not wired to a trigger yet (F4/F6 not built). Kept here so those versions
   // only need to call these, not build the synth — see docs/assumptions.md #30.
   crossbowTwang(): void { this.noise('sfx', 0.18, 1600, 4, 0.4); }

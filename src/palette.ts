@@ -24,6 +24,12 @@ export const palette = {
   sun: '#FFF4DC',
   sunset: '#E8833A',    // A5 (spec v0.02+): Act 1 sunset sky (F2.2)
   dusk: '#5B3A6B',
+  // v0.03 F2.2 / D13: sunset light and the Ruined Library's fire-scarred stone (never pure black, F1.4).
+  sunLight: '#FFB878',
+  sunsetFog: '#C99A86',
+  sunsetGlow: '#F2B36B',
+  scorch: '#4A4240',
+  scorchLight: '#6B5F58',
 } as const;
 
 export type Swatch = keyof typeof palette;

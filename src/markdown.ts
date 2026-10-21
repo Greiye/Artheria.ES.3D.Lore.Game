@@ -6,12 +6,20 @@
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export type ImageResolver = (src: string) => string | null;
+// F5.6: [[slug]] → a tappable link (title from the index); unknown slug → plain text with a "missing page" note.
+export type LinkResolver = (slug: string) => string | null;
+let linkResolver: LinkResolver = () => null;
+export function setLinkResolver(r: LinkResolver) { linkResolver = r; }
 
 function inline(text: string, resolve: ImageResolver): string {
   let s = esc(text);
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_m, alt: string, src: string) => {
     const url = resolve(src.replace(/&amp;/g, '&'));
     return url ? `<img src="${esc(url)}" alt="${alt}">` : `<span class="missing-img">[image: ${alt || src}]</span>`;
+  });
+  s = s.replace(/\[\[([a-zA-Z0-9][a-zA-Z0-9-]*)\]\]/g, (_m, slug: string) => {
+    const t = linkResolver(slug.toLowerCase());
+    return t ? `<a href="#" class="wikilink" data-link="${esc(slug.toLowerCase())}">${esc(t)}</a>` : `<span class="missing-link">${esc(slug)} <em>(missing page)</em></span>`;
   });
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
   s = s.replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, (_m, a, b) => `<strong>${a ?? b}</strong>`);

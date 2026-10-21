@@ -2,19 +2,29 @@
 // It is imported at build time (not fetched) so the game also works opened as a local file.
 import index from '../content/lore/index.json';
 
+export type EntryType = 'lore' | 'character' | 'song' | 'food' | 'art';
 export interface LoreEntry {
   id: string;
   title: string;
   contributor: string;
   credit_as: string;
-  type: string;
+  type: EntryType;
+  tier: 'fragment' | 'note' | 'work';   // F5.5
+  words: number;
   created: string;
   tags: string[];
+  replyTo: string[];                     // §6.4 reply book
+  links_out: string[];
+  links_in: string[];
+  dedications: string[];
+  color?: string;
   body: string;
 }
-export interface LoreIndex { schemaVersion: 1; entries: LoreEntry[] }
+export interface Shelf { id: string; label: string; red: string[]; grey: number; auto?: boolean }
+export interface LoreIndex { schemaVersion: 2; entries: LoreEntry[]; shelves: Shelf[] }
 
-export const lore = index as LoreIndex;
+export const lore = index as unknown as LoreIndex;
+export const entryById = new Map(lore.entries.map((e) => [e.id, e]));
 
 // Images referenced from lore as `assets/images/<file>` (relative to content/).
 // Vite inlines them into the single-file build.
