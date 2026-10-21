@@ -25,6 +25,30 @@ Spec doc v0.05.
 - Version number and "Mike Go" shown in the bottom-right corner of every screen.
 - `test/e2e-v0.03.mjs`: checks for the above.
 
+### Roadmap 0.04 — F3 dialogue and inventory
+
+- **F3.1 Dialogue box:** Ren'Py-style bottom panel with a name tag, typewriter at 40 characters/s. Click,
+  Space or E first finishes the line, then advances. Scripts load from `content/dialogue/*.json` (§6.7).
+- **F3.2 Choices:** buttons (or number keys 1–9); a choice picks the next node.
+- **F3.3:** talking frees the pointer and freezes movement.
+- **F3.4 Inventory (I):** grid of name + count (touch: Bag). Items live in `content/items.json` (H4).
+  Dialogue actions `give:<item>:<n>` and `unlock:library_door` work: Natalie hands over the scout's crossbow
+  and 10 bolts, and the library door swings open. The roofless hall can be entered (interior is 0.06).
+- **0.04 creativity check:** Natalie's "I don't know what to make" answers with a random §6.3 prompt, then
+  still gives the crossbow.
+- E on Natalie shows "E — Talk to Natalie"; talking again replays her lines without duplicating items.
+- `test/e2e-v0.04.mjs`.
+
+### .glb models (owner request)
+
+- Drop `public/models/<slot>.glb` into the repo and that slot's placeholder is replaced by the model:
+  `natalie`, `stagecoach`, `hero`, `player`. Missing or broken files keep the placeholder silently.
+- Draco (decoder in `public/draco/`) and Meshopt compression supported. Models are fetched next to
+  `index.html`, not inlined, so they only cost download time when they exist.
+- Textured models render unlit so hand-painted, baked lighting shows (Mega Man Legends style, see
+  `docs/assumptions.md` #39); untextured ones use the world's toon ramp.
+- `test/e2e-models.mjs` (+ `test/fixtures/make-box-glb.mjs`).
+
 ### Artheria lore pass (D13)
 
 - **Setting:** the book is now *Tales of Artheria*, compiled by Natalie Bourbon (title screen + contents page).

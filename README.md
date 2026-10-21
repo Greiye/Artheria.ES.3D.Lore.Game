@@ -50,6 +50,26 @@ Fill in a title, tags, and the entry, then either:
 
 If a file is missing a frontmatter field, the script names the file and stops without writing the index.
 
+## Add a 3D model (.glb)
+
+1. Export a `.glb` (Blender: File → Export → glTF 2.0, format *glTF Binary*). Feet at the origin, facing +Z.
+2. Name it after the slot it replaces and upload it to `public/models/` on github.com (Add file → Upload files):
+
+| File | Replaces |
+|---|---|
+| `natalie.glb` | Natalie's standee by the library door |
+| `stagecoach.glb` | The Stagecoach standee |
+| `hero.glb` | The Hero standee |
+| `player.glb` | Your own body in third person (F) |
+
+3. Commit. The site rebuilds; the model is scaled to the slot's height automatically. If the file is missing or broken,
+   the placeholder stays and nothing breaks.
+
+**Keep it phone-friendly:** under 1 MB per file, under ~3,000 triangles for a character, one texture of 512 px
+(1024 at most). Compress with Meshopt or Draco (e.g. `npx gltf-transform optimize in.glb out.glb --compress meshopt`).
+Style target: Mega Man Legends-like chunky low-poly parts with hand-painted textures (light painted in; textured models
+render unlit). Models load on the live site; a double-clicked local `dist/index.html` shows placeholders instead.
+
 ## Settings (F1)
 
 Open **Settings** from the title screen, or **Esc** during play, then expand **Graphics** / **Audio**.

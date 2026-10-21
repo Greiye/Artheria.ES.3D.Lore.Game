@@ -21,6 +21,7 @@ export interface World {
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
   doorOpen: boolean;
   openDoor(): void;             // F3.4 `unlock:library_door`
+  standees: Record<string, THREE.Object3D>; // .glb model slots: public/models/<id>.glb replaces the standee
   update(t: number): void;
   setOutlines(on: boolean): void;  // F1.1
   setShadows(on: boolean): void;   // F1.1
@@ -359,6 +360,7 @@ export function buildWorld(): World {
   flush();
 
   // 2D placeholders: billboard standees for characters that have no model yet.
+  const standees: Record<string, THREE.Object3D> = {};
   const standee = (label: string, sub: string, w: number, h: number, body: string, x: number, z: number) => {
     const c = document.createElement('canvas'); c.width = 128; c.height = Math.round(128 * h / w);
     const g = c.getContext('2d')!, W = c.width, H = c.height;
@@ -378,6 +380,8 @@ export function buildWorld(): World {
     s.center.set(0.5, 0); s.scale.set(w, h, 1); s.position.set(x, 0, z);
     scene.add(s);
     colliders.push({ kind: 'circle', x, z, r: Math.max(0.35, w * 0.3) });
+    s.userData.height = h;
+    standees[label.toLowerCase().replace(/^the /, '').replace(/\s+/g, '_')] = s;
   };
   standee('THE STAGECOACH', 'BBEG · 2D standee', 2.4, 3.4, '#C9A36B', -4.2, -2.2);
   standee('HERO', 'player · 2D standee', 1.0, 1.8, '#5C8AA0', 3.8, 3.2);
@@ -401,6 +405,7 @@ export function buildWorld(): World {
     sunElevationDeg: SUN_ELEV,
     libraryDoor,
     natalieTarget,
+    standees,
     get doorOpen() { return doorOpen; },
     openDoor() {
       if (doorOpen) return;

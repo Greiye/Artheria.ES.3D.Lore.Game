@@ -17,6 +17,7 @@ import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
 import natalieScript from '../content/dialogue/natalie.json';
+import { fillSlots, loadedModels, failedModels, type ModelSlot } from './models';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -66,6 +67,16 @@ world.setFogDistance(settings.fogDistance);
 const player = new Player(camera, settings, world.colliders, world.bounds);
 player.spawn(world.spawn.pos, world.spawn.yaw);
 world.scene.add(player.body);
+// .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
+const modelSlots: ModelSlot[] = [
+  ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number })),
+  { id: 'player', placeholder: player.body.children[0], parent: player.body, height: controls.eyeHeight + 0.1, faceYaw: Math.PI },
+];
+const modelsReady = fillSlots(modelSlots).then((r) => {
+  // The nub only marks "forward" on the capsule; a real model shows its own front.
+  if (loadedModels.has('player')) player.body.children[1].visible = false;
+  return r;
+});
 const book = new Book(lore.entries, settings);
 
 // ---------- UI ----------
@@ -659,4 +670,4 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
 }));
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, camera, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
