@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "_note": "Shelves 1-6 line the left wall (door to back), 7-12 the right. red = book slugs from content/lore; grey = how many unreadable grey books fill the rest. Books not listed here are shelved automatically.",
+  "shelves": [
+    {
+      "id": "shelf-1",
+      "label": "Natalie's notes",
+      "red": [
+        "natalies-field-note",
+        "tales-of-artheria"
+      ],
+      "grey": 14
+    },
+    {
+      "id": "shelf-2",
+      "label": "History",
+      "red": [
+        "the-ruined-library",
+        "the-promise-that-shattered-the-world"
+      ],
+      "grey": 14
+    },
+    {
+      "id": "shelf-3",
+      "label": "Faith",
+      "red": [
+        "the-church-of-the-first",
+        "friar-birel-lialdon"
+      ],
+      "grey": 14
+    },
+    {
+      "id": "shelf-4",
+      "label": "Discovered lorebooks",
+      "red": [
+        "farm-beasts",
+        "yellow-blood",
+        "scales-of-the-shore",
+        "eastern-affairs"
+      ],
+      "grey": 10
+    },
+    {
+      "id": "shelf-5",
+      "label": "Places",
+      "red": [
+        "straphan-forest",
+        "the-rune-dais"
+      ],
+      "grey": 14
+    },
+    {
+      "id": "shelf-6",
+      "label": "Villains",
+      "red": [
+        "the-stagecoach"
+      ],
+      "grey": 15
+    },
+    {
+      "id": "shelf-7",
+      "red": [],
+      "grey": 16
+    },
+    {
+      "id": "shelf-8",
+      "red": [],
+      "grey": 16
+    },
+    {
+      "id": "shelf-9",
+      "red": [],
+      "grey": 16
+    },
+    {
+      "id": "shelf-10",
+      "red": [],
+      "grey": 16
+    },
+    {
+      "id": "shelf-11",
+      "red": [],
+      "grey": 16
+    },
+    {
+      "id": "shelf-12",
+      "label": "New arrivals",
+      "red": [],
+      "grey": 12
+    }
+  ]
+}

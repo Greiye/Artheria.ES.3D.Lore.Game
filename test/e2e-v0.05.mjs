@@ -55,7 +55,7 @@ await page.mouse.up({ button: 'right' });
 check('F4.1 RMB aims down sights (FOV −15°)', Math.abs(baseFov - 15 - adsFov) < 1, `${baseFov} → ${adsFov.toFixed(1)}`);
 
 // F4.1 / F4.2: LMB fires; bolt leaves the muzzle at 60 m/s and sticks in the library wall.
-await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, -5); p.yaw = 0.25; p.pitch = 0.05; });
+await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, -5); p.yaw = -0.3; p.pitch = 0.05; /* aim right of the door, clear of Natalie */ });
 await page.waitForTimeout(300);
 await page.mouse.down({ button: 'left' }); await page.mouse.up({ button: 'left' });
 const shot = await cb(() => { const b = window.__gametool.crossbow.bolts[0]; return b ? { speed: b.vel.length(), d: b.origin.distanceTo(window.__gametool.player.eyePos) } : null; });

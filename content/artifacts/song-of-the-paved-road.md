@@ -4,9 +4,11 @@ contributor: Sample Player
 credit_as: "Sample Player"
 created: 2026-10-18
 tags: [song, poem]
-type: lore
+type: song
 ---
 # Song of the Paved Road
+
+chords: Am F C G
 
 > Stone by stone and step by step,
 > the road remembers every debt.

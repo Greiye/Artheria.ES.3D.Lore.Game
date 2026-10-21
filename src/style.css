@@ -231,3 +231,11 @@ body[data-input="touch"] #writeLoreHud, body[data-input="pad"] #writeLoreHud { d
 .t-bow.hidden, .t-bow .hidden { display: none; }
 .t-bow .t-btn { position: static; }
 .t-btn.latched { outline: 2px solid var(--rune); }
+
+/* F5.5 tiers + F5.6 links in the reader */
+.book .chapter.tier-fragment h1 { font-style: italic; }
+.book .chapter.tier-fragment { border-bottom-style: dashed; }
+.book .tier-note { font-size: 12px; font-style: italic; opacity: .75; margin-top: 4px; }
+.book .reply-to { font-size: 13px; margin-top: 6px; }
+.book a.wikilink { color: #2A5D73; text-decoration: underline; text-decoration-style: dotted; cursor: pointer; }
+.book .missing-link { color: #8A6A5A; }

@@ -26,7 +26,7 @@ What I know: one goblin. Small. Quick. It doesn't fight like a soldier.
 It fights like a child who found a knife and made up a game. It bit
 through our scout's crossbow string.
 
-What I don't know: why it stays. Goblins don't keep anything. This one
+What I don't know: why it stays. Goblins don't keep anything [[farm-beasts]]. This one
 keeps the red books.
 
 If you are reading this, you are about to go in. Stay low. Leave the red

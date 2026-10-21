@@ -51,6 +51,33 @@ Spec doc v0.05.
 - Creativity check: none for 0.05 (combat only, as §8 states).
 - `test/e2e-v0.05.mjs`.
 
+### Roadmap 0.06 — F5 library and books, §6.1–§6.5 (the creativity version)
+
+- **F5.1 Library interior:** 12 shelves (6 per side wall) with name plates, three tables with candles and
+  scrolls, crates, and the small exit door at the far end (it opens at 0.12). Static furniture is baked into
+  one mesh per colour to stay inside the draw-call budget.
+- **F5.2 `content/shelves.json`:** each shelf lists its red-book slugs and a grey-book count. Every slug must
+  resolve to an `.md`; a book missing from `shelves.json` is shelved automatically, so contributors never
+  have to edit it.
+- **F5.3 Grey books:** E shows a random line from `content/rolltables/grey-books.json` for 3 s.
+- **F5.4 Shelf reader:** E on a red book opens it alone in the parchment reader (no contents page; it doesn't
+  move the lectern book's saved page).
+- **F5.5 Tiers:** `fragment` / `note` / `work` from word count (a contributor may set it lower, never higher).
+  Tier shows in the byline and on the spine; fragments get a loose binding and an "unfinished on purpose" note.
+- **F5.6 Links:** `[[slug]]` is a tappable link that opens the linked book; a broken link is plain text with a
+  "missing page" note. `links: [slug]` makes a reply book ("In reply to *Title* by *credit_as*").
+- **§6.1 Creative types:** `content/artifacts/` holds characters (capsule + nameplate), songs (music box that
+  plays the `chords:` line on the Music bus), food (scroll + dish) and art (framed picture on the back wall).
+  Each opens its page in the reader. One placeholder of each ships.
+- **§6.2 Templates and validation:** `content/templates/` has one template per type (replaces
+  `content/lore/_template.md`). `npm run lore` now requires `title`, `contributor`, `credit_as`, `created` and
+  `type`; every problem is one plain line naming the file, the field and the fix. Old files with neither
+  `credit_as` nor `type` still build, with a warning, until 0.12.
+- The lectern book lists red-book lore only; artifacts live on their own objects in the library.
+- *Song of the Paved Road* moved to `content/artifacts/` as the song placeholder.
+- `test/e2e-v0.06.mjs`. The creativity check itself (a non-technical friend adds a book unaided in < 10 min)
+  needs a real person.
+
 ### .glb models (owner request)
 
 - Drop `public/models/<slot>.glb` into the repo and that slot's placeholder is replaced by the model:

@@ -3,7 +3,10 @@ import './style.css';
 import { buildWorld } from './world';
 import { Player } from './player';
 import { Book } from './book';
-import { lore } from './lore';
+import { lore, entryById } from './lore';
+import { buildLibrary, type LibraryHit } from './library';
+import { setLinkResolver } from './markdown';
+import greyBooks from '../content/rolltables/grey-books.json';
 import { controls, actionFor, type Action } from './controls';
 import { loadSettings, saveSettings, PRESETS, type Preset, type FpsCap } from './settings';
 import { audio } from './audio';
@@ -78,7 +81,14 @@ const modelsReady = fillSlots(modelSlots).then((r) => {
   if (loadedModels.has('player')) player.body.children[1].visible = false;
   return r;
 });
-const book = new Book(lore.entries, settings);
+// F5.6: [[slug]] links resolve against the index (title) before any book is rendered.
+setLinkResolver((slug) => entryById.get(slug)?.title ?? null);
+// The lectern book holds the red-book lore; §6.1 artifacts live on their own objects in the library.
+const book = new Book(lore.entries.filter((e) => e.type === 'lore'), settings);
+// F5.4: the shelf reader — one book at a time, no contents page, doesn't touch the lectern's last page.
+const reader = new Book([], settings, { id: 'reader', contents: false, persist: false });
+// F5.1: the library interior, built from the lore index (shelves.json + artifacts).
+const library = buildLibrary(world.scene, world.colliders, world.solids);
 
 // ---------- UI ----------
 const ui = document.createElement('div');
@@ -216,7 +226,8 @@ let state: State = 'title';
 let lockSupported = true;
 let expectUnlock = false;
 let mouseHeld = false;
-let lookingAt: 'book' | 'natalie' | 'bolt' | null = null;   // F3.1 / F3: what E would activate
+let lookingAt: 'book' | 'natalie' | 'bolt' | 'library' | null = null;
+let libraryHit: LibraryHit | null = null;   // F3.1 / F3: what E would activate
 let inputMode: InputMode = coarse ? 'touch' : 'mouse';
 
 function setMode(m: InputMode) {
@@ -413,11 +424,37 @@ function activate() {
   if (state !== 'play') return;
   if (lookingAt === 'book') void openBook();
   else if (lookingAt === 'natalie') talkToNatalie();
+  else if (lookingAt === 'library' && libraryHit) useLibrary(libraryHit);
   else if (lookingAt === 'bolt') {
     const b = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange);
     if (b) { crossbow.pickUp(b); toast('Bolt recovered', 1200); }
   }
 }
+
+// ---------- F5 shelves: grey books (roll table), red books + artifacts (reader) ----------
+function useLibrary(h: LibraryHit) {
+  if (h.kind === 'grey') { toast(greyBooks.lines[Math.floor(Math.random() * greyBooks.lines.length)], 3000); audio.pageTurn(); return; }   // F5.3
+  const e = entryById.get(h.slug);
+  if (!e) return;
+  if (e.type === 'song') {
+    // §6.1: the music box plays the chord line (first "chords:" line of the lyrics).
+    const chords = /^\s*chords:\s*(.+)$/mi.exec(e.body)?.[1] ?? 'C G Am F';
+    audio.arpeggio(chords);
+  }
+  void openReader(e.id);
+}
+async function openReader(slug: string) {
+  const e = entryById.get(slug);
+  if (!e) return;
+  setState('book');
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  await reader.openEntries([e]);
+}
+reader.onClose = () => void resumePlay();
+// F5.6: following a link closes the current book and opens the linked one; a broken link is plain text.
+const followLink = (slug: string) => { if (entryById.has(slug)) void reader.openEntries([entryById.get(slug)!]); };
+reader.onLink = followLink;
+book.onLink = (slug) => { book.close(); void openReader(slug); };
 
 // ---------- book open / close (F3.2, F3.6) ----------
 async function openBook() {
@@ -490,7 +527,7 @@ $('ePublish').addEventListener('click', () => {
 const hooks: GameHooks = {
   state: () => state,
   player,
-  book,
+  get book() { return reader.isOpen ? reader : book; },
   begin: () => void begin(),
   pause,
   resume: () => void resumePlay(),
@@ -530,7 +567,7 @@ window.addEventListener('keydown', (e) => {
     if (state === 'play' && !e.repeat) { toggleRun(); capsToggledAt = performance.now(); }
     return;
   }
-  if (state === 'book') { if (!e.repeat) book.handleKey(e.code); return; }   // F3.2: world input ignored
+  if (state === 'book') { if (!e.repeat) (reader.isOpen ? reader : book).handleKey(e.code); return; }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
   if (state === 'charcreate') { if (e.code === 'Escape' && !e.repeat) closeCharCreate(); return; }
   if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
@@ -652,6 +689,13 @@ ray.far = controls.activateRange;
 const lookDir = new THREE.Vector3();
 const clock = new THREE.Clock();
 const statusEl = $('status');
+function libraryVerb(h: LibraryHit): string {
+  if (h.kind === 'grey') return 'Read a grey book';
+  const e = entryById.get(h.slug);
+  if (!e) return 'Read';
+  const t = e.title.length > 34 ? e.title.slice(0, 33) + '…' : e.title;
+  return e.type === 'song' ? `Play "${t}"` : e.type === 'character' ? `Meet ${t}` : e.type === 'art' ? `Look at "${t}"` : `Read "${t}"`;
+}
 const promptVerb = $('promptVerb');
 let lastStatus = '';
 const perf = { frames: 0, cpuMs: 0, worstMs: 0, simSeconds: 0 };
@@ -689,11 +733,13 @@ function frame() {
     // F3.1: 2 m reach from the eyes along the view direction (same in 1st and 3rd person, F2.4).
     camera.getWorldDirection(lookDir);
     ray.set(player.eyePos, lookDir);
-    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget], false)[0];
-    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : 'natalie';
+    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget, ...library.targets], false)[0];
+    libraryHit = (hit?.object.userData.hit as LibraryHit | undefined) ?? null;
+    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : hit.object === world.natalieTarget ? 'natalie' : 'library';
     if (!lookingAt && crossbow.boltAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'bolt';   // F4.4
     show('prompt', lookingAt !== null);
-    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : 'Read';
+    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt'
+      : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     const s = (player.sneaking ? 'SNEAK' : player.speed() === controls.speeds.sprint ? 'SPRINT' : player.speed() === controls.speeds.run ? 'RUN' : 'WALK')
       + (settings.alwaysRun ? '' : ' · always-run off');
@@ -719,4 +765,4 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
 }));
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
