@@ -34,6 +34,7 @@ const unquote = (s) => s.replace(/^(['"])(.*)\1$/, '$2');
 
 const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md') && !f.startsWith('_')).sort();
 const errors = [];
+const warnings = [];
 const entries = [];
 for (const f of files) {
   try {
@@ -42,10 +43,16 @@ for (const f of files) {
     if (missing.length) throw new Error(`${f}: missing frontmatter field(s): ${missing.join(', ')}`);
     if (!/^\d{4}-\d{2}-\d{2}/.test(data.created)) throw new Error(`${f}: "created" must be an ISO date like 2026-10-16`);
     if (!Array.isArray(data.tags)) data.tags = [String(data.tags)];
+    // §6.2 migration (v0.04 K20): missing credit_as / type default with a warning, not an error, until 0.12.
+    if (!data.credit_as) warnings.push(`${f}: missing "credit_as" — using "${data.contributor}"; add the name you want shown on the book's first page.`);
+    if (!data.type) warnings.push(`${f}: missing "type" — using "lore"; add \`type: lore\` to the frontmatter.`);
     entries.push({
       id: f.replace(/\.md$/, ''),
       title: String(data.title),
       contributor: String(data.contributor),
+      // D9: the public credit line, shown exactly as written.
+      credit_as: String(data.credit_as || data.contributor),
+      type: String(data.type || 'lore'),
       created: String(data.created),
       tags: data.tags.map(String),
       body: body.trim(),
@@ -54,6 +61,7 @@ for (const f of files) {
     errors.push(e.message);
   }
 }
+if (warnings.length) console.warn('Lore warnings:\n  ' + warnings.join('\n  '));
 if (errors.length) {
   console.error('Lore index NOT written:\n  ' + errors.join('\n  '));
   process.exit(1);

@@ -2,6 +2,19 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
+## Unreleased — Artheria lore pass (spec v0.05, D13)
+
+- **Setting:** the book is now *Tales of Artheria*, compiled by Natalie Bourbon (title screen + contents page).
+- **Lore:** 11 entries adapted from the public-safe Artheria lore (third-party names already renamed per the
+  IP-renames list; mature lines cut per the mapping's content pass). Contradictions are kept in-world as
+  "Sources disagree" notes, per the retcon-attribution file. Each entry has a `source:` field naming the
+  master-lore section it came from, so its text can be re-synced later.
+- **Natalie Bourbon (warner):** placeholder standee at spawn; draft dialogue in `content/dialogue/natalie.json`
+  (not wired: the NPC/dialogue system is F3, v0.04). §6.5 exemplar *Natalie's Field Note* added.
+- **Credits (D9):** frontmatter `credit_as` is shown in the book byline and contents; defaults to `contributor`.
+  Only Mike's own lore is shelved; friends' lore waits for their `credit_as` reply (D13).
+- No lore images shipped (sources unverified).
+
 ## 0.02 — 2026-10-20
 
 Roadmap: F1 (Settings), A7 (WebAudio synth), version label.

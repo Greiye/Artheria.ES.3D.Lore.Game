@@ -163,7 +163,7 @@ export class Book {
       head.innerHTML = '<h1></h1><div class="byline"></div>';
       head.querySelector('h1')!.textContent = e.title;
       // L3: every entry is credited to its contributor.
-      head.querySelector('.byline')!.textContent = `by ${e.contributor} · ${e.created}${e.tags.length ? ' · ' + e.tags.join(', ') : ''}`;
+      head.querySelector('.byline')!.textContent = `by ${e.credit_as} · ${e.created}${e.tags.length ? ' · ' + e.tags.join(', ') : ''}`;
       blocks.push(head, ...renderMarkdown(stripTitle(e.body, e.title), resolveImage));
       await decodeImages(blocks);
       starts.push([e.id, entryPages.length]);
@@ -188,7 +188,7 @@ export class Book {
   private contentsBlocks(starts: [string, number][], offset: number): HTMLElement[] {
     const h = document.createElement('header');
     h.className = 'chapter';
-    h.innerHTML = '<h1>Contents</h1><div class="byline">The campaign book · ' + this.entries.length + ' entries</div>';
+    h.innerHTML = '<h1>Tales of Artheria</h1><div class="byline">Compiled by Natalie Bourbon · ' + this.entries.length + ' entries</div>';
     const items = this.entries.map((e, i) => {
       const row = document.createElement('a');
       row.className = 'toc-row';
@@ -196,7 +196,7 @@ export class Book {
       row.dataset.entry = e.id;
       row.innerHTML = '<span class="toc-title"></span><span class="toc-by"></span><span class="toc-page"></span>';
       row.querySelector('.toc-title')!.textContent = e.title;
-      row.querySelector('.toc-by')!.textContent = e.contributor;
+      row.querySelector('.toc-by')!.textContent = e.credit_as;
       row.querySelector('.toc-page')!.textContent = String(starts[i][1] + offset + 1);
       return row;
     });

@@ -190,7 +190,8 @@ if (!longOnly) {
   await page.screenshot({ path: path.join(shots, '04-book-contents.png') });
 
   // ---------- F3.4 contents ----------
-  const toc = await G(page, () => [...document.querySelectorAll('#book .page.left .toc-row')].map((r) => r.querySelector('.toc-title').textContent + ' | ' + r.querySelector('.toc-by').textContent));
+  // The contents can run onto the right-hand page of the opening spread once there are more entries.
+  const toc = await G(page, () => [...document.querySelectorAll('#book .page.left .toc-row, #book .page.right .toc-row')].map((r) => r.querySelector('.toc-title').textContent + ' | ' + r.querySelector('.toc-by').textContent));
   const n = await G(page, () => window.__gametool.book.entries.length);
   check('F3.4 contents lists every entry with contributor', toc.length === n && toc.every((t) => / \| .+/.test(t)), toc.join('; '));
   await page.click('#book .toc-row[data-entry="the-rune-dais"]');

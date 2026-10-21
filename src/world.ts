@@ -285,6 +285,8 @@ export function buildWorld(): World {
   };
   standee('THE STAGECOACH', 'BBEG · 2D standee', 2.4, 3.4, '#C9A36B', -4.2, -2.2);
   standee('HERO', 'player · 2D standee', 1.0, 1.8, '#5C8AA0', 3.8, 3.2);
+  // v0.05 D13: Natalie Bourbon, the warner. Dialogue (content/dialogue/natalie.json) is wired at 0.04 (F3).
+  standee('NATALIE', 'warner · 2D standee', 1.0, 1.75, '#8A5C7A', -3.6, 3.4);
 
   return {
     scene,

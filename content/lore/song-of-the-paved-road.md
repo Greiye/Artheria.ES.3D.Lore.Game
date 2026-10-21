@@ -1,8 +1,10 @@
 ---
 title: Song of the Paved Road
 contributor: Sample Player
+credit_as: "Sample Player"
 created: 2026-10-18
 tags: [song, poem]
+type: lore
 ---
 # Song of the Paved Road
 

@@ -6,6 +6,8 @@ export interface LoreEntry {
   id: string;
   title: string;
   contributor: string;
+  credit_as: string;
+  type: string;
   created: string;
   tags: string[];
   body: string;
