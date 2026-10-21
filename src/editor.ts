@@ -47,12 +47,13 @@ function b64utf8(str: string): string {
   return btoa(bin);
 }
 
-// Builds the same frontmatter+body shape build-lore.mjs validates (title/contributor/created/tags).
+// Builds the same frontmatter+body shape build-lore.mjs validates (title/contributor/credit_as/created/tags/type).
+// D9: the name the player typed is also their credit line, exactly as written.
 export function buildMarkdown(title: string, contributor: string, tags: string[], body: string): string {
   const created = new Date().toISOString().slice(0, 10);
   const clean = tags.map((t) => t.trim()).filter(Boolean);
   const tagLine = `[${(clean.length ? clean : ['misc']).join(', ')}]`;
-  return `---\ntitle: ${title}\ncontributor: ${contributor}\ncreated: ${created}\ntags: ${tagLine}\n---\n${body.trim()}\n`;
+  return `---\ntitle: ${title}\ncontributor: ${contributor}\ncredit_as: ${contributor}\ncreated: ${created}\ntags: ${tagLine}\ntype: lore\n---\n${body.trim()}\n`;
 }
 
 export type PublishResult = { ok: true; actionsUrl: string } | { ok: false; error: string };

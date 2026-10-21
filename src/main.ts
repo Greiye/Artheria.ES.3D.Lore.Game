@@ -65,8 +65,8 @@ ui.innerHTML = `
   <div id="title" class="screen">
     <div class="card">
       <div class="eyebrow">Video Gametool Project <span id="versionLabel"></span></div>
-      <h1>The Campaign Book</h1>
-      <p class="lead">Walk the start area and read the lore your friends wrote.</p>
+      <h1>Tales of Artheria</h1>
+      <p class="lead">Walk Straphan Forest and read the lore your friends wrote, as compiled by Natalie Bourbon.</p>
       <button id="begin" class="primary">Click to begin</button>
       <button id="writeLoreTitle" class="secondary">Write lore</button>
       <button id="openSettingsTitle" class="secondary">Settings</button>

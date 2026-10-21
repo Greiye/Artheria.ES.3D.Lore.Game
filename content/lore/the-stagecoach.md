@@ -1,8 +1,10 @@
 ---
 title: The Stagecoach
 contributor: Mike
+credit_as: "Mike"
 created: 2026-10-16
 tags: [villain, act-2]
+type: lore
 ---
 # The Stagecoach
 

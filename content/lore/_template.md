@@ -1,8 +1,10 @@
 ---
 title: Your Entry Title
-contributor: Your Name
+contributor: your-name
+credit_as: "How you want to be credited"
 created: 2026-10-16
 tags: [character, place, poem, song, food, world]
+type: lore
 ---
 # Your Entry Title
 
