@@ -1,9 +1,12 @@
 // F5.1 / §6.1 — the inside of the Ruined Library (roadmap 0.06). Built from content/lore/index.json:
 // 12 shelves (6 per side wall) with red books from shelves.json and grey filler, tables with clutter,
 // one in-world object per §6.1 artifact, and the small exit door at the far end (F9, 0.12).
-// PLACEHOLDER: boxes, cylinders and capsules only (A1/A6/A8); a .glb pass comes later.
+// Rebuild R4: restyled to the new look: pixel-textured wood and stone (world-metre UVs, batched), a
+// flagstone floor, Legends-style figures for character artifacts. PLACEHOLDER: a .glb pass comes later.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { pixelTexture, type TexName } from './tex/pixel';
+import { Batch } from './world/batch';
+import { buildFigure } from './world/figure';
 import { lore, entryById, resolveImage, type LoreEntry } from './lore';
 import type { Collider } from './world';
 
@@ -29,10 +32,10 @@ function rng(seed: number) {
 
 export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: THREE.Object3D[]): Library {
   const R = rng(1214);   // L1214: the Library of the Wise
-  const ramp = new THREE.DataTexture(new Uint8Array([150, 205, 255]), 3, 1, THREE.RedFormat);
-  ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
-  const mats = new Map<number, THREE.MeshToonMaterial>();
-  const mat = (c: number) => mats.get(c) ?? (mats.set(c, new THREE.MeshToonMaterial({ color: c, gradientMap: ramp })), mats.get(c)!);
+  // Known palette colours map to pixel textures; anything else is a flat lit colour.
+  const TEX: Record<number, TexName> = { 0x553823: 'planks', 0x7A5236: 'wood', 0x6B5F58: 'bricks', 0x4A4240: 'stone', 0xEFE3C4: 'parchment' };
+  const mats = new Map<number, THREE.MeshLambertMaterial>();
+  const mat = (c: number) => mats.get(c) ?? (mats.set(c, TEX[c] ? new THREE.MeshLambertMaterial({ map: pixelTexture(TEX[c]) }) : new THREE.MeshLambertMaterial({ color: c })), mats.get(c)!);
   const unit = new THREE.BoxGeometry(1, 1, 1);
   const group = new THREE.Group(); group.name = 'library-interior';
   scene.add(group);
@@ -40,13 +43,11 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
     const m = new THREE.Mesh(unit, mat(c)); m.scale.set(w, h, d); m.position.set(x, y, z); m.rotation.y = ry;
     group.add(m); if (solid) solids.push(m); return m;
   };
-  // F5.1 budget: static furniture (frames, tables, crates) is baked into one mesh per colour at the end,
+  // F5.1 budget: static furniture (frames, tables, crates) is batched into one mesh per material at the end,
   // so ~120 boxes cost a handful of draw calls. Books and the exit door stay separate meshes (raycast targets).
-  const baked = new Map<number, THREE.BufferGeometry[]>();
-  const staticBox = (w: number, h: number, d: number, c: number, x: number, y: number, z: number, ry = 0) => {
-    const g = unit.clone().applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(w, h, d)));
-    (baked.get(c) ?? (baked.set(c, []), baked.get(c)!)).push(g);
-  };
+  const baked = new Batch();
+  const staticBox = (w: number, h: number, d: number, c: number, x: number, y: number, z: number, ry = 0) =>
+    baked.add(mat(c), unit, new THREE.Vector3(x, y, z), new THREE.Vector3(w, h, d), ry);
   const hitbox = (w: number, h: number, d: number, x: number, y: number, z: number, hit: LibraryHit) => {
     const m = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ visible: false }));
     m.scale.set(w, h, d); m.position.set(x, y, z); m.userData.hit = hit; group.add(m); return m;
@@ -126,7 +127,7 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
     targets.push(hitbox(0.1, SHELF.h - 0.1, SHELF.len - 0.1, faceX - (left ? 1 : -1) * 0.1, SHELF.h / 2, zc, { kind: 'grey', shelf: shelf.id }));
   });
   if (greyGeo.length) {
-    const inst = new THREE.InstancedMesh(unit, new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: ramp }), greyGeo.length);
+    const inst = new THREE.InstancedMesh(unit, new THREE.MeshLambertMaterial({ color: 0xffffff }), greyGeo.length);
     greyGeo.forEach((m, i) => { inst.setMatrixAt(i, m); inst.setColorAt(i, greyCol[i]); });
     inst.computeBoundingSphere();
     group.add(inst);
@@ -163,10 +164,9 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
       const x = (standSlot % 2 ? 1 : -1) * 10.6, z = HALL.front - 4 - Math.floor(standSlot / 2) * 5;
       standSlot++;
       obj = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1.0, 4, 10), new THREE.MeshToonMaterial({ color: new THREE.Color(e.color ?? '#9A9A9A'), gradientMap: ramp }));
-      body.position.y = 0.8;
-      const nub = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.09, 0.2), mat(0xEFE3C4)); nub.position.set(0, 1.35, 0.33);
-      (obj as THREE.Group).add(body, nub);
+      // Legends-style figure in the contributor's colour (A6); faces +Z, turned to the aisle below.
+      const col = e.color ?? '#9A9A9A';
+      (obj as THREE.Group).add(buildFigure({ skin: '#E8C0A0', hair: '#3A2A1C', primary: col, secondary: '#C9B48A', boots: '#4A3020', accent: '#2B2A24', hairStyle: 'hood' }, 1.7));
       const c = document.createElement('canvas'); c.width = 256; c.height = 48;
       const g = c.getContext('2d')!; g.fillStyle = 'rgba(30,36,32,.85)'; g.fillRect(0, 0, 256, 48); g.fillStyle = '#EFE3C4'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.fillText(e.title, 128, 31);
       const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -233,12 +233,10 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
   exitDoor.name = 'exit_door';
   staticBox(1.4, 0.15, 0.2, 0x6B5F58, 0, 2.08, HALL.back + 0.1);
 
-  for (const [c, geos] of baked) {
-    const m = new THREE.Mesh(mergeGeometries(geos), mat(c));
-    m.name = 'library-furniture';
-    group.add(m); solids.push(m);
-    geos.forEach((g) => g.dispose());
-  }
+  // Flagstone floor over the grass inside the hall (the roof burned away; the floor survived).
+  baked.add(new THREE.MeshLambertMaterial({ map: pixelTexture('paving') }), new THREE.BoxGeometry(1, 1, 1),
+    new THREE.Vector3(0, 0.005, (HALL.front + HALL.back) / 2), new THREE.Vector3(HALL.maxX - HALL.minX, 0.01, HALL.front - HALL.back));
+  for (const m of baked.flush(scene, 'library-furniture')) { scene.remove(m); group.add(m); solids.push(m); m.receiveShadow = true; }
 
   return { targets, redBooks, artifacts, shelfOf, exitDoor, relic: shard };
 }

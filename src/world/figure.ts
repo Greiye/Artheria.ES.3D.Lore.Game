@@ -105,12 +105,14 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     if (look.hairStyle === 'long') box(0.38, 0.42, 0.1, 0, 1.25, -0.2, look.hair);
     else for (let i = -1; i <= 1; i++) box(0.1, 0.12, 0.14, i * 0.12, 1.68, -0.06 + Math.abs(i) * 0.03, look.hair, i * -0.4);
   }
+  // Head: a skin box merged with the body (one draw call), plus the painted face as a thin plane on its front.
+  const headBox = new THREE.BoxGeometry(headS, headS, headS * 0.95);
+  headBox.translate(0, headY, 0);
+  parts.push([headBox, look.skin]);
   root.add(new THREE.Mesh(mergeGeometries(parts.map(([g, c]) => painted(g, c, 0, height))), bodyMat));
-  // Head: skin box with the face painted on its front (+Z) side only (BoxGeometry groups: +x, -x, +y, -y, +z, -z).
-  const faceMat = new THREE.MeshBasicMaterial({ map: faceTexture(look) });
-  const head = new THREE.Mesh(painted(new THREE.BoxGeometry(headS, headS, headS * 0.95), look.skin, -headY, height - headY), [bodyMat, bodyMat, bodyMat, bodyMat, faceMat, bodyMat]);
-  head.position.y = headY;
-  root.add(head);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(headS, headS), new THREE.MeshBasicMaterial({ map: faceTexture(look) }));
+  face.position.set(0, headY, headS * 0.475 + 0.002);
+  root.add(face);
   root.add(blobShadow(0.38 * U));
   root.userData.height = height;
   return root;

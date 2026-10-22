@@ -73,7 +73,7 @@ await G(page, () => window.__gametool.world.openDoor());   // as after Natalie (
 const lib = await G(page, () => {
   const L = window.__gametool.library;
   const g = window.__gametool.world.scene.getObjectByName('library-interior');
-  return { books: [...L.redBooks.keys()].length, arts: [...L.artifacts.keys()], exit: !!L.exitDoor, furniture: g.children.filter((c) => c.name === 'library-furniture').length, tris: g.children.filter((c) => c.name === 'library-furniture').reduce((n, c) => n + c.geometry.index.count / 3, 0) };
+  return { books: [...L.redBooks.keys()].length, arts: [...L.artifacts.keys()], exit: !!L.exitDoor, furniture: g.children.filter((c) => c.name === 'library-furniture').length, tris: g.children.filter((c) => c.name === 'library-furniture').reduce((n, c) => n + (c.geometry.index ? c.geometry.index.count : c.geometry.attributes.position.count) / 3, 0) };
 });
 check('F5.1 12 shelves, clutter and a small exit door inside', lib.exit && lib.furniture > 0 && lib.tris >= 12 * 8 * 12 && real.shelves.length === 12, JSON.stringify(lib));
 check('F5.2 every red book on the shelves is in the scene', lib.books === lorebooks.length, `${lib.books}/${lorebooks.length}`);

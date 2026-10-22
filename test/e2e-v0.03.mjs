@@ -88,26 +88,26 @@ await page.keyboard.down('KeyW'); await page.waitForTimeout(1500); await page.ke
 const stopZ = await G(page, () => window.__gametool.player.pos.z);
 check('F2.3 locked door blocks the player', stopZ > door.z, `stopped at z ${stopZ.toFixed(2)}, door at ${door.z.toFixed(2)}`);
 
-// ---------- F2.4 POV toggle ----------
+// ---------- F2.4 POV toggle (rebuild R3: third-person follow is the default) ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; p.pitch = 0; });
-await page.waitForTimeout(100);
-const fp = await G(page, () => { const g = window.__gametool; return { cam: g.player.eyePos.distanceTo(g.camera.position), body: g.player.body.visible }; });
-await page.keyboard.press('KeyF');
 await page.keyboard.down('KeyW'); await page.waitForTimeout(500);
 const tp = await G(page, () => { const g = window.__gametool; return { third: g.player.thirdPerson, body: g.player.body.visible, cam: g.player.eyePos.distanceTo(g.camera.position) }; });
 await page.keyboard.up('KeyW');
 await page.screenshot({ path: path.join(shots, 'v03-third-person.png') });
-check('F2.4 first person: camera at the eyes, body hidden', fp.cam < 0.01 && !fp.body);
-check('F2.4 F toggles third person (body shown, camera ~3 m back) while moving', tp.third && tp.body && tp.cam > 2.5 && tp.cam < 3.2, `camera ${tp.cam.toFixed(2)} m from eyes`);
+check('F2.4 R3 default view is third person (body shown, camera ~3 m back) while moving', tp.third && tp.body && tp.cam > 2.5 && tp.cam < 3.2, `camera ${tp.cam.toFixed(2)} m from eyes`);
 // Wall collision: back the player up against the library, looking away from it.
 await G(page, () => { const p = window.__gametool.player; p.pos.set(6, 0, -16.4); p.yaw = Math.PI; p.pitch = 0; });
-await page.waitForTimeout(100);
+await page.waitForTimeout(300);
 const wallCam = await G(page, () => window.__gametool.camera.position.z);
 check('F2.4 third-person camera never goes through the library wall', wallCam > -16.8, `camera z ${wallCam.toFixed(2)}`);
+await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; p.pitch = 0; });
 await page.keyboard.press('KeyF');
-await page.waitForTimeout(50);
-check('F2.4 F again returns to first person', await G(page, () => !window.__gametool.player.thirdPerson && !window.__gametool.player.body.visible));
-
+await page.waitForTimeout(300);
+const fp = await G(page, () => { const g = window.__gametool; return { first: !g.player.thirdPerson, cam: g.player.eyePos.distanceTo(g.camera.position), body: g.player.body.visible }; });
+check('F2.4 F switches to first person: camera at the eyes, body hidden', fp.first && fp.cam < 0.01 && !fp.body, JSON.stringify(fp));
+await page.keyboard.press('KeyF');
+await page.waitForTimeout(300);
+check('F2.4 F again returns to third person', await G(page, () => window.__gametool.player.thirdPerson && window.__gametool.player.body.visible));
 check('v0.03: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 const failed = results.filter((r) => !r.ok).length;

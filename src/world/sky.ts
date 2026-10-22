@@ -56,6 +56,7 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   const dome = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
   dome.name = 'sky';
+  dome.renderOrder = 10;   // drawn after the world, so depth testing skips every pixel already covered
   dome.raycast = noRaycast;
   scene.add(dome);
   // Sun disc: over-bright so bloom haloes it.
@@ -63,6 +64,7 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   disc.position.copy(sunDir).multiplyScalar(170);
   disc.lookAt(0, 0, 0);
   disc.raycast = noRaycast;
+  disc.renderOrder = 11;
   scene.add(disc);
 
   // Light shafts: soft additive planes leaning along the sun direction, through the canopy gaps.
@@ -75,7 +77,7 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   // leaning toward the sun's azimuth. Each one turns about its own axis to face the camera.
   const flat = new THREE.Vector3(sunDir.x, 0, sunDir.z).normalize();
   const axis = flat.multiplyScalar(Math.cos(THREE.MathUtils.degToRad(55))).add(new THREE.Vector3(0, Math.sin(THREE.MathUtils.degToRad(55)), 0)).normalize();
-  const spots: [number, number, number][] = [[-7, -6, 3.2], [6.5, -9, 2.6], [-11, 5, 2.2], [9, 4, 3.0], [-3.5, -12, 2.4], [13, -3, 2.0], [-15, -8, 2.8], [4, 13, 2.2], [-9, 15, 2.6]];
+  const spots: [number, number, number][] = [[-7, -6, 3.2], [6.5, -9, 2.6], [-11, 5, 2.2], [9, 4, 3.0], [-3.5, -12, 2.4], [13, -3, 2.0], [-15, -8, 2.8]];
   for (const [x, z, w] of spots) {
     const m = new THREE.Mesh(geo, shaftMat);
     m.scale.set(w, 16, 1);

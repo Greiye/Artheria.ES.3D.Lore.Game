@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pixelTexture, type TexName } from '../tex/pixel';
+import { pixelTexture, solidTexture, type TexName } from '../tex/pixel';
 
 // Rebuild R2: dense Vintage Story-style undergrowth. Each tuft is two crossed alpha-cut quads with a
 // pixel texture; one InstancedMesh per kind, swaying in a shared wind uniform (vertex shader only).
@@ -23,7 +23,7 @@ function windify(mat: THREE.Material, strength: number) {
       transformed.z += sway * ${(strength * 0.6).toFixed(3)} * position.y * position.y;`,
     );
   };
-  mat.customProgramCacheKey = () => 'wind' + strength;
+  mat.customProgramCacheKey = () => 'wind' + strength + (mat as THREE.MeshLambertMaterial).alphaTest;
 }
 
 const crossed = (() => {
@@ -64,9 +64,11 @@ export function tufts(scene: THREE.Scene, tex: TexName, items: Tuft[], size: [nu
   return mesh;
 }
 
-// Leaf blocks: alpha-cut cubes (Vintage Story leaves), seen from inside too, for canopies and bushes.
-export function leafMaterial(tex: TexName): THREE.MeshLambertMaterial {
-  const m = new THREE.MeshLambertMaterial({ map: pixelTexture(tex), alphaTest: 0.5, side: THREE.DoubleSide });
+// Leaf blocks: alpha-cut cubes (Vintage Story leaves) for canopies, bushes and ivy.
+// Front faces only: inner faces doubled the fill cost on phones for little visible gain.
+// `solid` = fast leaves (opaque, holes painted as shade) for the big canopies and bushes.
+export function leafMaterial(tex: TexName, solid = false): THREE.MeshLambertMaterial {
+  const m = solid ? new THREE.MeshLambertMaterial({ map: solidTexture(tex) }) : new THREE.MeshLambertMaterial({ map: pixelTexture(tex), alphaTest: 0.5 });
   windify(m, 0.0015);
   return m;
 }

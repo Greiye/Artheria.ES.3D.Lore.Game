@@ -31,6 +31,7 @@ export interface World {
   update(t: number, camera: THREE.Camera): void;
   setShadows(on: boolean): void;   // F1.1
   setFogDistance(far: number): void; // F1.1
+  setFoliage(density: number): void;  // R3 perf: 0..1 share of undergrowth tufts drawn (preset-driven)
 }
 
 const HALF = 50; // F1.2: ~100 x 100 m start area
@@ -205,7 +206,7 @@ export function buildWorld(): World {
     || (Math.abs(x) < LIB.w / 2 + 2 + pad && z < LIB.front + 4 + pad && z > back - 2 - pad);
 
   // ---------- trees: birch + oak, trunks batched, canopies as alpha-cut leaf blocks ----------
-  const canopyDark = leafMaterial('leaves'), canopyLight = leafMaterial('leavesLight');
+  const canopyDark = leafMaterial('leaves', true), canopyLight = leafMaterial('leavesLight', true);
   const leafB = new Batch();
   const trees: [number, number][] = [];
   const tree = (x: number, z: number) => {
@@ -285,9 +286,13 @@ export function buildWorld(): World {
     }
     return out;
   };
-  tufts(scene, 'grassBlades', scatter(2600, 1.5, 36, -0.6, 0.8), [0.6, 0.5]);
-  tufts(scene, 'flowers', scatter(320, 3, 30, 0.2), [0.5, 0.45]);
-  tufts(scene, 'fern', scatter(300, 4, 40, 0.6), [1.1, 0.8], 0.05);
+  // Tufts are scattered in random order, so drawing the first N keeps an even spread at any density.
+  const undergrowth = [
+    tufts(scene, 'grassBlades', scatter(2000, 1.5, 30, -0.6, 0.8), [0.6, 0.5]),
+    tufts(scene, 'flowers', scatter(320, 3, 30, 0.2), [0.5, 0.45]),
+    tufts(scene, 'fern', scatter(300, 4, 40, 0.6), [1.1, 0.8], 0.05),
+  ];
+  const fullCounts = undergrowth.map((m) => m.count);
 
   // ---------- characters: Mega Man Legends-style placeholders (model slots) ----------
   const standees: Record<string, THREE.Object3D> = {};
@@ -338,6 +343,9 @@ export function buildWorld(): World {
       sky.sun.castShadow = on;
       ground.receiveShadow = on;
       shadowCasters.forEach((o) => { o.castShadow = on; o.receiveShadow = on; });
+    },
+    setFoliage(density: number) {
+      undergrowth.forEach((m, i) => { m.count = Math.round(fullCounts[i] * THREE.MathUtils.clamp(density, 0, 1)); });
     },
     setFogDistance(far: number) {
       if (scene.fog instanceof THREE.Fog) { scene.fog.near = far * 0.33; scene.fog.far = far; }

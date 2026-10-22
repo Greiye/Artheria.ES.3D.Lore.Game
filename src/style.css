@@ -53,7 +53,8 @@ kbd { display: inline-block; min-width: 1.6em; text-align: center; padding: 1px 
 
 /* ---------- Lore book (F3.2–F3.5) ---------- */
 .book { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; align-content: center; gap: 10px;
-  background: rgba(20,24,21,.82); padding: 16px; }
+  /* R3: lighter scrim + blur so the framed reading shot of the lectern shows behind the pages. */
+  background: rgba(20,24,21,.58); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); padding: 16px; }
 .spread { --pw: min(46vw, 560px, calc((100vh - 90px) * .68)); position: relative; display: flex; perspective: 1800px;
   padding: 14px; border-radius: 10px; background: var(--wood); box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 0 0 3px #6b4730; }
 .page { position: relative; width: var(--pw); height: calc(var(--pw) * var(--ratio, 1.38)); background: var(--parchment); color: var(--ink);
@@ -239,3 +240,9 @@ body[data-input="touch"] #writeLoreHud, body[data-input="pad"] #writeLoreHud { d
 .book .reply-to { font-size: 13px; margin-top: 6px; }
 .book a.wikilink { color: #2A5D73; text-decoration: underline; text-decoration-style: dotted; cursor: pointer; }
 .book .missing-link { color: #8A6A5A; }
+
+/* New-build notice (installed app / long-open tab). */
+#updateBar { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 95;
+  display: flex; gap: 12px; align-items: center; padding: 8px 10px 8px 16px; border-radius: 10px;
+  background: rgba(30,36,32,.92); color: var(--parchment, #EFE3C4); font: 14px/1.3 system-ui, sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+#updateBar button { padding: 6px 12px; }

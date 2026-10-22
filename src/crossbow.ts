@@ -71,7 +71,7 @@ export class Crossbow {
     if (!this.equipped || !this.loaded || this.reload.active) return false;
     this.loaded = false;
     const dir = new THREE.Vector3();
-    this.camera.getWorldDirection(dir);
+    this.player.lookDir(dir);   // R3: aim follows the player's view even while the camera rig is blending
     const start = this.player.eyePos.clone().addScaledVector(dir, 0.45);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.4), new THREE.MeshToonMaterial({ color: 0xD9D8CC }));
     mesh.position.copy(start);

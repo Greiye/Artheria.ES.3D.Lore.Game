@@ -2,7 +2,7 @@
 
 Private project, all rights reserved (§1). Not open source.
 
-You start in a first-person 3D world, move with Skyrim PC controls, and read player-written lore in a book on a lectern. Version shown on the title screen; see `CHANGELOG.md` for what shipped in each step.
+You start in a third-person 3D world (F for first person), move with Skyrim PC controls, and read player-written lore in a book on a lectern. Version shown on the title screen; see `CHANGELOG.md` for what shipped in each step.
 
 ## Play it
 
@@ -107,7 +107,7 @@ in — either way it won't ask again on that browser. Revisit or change answers 
 | L | Write lore |
 | A/D, ←/→, page-edge click | Turn pages |
 | Tab / Esc / E | Close the book |
-| F | First / third person |
+| F | Third person (default) / first person |
 | I | Inventory |
 | 1 / 2 | Crossbow / hands |
 | RMB / LMB | Aim / fire (crossbow) |
