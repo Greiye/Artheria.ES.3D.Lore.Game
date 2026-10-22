@@ -70,14 +70,14 @@ async function newPage() {
   await page.waitForTimeout(100);
   const prLow = await G(page, () => window.__gametool.renderer.getPixelRatio());
   check('Preset "Low" turns shadows off', !(await page.isChecked('#shadows')));
-  check('Preset "Low" turns outlines off', !(await page.isChecked('#outlines')));
+  check('Preset "Low" turns post effects off', !(await page.isChecked('#postFx')));
 
   await page.selectOption('#preset', 'high');
   await page.waitForTimeout(100);
   const pr = await G(page, () => window.__gametool.renderer.getPixelRatio());
   check('Preset "High" raises the render pixel ratio live (relative to Low)', pr > prLow, `low ${prLow} -> high ${pr}`);
   check('Preset "High" turns shadows on', await page.isChecked('#shadows'));
-  check('Preset "High" turns outlines on', await page.isChecked('#outlines'));
+  check('Preset "High" turns post effects on', await page.isChecked('#postFx'));
   check('Preset "High" enables shadowMap on the renderer', await G(page, () => window.__gametool.renderer.shadowMap.enabled));
 
   // Manual slider override after a preset — F1.1 "each applies live"
@@ -87,15 +87,11 @@ async function newPage() {
   const pr2 = await G(page, () => window.__gametool.renderer.getPixelRatio());
   check('Render-scale slider applies live, overriding the preset', Math.abs(pr2 - pr) > 0.01, `before ${pr} after ${pr2}`);
 
-  await page.uncheck('#outlines');
+  // Rebuild R1: the legacy outline toggle became "Post effects" (bloom); it applies live too.
+  await page.uncheck('#postFx');
   await page.waitForTimeout(100);
-  const outlineVisible = await G(page, () => {
-    const gt = window.__gametool;
-    let anyVisible = false;
-    gt.world.scene.traverse((o) => { if (o.material && o.material.color && o.material.color.getHex() === 0 && o.visible) anyVisible = true; });
-    return anyVisible;
-  });
-  check('Outlines toggle hides outline meshes live', !outlineVisible);
+  const postOff = await G(page, () => window.__gametool.settings.postFx === false && JSON.parse(localStorage.getItem('gametool.settings')).postFx === false);
+  check('Post-effects toggle applies live and persists', postOff);
 
   await page.fill('#fogDistance', '30');
   await page.dispatchEvent('#fogDistance', 'input');

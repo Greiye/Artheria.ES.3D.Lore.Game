@@ -21,6 +21,7 @@ import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
 import { Crossbow, ZONE } from './crossbow';
 import natalieScript from '../content/dialogue/natalie.json';
+import { Post } from './render/post';
 import { fillSlots, loadedModels, failedModels, type ModelSlot } from './models';
 
 // Private, all rights reserved (D8). Not open source.
@@ -42,11 +43,13 @@ window.addEventListener('pagehide', () => saveSettings(settings));
 
 // ---------- renderer / camera (D2, D4) ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 const coarse = matchMedia('(pointer: coarse)').matches;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // F1.1: device pixel ratio capped (phones hold frame rate), then scaled by the render-scale setting.
 const basePixelRatio = Math.min(window.devicePixelRatio, coarse ? 1.5 : 2);
-function applyRenderScale() { renderer.setPixelRatio(basePixelRatio * (settings.renderScale / 100)); }
+function applyRenderScale() { renderer.setPixelRatio(basePixelRatio * (settings.renderScale / 100)); post?.setSize(window.innerWidth, window.innerHeight); }
+let post: Post | null = null;
 applyRenderScale();
 renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);
@@ -57,6 +60,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  post?.setSize(window.innerWidth, window.innerHeight);
 });
 
 const loaderBar = document.querySelector<HTMLElement>('#loader i');
@@ -66,8 +70,10 @@ const world = buildWorld();
 progress(80);
 renderer.shadowMap.enabled = settings.shadows;
 world.setShadows(settings.shadows);
-world.setOutlines(settings.outlines);
 world.setFogDistance(settings.fogDistance);
+post = new Post(renderer, world.scene, camera);
+post.setSize(window.innerWidth, window.innerHeight);
+post.setEnabled(settings.postFx);
 const player = new Player(camera, settings, world.colliders, world.bounds);
 player.spawn(world.spawn.pos, world.spawn.yaw);
 world.scene.add(player.body);
@@ -150,7 +156,7 @@ ui.innerHTML = `
         </label>
         <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="50" max="100" step="5"></label>
         <label class="check"><input id="shadows" type="checkbox"> Shadows</label>
-        <label class="check"><input id="outlines" type="checkbox"> Outlines</label>
+        <label class="check"><input id="postFx" type="checkbox"> Post effects (glow)</label>
         <label>Fog distance <output id="fogOut"></output><input id="fogDistance" type="range" min="20" max="120" step="5"></label>
         <label class="field">FPS cap
           <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>
@@ -627,7 +633,7 @@ $('dailyPrompt').textContent = dailyPrompt;   // §8 0.03 creativity check
 const sens = $<HTMLInputElement>('sens'), fov = $<HTMLInputElement>('fov');
 const inv = $<HTMLInputElement>('invert'), always = $<HTMLInputElement>('always');
 const presetSel = $<HTMLSelectElement>('preset'), renderScaleEl = $<HTMLInputElement>('renderScale');
-const shadowsEl = $<HTMLInputElement>('shadows'), outlinesEl = $<HTMLInputElement>('outlines');
+const shadowsEl = $<HTMLInputElement>('shadows'), postFxEl = $<HTMLInputElement>('postFx');
 const fogDistanceEl = $<HTMLInputElement>('fogDistance'), fpsCapSel = $<HTMLSelectElement>('fpsCap');
 const audioEls = {
   master: $<HTMLInputElement>('audioMaster'), muteMaster: $<HTMLInputElement>('muteMaster'),
@@ -641,7 +647,7 @@ function syncMenu() {
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
   presetSel.value = settings.preset;
   renderScaleEl.value = String(settings.renderScale); $('renderScaleOut').textContent = settings.renderScale + '%';
-  shadowsEl.checked = settings.shadows; outlinesEl.checked = settings.outlines;
+  shadowsEl.checked = settings.shadows; postFxEl.checked = settings.postFx;
   fogDistanceEl.value = String(settings.fogDistance); $('fogOut').textContent = settings.fogDistance + ' m';
   fpsCapSel.value = String(settings.fpsCap);
   audioEls.master.value = String(settings.audio.master); $('audioMasterOut').textContent = settings.audio.master + '%';
@@ -668,11 +674,11 @@ presetSel.addEventListener('change', () => {
   Object.assign(settings, PRESETS[p]);
   saveSettings(settings); syncMenu();
   applyRenderScale(); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows);
-  world.setOutlines(settings.outlines); world.setFogDistance(settings.fogDistance);
+  post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance);
 });
 renderScaleEl.addEventListener('input', () => { settings.renderScale = Number(renderScaleEl.value); saveSettings(settings); syncMenu(); applyRenderScale(); });
 shadowsEl.addEventListener('change', () => { settings.shadows = shadowsEl.checked; saveSettings(settings); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows); });
-outlinesEl.addEventListener('change', () => { settings.outlines = outlinesEl.checked; saveSettings(settings); world.setOutlines(settings.outlines); });
+postFxEl.addEventListener('change', () => { settings.postFx = postFxEl.checked; saveSettings(settings); post?.setEnabled(settings.postFx); });
 fogDistanceEl.addEventListener('input', () => { settings.fogDistance = Number(fogDistanceEl.value); saveSettings(settings); syncMenu(); world.setFogDistance(settings.fogDistance); });
 fpsCapSel.addEventListener('change', () => { settings.fpsCap = Number(fpsCapSel.value) as FpsCap; saveSettings(settings); });
 
@@ -719,7 +725,7 @@ function frame() {
   // Fixed 120 Hz simulation steps: speeds and jump height stay exact even when frames are slow.
   // Long stalls (tab in background) are capped at 0.25 s so the player doesn't teleport.
   const dt = Math.min(clock.getDelta(), 0.25);
-  world.update(clock.elapsedTime);
+  world.update(clock.elapsedTime, camera);
   library.relic.rotation.y = clock.elapsedTime * 0.6;   // the Noctavel shard turns slowly
   gamepad.update();
   if (state === 'play') {
@@ -751,7 +757,7 @@ function frame() {
     touch?.update();
   } else { lookingAt = null; crossbow.setADS(false); }
   updateAmmoHud();
-  renderer.render(world.scene, camera);
+  post!.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
 }

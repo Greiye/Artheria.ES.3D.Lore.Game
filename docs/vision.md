@@ -47,6 +47,6 @@ Tone: cosy-adventurous by day, eerie by night; mature themes stay in content, no
 
 ## Practical targets (browser/phone)
 
-- Textures 32–128 px, `NearestFilter`, no mipmap blur on pixel textures; small shared atlases.
+- Textures 32 px per metre, `NearestFilter` up close, mipmapped in the distance (stops shimmer); painted at load time.
 - Characters ≤ 3k tris, one ≤ 512 px texture, unlit; environment lit, fog + cheap god-ray/sprite shafts.
 - Post FX (bloom, DOF) behind the Graphics preset; Low = off.

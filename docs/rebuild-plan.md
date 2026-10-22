@@ -2,7 +2,7 @@
 
 2026-10-22, approved scope: **partial**. We rebuild the look, the world, the camera and the player to match
 [vision.md](vision.md). The plumbing that doesn't depend on art style stays.
-This is a plan only. Nothing is implemented yet.
+Status 2026-10-22: R0 done (tag), R1 and R2 built on `claude/project-thread-urmx36`, waiting for Mike to sign off on the look before R3.
 
 ## Keep (port as-is, light touch only)
 
