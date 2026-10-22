@@ -23,7 +23,7 @@ import { Crossbow, ZONE } from './crossbow';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
 import { CameraRig } from './camera/rig';
-import { fillSlots, loadedModels, failedModels, type ModelSlot } from './models';
+import { fillSlots, loadedModels, failedModels, animators, type ModelSlot } from './models';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -398,9 +398,23 @@ function equip(on: boolean) {
 // R3: the crossbow is aimed in first person (viewmodel); putting it away restores the previous view.
 // Watched per frame so keyboard, touch and gamepad equips all behave the same.
 let viewBeforeCrossbow: boolean | null = null;
+// R4: drive .glb animation clips from game state (src/models.ts Animator; no clips → static model).
+const lastBodyPos = new THREE.Vector3();
+function animate(dt: number) {
+  if (animators.size === 0) return;
+  const pa = animators.get('player');
+  if (pa && dt > 0) {
+    const v = Math.hypot(player.pos.x - lastBodyPos.x, player.pos.z - lastBodyPos.z) / dt;
+    pa.set(state === 'dialogue' ? 'talk' : crossbow.equipped ? 'aim' : v > controls.speeds.walk + 0.5 ? 'run' : v > 0.3 ? 'walk' : 'idle');
+  }
+  lastBodyPos.copy(player.pos);
+  animators.get('natalie')?.set(state === 'dialogue' ? 'talk' : 'idle');
+  for (const a of animators.values()) a.update(dt);
+}
 function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; }
+  if (rig.inShot) crossbow.viewmodel.visible = false;   // a framed dialogue/reading shot shows the player, not the held crossbow
 }
 let toastTimer = 0;
 function toast(msg: string, ms = 3000) {
@@ -777,6 +791,7 @@ function frame() {
     crossbow.update(dt);
     touch?.update();
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
+  animate(dt);
   updateAmmoHud();
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
@@ -816,4 +831,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

@@ -1,4 +1,4 @@
-// Automated checks for the partial rebuild (docs/rebuild-plan.md): R1 look, R3 camera rig.
+// Automated checks for the partial rebuild (docs/rebuild-plan.md): R1 look, R3 camera rig, R4 gameplay port.
 // Usage: npm run build && node test/e2e-rebuild.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
@@ -56,6 +56,18 @@ await page.keyboard.press('Tab');
 const back = await until(page, () => { const g = window.__gametool; return g.state !== 'book' && !g.rig.inShot && Math.abs(g.camera.fov - g.settings.fov) < 0.5; });
 check('R3 closing the book blends back to the play camera', back);
 
+// ---------- R4: follow camera against a wall hides the body (no camera inside the player's head) ----------
+await G(page, () => { const p = window.__gametool.player; p.pos.set(4, 0, -16.3); p.yaw = Math.PI; p.pitch = 0; });   // just outside the library front wall, back to it
+const hidden = await until(page, () => { const g = window.__gametool; return g.player.thirdPerson && !g.player.body.visible; });
+check('R4 back to a wall: the follow camera hides the player body instead of sitting in it', hidden);
+await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; });
+check('R4 away from walls the body shows again', await until(page, () => window.__gametool.player.body.visible));
+
+// R4: talk with the crossbow in hand, so the dialogue shot below also checks the viewmodel is hidden.
+await G(page, () => { const i = window.__gametool.inventory; i.give('crossbow', 1); i.give('bolt', 2); });
+await page.keyboard.press('Digit1');
+await until(page, () => window.__gametool.crossbow.viewmodel.visible);
+
 // ---------- R3: dialogue two-shot ----------
 await G(page, () => {
   const g = window.__gametool, n = g.world.natalieTarget.position, pl = g.player;
@@ -72,7 +84,7 @@ const two = await until(page, () => {
 });
 await page.screenshot({ path: path.join(shots, 'rebuild-dialogue-shot.png') });
 check('R3 talking to Natalie frames her over the player\'s shoulder', two);
-
+check('R4 the held crossbow is not drawn in the dialogue shot', await until(page, () => !window.__gametool.crossbow.viewmodel.visible));
 check('Rebuild: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 const failed = results.filter((r) => !r.ok).length;

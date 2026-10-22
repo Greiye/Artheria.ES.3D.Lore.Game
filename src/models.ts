@@ -25,20 +25,20 @@ function getLoader(): GLTFLoader {
   return loader;
 }
 
-// A6/A3 look: untextured models get the world's 3-step toon ramp; textured ones render unlit (see below).
-const ramp = new THREE.DataTexture(new Uint8Array([150, 205, 255]), 3, 1, THREE.RedFormat);
-ramp.magFilter = ramp.minFilter = THREE.NearestFilter;
-ramp.needsUpdate = true;
-function toonify(root: THREE.Object3D) {
+// Rebuild R4 look (docs/vision.md): textured models render unlit with their light painted in, and their
+// textures stay crisp pixels; untextured ones are lit by the world's sun and sky like the environment.
+function restyle(root: THREE.Object3D) {
   root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;
     const conv = (mat: THREE.Material) => {
       const src = mat as THREE.MeshStandardMaterial;
       if (!('color' in src)) return mat;
-      // Mega Man Legends-style models carry their light painted into the texture: show it unlit.
-      if (src.map) return new THREE.MeshBasicMaterial({ map: src.map, color: src.color, transparent: src.transparent, alphaTest: src.alphaTest, side: src.side });
-      return new THREE.MeshToonMaterial({ color: src.color, map: src.map ?? null, gradientMap: ramp, transparent: src.transparent, alphaTest: src.alphaTest, side: src.side });
+      if (src.map) {
+        src.map.magFilter = THREE.NearestFilter;
+        return new THREE.MeshBasicMaterial({ map: src.map, color: src.color, transparent: src.transparent, alphaTest: src.alphaTest, side: src.side });
+      }
+      return new THREE.MeshLambertMaterial({ color: src.color, transparent: src.transparent, alphaTest: src.alphaTest, side: src.side });
     };
     m.material = Array.isArray(m.material) ? m.material.map(conv) : conv(m.material);
     m.castShadow = m.receiveShadow = true;
@@ -59,7 +59,8 @@ export const failedModels = new Map<string, string>();
 export function loadModel(id: string): Promise<THREE.Object3D | null> {
   return new Promise((resolve) => {
     getLoader().load(MODEL_DIR + id + '.glb', (gltf) => {
-      toonify(gltf.scene);
+      restyle(gltf.scene);
+      gltf.scene.userData.clips = gltf.animations;
       resolve(gltf.scene);
     }, undefined, (err) => {
       // A missing file is normal (no model made yet): note it quietly, keep the placeholder.
@@ -91,8 +92,48 @@ export async function fillSlot(slot: ModelSlot): Promise<boolean> {
   slot.placeholder.visible = false;
   slot.placeholder.userData.replacedBy = holder;
   loadedModels.set(slot.id, holder);
+  const clips = model.userData.clips as THREE.AnimationClip[] | undefined;
+  if (clips?.length) animators.set(slot.id, new Animator(model, clips));
   return true;
 }
+
+// Rebuild R4 (owner request 2026-10-22): animation clips inside a character's .glb play by state.
+// Clip names are matched case-insensitively, ignoring a Blender "Armature|" prefix. A missing clip falls
+// back along FALLBACK (run → walk → idle); with no idle either, the model just holds its pose.
+export type AnimState = 'idle' | 'walk' | 'run' | 'talk' | 'aim';
+export const ANIM_STATES: AnimState[] = ['idle', 'walk', 'run', 'talk', 'aim'];
+const FALLBACK: Record<AnimState, AnimState[]> = {
+  idle: ['idle'], walk: ['walk', 'idle'], run: ['run', 'walk', 'idle'], talk: ['talk', 'idle'], aim: ['aim', 'idle'],
+};
+const FADE = 0.2;   // s crossfade between clips
+
+export class Animator {
+  readonly mixer: THREE.AnimationMixer;
+  readonly actions = new Map<string, THREE.AnimationAction>();
+  current: string | null = null;   // the clip actually playing
+
+  constructor(root: THREE.Object3D, clips: THREE.AnimationClip[]) {
+    this.mixer = new THREE.AnimationMixer(root);
+    for (const c of clips) {
+      const name = c.name.toLowerCase().replace(/^.*\|/, '').trim();
+      if (!this.actions.has(name)) this.actions.set(name, this.mixer.clipAction(c));
+    }
+    this.set('idle');
+  }
+
+  set(state: AnimState) {
+    const name = FALLBACK[state].find((n) => this.actions.has(n)) ?? null;
+    if (name === this.current) return;
+    const next = name ? this.actions.get(name)! : null;
+    const prev = this.current ? this.actions.get(this.current)! : null;
+    if (next) next.reset().setEffectiveWeight(1).fadeIn(prev ? FADE : 0).play();
+    if (prev) prev.fadeOut(FADE);
+    this.current = name;
+  }
+
+  update(dt: number) { this.mixer.update(dt); }
+}
+export const animators = new Map<string, Animator>();
 
 // Fire-and-forget for every slot; the game never waits on models (F2.1 fade-in is not delayed).
 export function fillSlots(slots: ModelSlot[]): Promise<boolean[]> {

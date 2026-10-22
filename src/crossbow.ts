@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
+import { pixelTexture } from './tex/pixel';
 
 export const BOLT_SPEED = 60;         // m/s (F4.2)
 export const STICK_SECONDS = 30;      // F4.2
@@ -16,6 +17,8 @@ export const JAM_SECONDS = 3;
 // reload at 0.5 s (or at once, if pressed after 0.5 s). See docs/assumptions.md.
 export const ZONE = { start: 0.15, end: 0.30 };
 const GRAVITY = 9.8;
+const BOLT_GEO = new THREE.BoxGeometry(0.02, 0.02, 0.4);
+const BOLT_MAT = new THREE.MeshLambertMaterial({ color: 0xD9D8CC });
 const ADS_FOV_DROP = 15;              // F4.1
 
 export interface Bolt { mesh: THREE.Mesh; origin: THREE.Vector3; vel: THREE.Vector3; stuck: boolean; age: number; damage: number; hitbox: THREE.Mesh }
@@ -39,8 +42,9 @@ export class Crossbow {
 
   constructor(private scene: THREE.Scene, private camera: THREE.PerspectiveCamera, private player: Player,
     private inventory: Inventory, private solids: THREE.Object3D[], private baseFov: () => number) {
-    const wood = new THREE.MeshToonMaterial({ color: 0x7A5236 }), dark = new THREE.MeshToonMaterial({ color: 0x553823 });
-    const steel = new THREE.MeshToonMaterial({ color: 0xA4A7A6 });
+    // Rebuild R4: pixel-textured like the world (docs/vision.md), lit by the same sun.
+    const wood = new THREE.MeshLambertMaterial({ map: pixelTexture('wood') }), dark = new THREE.MeshLambertMaterial({ map: pixelTexture('planks') });
+    const steel = new THREE.MeshLambertMaterial({ color: 0xA4A7A6 });
     const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); this.viewmodel.add(b); return b;
     };
@@ -73,7 +77,7 @@ export class Crossbow {
     const dir = new THREE.Vector3();
     this.player.lookDir(dir);   // R3: aim follows the player's view even while the camera rig is blending
     const start = this.player.eyePos.clone().addScaledVector(dir, 0.45);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.4), new THREE.MeshToonMaterial({ color: 0xD9D8CC }));
+    const mesh = new THREE.Mesh(BOLT_GEO, BOLT_MAT);
     mesh.position.copy(start);
     mesh.lookAt(start.clone().add(dir));
     const hitbox = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.5), new THREE.MeshBasicMaterial({ visible: false }));
@@ -126,8 +130,7 @@ export class Crossbow {
     this.onChange();
   }
   private removeBolt(b: Bolt) {
-    this.scene.remove(b.mesh);
-    b.mesh.geometry.dispose();
+    this.scene.remove(b.mesh);   // geometry and material are shared by every bolt
     this.bolts.splice(this.bolts.indexOf(b), 1);
   }
 
