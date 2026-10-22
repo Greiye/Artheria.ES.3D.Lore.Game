@@ -98,7 +98,7 @@ const tp = await G(page, () => { const g = window.__gametool; return { third: g.
 await page.keyboard.up('KeyW');
 await page.screenshot({ path: path.join(shots, 'v03-third-person.png') });
 check('F2.4 first person: camera at the eyes, body hidden', fp.cam < 0.01 && !fp.body);
-check('F2.4 F toggles third person (capsule shown, camera ~3 m back) while moving', tp.third && tp.body && tp.cam > 2.5 && tp.cam < 3.2, `camera ${tp.cam.toFixed(2)} m from eyes`);
+check('F2.4 F toggles third person (body shown, camera ~3 m back) while moving', tp.third && tp.body && tp.cam > 2.5 && tp.cam < 3.2, `camera ${tp.cam.toFixed(2)} m from eyes`);
 // Wall collision: back the player up against the library, looking away from it.
 await G(page, () => { const p = window.__gametool.player; p.pos.set(6, 0, -16.4); p.yaw = Math.PI; p.pitch = 0; });
 await page.waitForTimeout(100);

@@ -7,6 +7,26 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Rebuild R1–R2: new look (docs/vision.md, docs/rebuild-plan.md)
+
+- **R1 render core:** pixel textures painted at load time from colour ramps plus clustered per-texel
+  noise (`src/tex/pixel.ts`: grass, dirt, paving, stone, mossy stone, scorched bricks, bark, birch, leaves,
+  grass blades, ferns, flowers, planks, door). 1 tile = 1 m everywhere via world-space box UVs, and props
+  are batched into a few draw calls (`src/world/batch.ts`). Nearest-neighbour up close, mipmapped far away.
+- **R1 lighting:** golden-hour sky, teal overhead and gold at the horizon. The low sun (13°, still F2.2) is
+  brighter, there's a warm haze, soft light shafts that face the camera, and drifting motes (`src/world/sky.ts`).
+- **R1 post effects:** the Graphics "Outlines" toggle is now **Post effects (glow)**, which adds bloom on the
+  sun, rune caps, lanterns and shafts (`src/render/post.ts`). It's on in High only, off in Low and Medium.
+  Saved "outlines" settings carry over.
+- **R2 glade:** Vintage Story-style forest: birch and oak trunks with alpha-cut leaf-block canopies, a tree
+  ring beyond the boundary, leaf-block bushes, ~3,200 wind-swayed grass/fern/flower tufts, dirt patches,
+  mossy dais and pillars, carved lectern, ivy-hung scorched library with door lanterns. Layout, colliders
+  and ids are unchanged.
+- **R2 characters:** the hero, Natalie and the player are Mega Man Legends-style placeholder figures: boxy
+  parts, a big head with a painted face, light painted into the vertex colours (unlit), and a blob shadow.
+  The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
+- Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
+
 ### Roadmap 0.03 — F2 world/camera, §5, §6.3 prompts
 
 - **F2.1 Load + fade-in:** black load screen with a progress bar (`index.html`); 2 s fade once the world is
@@ -50,6 +70,13 @@ Spec doc v0.05.
 - Gamepad: RT fire, LT aim, X reload, D-pad up crossbow/hands. Touch: Bow, Reload, Aim, Fire buttons.
 - Creativity check: none for 0.05 (combat only, as §8 states).
 - `test/e2e-v0.05.mjs`.
+
+### Ruined Library lore pass
+
+- The Noctavel Portal artifact is on a scorched stone altar in the back hall (public lore: "holds an artifact
+  that comes from the Noctavel Portal. The artifact is still there."). It turns slowly and gives its line when E is pressed.
+- Grey books gain two charred-by-orc-fire lines (mapping §0 0.06 row).
+- The Ruined Library entry says where the artifact is now. Part III DM material is not used.
 
 ### Roadmap 0.06 — F5 library and books, §6.1–§6.5 (the creativity version)
 

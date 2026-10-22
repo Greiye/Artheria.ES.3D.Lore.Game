@@ -7,7 +7,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { lore, entryById, resolveImage, type LoreEntry } from './lore';
 import type { Collider } from './world';
 
-export type LibraryHit = { kind: 'red'; slug: string } | { kind: 'grey'; shelf: string } | { kind: 'artifact'; slug: string };
+export type LibraryHit = { kind: 'red'; slug: string } | { kind: 'grey'; shelf: string } | { kind: 'artifact'; slug: string } | { kind: 'relic' };
 
 export interface Library {
   targets: THREE.Object3D[];            // raycast targets; userData.hit is a LibraryHit
@@ -15,6 +15,7 @@ export interface Library {
   artifacts: Map<string, THREE.Object3D>;
   shelfOf: Map<string, string>;         // slug -> shelf id
   exitDoor: THREE.Mesh;
+  relic: THREE.Mesh;                    // the Noctavel shard; it turns slowly (main.ts)
 }
 
 const HALL = { minX: -12.6, maxX: 12.6, front: -18.4, back: -41.6 };   // inner faces of the walls (world.ts LIB)
@@ -216,6 +217,17 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
     artifacts.set(e.id, obj);
   }
 
+  // ---------- The Ruined Library's relic: a shard of the Noctavel Portal, still here after the fire ----------
+  // Public lore: "The Library of the Wise … holds an artifact that comes from the Noctavel Portal. The artifact is still there."
+  const altarZ = HALL.back + 3.2;
+  box(1.6, 0.9, 1.0, 0x6B5F58, 0, 0.45, altarZ);                      // stone altar, scorched
+  box(1.8, 0.1, 1.2, 0x4A4240, 0, 0.95, altarZ);                      // slab top
+  colliders.push({ kind: 'box', minX: -0.9, maxX: 0.9, minZ: altarZ - 0.6, maxZ: altarZ + 0.6 });
+  const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: 0x3FE0E8 }));   // rune cyan (A5)
+  shard.position.set(0, 1.4, altarZ); shard.name = 'noctavel_shard';
+  group.add(shard);
+  targets.push(hitbox(0.9, 1.1, 0.9, 0, 1.3, altarZ, { kind: 'relic' }));
+
   // ---------- F9 (0.12): the small exit door at the far end ----------
   const exitDoor = box(1.1, 2.0, 0.12, 0x553823, 0, 1.0, HALL.back + 0.06);
   exitDoor.name = 'exit_door';
@@ -228,5 +240,5 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
     geos.forEach((g) => g.dispose());
   }
 
-  return { targets, redBooks, artifacts, shelfOf, exitDoor };
+  return { targets, redBooks, artifacts, shelfOf, exitDoor, relic: shard };
 }

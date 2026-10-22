@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { controls, type Action } from './controls';
 import type { Collider } from './world';
 import type { Settings } from './settings';
+import { buildFigure } from './world/figure';
 
 // M1 — first-person player. Covers D2, F2.1 (movement half), F1.3.
 // Pointer lock is used when the browser grants it; otherwise hold the left mouse button to look
@@ -19,19 +20,20 @@ export class Player {
   // Skyrim-style: a small deflection walks, a full one runs.
   readonly analog = { x: 0, y: 0 };
   readonly analogLook = { x: 0, y: 0 };   // rad/s, from the right stick
-  // D2 / F2.4: F toggles third person. A6 body = coloured capsule + facing nub, shown only in 3rd person.
+  // D2 / F2.4: F toggles third person. A6 body = Legends-style figure, shown only in 3rd person.
   thirdPerson = false;
   readonly body = new THREE.Group();
   readonly eyePos = new THREE.Vector3();   // F3.1 reach is measured from the eyes, not the 3rd-person camera
 
   constructor(private camera: THREE.PerspectiveCamera, private settings: Settings, private colliders: Collider[], private bounds: number) {
-    // PLACEHOLDER: capsule body until character models exist (H9).
-    const mat = new THREE.MeshToonMaterial({ color: 0x5C8AA0 });
-    const capsule = new THREE.Mesh(new THREE.CapsuleGeometry(controls.playerRadius, controls.eyeHeight - controls.playerRadius * 2 + 0.1, 4, 10), mat);
-    capsule.position.y = (controls.eyeHeight + 0.1) / 2;
-    const nub = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.22), new THREE.MeshToonMaterial({ color: 0xEFE3C4 }));
-    nub.position.set(0, controls.eyeHeight - 0.15, -controls.playerRadius - 0.05);   // faces -Z = forward at yaw 0
-    this.body.add(capsule, nub);
+    // PLACEHOLDER: Mega Man Legends-style figure until player.glb exists (H9, docs/vision.md).
+    // children[0] is the model slot; children[1] marks "forward" and is hidden once a model shows its own front.
+    const figure = buildFigure({ skin: '#F0C8A0', hair: '#5A3420', primary: '#4F7A3A', secondary: '#C9B48A', boots: '#5A3A22', accent: '#7A5236', hairStyle: 'spiky' }, controls.eyeHeight + 0.1);
+    figure.rotation.y = Math.PI;   // figures face +Z; the player faces -Z at yaw 0
+    const facing = new THREE.Object3D();
+    facing.name = 'facing';
+    facing.position.set(0, controls.eyeHeight - 0.15, -controls.playerRadius - 0.05);
+    this.body.add(figure, facing);
     this.body.visible = false;
   }
 

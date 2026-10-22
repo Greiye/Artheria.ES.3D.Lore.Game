@@ -1,0 +1,346 @@
+import * as THREE from 'three';
+import { pixelTexture, rng, type TexName } from '../tex/pixel';
+import { Batch } from './batch';
+import { buildSky } from './sky';
+import { tufts, leafMaterial, wind, type Tuft } from './foliage';
+import { buildFigure, buildCoach } from './figure';
+
+// Rebuild R2 (docs/vision.md, docs/rebuild-plan.md): the start glade in the new look.
+// Vintage Story environment (pixel-textured, lit, dense undergrowth) + Mega Man Legends figures
+// (unlit, painted light) + golden-hour haze and light shafts. Layout, ids and the World contract are
+// unchanged from the legacy build (D7, F1.2–F1.4, F2.2–F2.3, D13), so gameplay and tests carry over.
+
+export interface CircleCollider { kind: 'circle'; x: number; z: number; r: number }
+export interface BoxCollider { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number }
+export type Collider = CircleCollider | BoxCollider;
+
+export interface World {
+  scene: THREE.Scene;
+  colliders: Collider[];
+  bookTarget: THREE.Object3D;   // F3.1 raycast target (forgiving hitbox around the book)
+  bookCenter: THREE.Vector3;
+  spawn: { pos: THREE.Vector3; yaw: number };
+  bounds: number;               // half-size of the walkable square (F1.3)
+  sunElevationDeg: number;      // F2.2: < 15° for the sunset
+  libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
+  natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
+  doorOpen: boolean;
+  openDoor(): void;             // F3.4 `unlock:library_door`
+  standees: Record<string, THREE.Object3D>;  // placeholder characters; .glb model slots replace them
+  solids: THREE.Object3D[];     // F4.2: what a bolt can stick in (the ground is handled separately)
+  update(t: number, camera: THREE.Camera): void;
+  setShadows(on: boolean): void;   // F1.1
+  setFogDistance(far: number): void; // F1.1
+}
+
+const HALF = 50; // F1.2: ~100 x 100 m start area
+const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+
+export function buildWorld(): World {
+  const scene = new THREE.Scene();
+  const colliders: Collider[] = [];
+  const R = rng(20261016);
+  const SUN_ELEV = 13, SUN_AZ = 38;
+  const sky = buildSky(scene, SUN_ELEV, SUN_AZ);
+
+  // One lit material per pixel texture (Lambert: cheap on phones, takes shadows).
+  const mats = new Map<TexName, THREE.MeshLambertMaterial>();
+  const tex = (n: TexName) => mats.get(n) ?? (mats.set(n, new THREE.MeshLambertMaterial({ map: pixelTexture(n) })), mats.get(n)!);
+  const rune = new THREE.MeshBasicMaterial({ color: new THREE.Color('#3FE0E8').multiplyScalar(1.4) });   // A4 rune glow, blooms
+  const B = new Batch();
+  const solids: THREE.Object3D[] = [];
+  const shadowCasters: THREE.Object3D[] = [];
+
+  // ---------- ground ----------
+  const groundGeo = new THREE.PlaneGeometry(HALF * 2 + 60, HALF * 2 + 60, 1, 1).rotateX(-Math.PI / 2);
+  const gUV = groundGeo.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < gUV.count; i++) gUV.setXY(i, gUV.getX(i) * (HALF * 2 + 60), gUV.getY(i) * (HALF * 2 + 60));   // 1 tile per metre
+  const ground = new THREE.Mesh(groundGeo, tex('grass'));
+  ground.name = 'ground';
+  scene.add(ground);
+  // Bare-earth patches: alpha-blended dirt decals around the dais and along the walk.
+  const dirtMat = new THREE.MeshLambertMaterial({ map: pixelTexture('dirt'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+  dirtMat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      vec2 dc = vMapUv2 - 0.5; diffuseColor.a *= smoothstep(0.5, 0.3, length(dc));`).replace('void main() {', 'varying vec2 vMapUv2;\nvoid main() {');
+    sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying vec2 vMapUv2;\nvoid main() {\n  vMapUv2 = uv;').replace('#include <uv_vertex>', '#include <uv_vertex>');
+  };
+  const decal = (x: number, z: number, r: number) => {
+    const g = new THREE.CircleGeometry(r, 20).rotateX(-Math.PI / 2);
+    const uv = g.attributes.uv as THREE.BufferAttribute, p = g.attributes.position as THREE.BufferAttribute;
+    // `uv` stays 0..1 for the soft edge; the map samples world metres via a second set baked into the transform.
+    const m = new THREE.Mesh(g, dirtMat.clone());
+    (m.material as THREE.MeshLambertMaterial).map = pixelTexture('dirt').clone();
+    const t = (m.material as THREE.MeshLambertMaterial).map!;
+    t.needsUpdate = true; t.repeat.set(r * 2, r * 2);
+    void uv; void p;
+    m.position.set(x, 0.006, z);
+    m.raycast = () => {};
+    scene.add(m);
+  };
+  decal(0, 0.5, 4.2); decal(0, 6, 2.2); decal(0, -10, 2.6); decal(0, -15.5, 3.4); decal(-4.2, -2.2, 2.2);
+
+  // ---------- paved path spawn -> lectern -> library ----------
+  const pave = (z0: number, z1: number, gap: number) => {
+    for (let z = z0; z1 > z0 ? z <= z1 : z >= z1; z += z1 > z0 ? 0.7 : -0.7) {
+      for (const x of [-0.36, 0.36]) {
+        if (R() < gap) continue;
+        B.box(tex('paving'), V(x + (R() - 0.5) * 0.06, 0.025, z), 0.64, 0.05, 0.64, (R() - 0.5) * 0.12);
+      }
+    }
+  };
+  pave(1.6, 9, 0.14);
+
+  // ---------- rune dais, pillars, lectern, book ----------
+  B.add(tex('mossStone'), new THREE.CylinderGeometry(2.2, 2.35, 0.1, 10), V(0, 0.05, 0));
+  B.add(tex('stone'), new THREE.CylinderGeometry(1.6, 1.6, 0.04, 10), V(0, 0.11, 0));
+  const glowBits: THREE.Mesh[] = [];
+  [[0, -2.6], [2.6, 0], [-2.6, 0]].forEach(([x, z]) => {
+    B.box(tex('mossStone'), V(x, 0.55, z), 0.5, 1.1, 0.5, Math.PI / 8);
+    B.box(tex('stone'), V(x, 1.14, z), 0.62, 0.08, 0.62, Math.PI / 8);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.2, 0.28), rune);
+    cap.position.set(x, 1.3, z); cap.rotation.y = Math.PI / 4;
+    scene.add(cap); glowBits.push(cap);
+    colliders.push({ kind: 'circle', x, z, r: 0.38 });
+  });
+  // Lectern: chunky carved wood.
+  B.box(tex('wood'), V(0, 0.06, 0), 0.62, 0.12, 0.52);
+  B.box(tex('wood'), V(0, 0.55, 0), 0.22, 0.9, 0.22);
+  B.add(tex('planks'), new THREE.BoxGeometry(0.74, 0.07, 0.54), V(0, 1.05, 0), undefined, 0, -0.35);
+  colliders.push({ kind: 'circle', x: 0, z: 0, r: 0.45 });
+  // The lore book: open pages + red cover, tilted with the lectern top.
+  const book = new THREE.Group();
+  const cover = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.03, 0.44), tex('cover'));
+  const pageL = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.04, 0.39), tex('parchment')); pageL.position.set(-0.155, 0.03, 0); pageL.rotation.z = 0.06;
+  const pageR = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.04, 0.39), tex('parchment')); pageR.position.set(0.155, 0.03, 0); pageR.rotation.z = -0.06;
+  const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.01, 0.46), rune); ribbon.position.set(0, 0.055, 0.02);
+  book.add(cover, pageL, pageR, ribbon);
+  book.position.set(0, 1.12, 0.02);
+  book.rotation.x = -0.35;
+  scene.add(book);
+  shadowCasters.push(cover, pageL, pageR);
+  // Floating rune ring above the book so it reads from spawn (F1.2).
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.025, 4, 12).rotateX(Math.PI / 2), rune);
+  ring.position.set(0, 1.62, 0);
+  scene.add(ring);
+  const bookTarget = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.45, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
+  bookTarget.position.set(0, 1.12, 0);
+  scene.add(bookTarget);
+
+  // ---------- F2.3 / D13: the Ruined Library ----------
+  // Giant scorched stone hall beyond the lectern, front toward spawn, 3.4 m door (2x player). Roof burned away.
+  const LIB = { x: 0, front: -18, w: 26, d: 24, h: 8.5 };
+  const DOOR = { w: 1.8, h: 3.4 };
+  const back = LIB.front - LIB.d, midZ = LIB.front - LIB.d / 2, T = 0.8;
+  const wall = (x: number, y: number, z: number, w: number, h: number, d: number, t: TexName = 'bricks') => B.box(tex(t), V(x, y, z), w, h, d);
+  const side = (LIB.w - DOOR.w) / 2;
+  wall(-(DOOR.w / 2 + side / 2), LIB.h / 2, LIB.front, side, LIB.h, T);
+  wall(DOOR.w / 2 + side / 2, LIB.h / 2, LIB.front, side, LIB.h, T);
+  wall(0, DOOR.h + (LIB.h - DOOR.h) / 2, LIB.front, DOOR.w, LIB.h - DOOR.h, T);
+  wall(-LIB.w / 2, LIB.h / 2, midZ, T, LIB.h, LIB.d);
+  wall(LIB.w / 2, LIB.h / 2, midZ, T, LIB.h, LIB.d);
+  wall(0, LIB.h / 2, back, LIB.w, LIB.h, T);
+  // Buttresses (mossy at the foot), plinth and cornice in lighter stone: built grand, then burned.
+  for (const x of [-LIB.w / 2, -LIB.w / 4, LIB.w / 4, LIB.w / 2]) {
+    wall(x, LIB.h * 0.4, LIB.front + 0.6, 1.2, LIB.h * 0.8, 1.2, 'stone');
+    wall(x, 0.5, LIB.front + 0.6, 1.5, 1.0, 1.5, 'mossStone');
+  }
+  wall(0, 0.3, LIB.front + 0.5, LIB.w + 0.4, 0.6, 0.3, 'mossStone');
+  wall(0, LIB.h - 0.2, LIB.front + 0.1, LIB.w + 0.6, 0.4, T + 0.3, 'stone');
+  // Door frame and broken crenellations.
+  wall(-DOOR.w / 2 - 0.25, DOOR.h / 2 + 0.1, LIB.front + 0.45, 0.4, DOOR.h + 0.2, 0.3, 'stone');
+  wall(DOOR.w / 2 + 0.25, DOOR.h / 2 + 0.1, LIB.front + 0.45, 0.4, DOOR.h + 0.2, 0.3, 'stone');
+  wall(0, DOOR.h + 0.3, LIB.front + 0.45, DOOR.w + 0.9, 0.4, 0.3, 'stone');
+  for (let x = -LIB.w / 2 + 0.8; x < LIB.w / 2; x += 1.9) {
+    if (R() < 0.3) continue;
+    const mh = 0.6 + R() * 0.7;
+    wall(x, LIB.h + mh / 2, LIB.front, 0.9, mh, T, R() < 0.5 ? 'bricks' : 'stone');
+  }
+  // Ivy curtains on the front face: alpha leaf slabs, thickest near the corners.
+  const ivy = leafMaterial('leaves');
+  const ivyB = new Batch();
+  for (let i = 0; i < 16; i++) {
+    const x = (R() < 0.5 ? -1 : 1) * (3 + R() * (LIB.w / 2 - 3.5)), h = 1.5 + R() * 4.5;
+    ivyB.box(ivy, V(x, LIB.h - h / 2 - R() * 1.5, LIB.front + 0.46 + R() * 0.05), 0.8 + R() * 1.6, h, 0.08);
+  }
+  ivyB.flush(scene, 'ivy').forEach((m) => { m.raycast = () => {}; shadowCasters.push(m); });
+  // Fallen blocks at the base (orc fire, D13).
+  for (let i = 0; i < 9; i++) {
+    const x = (R() * 2 - 1) * (LIB.w / 2 - 1), z = LIB.front + 1.2 + R() * 2.5;
+    if (Math.abs(x) < 3.2) continue;
+    const s = 0.4 + R() * 0.6;
+    B.add(tex(R() < 0.5 ? 'bricks' : 'stone'), new THREE.BoxGeometry(1, 1, 1), V(x, s * 0.35, z), V(s * 1.3, s * 0.8, s), R() * 6, (R() - 0.5) * 0.3, (R() - 0.5) * 0.3);
+    colliders.push({ kind: 'circle', x, z, r: s * 1.1 });
+  }
+  const box = (minX: number, maxX: number, minZ: number, maxZ: number) => colliders.push({ kind: 'box', minX, maxX, minZ, maxZ });
+  box(-LIB.w / 2 - T / 2, -DOOR.w / 2, LIB.front - T / 2, LIB.front + 1.2);
+  box(DOOR.w / 2, LIB.w / 2 + T / 2, LIB.front - T / 2, LIB.front + 1.2);
+  box(-LIB.w / 2 - T / 2, -LIB.w / 2 + T / 2, back - T / 2, LIB.front);
+  box(LIB.w / 2 - T / 2, LIB.w / 2 + T / 2, back - T / 2, LIB.front);
+  box(-LIB.w / 2, LIB.w / 2, back - T / 2, back + T / 2);
+  const doorCollider: Collider = { kind: 'box', minX: -DOOR.w / 2, maxX: DOOR.w / 2, minZ: LIB.front - T / 2, maxZ: LIB.front + 1.2 };
+  colliders.push(doorCollider);
+  // The door: its own unit-box mesh scaled to 1.8 x 3.4 m (the door texture is drawn for that shape).
+  const libraryDoor = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), tex('door'));
+  libraryDoor.name = 'library_door';
+  libraryDoor.scale.set(DOOR.w, DOOR.h, 0.2);
+  libraryDoor.position.set(DOOR.w / 2, DOOR.h / 2, 0);
+  const hinge = new THREE.Group();
+  hinge.position.set(-DOOR.w / 2, 0, LIB.front + 0.35);
+  hinge.add(libraryDoor);
+  scene.add(hinge);
+  shadowCasters.push(libraryDoor);
+  solids.push(libraryDoor);
+  // A warm lantern either side of the door (bloom).
+  const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color('#FFC878').multiplyScalar(1.7) });
+  for (const x of [-1.6, 1.6]) {
+    B.box(tex('wood'), V(x, 2.7, LIB.front + 0.55), 0.08, 0.5, 0.3);
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.22), lamp);
+    l.position.set(x, 2.45, LIB.front + 0.72); scene.add(l); glowBits.push(l);
+  }
+  pave(-2.9, LIB.front + 0.8, 0.22);
+
+  // Keep-out zone for scattered props: dais + path + spawn + library and its forecourt.
+  const clear = (x: number, z: number, pad: number) => Math.hypot(x, z) < 4.5 + pad || (Math.abs(x) < 2 + pad && z > LIB.front && z < 12 + pad)
+    || (Math.abs(x) < LIB.w / 2 + 2 + pad && z < LIB.front + 4 + pad && z > back - 2 - pad);
+
+  // ---------- trees: birch + oak, trunks batched, canopies as alpha-cut leaf blocks ----------
+  const canopyDark = leafMaterial('leaves'), canopyLight = leafMaterial('leavesLight');
+  const leafB = new Batch();
+  const trees: [number, number][] = [];
+  const tree = (x: number, z: number) => {
+    const birch = R() < 0.45, h = birch ? 4.5 + R() * 3 : 3.2 + R() * 2, r = birch ? 0.16 : 0.28 + R() * 0.1;
+    B.add(tex(birch ? 'birch' : 'bark'), new THREE.CylinderGeometry(r * 0.8, r, h, 6), V(x, h / 2, z), undefined, R() * 6);
+    if (!birch) {   // root flare + a low branch stub
+      B.add(tex('bark'), new THREE.CylinderGeometry(r, r * 1.6, 0.5, 6), V(x, 0.25, z), undefined, R() * 6);
+    }
+    // Canopy: overlapping leaf blocks around the crown, a few hanging lower; birches are narrow and tall.
+    const blocks = birch ? 5 : 8, cr = birch ? 1.1 : 1.9;
+    for (let i = 0; i < blocks; i++) {
+      const s = (birch ? 0.9 : 1.1) + R() * (birch ? 0.6 : 0.9);
+      const a = R() * Math.PI * 2, d = R() * cr * 0.8, y = h - (birch ? 1.6 : 0.6) + R() * cr * (birch ? 2.0 : 1.1);
+      leafB.add(R() < 0.5 ? canopyDark : canopyLight, new THREE.BoxGeometry(1, 1, 1),
+        V(x + Math.cos(a) * d, y, z + Math.sin(a) * d), V(s, s * (birch ? 1.1 : 0.75), s), R() * 1.5);
+    }
+    if (!birch) for (let i = 0; i < 2; i++) {   // stubby branches out to the crown
+      const a = R() * Math.PI * 2;
+      B.add(tex('bark'), new THREE.BoxGeometry(0.14, 0.14, 1.2), V(x + Math.cos(a) * 0.5, h - 0.8 - i * 0.5, z + Math.sin(a) * 0.5), undefined, -a + Math.PI / 2, 0.5);
+    }
+    colliders.push({ kind: 'circle', x, z, r: r + 0.12 });
+  };
+  for (let i = 0; i < 400 && trees.length < 95; i++) {
+    const x = (R() * 2 - 1) * (HALF - 2), z = (R() * 2 - 1) * (HALF - 2);
+    if (clear(x, z, 3) || trees.some(([a, b]) => Math.hypot(a - x, b - z) < 3.6)) continue;
+    trees.push([x, z]);
+    tree(x, z);
+  }
+  // A ring of tall trees past the boundary so the horizon is forest, not a hard edge (fog swallows it).
+  for (let a = 0; a < Math.PI * 2; a += 0.09) {
+    const r = HALF + 4 + R() * 12, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 7 + R() * 5;
+    B.add(tex(R() < 0.4 ? 'birch' : 'bark'), new THREE.CylinderGeometry(0.3, 0.4, h, 5), V(x, h / 2, z));
+    leafB.add(canopyDark, new THREE.BoxGeometry(1, 1, 1), V(x, h, z), V(4 + R() * 2, 3.5 + R() * 2, 4 + R() * 2), R());
+  }
+  // Bushes: low leaf blocks, walk-through (soft foliage, see assumptions).
+  for (let i = 0; i < 110; i++) {
+    const x = (R() * 2 - 1) * (HALF - 1), z = (R() * 2 - 1) * (HALF - 1);
+    if (clear(x, z, 1)) continue;
+    const s = 0.6 + R() * 0.7;
+    leafB.add(R() < 0.5 ? canopyLight : canopyDark, new THREE.BoxGeometry(1, 1, 1), V(x, s * 0.4, z), V(s * 1.3, s * 0.85, s * 1.2), R() * 3);
+  }
+  leafB.flush(scene, 'canopy').forEach((m) => { m.raycast = () => {}; shadowCasters.push(m); });
+
+  // ---------- rocks + ruined walls ----------
+  const rock = (x: number, z: number, s: number, t: TexName) => {
+    B.add(tex(t), new THREE.DodecahedronGeometry(1, 0), V(x, s * 0.4, z), V(s * (1 + R() * 0.4), s * 0.8, s), R() * 6);
+    colliders.push({ kind: 'circle', x, z, r: s * 1.05 });
+  };
+  for (let i = 0; i < 70; i++) {
+    const x = (R() * 2 - 1) * (HALF - 1), z = (R() * 2 - 1) * (HALF - 1);
+    if (clear(x, z, 1.5)) continue;
+    rock(x, z, 0.35 + R() * R() * 1.6, R() < 0.55 ? 'mossStone' : 'stone');
+  }
+  // Two rocks flanking the path near spawn so collision is easy to test (F1.3 Done-when).
+  rock(-2.4, 6.5, 0.8, 'mossStone'); rock(2.6, 8.5, 0.95, 'stone');
+  colliders.splice(-2, 2, { kind: 'circle', x: -2.4, z: 6.5, r: 0.88 }, { kind: 'circle', x: 2.6, z: 8.5, r: 1.05 });
+  const walls: [number, number, number, number][] = [[-6, -5, 4, 0.5], [5.5, -6, 3, 0.5], [-8, 2, 0.5, 3.5], [8, 1, 0.5, 4]];
+  walls.forEach(([x, z, w, d]) => {
+    B.box(tex('bricks'), V(x, 0.45, z), w, 0.9, d);
+    B.box(tex('mossStone'), V(x, 0.96, z), w + 0.15, 0.12, d + 0.15);
+    colliders.push({ kind: 'box', minX: x - w / 2 - 0.05, maxX: x + w / 2 + 0.05, minZ: z - d / 2 - 0.05, maxZ: z + d / 2 + 0.05 });
+  });
+
+  const statics = B.flush(scene, 'static');
+  statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
+
+  // ---------- undergrowth (instanced, wind-swayed) ----------
+  const scatter = (n: number, minR: number, maxR: number, pad: number, near = 0.6): Tuft[] => {
+    const out: Tuft[] = [];
+    for (let i = 0; i < n * 3 && out.length < n; i++) {
+      // Biased toward the player's area: dense near the glade, sparser far out (fog hides the rest).
+      const a = R() * Math.PI * 2, r = minR + Math.pow(R(), near) * (maxR - minR);
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (Math.abs(x) > HALF + 8 || Math.abs(z) > HALF + 8) continue;
+      if (clear(x, z, pad) && !(Math.hypot(x, z) > 2.5 && Math.hypot(x, z) < 4.2 && R() < 0.5)) continue;
+      out.push({ x, z, s: 0.7 + R() * 0.6, ry: R() * Math.PI });
+    }
+    return out;
+  };
+  tufts(scene, 'grassBlades', scatter(2600, 1.5, 36, -0.6, 0.8), [0.6, 0.5]);
+  tufts(scene, 'flowers', scatter(320, 3, 30, 0.2), [0.5, 0.45]);
+  tufts(scene, 'fern', scatter(300, 4, 40, 0.6), [1.1, 0.8], 0.05);
+
+  // ---------- characters: Mega Man Legends-style placeholders (model slots) ----------
+  const standees: Record<string, THREE.Object3D> = {};
+  const place = (id: string, obj: THREE.Object3D, x: number, z: number, ry: number, r: number) => {
+    obj.position.set(x, 0, z); obj.rotation.y = ry; obj.name = 'standee:' + id;
+    scene.add(obj);
+    colliders.push({ kind: 'circle', x, z, r });
+    standees[id] = obj;
+  };
+  place('stagecoach', buildCoach(3.4), -5.0, -2.6, 0.5, 1.5);
+  place('hero', buildFigure({ skin: '#F0C8A0', hair: '#6B3E22', primary: '#3E6FA8', secondary: '#7FA8D0', boots: '#2E4A6E', accent: '#F2C94C', hairStyle: 'spiky' }, 1.8), 3.8, 3.2, -0.6, 0.35);
+  // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
+  const NAT = { x: -2.8, z: LIB.front + 1.8 };
+  place('natalie', buildFigure({ skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
+  const natalieTarget = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+  natalieTarget.name = 'natalie';
+  natalieTarget.position.set(NAT.x, 0.9, NAT.z);
+  scene.add(natalieTarget);
+
+  let doorOpen = false, doorAngle = 0;
+  return {
+    scene,
+    colliders,
+    bookTarget,
+    bookCenter: new THREE.Vector3(0, 1.12, 0),
+    spawn: { pos: new THREE.Vector3(0, 0, 8.5), yaw: 0 },  // yaw 0 looks toward -Z: the lectern
+    bounds: HALF,
+    sunElevationDeg: SUN_ELEV,
+    libraryDoor,
+    natalieTarget,
+    standees,
+    solids,
+    get doorOpen() { return doorOpen; },
+    openDoor() {
+      if (doorOpen) return;
+      doorOpen = true;
+      colliders.splice(colliders.indexOf(doorCollider), 1);
+    },
+    update(t: number, camera: THREE.Camera) {
+      const targetAngle = doorOpen ? THREE.MathUtils.degToRad(100) : 0;
+      if (doorAngle !== targetAngle) { doorAngle = Math.min(targetAngle, doorAngle + 0.03); hinge.rotation.y = doorAngle; }
+      ring.rotation.y = t * 0.8;
+      ring.position.y = 1.62 + Math.sin(t * 1.6) * 0.05;
+      wind.value = t;
+      sky.update(t, camera);
+    },
+    setShadows(on: boolean) {
+      sky.sun.castShadow = on;
+      ground.receiveShadow = on;
+      shadowCasters.forEach((o) => { o.castShadow = on; o.receiveShadow = on; });
+    },
+    setFogDistance(far: number) {
+      if (scene.fog instanceof THREE.Fog) { scene.fog.near = far * 0.33; scene.fog.far = far; }
+    },
+  };
+}

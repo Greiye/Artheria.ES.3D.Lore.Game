@@ -19,7 +19,7 @@ export interface Settings {
   preset: Preset;
   renderScale: number; // 50-100 (%)
   shadows: boolean;
-  outlines: boolean;
+  postFx: boolean;     // rebuild R1: bloom on glows/sun (replaces the legacy toon outlines)
   fogDistance: number;  // far-plane distance, 20-120 m; near is derived (F1.1)
   fpsCap: FpsCap;
   // F1.2 audio
@@ -28,10 +28,10 @@ export interface Settings {
 
 // F1.1: each preset is a bundle of starting values for the sliders/toggles above it.
 // Picking a preset just fills the sliders — the owner can still fine-tune afterward.
-export const PRESETS: Record<Preset, Pick<Settings, 'renderScale' | 'shadows' | 'outlines' | 'fogDistance' | 'fpsCap'>> = {
-  low: { renderScale: 50, shadows: false, outlines: false, fogDistance: 45, fpsCap: 30 },
-  medium: { renderScale: 75, shadows: false, outlines: true, fogDistance: 85, fpsCap: 60 },
-  high: { renderScale: 100, shadows: true, outlines: true, fogDistance: 120, fpsCap: 0 },
+export const PRESETS: Record<Preset, Pick<Settings, 'renderScale' | 'shadows' | 'postFx' | 'fogDistance' | 'fpsCap'>> = {
+  low: { renderScale: 50, shadows: false, postFx: false, fogDistance: 45, fpsCap: 30 },
+  medium: { renderScale: 75, shadows: false, postFx: false, fogDistance: 85, fpsCap: 60 },
+  high: { renderScale: 100, shadows: true, postFx: true, fogDistance: 120, fpsCap: 0 },
 };
 
 const KEY = 'gametool.settings';
@@ -77,7 +77,8 @@ export function loadSettings(): Settings {
       preset,
       renderScale: clamp(s.renderScale, 50, 100, PRESETS[preset].renderScale),
       shadows: bool(s.shadows, PRESETS[preset].shadows),
-      outlines: bool(s.outlines, PRESETS[preset].outlines),
+      // Saved before the rebuild: the old outlines toggle carries over as the post-effects choice.
+      postFx: bool(s.postFx ?? (s as { outlines?: unknown }).outlines, PRESETS[preset].postFx),
       fogDistance: clamp(s.fogDistance, 20, 120, PRESETS[preset].fogDistance),
       fpsCap: (s.fpsCap === 30 || s.fpsCap === 60 || s.fpsCap === 0) ? s.fpsCap : PRESETS[preset].fpsCap,
       audio: loadAudio(s.audio),
