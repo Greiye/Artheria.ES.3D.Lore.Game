@@ -27,6 +27,19 @@ Spec doc v0.05.
   The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
 - Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
 
+### Rebuild R4: gameplay port
+
+- **Crossbow** viewmodel and bolts use the world's pixel textures and sunlight instead of the legacy toon
+  shading. Every bolt shares one mesh and material.
+- **Imported `.glb` models:** untextured parts are lit by the world's sun and sky (the legacy toon ramp is gone).
+  Textured parts stay unlit with their painted light, and their textures stay crisp pixels.
+- **Fix:** with your back to a wall, the follow camera used to sit inside the player's head. The body now
+  hides until the camera has room again.
+- **Fix:** the held crossbow no longer floats in the dialogue and reading shots.
+- **Animation clips in `.glb` models:** `idle`, `walk`, `run`, `talk` and `aim` play by state with 0.2 s crossfades.
+  Missing clips fall back (run → walk → idle); a model without clips stands still as before. Clip names are in the README.
+- `test/e2e-rebuild.mjs` covers both fixes; `test/e2e-models.mjs` covers the clips.
+
 ### Rebuild R3: camera rig
 
 - **Camera rig** (`src/camera/rig.ts`): the camera code moved out of the player. **Third-person follow is now

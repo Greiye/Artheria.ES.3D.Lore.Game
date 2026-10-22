@@ -12,7 +12,7 @@ const file = path.resolve(process.argv[2] ?? 'dist/index.html');
 const dir = path.join(path.dirname(file), 'models');
 fs.mkdirSync(dir, { recursive: true });
 const made = [path.join(dir, 'natalie.glb'), path.join(dir, 'player.glb'), path.join(dir, 'stagecoach.glb')];
-execFileSync(process.execPath, ['test/fixtures/make-box-glb.mjs', made[0]]);
+execFileSync(process.execPath, ['test/fixtures/make-box-glb.mjs', made[0], '--anim']);   // clips: Idle, Armature|Walk, TALK
 fs.copyFileSync(made[0], made[1]);
 fs.writeFileSync(made[2], 'not a glb');   // broken file: must fall back
 const root = path.dirname(file);
@@ -57,6 +57,26 @@ try {
   check('The model is scaled to the slot height', Math.abs(r.natalieH - 1.75) < 0.01, r.natalieH.toFixed(3) + ' m');
   check('Missing model (hero) keeps the placeholder, without requesting it', r.heroShown && !r.failed.includes('hero'));
   check('Broken model (stagecoach) keeps the placeholder', r.stagecoachShown && r.failed.includes('stagecoach'));
+
+  // R4 animation clips: named clips play by state, missing ones fall back (run → walk, aim → idle).
+  const anim = (id) => page.evaluate((i) => window.__gametool.animators.get(i)?.current ?? null, id);
+  const animIs = (id, want) => page.waitForFunction(([i, w]) => window.__gametool.animators.get(i)?.current === w, [id, want], { timeout: 10000, polling: 100 }).then(() => true, () => false);
+  check('Clips load by name (Idle, Armature|Walk, TALK → idle, walk, talk); idle plays at rest', await anim('natalie') === 'idle' && await page.evaluate(() => [...window.__gametool.animators.get('natalie').actions.keys()].sort().join()) === 'idle,talk,walk');
+  await page.click('#begin');
+  await page.waitForFunction(() => window.__gametool.state === 'play');
+  await page.keyboard.down('KeyW');
+  const ran = await animIs('player', 'walk');
+  await page.keyboard.up('KeyW');
+  check('Moving plays the player\'s run clip, or walk when the file has no run', ran);
+  check('Standing still crossfades back to idle', await animIs('player', 'idle'));
+  await page.evaluate(() => {
+    const g = window.__gametool, n = g.world.natalieTarget.position, pl = g.player;
+    pl.pos.set(n.x + 0.2, 0, n.z + 1.4);
+    pl.yaw = Math.atan2(-(n.x - pl.pos.x), -(n.z - pl.pos.z)); pl.pitch = -0.15;
+  });
+  await page.waitForFunction(() => document.getElementById('promptVerb').textContent === 'Talk to Natalie', null, { timeout: 10000 }).catch(() => undefined);
+  await page.keyboard.press('KeyE');
+  check('Talking plays Natalie\'s talk clip', await animIs('natalie', 'talk'));
   check('No page errors from model loading', errors.length === 0, errors.join(' | '));
 } finally {
   server.close();

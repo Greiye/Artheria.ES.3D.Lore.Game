@@ -77,6 +77,23 @@ without writing the index.
 Style target: Mega Man Legends-like chunky low-poly parts with hand-painted textures (light painted in; textured models
 render unlit). Models load on the live site (and `npm run dev` after a restart); a double-clicked local `dist/index.html` shows placeholders instead.
 
+### Animation clips (optional)
+
+A character `.glb` can carry animation clips: armature or object animation exported with the model, not video.
+Name each clip after the state it plays in. Case doesn't matter, and Blender's `Armature|` prefix is ignored.
+
+| Clip name | Plays when | If the clip is missing |
+|---|---|---|
+| `idle` | Standing still (everyone) | The model holds its exported pose |
+| `walk` | Moving at walking pace | `idle` |
+| `run` | Moving at run or sprint pace | `walk`, then `idle` |
+| `talk` | During dialogue (you and Natalie) | `idle` |
+| `aim` | Crossbow in hand (you) | `idle` |
+
+Clips crossfade over 0.2 s and loop. Make them loopable: the last frame should match the first. In Blender, give
+each action a fake user (the shield icon) so the glTF exporter includes every clip, not only the active one.
+A model without clips still works; it just stands still.
+
 ## Settings (F1)
 
 Open **Settings** from the title screen, or **Esc** during play, then expand **Graphics** / **Audio**.
@@ -177,7 +194,7 @@ test/e2e.mjs              automated Done-when checks (headless Chromium)
 | v0.02 — F1 Settings, A7 Audio, version label (spec §8) | `src/settings.ts`, `src/audio.ts`, `src/version.ts`, `src/world.ts`, `src/main.ts`, `src/style.css`; `content/` renamed from `campaign/` (D7); `sunset`/`dusk` palette tokens added (A5) | `test/e2e-v0.02.mjs`: presets/sliders apply live and persist, bus mute isolation, version label, Low vs. High relative frame cost (informational, #30), no audio-engine errors during play |
 | v0.03 — F2 world/camera, §5, §6.3 prompts | `index.html`, `src/world.ts`, `src/player.ts`, `src/prompts.ts`, `src/main.ts`, `src/controls.ts`, `src/input/touch.ts`, `content/rolltables/creation-prompts.json` | `test/e2e-v0.03.mjs`: fade-in, daily prompt, sun < 15°, 3.4 m door visible from spawn and locked, F toggles POV while moving, camera wall collision |
 | v0.04 — F3 dialogue + inventory | `src/dialogue.ts`, `src/inventory.ts`, `content/items.json`, `src/world.ts` (door, Natalie hitbox) | `test/e2e-v0.04.mjs`: typewriter rate, choices, frozen movement, give/unlock, inventory grid, walk through the open door, n5 prompt then crossbow |
-| .glb loader | `src/models.ts`, `public/draco/`, `vite.config.ts` | `test/e2e-models.mjs`: model replaces placeholder at slot height; missing/broken files fall back |
+| .glb loader + animation clips | `src/models.ts`, `public/draco/`, `vite.config.ts` | `test/e2e-models.mjs`: model replaces placeholder at slot height; missing/broken files fall back; clips play by state with fallbacks |
 | v0.05 — F4 crossbow | `src/crossbow.ts`, `src/main.ts`, input layers | `test/e2e-v0.05.mjs`: equip, ADS FOV, 60 m/s + gravity, sticking, all three reload outcomes, 2× bonus, pickup, 30 s despawn |
 
 Run the checks with:
