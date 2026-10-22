@@ -18,4 +18,4 @@ Long ago the elves began to bear children with rounded ears, who lived short liv
 
 The orcs, cast out in their turn from human society, came back in great numbers and in great anger. War followed, and they burned the Library of the Wise. It has been called the **Ruined Library** ever since.
 
-Some say an artifact from the Noctavel Portal still lies somewhere inside. Nobody tends the place now. There is no caretaker, only scorched stone, fallen shelves, and whatever has moved in.
+An artifact from the Noctavel Portal is still here, in the back hall on a scorched stone altar. The fire never reached it. Nobody tends the place now. There is no caretaker, only scorched stone, fallen shelves, and whatever has moved in.
