@@ -59,6 +59,9 @@ const browser = await chromium.launch({
 const G = (page, fn, arg) => page.evaluate(fn, arg);
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 await ctx.addInitScript(() => localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test', motivation: '', secret: '', created: true })));
+// This suite aims by setting yaw/pitch, never with the mouse. Headless Chromium re-centres the locked pointer with
+// stray mousemoves that would turn the view off the target, so drop them before the game sees them.
+await ctx.addInitScript(() => window.addEventListener('mousemove', (e) => e.stopImmediatePropagation(), true));
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
@@ -73,7 +76,7 @@ await G(page, () => window.__gametool.world.openDoor());   // as after Natalie (
 const lib = await G(page, () => {
   const L = window.__gametool.library;
   const g = window.__gametool.world.scene.getObjectByName('library-interior');
-  return { books: [...L.redBooks.keys()].length, arts: [...L.artifacts.keys()], exit: !!L.exitDoor, furniture: g.children.filter((c) => c.name === 'library-furniture').length, tris: g.children.filter((c) => c.name === 'library-furniture').reduce((n, c) => n + c.geometry.index.count / 3, 0) };
+  return { books: [...L.redBooks.keys()].length, arts: [...L.artifacts.keys()], exit: !!L.exitDoor, furniture: g.children.filter((c) => c.name === 'library-furniture').length, tris: g.children.filter((c) => c.name === 'library-furniture').reduce((n, c) => n + (c.geometry.index ? c.geometry.index.count : c.geometry.attributes.position.count) / 3, 0) };
 });
 check('F5.1 12 shelves, clutter and a small exit door inside', lib.exit && lib.furniture > 0 && lib.tris >= 12 * 8 * 12 && real.shelves.length === 12, JSON.stringify(lib));
 check('F5.2 every red book on the shelves is in the scene', lib.books === lorebooks.length, `${lib.books}/${lorebooks.length}`);
@@ -88,12 +91,14 @@ const aimAt = (page, getter) => G(page, (src) => {
   const d = c.clone().sub(new g.Vector3(p.pos.x, 1.7, p.pos.z));
   p.yaw = Math.atan2(-d.x, -d.z); p.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z));
 }, getter);
+// Wait on the prompt, not wall-clock: the GPU-less test browser draws the library at ~2 fps.
+const verbIs = (want) => page.waitForFunction((w) => document.getElementById('promptVerb').textContent === w && !document.getElementById('prompt').classList.contains('hidden'), want, { timeout: 6000, polling: 100 }).catch(() => undefined);
 const verb = () => G(page, () => !document.getElementById('prompt').classList.contains('hidden') && document.getElementById('promptVerb').textContent);
 const closeBook = async () => { await page.keyboard.press('Tab'); await page.waitForTimeout(300); if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn'); await page.waitForTimeout(200); };
 
 // F5.4 red book → reader
 await aimAt(page, "g.library.redBooks.get('farm-beasts')");
-await page.waitForTimeout(400);
+await verbIs('Read "Farm Beasts: The Goblin Plague"');
 const v1 = await verb();
 await page.screenshot({ path: path.join(shots, 'v06-shelf.png') });
 await page.keyboard.press('KeyE');
@@ -127,7 +132,7 @@ await closeBook();
 // F5.3 grey books → roll-table toast for ~3 s
 const greyLines = JSON.parse(fs.readFileSync('content/rolltables/grey-books.json', 'utf8')).lines;
 await aimAt(page, "g.library.targets.find((t) => t.userData.hit?.kind === 'grey' && t.userData.hit.shelf === 'shelf-9')");
-await page.waitForTimeout(400);
+await verbIs('Read a grey book');
 const v2 = await verb();
 await page.keyboard.press('KeyE');
 await page.waitForTimeout(200);
@@ -140,7 +145,7 @@ check('F5.3 E on a grey book shows a random roll-table line for 3 s', v2 === 'Re
 const arp = await G(page, () => { const a = window.__gametool.audio; window.__arp = 0; const orig = a.arpeggio.bind(a); a.arpeggio = (c) => { window.__arp++; window.__chords = c; return orig(c); }; return true; });
 for (const [slug, expectVerb] of [['natalie-bourbon', 'Meet Natalie Bourbon'], ['song-of-the-paved-road', 'Play "Song of the Paved Road"'], ['ranlean-rhambutan', 'Read "Ranlean Rhambutan"'], ['straphan-at-sunset', 'Look at "Straphan at Sunset"']]) {
   await aimAt(page, `g.library.targets.find((t) => t.userData.hit?.slug === '${slug}')`);
-  await page.waitForTimeout(400);
+  await verbIs(expectVerb);
   const v = await verb();
   await page.keyboard.press('KeyE');
   await page.waitForFunction(() => window.__gametool.reader.isOpen, null, { timeout: 4000 }).catch(() => undefined);

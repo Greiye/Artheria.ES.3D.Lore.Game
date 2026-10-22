@@ -27,6 +27,25 @@ Spec doc v0.05.
   The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
 - Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
 
+### Rebuild R3: camera rig
+
+- **Camera rig** (`src/camera/rig.ts`): the camera code moved out of the player. **Third-person follow is now
+  the default view** (3 m back, 0.5 m right, never through walls; it pulls in at once and eases back out).
+  F still switches to first person.
+- **Framed shots:** opening the lectern book eases the camera to a low three-quarter view of the book, and
+  the page scrim is now lighter and blurred so the shot shows through. Talking to Natalie frames her over the
+  player's shoulder. Both blend back over 0.6 s.
+- **Crossbow:** equipping it switches to first person (the viewmodel), and putting it away restores the
+  previous view, whether you use keyboard, touch or gamepad.
+- **Mouse-look** ignores a single bogus huge jump that Chromium sometimes sends under pointer lock (the view
+  used to snap sideways).
+- **Auto-update notice:** the game checks `build.json` and shows "New version, Reload" when Pages has a newer
+  build (fixes the installed Firefox app lagging one update).
+- `test/e2e-rebuild.mjs` (new, in `npm run test:e2e`) covers the pixel textures, batching, follow camera,
+  reading shot and dialogue shot, and waits on game state rather than wall-clock time.
+  `test/e2e-v0.03.mjs` now expects third person by default. v0.05/v0.06 aim checks no longer race the
+  test browser's frame rate or its pointer re-centring.
+
 ### Roadmap 0.03 — F2 world/camera, §5, §6.3 prompts
 
 - **F2.1 Load + fade-in:** black load screen with a progress bar (`index.html`); 2 s fade once the world is

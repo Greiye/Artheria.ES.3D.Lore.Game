@@ -100,7 +100,7 @@ const PAINTERS = {
     }
     // Soot: a light, patchy darkening (texel noise, not stencilled blobs).
     const n = valueNoise(W, H, 6, R);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (n[y * W + x] + (R() - 0.5) * 0.25 > 0.7) px(g, x, y, '#2E2A28', 0.3);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (n[y * W + x] + (R() - 0.5) * 0.25 > 0.7) px(g, x, y, '#2E2A28', 0.18);
   },
   bark(g, W, H, R) {
     mottle(g, W, H, ['#3A2A1C', '#4A3624', '#5A432C', '#6A5034'], R, { cells: 3, jitter: 0.3 });
@@ -213,6 +213,24 @@ export function pixelTexture(name: TexName): THREE.CanvasTexture {
   t.minFilter = THREE.NearestMipmapLinearFilter;
   t.anisotropy = 4;
   cache.set(name, t);
+  return t;
+}
+
+// "Fast leaves" (Vintage Story's own option): the alpha holes filled with deep shade, so the mesh can be
+// opaque. Opaque leaf blocks keep early depth rejection, which matters a lot for fill-rate on phones.
+const solidCache = new Map<TexName, THREE.CanvasTexture>();
+export function solidTexture(name: TexName, shadeHex = '#1F3316'): THREE.CanvasTexture {
+  let t = solidCache.get(name);
+  if (t) return t;
+  const src = pixelTexture(name).image as HTMLCanvasElement;
+  const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+  const g = c.getContext('2d')!;
+  g.fillStyle = shadeHex; g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(src, 0, 0);
+  t = pixelTexture(name).clone();
+  t.image = c;
+  t.needsUpdate = true;
+  solidCache.set(name, t);
   return t;
 }
 

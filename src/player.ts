@@ -21,11 +21,11 @@ export class Player {
   readonly analog = { x: 0, y: 0 };
   readonly analogLook = { x: 0, y: 0 };   // rad/s, from the right stick
   // D2 / F2.4: F toggles third person. A6 body = Legends-style figure, shown only in 3rd person.
-  thirdPerson = false;
+  thirdPerson = true;   // rebuild R3: third-person follow is the default view (docs/vision.md)
   readonly body = new THREE.Group();
   readonly eyePos = new THREE.Vector3();   // F3.1 reach is measured from the eyes, not the 3rd-person camera
 
-  constructor(private camera: THREE.PerspectiveCamera, private settings: Settings, private colliders: Collider[], private bounds: number) {
+  constructor(private settings: Settings, private colliders: Collider[], private bounds: number) {
     // PLACEHOLDER: Mega Man Legends-style figure until player.glb exists (H9, docs/vision.md).
     // children[0] is the model slot; children[1] marks "forward" and is hidden once a model shows its own front.
     const figure = buildFigure({ skin: '#F0C8A0', hair: '#5A3420', primary: '#4F7A3A', secondary: '#C9B48A', boots: '#5A3A22', accent: '#7A5236', hairStyle: 'spiky' }, controls.eyeHeight + 0.1);
@@ -37,12 +37,17 @@ export class Player {
     this.body.visible = false;
   }
 
-  togglePOV() { this.thirdPerson = !this.thirdPerson; this.syncCamera(); }
+  // Where the player is looking (yaw/pitch), independent of where the camera rig currently is.
+  lookDir(out: THREE.Vector3): THREE.Vector3 {
+    return out.set(0, 0, -1).applyEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
+  }
+
+  togglePOV() { this.thirdPerson = !this.thirdPerson; }
 
   spawn(p: THREE.Vector3, yaw: number) {
     this.pos.copy(p); this.yaw = yaw; this.pitch = 0; this.vy = 0; this.grounded = true; this.sneaking = false;
     this.eye = controls.eyeHeight;
-    this.syncCamera();
+    this.syncBody();
   }
 
   // F2.1 Mouse: look, pitch clamped ±89°, invert Y + sensitivity from settings (F2.3).
@@ -104,7 +109,7 @@ export class Player {
     // D2 / F2 C: eye height eases between 1.7 m and 1.1 m.
     const target = this.sneaking ? controls.sneakEyeHeight : controls.eyeHeight;
     this.eye += (target - this.eye) * Math.min(1, dt * 12);
-    this.syncCamera();
+    this.syncBody();
   }
 
   // F1.3: push the player circle out of every collider, then clamp to the invisible boundary.
@@ -136,35 +141,11 @@ export class Player {
     this.pos.z = THREE.MathUtils.clamp(this.pos.z, -lim, lim);
   }
 
-  private syncCamera() {
+  // Eyes + body follow the simulation; the camera itself is placed by CameraRig (src/camera/rig.ts).
+  private syncBody() {
     this.eyePos.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
-    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
-    this.body.visible = this.thirdPerson;
     this.body.position.set(this.pos.x, this.pos.y - (controls.eyeHeight - this.eye) * 0.5, this.pos.z);
     this.body.scale.y = this.eye / controls.eyeHeight;
     this.body.rotation.y = this.yaw;
-    if (!this.thirdPerson) { this.camera.position.copy(this.eyePos); return; }
-    // D2 default: 3 m back, 0.5 m right of the eyes, pulled in so it never ends up inside a collider.
-    const back = new THREE.Vector3(0, 0, 1).applyEuler(this.camera.rotation).multiplyScalar(controls.thirdPerson.back);
-    const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).multiplyScalar(controls.thirdPerson.right);
-    const offset = back.add(right);
-    const p = new THREE.Vector3();
-    let free = 0;
-    for (let t = 0.05; t <= 1.0001; t += 0.05) {
-      p.copy(this.eyePos).addScaledVector(offset, t);
-      if (p.y < 0.2 || this.blocked(p.x, p.z, controls.thirdPerson.wallPad)) break;
-      free = t;
-    }
-    this.camera.position.copy(this.eyePos).addScaledVector(offset, free);
-  }
-
-  // F2.4 camera wall collision: is this XZ point inside (or within `pad` of) a collider or past the edge?
-  private blocked(x: number, z: number, pad: number): boolean {
-    if (Math.abs(x) > this.bounds - pad || Math.abs(z) > this.bounds - pad) return true;
-    for (const c of this.colliders) {
-      if (c.kind === 'circle') { if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return true; }
-      else if (x > c.minX - pad && x < c.maxX + pad && z > c.minZ - pad && z < c.maxZ + pad) return true;
-    }
-    return false;
   }
 }

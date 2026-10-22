@@ -55,8 +55,10 @@ await page.mouse.up({ button: 'right' });
 check('F4.1 RMB aims down sights (FOV −15°)', Math.abs(baseFov - 15 - adsFov) < 1, `${baseFov} → ${adsFov.toFixed(1)}`);
 
 // F4.1 / F4.2: LMB fires; bolt leaves the muzzle at 60 m/s and sticks in the library wall.
-await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, -5); p.yaw = -0.3; p.pitch = 0.05; /* aim right of the door, clear of Natalie */ });
-await page.waitForTimeout(300);
+// Aim right of the door, clear of Natalie. Set it in a capture listener on the click itself: headless Chromium
+// re-centres the locked pointer with stray mousemoves that would otherwise turn the view between aim and click.
+await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, -5); window.addEventListener('mousedown', () => { p.yaw = -0.3; p.pitch = 0.05; }, { capture: true, once: true }); });
+await page.waitForTimeout(300);   // a frame moves the eye to the new position
 await page.mouse.down({ button: 'left' }); await page.mouse.up({ button: 'left' });
 const shot = await cb(() => { const b = window.__gametool.crossbow.bolts[0]; return b ? { speed: b.vel.length(), d: b.origin.distanceTo(window.__gametool.player.eyePos) } : null; });
 check('F4.1 LMB fires: a bolt leaves the muzzle', !!shot && shot.d < 1, JSON.stringify(shot));

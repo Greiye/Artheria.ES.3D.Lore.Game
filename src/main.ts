@@ -22,6 +22,7 @@ import { Inventory, ITEMS } from './inventory';
 import { Crossbow, ZONE } from './crossbow';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
+import { CameraRig } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, type ModelSlot } from './models';
 
 // Private, all rights reserved (D8). Not open source.
@@ -71,11 +72,16 @@ progress(80);
 renderer.shadowMap.enabled = settings.shadows;
 world.setShadows(settings.shadows);
 world.setFogDistance(settings.fogDistance);
+const FOLIAGE = { low: 0.35, medium: 0.6, high: 1 } as const;   // R3 perf: undergrowth density per preset
+world.setFoliage(FOLIAGE[settings.preset]);
 post = new Post(renderer, world.scene, camera);
 post.setSize(window.innerWidth, window.innerHeight);
 post.setEnabled(settings.postFx);
-const player = new Player(camera, settings, world.colliders, world.bounds);
+const player = new Player(settings, world.colliders, world.bounds);
 player.spawn(world.spawn.pos, world.spawn.yaw);
+// R3: the camera rig places the camera (follow / first person / framed shots); the player only moves.
+const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => settings.fov);
+rig.update(0);
 world.scene.add(player.body);
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
 const modelSlots: ModelSlot[] = [
@@ -127,7 +133,7 @@ ui.innerHTML = `
         <tr><td>Alt</td><td>Sprint (hold)</td><td>Space</td><td>Jump</td></tr>
         <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
-        <tr><td>F</td><td>First / third person</td><td>L</td><td>Write lore</td></tr>
+        <tr><td>F</td><td>Third / first person</td><td>L</td><td>Write lore</td></tr>
       </table>
       <p class="fine">Private project · all rights reserved.</p>
     </div>
@@ -261,6 +267,7 @@ function setState(s: State) {
     touch?.reset();
   }
   document.body.dataset.state = s;
+  if (s !== 'dialogue' && s !== 'book') rig.setShot(null);   // R3: framed shots only while reading or talking
 }
 
 // ---------- pointer lock ----------
@@ -388,6 +395,13 @@ function equip(on: boolean) {
   if (on && !crossbow.equip()) { toast('You have no crossbow yet.', 1800); return; }
   if (!on) crossbow.unequip();
 }
+// R3: the crossbow is aimed in first person (viewmodel); putting it away restores the previous view.
+// Watched per frame so keyboard, touch and gamepad equips all behave the same.
+let viewBeforeCrossbow: boolean | null = null;
+function syncCrossbowView() {
+  if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; }
+  else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; }
+}
 let toastTimer = 0;
 function toast(msg: string, ms = 3000) {
   const el = $('toast');
@@ -416,6 +430,7 @@ dialogue.onEnd = () => {
 };
 function talkToNatalie() {
   setState('dialogue');   // F3.3: frees the pointer, freezes movement
+  rig.setShot(rig.twoShot(world.natalieTarget.position, 1.55));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   dialogue.start(natalieScript as DialogueScript);
 }
@@ -466,6 +481,7 @@ book.onLink = (slug) => { book.close(); void openReader(slug); };
 // ---------- book open / close (F3.2, F3.6) ----------
 async function openBook() {
   setState('book');
+  rig.setShot(rig.readingShot(world.bookCenter));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   await book.open();
 }
@@ -622,6 +638,9 @@ window.addEventListener('mousemove', (e) => {
   if (state !== 'play') return;
   const locked = document.pointerLockElement === canvas;
   if (inputMode !== 'mouse') return;
+  // Chromium sometimes sends one bogus huge delta under pointer lock (on lock, or re-centring the cursor);
+  // a real hand never moves 350 px in a single event, so drop it instead of snapping the view.
+  if (Math.abs(e.movementX) > 350 || Math.abs(e.movementY) > 350) return;
   if (locked || (!lockSupported && mouseHeld)) player.look(e.movementX, e.movementY);
 });
 
@@ -674,7 +693,7 @@ presetSel.addEventListener('change', () => {
   Object.assign(settings, PRESETS[p]);
   saveSettings(settings); syncMenu();
   applyRenderScale(); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows);
-  post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance);
+  post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance); world.setFoliage(FOLIAGE[p]);
 });
 renderScaleEl.addEventListener('input', () => { settings.renderScale = Number(renderScaleEl.value); saveSettings(settings); syncMenu(); applyRenderScale(); });
 shadowsEl.addEventListener('change', () => { settings.shadows = shadowsEl.checked; saveSettings(settings); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows); });
@@ -728,6 +747,7 @@ function frame() {
   world.update(clock.elapsedTime, camera);
   library.relic.rotation.y = clock.elapsedTime * 0.6;   // the Noctavel shard turns slowly
   gamepad.update();
+  syncCrossbowView();
   if (state === 'play') {
     simAcc += dt;
     while (simAcc >= SIM_STEP) {
@@ -739,8 +759,9 @@ function frame() {
         if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); }
       } else stepTimer = 0;
     }
+    rig.update(dt);   // R3: camera follows this frame's simulation before anything aims along it
     // F3.1: 2 m reach from the eyes along the view direction (same in 1st and 3rd person, F2.4).
-    camera.getWorldDirection(lookDir);
+    player.lookDir(lookDir);
     ray.set(player.eyePos, lookDir);
     const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget, ...library.targets], false)[0];
     libraryHit = (hit?.object.userData.hit as LibraryHit | undefined) ?? null;
@@ -755,7 +776,7 @@ function frame() {
     if (s !== lastStatus) { statusEl.textContent = s; lastStatus = s; }
     crossbow.update(dt);
     touch?.update();
-  } else { lookingAt = null; crossbow.setADS(false); }
+  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
   updateAmmoHud();
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
@@ -773,5 +794,26 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
   setTimeout(() => loader.remove(), 2100);
 }));
 
+// Installed app / long-open tab: offer a reload when the live site has a newer build (vite.config.ts buildStamp).
+declare const __BUILD_ID__: string;
+async function checkForUpdate() {
+  if (!location.protocol.startsWith('http')) return;
+  try {
+    const r = await fetch('./build.json', { cache: 'no-store' });
+    if (!r.ok) return;
+    const { build } = await r.json() as { build?: string };
+    if (build && build !== __BUILD_ID__ && !document.getElementById('updateBar')) {
+      const bar = document.createElement('div');
+      bar.id = 'updateBar';
+      bar.innerHTML = 'A new version of the game is out. <button class="primary">Reload</button>';
+      bar.querySelector('button')!.addEventListener('click', () => location.reload());
+      document.body.appendChild(bar);
+    }
+  } catch { /* offline: keep playing the copy we have */ }
+}
+void checkForUpdate();
+setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
+
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
