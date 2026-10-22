@@ -37,9 +37,14 @@ Spec doc v0.05.
   player's shoulder. Both blend back over 0.6 s.
 - **Crossbow:** equipping it switches to first person (the viewmodel), and putting it away restores the
   previous view, whether you use keyboard, touch or gamepad.
+- **Mouse-look** ignores a single bogus huge jump that Chromium sometimes sends under pointer lock (the view
+  used to snap sideways).
+- **Auto-update notice:** the game checks `build.json` and shows "New version, Reload" when Pages has a newer
+  build (fixes the installed Firefox app lagging one update).
 - `test/e2e-rebuild.mjs` (new, in `npm run test:e2e`) covers the pixel textures, batching, follow camera,
   reading shot and dialogue shot, and waits on game state rather than wall-clock time.
-  `test/e2e-v0.03.mjs` now expects third person by default.
+  `test/e2e-v0.03.mjs` now expects third person by default. v0.05/v0.06 aim checks no longer race the
+  test browser's frame rate or its pointer re-centring.
 
 ### Roadmap 0.03 — F2 world/camera, §5, §6.3 prompts
 

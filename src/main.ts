@@ -638,6 +638,9 @@ window.addEventListener('mousemove', (e) => {
   if (state !== 'play') return;
   const locked = document.pointerLockElement === canvas;
   if (inputMode !== 'mouse') return;
+  // Chromium sometimes sends one bogus huge delta under pointer lock (on lock, or re-centring the cursor);
+  // a real hand never moves 350 px in a single event, so drop it instead of snapping the view.
+  if (Math.abs(e.movementX) > 350 || Math.abs(e.movementY) > 350) return;
   if (locked || (!lockSupported && mouseHeld)) player.look(e.movementX, e.movementY);
 });
 
