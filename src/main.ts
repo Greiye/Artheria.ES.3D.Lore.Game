@@ -433,6 +433,7 @@ function activate() {
 
 // ---------- F5 shelves: grey books (roll table), red books + artifacts (reader) ----------
 function useLibrary(h: LibraryHit) {
+  if (h.kind === 'relic') { toast('A shard of the Noctavel Portal hums in its cradle. The fire never reached it.', 4000); return; }
   if (h.kind === 'grey') { toast(greyBooks.lines[Math.floor(Math.random() * greyBooks.lines.length)], 3000); audio.pageTurn(); return; }   // F5.3
   const e = entryById.get(h.slug);
   if (!e) return;
@@ -690,6 +691,7 @@ const lookDir = new THREE.Vector3();
 const clock = new THREE.Clock();
 const statusEl = $('status');
 function libraryVerb(h: LibraryHit): string {
+  if (h.kind === 'relic') return 'Look at the Noctavel shard';
   if (h.kind === 'grey') return 'Read a grey book';
   const e = entryById.get(h.slug);
   if (!e) return 'Read';
@@ -718,6 +720,7 @@ function frame() {
   // Long stalls (tab in background) are capped at 0.25 s so the player doesn't teleport.
   const dt = Math.min(clock.getDelta(), 0.25);
   world.update(clock.elapsedTime);
+  library.relic.rotation.y = clock.elapsedTime * 0.6;   // the Noctavel shard turns slowly
   gamepad.update();
   if (state === 'play') {
     simAcc += dt;

@@ -51,6 +51,13 @@ Spec doc v0.05.
 - Creativity check: none for 0.05 (combat only, as §8 states).
 - `test/e2e-v0.05.mjs`.
 
+### Ruined Library lore pass
+
+- The Noctavel Portal artifact is on a scorched stone altar in the back hall (public lore: "holds an artifact
+  that comes from the Noctavel Portal. The artifact is still there."). It turns slowly and gives its line when E is pressed.
+- Grey books gain two charred-by-orc-fire lines (mapping §0 0.06 row).
+- The Ruined Library entry says where the artifact is now. Part III DM material is not used.
+
 ### Roadmap 0.06 — F5 library and books, §6.1–§6.5 (the creativity version)
 
 - **F5.1 Library interior:** 12 shelves (6 per side wall) with name plates, three tables with candles and
