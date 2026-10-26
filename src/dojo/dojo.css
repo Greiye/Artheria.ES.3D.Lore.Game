@@ -1,0 +1,10 @@
+/* Phase F: B14 dojo. */
+.dojo-panel h5 { margin: 10px 0 4px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--stone); }
+.dj-disclaimer { background: rgba(232,200,120,.12); border-left: 3px solid #E8C878; padding: 8px 10px; border-radius: 4px; font-size: 14px; line-height: 1.45; }
+.dj-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #A8423A; color: #fff; font-size: 11px; vertical-align: middle; letter-spacing: .03em; }
+.dj-steps { padding-left: 1.3em; margin: 4px 0; font-size: 14px; line-height: 1.45; }
+.dj-steps li { margin: 3px 0; }
+.dj-safety { font-size: 13px; color: #F0C080; margin: 6px 0; }
+.dj-count { font: 700 26px/1.2 Georgia, serif; text-align: center; margin: 8px 0 2px; color: var(--parchment); }
+.dojo-panel details { margin-top: 10px; }
+.dojo-panel summary { cursor: pointer; color: var(--parchment); }

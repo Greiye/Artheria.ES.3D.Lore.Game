@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "pedlar": {
+    "name": "The Curio Pedlar",
+    "placeholder": true,
+    "greeting": "Curios, stories, and lies. Mostly lies. Show me what you carry, and I'll tell you what it's worth in words."
+  },
+  "items": {
+    "noctavel_shard": {
+      "name": "Shard of the Noctavel Portal",
+      "legendary": true,
+      "canon": "When the orcs burned the Library of the Wise, the Scholar summoned the Patron, and the sky went grey. The demons that followed were banished, but two portals were left behind: the Noctavel Portal and the Emberkin Portal. A shard of the Noctavel Portal still sits on the scorched altar in the back hall. The fire never reached it.",
+      "source": "the-promise-that-shattered-the-world",
+      "credit_as": "Mike",
+      "rumors": []
+    },
+    "crossbow": {
+      "name": "Scout's Crossbow",
+      "legendary": true,
+      "canon": "Natalie's scout carried it into the Ruined Library. The goblin bit through its string while he was aiming. Natalie kept it, and gave it to the next person brave enough to go in.",
+      "source": "natalies-field-note",
+      "credit_as": "Mike",
+      "rumors": []
+    }
+  }
+}

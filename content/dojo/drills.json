@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "disclaimer": "These are light, beginner-friendly movements, not medical or professional advice. Warm up first, go at your own pace, and stop if anything hurts or feels wrong. Skip any drill that isn't right for your body, and check with a doctor or a qualified coach if you're unsure. Anything risky is done by your character only.",
+  "drills": [
+    { "id": "stance", "name": "Horse stance", "pose": "stance", "kind": "hold", "target": 20,
+      "character": "Your character sinks into a deep, wide horse stance and holds it.",
+      "you": ["Stand with your feet a bit wider than your shoulders, toes forward.", "Bend your knees and sit back only as low as is comfortable. A shallow stance is fine.", "Keep your back straight and breathe slowly. Hold for up to 20 seconds."],
+      "safety": "Keep your knees over your toes. Stop if your knees or back hurt." },
+    { "id": "punch", "name": "Straight punches", "pose": "punch", "kind": "reps", "target": 20,
+      "character": "Your character throws quick, straight punches, left and right.",
+      "you": ["Stand relaxed, fists loosely closed, thumbs outside your fingers.", "Punch slowly into the air in front of you, left then right.", "Breathe out on each punch. Ten each side."],
+      "safety": "Punch the air only. Don't lock your elbows, and keep a clear space around you." },
+    { "id": "eyes", "name": "Eyes-open focus", "pose": "punch", "kind": "reps", "target": 10, "characterOnly": true,
+      "character": "Your character punches the surface of a water barrel without blinking, training the eyes to stay open when something comes fast.",
+      "you": ["The water punch stays with your character. Your version: stand or sit and pick a spot on the wall.", "Keep your eyes soft and open while you slowly bring an open hand toward your face, then away. Ten times.", "Blinking is fine. You're practising staying calm, not staring."],
+      "safety": "Never punch water or anything hard, and never splash or poke at anyone's eyes." },
+    { "id": "hang", "name": "The inverted bowl crunch", "pose": "hang", "kind": "reps", "target": 8, "characterOnly": true,
+      "character": "Your character hangs upside down from the bar by the knees and curls up again and again, scooping water from a bowl below and pouring it into a bowl above.",
+      "you": ["Hanging upside down stays with your character. Your version: seated knee tucks.", "Sit on the floor, hands behind you, and lean back a little.", "Bring your knees toward your chest, then stretch your legs out again. Eight slow reps."],
+      "safety": "Keep it slow and stop if your back or neck complains. Skip it if you've had back trouble." },
+    { "id": "plank", "name": "Plank", "pose": "plank", "kind": "hold", "target": 20,
+      "character": "Your character holds a long, steady plank on the mat.",
+      "you": ["Forearms on the floor, elbows under your shoulders.", "Knees down is a fine beginner version. Keep a straight line from head to knees or heels.", "Breathe. Hold for up to 20 seconds."],
+      "safety": "Don't let your lower back sag. Stop if it hurts." }
+  ]
+}

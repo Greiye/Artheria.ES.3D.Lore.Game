@@ -27,6 +27,120 @@ Spec doc v0.05.
   The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
 - Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
 
+### Phase F: places (B15, B7, B14)
+
+- **Seeded dungeon (B15, `src/dungeon/`):** a trapdoor beside the Ruined Library (E: *Open the trapdoor*) leads to
+  a dungeon generated from a seed. The default is today's date; any number or word works, and the same seed always
+  builds the same dungeon, so you can send one to a friend. Rooms are tagged (entrance, treasure, goblin nest,
+  shrines, pools, halls), with one of five themes. Painted torch light is stored in tile colours, so it costs five
+  draw calls. Chests give a trinket once per seed. Shrine carvings quote library lore with its credit. *Climb back
+  up* returns you to the glade, and delves are saved on this device.
+- **Living map (B7, `src/map/`, M or the pause menu):** a hand-inked glade map that fills in as you walk (fog of
+  war in 4 m cells) and marks what you did: clues, your lead, the friend you found, your ballad, delved seeds and
+  drills done. *Pin it here* adds your own notes, and *Submit my notes…* exports them as `type: map-notes`.
+- **Dojo (B14, `src/dojo/`):** training mats, a bar and a water barrel south-west of the dais (E: *Train at the
+  dojo*). A safety disclaimer comes first. Your character then demonstrates each drill (horse stance, punches,
+  eyes-open focus, the inverted bowl crunch, plank) with new procedural poses, while the panel gives a
+  beginner-safe version to do yourself. Risky moves are marked *character only*. Holds count seconds, reps are on
+  the honour system, and *Teach a drill* submits a new one only with a beginner-safe version.
+
+### Phase E: campfire (B8, B11, B9)
+
+- **Campfire + the bard (B8, `src/campfire/`):** a fire ring with log seats at the camp (E: *Sit by the fire*). Tell the
+  adventure in three turns (how it started, what you found, how it ended). Natalie takes a turn between yours, from
+  your quest so far. She is a bard, so she turns it into a ballad: your lines become verses, with her couplets and a
+  refrain. Nothing about your story is invented. *Put it on the shelf* saves it, and *Submit…* exports a `type: song`.
+  A new telling can **pick up where another ballad left off** (collaborative chain).
+- **Bard tunes (B11):** an 8-step sequencer over a C-major pentatonic scale (any pattern sounds fine), with chords
+  allowed, three instruments (lute, flute, bells) and a tempo. The ballad keeps its tune (`tune:` line plus a
+  chord line for the library music box) and plays it whenever it's opened.
+- **Gallery hall (B9):** an open-air hall east of the dais with eight framed, credited exhibits: your hero (portrait
+  from the forge), your crossbow and its legend, your banner, your latest ballad, your theory, and three library
+  works once you've read them (Natalie Bourbon, Straphan at Sunset, Song of the Paved Road). E on a frame shows the
+  card, and *Open* reads it. All eight pictures share one canvas atlas.
+
+### Phase D: quests (B2, B12)
+
+- **Story seed: "Where did Natalie's party go?"** (`content/quest/missing-party.json`, `src/quest/`). Natalie's
+  crossbow talk starts it. Seven clues are hidden around the glade, the camp and the library (a rune glint marks
+  each one; E: *Look closer*). With three or more, the **casebook** (J, or the pause menu) lets you write what you
+  think happened. Natalie reads your words and suggests *who / where / why* tags; you pick the tags. Optional
+  constraint dice (B6). Your theory decides where the blue lead light appears (library, forest or road), which friend
+  you find, and how Natalie finishes her field note. No theory is wrong. Natalie also says whether the clues back it up.
+  *Submit my theory…* exports it as a `type: theory` reply to *Natalie's Field Note*.
+- **Companion (B2):** talk to Natalie again after the crossbow and she adds *What do you think?*, *Come with me /
+  Wait here* and *casebook* to her usual choices. Following, she walks a step behind you (through the library door
+  too), turns to face you, and thinks out loud about places and clues. *Quiet companion* in the pause menu mutes her
+  ambient lines.
+- **Item folklore + the Curio Pedlar (B12, `src/quest/folklore.ts`):** an Owlkin trader by the coach road
+  (placeholder NPC). Legendary things you've seen (the Noctavel shard, the scout's crossbow) carry fixed canon,
+  credited, with curated player rumors under it. *I want to tell you about something I found* opens the folklore
+  panel: name any item or clue you hold, give it a history and a rumor, and *Submit…* it.
+- Budget: the library's red books draw as one mesh (13 → 1 draw calls); clicking a book works as before.
+
+### Phase C: writing on the world (B13, B3, B10)
+
+- **Sketchbook + camp banner (B10, `src/writing/sketch.ts`):** a 32×32 pixel painter with a 15-colour Legends/Vintage
+  Story palette, pen, fill, eraser, mirror, undo and a shelf of up to 12 saved sketches. *Hang on the banner* stamps the
+  sketch onto a cloth banner at the camp, which sways in the wind. Open it at the banner pole (E) or from the pause menu.
+  Sketches double as wax seals on margin notes. *Submit…* exports the sketch as a lore file (`pixels:` front matter).
+- **Margin notes (B3, `src/writing/margins.ts`):** the ✎ on any open book (the lectern book or a shelf book) pins a
+  handwritten note to that page. Notes show as tilted paper slips in the ink they were written in, with an optional
+  wax seal. Tap to unfold, × to remove. The lectern's 3D pages get ink scribbles and seals, and every shelf book you
+  wrote in gets a ribbon bookmark in your ink. *Submit my notes on this story…* exports a `type: margin` file with
+  `reply_to` the entry.
+- **Ink and paper (B13):** six inks (iron gall, sepia, cinnabar, verdigris, indigo, rune glow) and four papers (fresh,
+  aged, vellum, charred) restyle every book and the lectern pages.
+- Text boxes now keep Space and the arrow keys (they were swallowed by the game). The camp is batched (10 → 4 draw
+  calls) so the scene stays under the F5.1 budget. The pause menu has *Character* (the original form) and
+  *Character forge* as separate buttons again.
+
+### Phase B: forges and dice (B4, B5, B6)
+
+- **Travellers' camp** by the stagecoach: a standing **mirror** (character forge) and an **anvil** (weapon forge).
+  Both are also in the pause menu.
+- **Character forge** (`src/forge/character.ts`): 11 lore species (Human, Elf, Infernling, Drakari, Owlkin, Emberkin,
+  Stonekin, Cinderkin, Titankin, Corvani, Lumari). Species add horns, tails, snouts, beaks, wing feathers, ear tufts,
+  pointed ears, a halo, a flame crest or rock plates. You also pick height, build, skin, eye style and colour,
+  freckles or paint, six hair styles, outfit colours and coat tails, plus a name and backstory. The camera frames your
+  real in-game character, which updates live (drag to turn it). Your look replaces the default body everywhere.
+- **Weapon forge** (`src/forge/weapon.ts`), cosmetic only: stock style, limb style, five materials, a tint, metal
+  and string colours, an engraving drawn on the stock, a name and a legend. It previews over the anvil, and your held
+  crossbow uses it.
+- **Constraint dice** (`src/forge/dice.ts`, `content/rolltables/constraint-dice.json`): roll a word, a mood and a rule
+  to work into a backstory or legend. Lore names and species are faces too. You get two rerolls.
+- **Curated submissions** (`src/submit.ts`, Mike's decision 2026-10-26): everything is saved on the device. *Submit*
+  offers a pre-filled GitHub issue for review, a .md download, or a copy. Nothing goes public until Mike merges it.
+  A submitted character keeps its `look:` line, and the library draws it with that look.
+- `test/e2e-forge.mjs` (18 checks).
+
+### Phase A: animation and polish (B1, R5)
+
+- **Every character animates** (`src/anim/procedural.ts`). The built-in figures are now one skinned mesh on a
+  12-bone rig (still one draw call). They get walk and run cycles with knee bend, arm swing, hip bob and lean,
+  idle breathing and weight shift, talk gestures with nods, a two-handed aim pose, a jump tuck and a landing squash.
+  All of these blend smoothly.
+- **NPCs look at you:** Natalie, the hero and the library figures turn their heads toward a player within 6 m.
+- **Your body turns to where you move** in third person, instead of strafing sideways. With the crossbow in hand,
+  or in first person, it faces the view.
+- **`.glb` models:** clips win when present (R4). A model without clips now bobs, leans and breathes as a whole,
+  instead of standing frozen.
+- **Footstep dust** on running steps, and a ring of it on landing (one draw call).
+- **Look:** a soft vignette on every preset, and a light colour grade on High (cool shadows, warm highlights).
+
+### Rebuild R4: gameplay port
+
+- **Crossbow** viewmodel and bolts use the world's pixel textures and sunlight instead of the legacy toon
+  shading. Every bolt shares one mesh and material.
+- **Imported `.glb` models:** untextured parts are lit by the world's sun and sky (the legacy toon ramp is gone).
+  Textured parts stay unlit with their painted light, and their textures stay crisp pixels.
+- **Fix:** with your back to a wall, the follow camera used to sit inside the player's head. The body now
+  hides until the camera has room again.
+- **Fix:** the held crossbow no longer floats in the dialogue and reading shots.
+- **Animation clips in `.glb` models:** `idle`, `walk`, `run`, `talk` and `aim` play by state with 0.2 s crossfades.
+  Missing clips fall back (run → walk → idle); a model without clips stands still as before. Clip names are in the README.
+- `test/e2e-rebuild.mjs` covers both fixes; `test/e2e-models.mjs` covers the clips.
+
 ### Rebuild R3: camera rig
 
 - **Camera rig** (`src/camera/rig.ts`): the camera code moved out of the player. **Third-person follow is now

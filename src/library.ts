@@ -4,8 +4,10 @@
 // Rebuild R4: restyled to the new look: pixel-textured wood and stone (world-metre UVs, batched), a
 // flagstone floor, Legends-style figures for character artifacts. PLACEHOLDER: a .glb pass comes later.
 import * as THREE from 'three';
+import { decodeLook } from './forge/character';
 import { pixelTexture, type TexName } from './tex/pixel';
 import { Batch } from './world/batch';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildFigure } from './world/figure';
 import { lore, entryById, resolveImage, type LoreEntry } from './lore';
 import type { Collider } from './world';
@@ -13,6 +15,7 @@ import type { Collider } from './world';
 export type LibraryHit = { kind: 'red'; slug: string } | { kind: 'grey'; shelf: string } | { kind: 'artifact'; slug: string } | { kind: 'relic' };
 
 export interface Library {
+  group: THREE.Group;                 // everything inside the hall (phase A: NPC figures are found here)
   targets: THREE.Object3D[];            // raycast targets; userData.hit is a LibraryHit
   redBooks: Map<string, THREE.Mesh>;    // slug -> the book's mesh (F5.2: every slug is on a shelf)
   artifacts: Map<string, THREE.Object3D>;
@@ -166,7 +169,10 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
       obj = new THREE.Group();
       // Legends-style figure in the contributor's colour (A6); faces +Z, turned to the aisle below.
       const col = e.color ?? '#9A9A9A';
-      (obj as THREE.Group).add(buildFigure({ skin: '#E8C0A0', hair: '#3A2A1C', primary: col, secondary: '#C9B48A', boots: '#4A3020', accent: '#2B2A24', hairStyle: 'hood' }, 1.7));
+      // B4: a character forged in-game and submitted carries its look; others get the hooded placeholder.
+      const forged = e.look ? decodeLook(e.look) : null;
+      (obj as THREE.Group).add(forged ? buildFigure(forged.look, forged.height)
+        : buildFigure({ skin: '#E8C0A0', hair: '#3A2A1C', primary: col, secondary: '#C9B48A', boots: '#4A3020', accent: '#2B2A24', hairStyle: 'hood' }, 1.7));
       const c = document.createElement('canvas'); c.width = 256; c.height = 48;
       const g = c.getContext('2d')!; g.fillStyle = 'rgba(30,36,32,.85)'; g.fillRect(0, 0, 256, 48); g.fillStyle = '#EFE3C4'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.fillText(e.title, 128, 31);
       const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -238,5 +244,26 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
     new THREE.Vector3(0, 0.005, (HALL.front + HALL.back) / 2), new THREE.Vector3(HALL.maxX - HALL.minX, 0.01, HALL.front - HALL.back));
   for (const m of baked.flush(scene, 'library-furniture')) { scene.remove(m); group.add(m); solids.push(m); m.receiveShadow = true; }
 
-  return { targets, redBooks, artifacts, shelfOf, exitDoor, relic: shard };
+  // Phase D budget: the red books draw as one vertex-coloured mesh. Each book mesh stays where it was,
+  // with an invisible material, so raycasts (E to read) and positions work exactly as before.
+  const spines: THREE.BufferGeometry[] = [], tint = new THREE.Color(), hidden = new THREE.MeshBasicMaterial({ visible: false });
+  for (const b of redBooks.values()) {
+    b.updateMatrix();
+    const g = unit.clone().toNonIndexed().applyMatrix4(b.matrix);
+    tint.copy((b.material as THREE.MeshLambertMaterial).color);
+    const cols = new Float32Array(g.attributes.position.count * 3);
+    for (let i = 0; i < cols.length; i += 3) { cols[i] = tint.r; cols[i + 1] = tint.g; cols[i + 2] = tint.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    g.deleteAttribute('uv');
+    spines.push(g);
+    b.userData.color = '#' + tint.getHexString();
+    b.material = hidden;
+  }
+  if (spines.length) {
+    const all = new THREE.Mesh(mergeGeometries(spines), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    all.name = 'red-books'; all.raycast = () => {};
+    group.add(all);
+  }
+
+  return { group, targets, redBooks, artifacts, shelfOf, exitDoor, relic: shard };
 }

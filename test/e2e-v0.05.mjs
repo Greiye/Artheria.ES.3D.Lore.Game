@@ -125,7 +125,7 @@ await cb(() => window.__gametool.crossbow.bolts.forEach((b) => { if (b.stuck) b.
 await page.waitForTimeout(150);
 check('F4.2 stuck bolts disappear after 30 s', await cb(() => window.__gametool.crossbow.bolts.every((b) => !b.stuck)));
 
-await page.keyboard.press('Digit2');
+await page.keyboard.press('Digit2'); await page.waitForTimeout(150);   // visibility follows on the next frame
 check('§5 2 = hands (crossbow away)', await cb(() => !window.__gametool.crossbow.equipped && !window.__gametool.crossbow.viewmodel.visible));
 check('v0.05: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

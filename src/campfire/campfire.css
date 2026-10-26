@@ -1,0 +1,17 @@
+/* Phase E: B8 campfire telling, B11 tune grid, B9 gallery card. */
+.cf-grid { display: grid; grid-template-columns: 22px repeat(8, 1fr); gap: 3px; margin: 8px 0; }
+.cf-note { font: 600 11px var(--ui); color: var(--stone-l); align-self: center; }
+.cf-cell { aspect-ratio: 1; min-height: 22px; padding: 0; border: 1px solid var(--stone-d); background: rgba(239,227,196,.06); border-radius: 4px; }
+.cf-cell.beat { background: rgba(239,227,196,.12); }
+.cf-cell.on { background: #F2B36B; border-color: #FFD79A; box-shadow: 0 0 8px rgba(242,179,107,.6); }
+.cf-natalie { margin: 2px 0 8px; font: italic 13px var(--serif); color: #e8c890; }
+.campfire-panel textarea, .campfire-panel select { width: 100%; box-sizing: border-box; }
+.cf-ballad { background: var(--parchment); color: var(--ink); border-radius: 6px; padding: 10px 14px; font: 15px/1.45 var(--serif); }
+.cf-ballad h3 { margin: 0 0 6px; font-size: 20px; }
+.cf-ballad p { margin: 0 0 .8em; }
+.gallery-card { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; background: rgba(10,12,10,.55); }
+.gallery-card .card-in { width: min(480px, calc(100vw - 32px)); background: var(--shadow); border: 1px solid var(--stone-d); border-radius: 10px; padding: 18px; }
+.gallery-card h3 { font-family: var(--serif); margin: 0 0 4px; }
+.gallery-card .credit { font-size: 12px; color: var(--rune); letter-spacing: .08em; text-transform: uppercase; }
+.gallery-card p { color: var(--stone-l); line-height: 1.5; white-space: pre-wrap; }
+.gallery-card img { width: 100%; image-rendering: pixelated; border-radius: 6px; }

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "note": "B6 constraint dice. Three dice per roll: a word, a mood, and a rule. Lore names are added in code from the lore index (places, species, artifacts).",
+  "word": ["a lie", "the weather", "someone who is not human", "a broken promise", "salt", "a key with no lock", "a borrowed name", "smoke", "a debt", "the wrong door", "a song nobody finishes", "bones", "a map with a hole in it", "rain on a book", "a coin from nowhere", "a scar"],
+  "mood": ["hopeful", "guilty", "furious", "homesick", "giddy", "suspicious", "grieving", "proud", "tired", "reckless", "tender", "haunted"],
+  "rule": ["made from something that was once alive", "only two colours", "named after a mistake", "told by someone who wasn't there", "no one says the word 'magic'", "it must fit in a pocket", "it ends where it began", "the hero is wrong about one thing", "it was a gift", "it's older than the library", "something is missing", "it has to make Natalie laugh"]
+}

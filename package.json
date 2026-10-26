@@ -9,7 +9,7 @@
     "dev": "npm run lore && vite",
     "build": "npm run lore && tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test:e2e": "node test/e2e.mjs dist/index.html && node test/e2e-mobile.mjs dist/index.html && node test/e2e-features.mjs dist/index.html && node test/e2e-v0.02.mjs dist/index.html && node test/e2e-v0.03.mjs dist/index.html && node test/e2e-v0.04.mjs dist/index.html && node test/e2e-models.mjs dist/index.html && node test/e2e-v0.05.mjs dist/index.html && node test/e2e-v0.06.mjs dist/index.html && node test/e2e-rebuild.mjs dist/index.html"
+    "test:e2e": "node test/e2e.mjs dist/index.html && node test/e2e-mobile.mjs dist/index.html && node test/e2e-features.mjs dist/index.html && node test/e2e-v0.02.mjs dist/index.html && node test/e2e-v0.03.mjs dist/index.html && node test/e2e-v0.04.mjs dist/index.html && node test/e2e-models.mjs dist/index.html && node test/e2e-v0.05.mjs dist/index.html && node test/e2e-v0.06.mjs dist/index.html && node test/e2e-rebuild.mjs dist/index.html && node test/e2e-forge.mjs dist/index.html && node test/e2e-writing.mjs dist/index.html && node test/e2e-quest.mjs dist/index.html && node test/e2e-campfire.mjs dist/index.html && node test/e2e-places.mjs dist/index.html"
   },
   "dependencies": {
     "three": "0.160.0"

@@ -15,6 +15,8 @@ export const controls = {
     activate: ['KeyE'],
     pov: ['KeyF'],                          // D2 / F2.4: toggle 1st / 3rd person
     inventory: ['KeyI'],                    // F3.4
+    journal: ['KeyJ'],                      // Phase D (B2): the casebook
+    map: ['KeyM'],                          // Phase F (B7): the living map
     equipCrossbow: ['Digit1'],              // F4.1 (§5: 1/2 crossbow/hands)
     equipHands: ['Digit2'],
     reload: ['KeyR'],                       // F4.3 active reload

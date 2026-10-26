@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import './style.css';
 import { buildWorld } from './world';
 import { Player } from './player';
@@ -23,7 +24,28 @@ import { Crossbow, ZONE } from './crossbow';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
 import { CameraRig } from './camera/rig';
-import { fillSlots, loadedModels, failedModels, type ModelSlot } from './models';
+import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
+import { FigureAnim, BodyAnim, type AnimInput } from './anim/procedural';
+import { Dust } from './fx/dust';
+import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
+import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
+import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
+import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sketch';
+import { stampBanner, swayBanner, paintLecternPage, buildBookmarks } from './writing/stamps';
+import { QUEST, loadQuest, saveQuest, clueById, support, ending, tagLabel, type Theory } from './quest/quest';
+import { Casebook } from './quest/casebook';
+import { QuestProps } from './quest/props';
+import { Companion, loadCompanion, saveCompanion } from './quest/companion';
+import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
+import { CampfirePanel } from './campfire/campfire';
+import { loadBallads, balladEntry, decodeTune, SCALE, type Ballad } from './campfire/ballad';
+import { Gallery, GALLERY, type Exhibit } from './campfire/gallery';
+import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
+import './dojo/dojo.css';
+import { drawSketch, loadSketches } from './writing/sketch';
+import { Dungeon } from './dungeon/dungeon';
+import { dailySeed, seedFrom } from './dungeon/gen';
+import { LivingMap, type Mark } from './map/livingmap';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -138,6 +160,7 @@ ui.innerHTML = `
       <p class="fine">Private project · all rights reserved.</p>
     </div>
   </div>
+  <div id="vignette"></div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
@@ -181,6 +204,12 @@ ui.innerHTML = `
       </details>
       <p class="fine">Settings are saved in this browser.</p>
       <button id="editCharacter" class="secondary">Character</button>
+      <button id="openCharacterForge" class="secondary">Character forge</button>
+      <button id="openWeaponForge" class="secondary">Weapon forge</button>
+      <button id="openSketchbook" class="secondary">Sketchbook</button>
+      <button id="openCasebook" class="secondary">Casebook (J)</button>
+      <button id="openMap" class="secondary">Map (M)</button>
+      <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
       <button id="writeLorePause" class="secondary">Write lore</button>
     </div>
   </div>
@@ -238,7 +267,11 @@ let state: State = 'title';
 let lockSupported = true;
 let expectUnlock = false;
 let mouseHeld = false;
-let lookingAt: 'book' | 'natalie' | 'bolt' | 'library' | null = null;
+let lookingAt: 'book' | 'natalie' | 'bolt' | 'library' | 'thing' | null = null;
+// Phase B+: things in the world E can use (forge stations, and later quests, campfire, map...).
+interface Interactable { obj: THREE.Object3D; verb: () => string; act: () => void; when?: () => boolean }
+const interactables: Interactable[] = [];
+let lookingAtThing: Interactable | null = null;
 let libraryHit: LibraryHit | null = null;   // F3.1 / F3: what E would activate
 let inputMode: InputMode = coarse ? 'touch' : 'mouse';
 
@@ -267,7 +300,7 @@ function setState(s: State) {
     touch?.reset();
   }
   document.body.dataset.state = s;
-  if (s !== 'dialogue' && s !== 'book') rig.setShot(null);   // R3: framed shots only while reading or talking
+  if (s !== 'dialogue' && s !== 'book' && s !== 'forge') rig.setShot(null);   // R3: framed shots only while reading or talking
 }
 
 // ---------- pointer lock ----------
@@ -337,6 +370,11 @@ $('ccSkip').addEventListener('click', () => {
   else setState(ccFrom);
 });
 $('editCharacter').addEventListener('click', () => openCharCreate('pause'));
+$('openCharacterForge').addEventListener('click', () => openCharacterForge());
+$('openWeaponForge').addEventListener('click', () => openWeaponForge());
+$('openSketchbook').addEventListener('click', () => openSketchbook());
+$('openCasebook').addEventListener('click', () => openCasebook());
+$('openMap').addEventListener('click', () => openMap());
 
 $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
@@ -398,9 +436,476 @@ function equip(on: boolean) {
 // R3: the crossbow is aimed in first person (viewmodel); putting it away restores the previous view.
 // Watched per frame so keyboard, touch and gamepad equips all behave the same.
 let viewBeforeCrossbow: boolean | null = null;
+// Phase A (B1): every character animates. A .glb with clips plays them (src/models.ts Animator); a
+// .glb without clips moves as a whole (BodyAnim); the built-in rigged figures run the procedural rig.
+interface Puppet { root: THREE.Object3D; fig?: FigureAnim; body?: BodyAnim }
+const puppets = new Map<string, Puppet>();
+const figureOf = (o: THREE.Object3D): Puppet => ({ root: o, fig: o.userData.rig ? new FigureAnim(o.userData.rig) : undefined });
+for (const [id, o] of Object.entries(world.standees)) puppets.set(id, figureOf(o));
+puppets.set('player', figureOf(player.body.children[0]));
+let libNpc = 0;
+library.group.traverse((o) => { if (o.userData.rig) puppets.set(`library:${libNpc++}`, figureOf(o)); });
+modelsReady.then(() => {
+  for (const [id, holder] of loadedModels) {
+    const p = puppets.get(id);
+    if (p) puppets.set(id, { root: holder, body: animators.has(id) ? undefined : new BodyAnim(holder.children[0]) });
+  }
+});
+const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+const npcPos = new THREE.Vector3(), npcQ = new THREE.Quaternion(), npcE = new THREE.Euler();
+function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
+  root.getWorldPosition(npcPos);
+  const dx = player.pos.x - npcPos.x, dz = player.pos.z - npcPos.z, d = Math.hypot(dx, dz);
+  if (d > 40) return null;   // too far to see: skip the work
+  npcE.setFromQuaternion(root.getWorldQuaternion(npcQ), 'YXZ');
+  // Figures face +Z: turn the head toward the player when they come close.
+  const rel = wrapAngle(Math.atan2(dx, dz) - npcE.y);
+  const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
+  return { speed: id === 'natalie' ? companion.speed : 0, talking: (id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id, look: id === 'natalie' && companion.speed > 0.3 ? null : look };
+}
+function clipState(i: AnimInput): AnimState {
+  return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
+}
+// Phase A: dust at the trailing foot on running steps, a ring of it on landing.
+const dust = new Dust(world.scene);
+let footSide = 1;
+const footAt = () => {
+  footSide = -footSide;
+  const s = Math.sin(player.bodyYaw), c = Math.cos(player.bodyYaw);
+  return new THREE.Vector3(player.pos.x + c * 0.12 * footSide + s * 0.15, 0, player.pos.z - s * 0.12 * footSide + c * 0.15);
+};
+let bannerT = 0;
+function animate(dt: number) {
+  player.faceView = crossbow.equipped || !player.thirdPerson;
+  const landed = player.consumeLanded();
+  if (landed && player.thirdPerson) dust.burst(player.pos, 6, 0.35);
+  dust.update(dt, camera);
+  const mine: AnimInput = {
+    speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
+    airborne: player.airborne, landed, pose: dojo.pose,
+    look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
+  };
+  for (const [id, p] of puppets) {
+    const input = id === 'player' ? (player.body.visible ? mine : null) : npcInput(id, p.root);
+    if (!input) continue;
+    const clips = animators.get(id);
+    if (clips) clips.set(clipState(input));
+    else if (p.body) p.body.update(dt, input);
+    else if (p.fig) p.fig.update(dt, input);
+  }
+  for (const a of animators.values()) a.update(dt);
+  if (weaponDisplay.visible) weaponDisplay.rotation.y += dt * 0.5;
+  bannerT += dt; swayBanner(world.bannerCloth, bannerT);
+  companion.update(dt, player.pos, player.bodyYaw, state !== 'play');
+  questProps.update(bannerT);
+  barkTick(dt);
+  dungeon.update(bannerT);
+  dojo.tick(dt);
+  mapClock += dt; if (mapClock > 0.5) { mapClock = 0; if (!inDungeon) livingMap.reveal(player.pos.x, player.pos.z); }
+  const fl = world.campfireFlame;
+  fl.scale.set(1 + Math.sin(bannerT * 13) * 0.06, 1 + Math.sin(bannerT * 9.3) * 0.14 + Math.sin(bannerT * 21) * 0.06, 1 + Math.cos(bannerT * 11) * 0.06);
+  fl.rotation.y = bannerT * 0.8;
+  const inside = player.pos.x > GALLERY.minX - 3 && player.pos.x < GALLERY.maxX && player.pos.z > GALLERY.minZ && player.pos.z < GALLERY.maxZ;
+  if (inside && !inGallery) refreshGallery();
+  inGallery = inside;
+}
+// ---------- Phase B: forges (B4 character, B5 weapon) with B6 dice; saved on this device ----------
+const loreWords = lore.entries.filter((e) => e.type === 'lore').map((e) => e.title.split(':')[0]).filter((t) => t.length < 28);
+const forgeAuthor = () => loadAuthor() || character.name;
+let forgeFrom: State = 'play';
+function setPlayerLook(c: ForgeCharacter) {
+  const fig = player.setLook(c.look, c.height);
+  puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
+  if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
+}
+try { if (localStorage.getItem('gametool.forge.character')) setPlayerLook(loadForge(character.name)); } catch { /* storage blocked: default look */ }
+// The forge camera: a front three-quarter view of the player, with the figure in the right half of the screen.
+function frameForge(target: 'body' | 'crossbow' | 'banner' | 'fire') {
+  if (target === 'fire') {
+    const f = world.stations.campfire.position, pos = new THREE.Vector3(f.x + 2.4, 1.5, f.z + 1.2);
+    const d = new THREE.Vector3(f.x - pos.x, 0, f.z - pos.z).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0));
+    rig.setShot({ pos, look: new THREE.Vector3(f.x, 0.5, f.z).addScaledVector(right, -0.9), fov: 46 });
+    return;
+  }
+  if (target === 'banner') {
+    // The banner in the right half of the screen, seen from the side it faces.
+    const c = world.bannerCloth, n = new THREE.Vector3(Math.sin(c.rotation.y), 0, Math.cos(c.rotation.y));
+    const pos = c.position.clone().addScaledVector(n, 2.6).add(new THREE.Vector3(0, -0.1, 0));
+    const right = new THREE.Vector3().crossVectors(n.clone().negate(), new THREE.Vector3(0, 1, 0)).normalize();
+    rig.setShot({ pos, look: c.position.clone().addScaledVector(right, -0.45), fov: 42 });
+    return;
+  }
+  if (target === 'crossbow') {
+    // Close on the anvil, the crossbow in the right half of the screen (the panel takes the left).
+    const a = world.stations.anvil.position, top = new THREE.Vector3(a.x, 1.3, a.z);
+    const pos = new THREE.Vector3(a.x + 2.1, 1.65, a.z + 0.5);
+    const d = top.clone().sub(pos).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
+    rig.setShot({ pos, look: top.addScaledVector(right, -0.32), fov: 42 });
+    return;
+  }
+  const fx = -Math.sin(player.bodyYaw), fz = -Math.cos(player.bodyYaw);   // body forward
+  const pos = new THREE.Vector3(player.pos.x + fx * 3.0 - fz * 0.9, 1.35, player.pos.z + fz * 3.0 + fx * 0.9);
+  const look = new THREE.Vector3(player.pos.x - fz * 0.75, 0.95, player.pos.z + fx * 0.75);
+  rig.setShot({ pos, look, fov: 40 });
+}
+function enterForge() {
+  forgeFrom = state === 'pause' ? 'pause' : 'play';
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  setState('forge');
+}
+function leaveForge() {
+  rig.setShot(null);
+  if (forgeFrom === 'pause') setState('pause'); else void resumePlay();
+}
+const characterForge = new CharacterForge(
+  (c) => setPlayerLook(c),
+  (c) => { character = { ...character, name: c.name || character.name, created: true }; saveCharacter(character); leaveForge(); },
+  loreWords, forgeAuthor);
+function openCharacterForge() {
+  enterForge();
+  player.thirdPerson = true;
+  frameForge('body');
+  characterForge.open(loadForge(character.name));
+}
+// B5: the forged crossbow hovers over the anvil at twice size while you work on it, turning slowly.
+const weaponDisplay = new THREE.Group();
+weaponDisplay.position.set(world.stations.anvil.position.x, 1.3, world.stations.anvil.position.z);   // hovers over the anvil
+weaponDisplay.scale.setScalar(2.2);
+weaponDisplay.visible = false;
+world.scene.add(weaponDisplay);
+const weaponForge = new WeaponForge(
+  (c: WeaponCosmetic) => { weaponDisplay.clear(); weaponDisplay.add(buildCrossbowModel(c)); },
+  (c: WeaponCosmetic) => { crossbow.applyCosmetic(c); weaponDisplay.visible = false; leaveForge(); },
+  loreWords, forgeAuthor);
+function openWeaponForge() {
+  enterForge();
+  frameForge('crossbow');
+  weaponDisplay.visible = true;
+  weaponForge.open(loadWeapon());
+}
+function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+// ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
+let stationery: Stationery = loadStationery();
+const setStationery = (s: Stationery) => { stationery = s; saveStationery(s); applyStationery(s); refreshMarginsInWorld(); };
+applyStationery(stationery);
+const bookmarks = new THREE.Group();
+world.scene.add(bookmarks);
+function refreshMarginsInWorld() {
+  const all = loadMargins();
+  const lect = all.filter((n) => entryById.get(n.entryId)?.type === 'lore');
+  world.lecternPages.forEach((m, i) => paintLecternPage(m, lect.filter((_, k) => k % 2 === i), stationery.paper, sketchById));
+  buildBookmarks(library.redBooks, all, bookmarks);
+}
+const deskFor = (b: Book) => {
+  const d = new MarginDesk(b, () => stationery, setStationery, (id) => entryById.get(id), forgeAuthor);
+  d.onChange = () => { otherDesks(d); refreshMarginsInWorld(); };
+  return d;
+};
+const lecternDesk = deskFor(book), readerDesk = deskFor(reader);
+const otherDesks = (d: MarginDesk) => { (d === lecternDesk ? readerDesk : lecternDesk).reload(); };
+refreshMarginsInWorld();
+const sketchPad = new SketchPad(
+  (s: Sketch) => { stampBanner(world.bannerCloth, s); try { localStorage.setItem('gametool.banner', s.id); } catch { /* blocked */ } toast(`"${s.name}" hangs on the banner.`); },
+  () => leaveForge(), forgeAuthor);
+stampBanner(world.bannerCloth, (() => { try { return sketchById(localStorage.getItem('gametool.banner') ?? '') ?? DEFAULT_SKETCH; } catch { return DEFAULT_SKETCH; } })());
+function openSketchbook() {
+  enterForge();
+  frameForge('banner');
+  sketchPad.open(sketchById(world.bannerCloth.userData.sketch));
+}
+// ---------- Phase D: B2 companion + detective quest, B12 item folklore; saved on this device ----------
+const quest = loadQuest();
+const questProps = new QuestProps(world.scene);
+questProps.sync(quest.clues);
+questProps.showLead(quest.stage === 'lead' ? quest.theory?.where ?? null : null);
+const natalieRoot = () => (world.standees.natalie.userData.replacedBy as THREE.Object3D | undefined) ?? world.standees.natalie;
+const companion = new Companion(natalieRoot, world.natalieTarget, world.colliders, world.bounds, loadCompanion());
+($('companionQuiet') as HTMLInputElement).checked = companion.prefs.quiet;
+$('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
+const seen = (() => { try { return JSON.parse(localStorage.getItem('gametool.seen') ?? '[]') as string[]; } catch { return [] as string[]; } })();
+function markSeen(id: string) { if (!seen.includes(id)) { seen.push(id); try { localStorage.setItem('gametool.seen', JSON.stringify(seen)); } catch { /* blocked */ } } }
+const casebook = new Casebook(() => quest, (th: Theory) => {
+  quest.theory = th; quest.stage = 'lead'; saveQuest(quest);
+  questProps.showLead(th.where);
+  companion.say(support(quest, th) >= 2 ? QUEST.natalie.supported : QUEST.natalie.leap, { force: true });
+}, () => leaveForge(), loreWords, forgeAuthor);
+function openCasebook() {
+  if (state !== 'play' && state !== 'pause' && state !== 'dialogue') return;
+  enterForge();
+  casebook.open();
+}
+const folklore = new FolklorePanel(
+  () => folkItems([...inventory.counts.keys()].filter((id) => inventory.count(id) > 0), quest.clues, seen, (id) => ITEMS[id]?.name ?? id),
+  () => leaveForge(), forgeAuthor);
+function openFolklore() { enterForge(); folklore.open(); }
+function findClue(id: string) {
+  const c = clueById(id);
+  if (!c || quest.clues.includes(id)) return;
+  quest.clues.push(id);
+  if (quest.stage === 'none') quest.stage = 'clues';
+  saveQuest(quest);
+  questProps.sync(quest.clues);
+  audio.pageTurn();
+  toast(`Clue: ${c.name}. ${c.text} (J: casebook)`, 6000);
+  if (companion.prefs.follow) setTimeout(() => companion.say(c.natalie, { key: 'clue:' + id, force: true }), 1800);
+  if (quest.clues.length === QUEST.minClues && quest.stage === 'clues') setTimeout(() => companion.say(QUEST.natalie.hintReady, { key: 'ready', force: true }), 7000);
+}
+for (const c of QUEST.clues) {
+  interactables.push({ obj: questProps.hitboxes.get(c.id)!, verb: () => 'Look closer', act: () => findClue(c.id), when: () => !quest.clues.includes(c.id) });
+}
+interactables.push({ obj: questProps.leadHit, verb: () => 'Follow the blue light', when: () => quest.stage === 'lead', act: () => {
+  const th = quest.theory!, end = ending(th);
+  quest.stage = 'done'; saveQuest(quest);
+  questProps.showLead(null);
+  afterDialogue = () => { toast("Natalie finished her field note. Read it in the casebook (J).", 5000); void resumePlay(); };
+  talkTo('natalie', questProps.leadHit.position, { speaker: 'Natalie Bourbon', start: 'f1', nodes: {
+    f1: { text: end.find, next: 'f2' },
+    f2: { text: QUEST.natalie.found, next: 'f3' },
+    f3: { text: end.note, end: true },
+  } });
+} });
+// B12: the Curio Pedlar by the coach road.
+const pedlarHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.7, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+pedlarHit.position.copy(world.standees.pedlar.position).setY(0.85);
+world.scene.add(pedlarHit);
+interactables.push({ obj: pedlarHit, verb: () => 'Talk to the Curio Pedlar', act: () => {
+  if (inventory.count('crossbow') > 0) markSeen('crossbow');
+  talkTo('pedlar', pedlarHit.position, pedlarScript(seen));
+} });
+// ---------- Phase E: B8 campfire telling + B11 bard tunes, B9 gallery hall ----------
+const campfire = new CampfirePanel(() => {
+  const first = quest.clues[0] ? clueById(quest.clues[0])?.name.toLowerCase() : null;
+  return [
+    first ? `I remember the ${first}. I didn't want to believe it.` : 'I remember the door, and how quiet it was.',
+    quest.theory ? `You said it was ${tagLabel('who', quest.theory.who).toLowerCase()}. I wrote it down.` : 'I was behind you the whole way. Mostly.',
+    quest.stage === 'done' && quest.theory ? `And ${ending(quest.theory).friend} came home.` : "And the fire's still going, so it isn't over.",
+  ];
+}, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); }, () => leaveForge(), forgeAuthor);
+function openCampfire() { enterForge(); frameForge('fire'); campfire.open(); }
+interactables.push({ obj: world.stations.campfire, verb: () => 'Sit by the fire', act: () => openCampfire() });
+async function openBallad(b: Ballad) {
+  setState('book');
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  const t = decodeTune(b.tune);
+  audio.tune(t.steps, SCALE, t.instrument, t.bpm, 2);
+  await reader.openEntries([balladEntry(b, forgeAuthor())]);
+}
+const gallery = new Gallery(world.scene, world.colliders);
+let galleryCard: HTMLElement | null = null;
+const portrait = (look: ReturnType<typeof loadForge>['look']) => (g: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+  // A Legends-style bust: shoulders, a big square head, hair cap, two eyes.
+  const u = size / 16;
+  g.fillStyle = '#6E8FA8'; g.fillRect(x, y, size, size - 50);
+  g.fillStyle = look.primary; g.fillRect(x + 3 * u, y + 10 * u, 10 * u, 3.6 * u);
+  g.fillStyle = look.skin; g.fillRect(x + 4.5 * u, y + 3 * u, 7 * u, 7 * u);
+  g.fillStyle = look.hair; g.fillRect(x + 4.2 * u, y + 2.4 * u, 7.6 * u, 2.2 * u);
+  g.fillStyle = look.eyes ?? '#2B2A24'; g.fillRect(x + 6 * u, y + 6 * u, 1.1 * u, 1.3 * u); g.fillRect(x + 8.9 * u, y + 6 * u, 1.1 * u, 1.3 * u);
+};
+const textTile = (lines: string[]) => (g: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+  g.fillStyle = '#EFE3C4'; g.fillRect(x, y, size, size - 50);
+  g.fillStyle = '#2B2A24'; g.font = 'italic 17px Georgia, serif'; g.textAlign = 'center';
+  lines.slice(0, 7).forEach((l, i) => g.fillText(l.length > 26 ? l.slice(0, 25) + '…' : l, x + size / 2, y + 30 + i * 22));
+};
+function galleryExhibits(): Exhibit[] {
+  const me = forgeAuthor() || 'you', out: Exhibit[] = [];
+  let forged = false, weapon = false;
+  try { forged = !!localStorage.getItem('gametool.forge.character'); weapon = !!localStorage.getItem('gametool.forge.weapon'); } catch { /* blocked */ }
+  const f = loadForge(character.name), w = loadWeapon();
+  out.push({ id: 'me', title: f.name || character.name || 'Your hero', credit: me, kind: 'hero', text: f.backstory || 'A traveller with no story written yet.', discovered: forged, hint: 'Forge your hero at the camp mirror.', paint: portrait(f.look) });
+  out.push({ id: 'weapon', title: w.name || 'Your crossbow', credit: me, kind: 'weapon', text: w.legend || w.engraving || 'Forged at the camp anvil.', discovered: weapon, hint: 'Forge a crossbow at the camp anvil.', paint: textTile([w.name || 'A crossbow', '', ...(w.legend || '').match(/.{1,24}(\s|$)/g) ?? []]) });
+  const sk = loadSketches()[0];
+  out.push({ id: 'banner', title: sk?.name || 'Your banner', credit: me, kind: 'sketch', text: 'Painted in the sketchbook.', discovered: !!sk, hint: 'Paint a banner at the camp.',
+    paint: sk ? (g, x, y, size) => { g.imageSmoothingEnabled = false; drawSketch(g, sk, x + (size - 192) / 2, y + 2, 6); } : undefined });
+  const bd = loadBallads()[0];
+  out.push({ id: 'ballad', title: bd?.title || 'Your ballad', credit: me, kind: 'song', text: bd ? bd.verses.slice(0, 2).map((v) => v.join(' / ')).join('\n') : '', discovered: !!bd, hint: 'Tell your story to the bard at the campfire.',
+    paint: bd ? textTile(bd.verses[0] ?? []) : undefined, open: bd ? () => { leaveForge(); void openBallad(bd); } : undefined });
+  out.push({ id: 'theory', title: 'Your theory', credit: me, kind: 'theory', text: quest.theory?.text ?? '', discovered: !!quest.theory, hint: "Write what you think happened to Natalie's party.",
+    paint: quest.theory ? textTile((quest.theory.text.match(/.{1,24}(\s|$)/g) ?? []).map((l) => l.trim())) : undefined });
+  for (const id of ['natalie-bourbon', 'straphan-at-sunset', 'song-of-the-paved-road']) {
+    const e = entryById.get(id);
+    if (!e) continue;
+    const plain = e.body.replace(/^#.*$/m, '').replace(/[*_#>[\]]|chords:.*$/gm, '').trim();
+    out.push({ id, title: e.title, credit: e.credit_as, kind: e.type, text: plain.slice(0, 400), discovered: seen.includes('entry:' + id), hint: 'Find it in the Ruined Library.',
+      open: () => { leaveForge(); void openReader(id); } });
+  }
+  return out;
+}
+function refreshGallery() { gallery.paint(galleryExhibits()); }
+refreshGallery();
+gallery.hitboxes.forEach((hb, i) => interactables.push({ obj: hb, verb: () => { const e = gallery.exhibits[i]; return e?.discovered ? `Look at "${e.title}"` : 'Look at the empty frame'; }, act: () => {
+  const e = gallery.exhibits[i];
+  if (!e) return;
+  enterForge();
+  galleryCard = gallery.showCard(e, () => { galleryCard = null; leaveForge(); });
+  galleryCard.querySelector('[data-act=open]')?.addEventListener('click', () => { galleryCard = null; });
+} }));
+let inGallery = false;
+// ---------- Phase F: B15 seeded dungeon under the library ----------
+const dungeon = new Dungeon(world.scene);
+const TRAPDOOR = new THREE.Vector3(6.5, 0, -33);
+{
+  const hatch = new THREE.Mesh(mergeGeometries([
+    new THREE.BoxGeometry(1.4, 0.06, 1.4).translate(0, 0.03, 0),
+    new THREE.BoxGeometry(1.5, 0.04, 0.12).translate(0, 0.07, -0.4), new THREE.BoxGeometry(1.5, 0.04, 0.12).translate(0, 0.07, 0.4),
+    new THREE.TorusGeometry(0.1, 0.02, 4, 8).rotateX(Math.PI / 2).translate(0.45, 0.08, 0).deleteAttribute('uv') as THREE.BufferGeometry,
+  ].map((g) => (g.index ? g.toNonIndexed() : g)).map((g) => { g.deleteAttribute('uv'); return g; })), new THREE.MeshLambertMaterial({ color: 0x5A3E26 }));
+  hatch.position.copy(TRAPDOOR); hatch.name = 'trapdoor'; hatch.raycast = () => {};
+  world.scene.add(hatch);
+}
+const trapHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
+trapHit.position.copy(TRAPDOOR).setY(0.3); world.scene.add(trapHit);
+let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
+const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; at: string }>; } catch { return {}; } })();
+const saveDelves = () => { try { localStorage.setItem('gametool.delves', JSON.stringify(delves)); } catch { /* blocked */ } };
+function enterDungeon(seed: number) {
+  const L = dungeon.build(seed);
+  dungeon.group.visible = true;
+  world.colliders.push(...dungeon.colliders);
+  player.bounds = rig.bounds = 2000;
+  const fog = world.scene.fog as THREE.Fog;
+  savedFog = { color: fog.color.clone(), near: fog.near, far: fog.far, bg: (world.scene.background as THREE.Color).clone() };
+  fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
+  player.spawn(dungeon.entrance(), dungeon.entranceYaw());
+  if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
+  inDungeon = true;
+  delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
+  saveDelves();
+  toast(`Under the library · seed ${seed} · ${L.theme}. Same seed, same dungeon.`, 4500);
+  companion.say('Stay close. I can hear something chewing.', { key: 'dungeon:' + seed, force: true });
+}
+function exitDungeon() {
+  if (!inDungeon) return;
+  inDungeon = false;
+  const set = new Set(dungeon.colliders);
+  for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1);
+  player.bounds = rig.bounds = world.bounds;
+  const fog = world.scene.fog as THREE.Fog;
+  if (savedFog) { fog.color.copy(savedFog.color); fog.near = savedFog.near; fog.far = savedFog.far; (world.scene.background as THREE.Color).copy(savedFog.bg); }
+  dungeon.group.visible = false; dungeon.hideSpots();
+  player.spawn(TRAPDOOR.clone().add(new THREE.Vector3(0, 0, 1.6)), 0);
+  if (companion.prefs.follow) natalieRoot().position.copy(TRAPDOOR).add(new THREE.Vector3(1.4, 0, 1.4));
+}
+let descendSheet: HTMLElement | null = null;
+function openDescend() {
+  enterForge();
+  const el = document.createElement('div');
+  el.className = 'gallery-card';
+  el.id = 'descend';
+  el.innerHTML = `<div class="card-in"><div class="credit">Under the Ruined Library</div><h3>A trapdoor, and stairs going down</h3>
+    <p>Every seed makes a different dungeon, and the same seed always makes the same one, so you can send a seed to a friend. Today's seed is ${dailySeed()}.</p>
+    <label class="field">Seed<input id="dgSeed" type="text" maxlength="24" value="${dailySeed()}"></label>
+    <div class="forge-actions"><button class="primary" data-act="go">Descend</button><button class="secondary" data-act="close">Not yet</button></div></div>`;
+  el.addEventListener('click', (ev) => {
+    const a = (ev.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
+    if (!a) return;
+    const seed = seedFrom((el.querySelector('#dgSeed') as HTMLInputElement).value || String(dailySeed()));
+    el.remove(); descendSheet = null;
+    leaveForge();
+    if (a.dataset.act === 'go') enterDungeon(seed);
+  });
+  document.body.appendChild(el);
+  descendSheet = el;
+}
+// ---------- Phase F: B7 living map ----------
+const livingMap = new LivingMap(() => {
+  const m: Mark[] = [];
+  for (const id of quest.clues) { const c = clueById(id); if (c) m.push({ x: c.at[0], z: c.at[2], label: '', kind: 'clue' }); }
+  if (quest.theory) {
+    const l = (QUEST.leads as Record<string, { at: number[]; friend: string }>)[quest.theory.where];
+    if (l) m.push({ x: l.at[0], z: l.at[2], label: quest.stage === 'done' ? `${l.friend} found here` : 'your lead', kind: quest.stage === 'done' ? 'found' : 'lead' });
+  }
+  const bd = loadBallads();
+  if (bd.length) m.push({ x: world.stations.campfire.position.x, z: world.stations.campfire.position.z + 1.6, label: `“${bd[0].title}” sung here`, kind: 'song' });
+  const n = Object.keys(delves).length;
+  if (n) m.push({ x: TRAPDOOR.x, z: TRAPDOOR.z, label: `${n} seed${n > 1 ? 's' : ''} delved`, kind: 'delve' });
+  if (dojo.st.done.length) m.push({ x: DOJO.x, z: DOJO.z + 3.4, label: `${dojo.st.done.length} drill${dojo.st.done.length > 1 ? 's' : ''} done`, kind: 'place' });
+  return m;
+}, () => ({ x: player.pos.x, z: player.pos.z, yaw: player.yaw }), () => leaveForge(), forgeAuthor);
+function openMap() { if (state !== 'play' && state !== 'pause') return; enterForge(); livingMap.open(); }
+let mapClock = 0;
+// ---------- Phase F: B14 dojo (your character demonstrates; you follow the beginner-safe version) ----------
+const dojoBoard = buildDojo(world.scene, world.colliders);
+let dojoView: boolean | null = null;
+const dojo = new DojoPanel((d) => {
+  if (!d) return;
+  // Stand on the mats (under the bar for the hanging drill), facing the camera, panel on the left.
+  const at = d.pose === 'hang' ? DOJO.bar.clone() : new THREE.Vector3(DOJO.x - 1, 0, DOJO.z);
+  player.spawn(at, d.pose === 'plank' ? Math.PI / 2 : Math.PI);   // the plank side-on
+  const up = d.pose === 'hang' ? 1.75 : d.pose === 'plank' ? 0.45 : 1.0, far = d.pose === 'hang' ? 2.9 : 3.3;
+  // Portrait phones put the panel along the bottom, so the figure goes in the top band instead.
+  const tall = innerHeight > innerWidth;
+  rig.setShot(tall ? { pos: new THREE.Vector3(at.x, up + 0.2, at.z + far * 1.5), look: new THREE.Vector3(at.x, up - 1.6, at.z), fov: 50 }
+    : { pos: new THREE.Vector3(at.x - 0.7, up + 0.45, at.z + far), look: new THREE.Vector3(at.x - 1.0, up, at.z), fov: 44 });
+}, () => { if (dojoView !== null) { player.thirdPerson = dojoView; dojoView = null; } leaveForge(); }, forgeAuthor);
+function openDojo() {
+  if (state !== 'play' && state !== 'pause') return;
+  enterForge();
+  if (dojoView === null) { dojoView = player.thirdPerson; player.thirdPerson = true; }
+  rig.setShot({ pos: new THREE.Vector3(DOJO.x - 1.7, 1.6, DOJO.z + 3.2), look: new THREE.Vector3(DOJO.x - 2, 1, DOJO.z), fov: 44 });
+  dojo.open();
+}
+interactables.push({ obj: dojoBoard, verb: () => 'Train at the dojo', act: () => openDojo(), when: () => !inDungeon });
+interactables.push({ obj: trapHit, verb: () => 'Open the trapdoor', act: () => openDescend(), when: () => !inDungeon });
+const shrineLines = lore.entries.filter((e) => e.type === 'lore' && e.body.length > 80);
+for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
+  const spotOf = () => dungeon.spots.find((s) => s.hit === hit);
+  interactables.push({ obj: hit, when: () => inDungeon && !!spotOf(), verb: () => {
+    const s = spotOf()!, d = delves[dungeon.layout!.seed];
+    return s.kind === 'stairs' ? 'Climb back up' : s.kind === 'chest' ? (d?.chest ? 'An empty chest' : 'Open the chest') : s.kind === 'shrine' ? 'Read the carving' : 'Search the nest';
+  }, act: () => {
+    const s = spotOf()!, seed = dungeon.layout!.seed, d = delves[seed];
+    if (s.kind === 'stairs') { exitDungeon(); return; }
+    if (s.kind === 'chest') {
+      if (d.chest) { toast('Empty. You already took what was here.'); return; }
+      d.chest = true; saveDelves();
+      inventory.give('trinket', 1);
+      toast(`A trinket from below (I: inventory). The Curio Pedlar would love to hear its story.`, 4500);
+      return;
+    }
+    if (s.kind === 'shrine') {
+      const e = shrineLines[(seed + s.room.cx * 7 + s.room.cy) % shrineLines.length];
+      const line = e.body.replace(/^#.*$/gm, '').replace(/[*_>[\]]/g, '').trim().split(/(?<=[.!?])\s+/)[0];
+      toast(`Carved in the stone: “${line}” (${e.title}, by ${e.credit_as})`, 7000);
+      return;
+    }
+    d.nest = true; saveDelves();
+    toast('The goblin\'s nest: a heap of red-book covers, gnawed at the corners, and four tally marks scratched by the door. A fifth is crossed out.', 7000);
+    companion.say('This is where it sleeps. It keeps them like treasure.', { force: true });
+  } });
+}
+// Natalie thinks out loud: one line per place, then the odd idle thought (25 s cooldown, mutable).
+let barkClock = 0, stillFor = 0;
+const lastPos = new THREE.Vector3();
+function barkTick(dt: number) {
+  barkClock += dt;
+  if (barkClock < 1 || !companion.prefs.follow || state !== 'play') return;
+  stillFor = player.pos.distanceTo(lastPos) < 0.2 ? stillFor + barkClock : 0;
+  lastPos.copy(player.pos); barkClock = 0;
+  const b = QUEST.barks, p = player.pos, any = (l: string[]) => l[Math.floor(Math.random() * l.length)];
+  if (p.z < -18.6) companion.say(any(b.library), { key: 'zone:library' }) || (Math.random() < 0.08 && companion.say(any(b.library)));
+  else if (Math.hypot(p.x + 9.2, p.z - 1) < 3) companion.say(any(b.banner), { key: 'zone:banner' });
+  else if (Math.hypot(p.x + 7.6, p.z - 0.5) < 4) companion.say(any(b.camp), { key: 'zone:camp' });
+  else if (Math.hypot(p.x, p.z) < 3) companion.say(any(b.dais), { key: 'zone:dais' });
+  if (stillFor > 20) { companion.say(any(b.idle)); stillFor = 0; }
+}
+// Drag on the scene to turn the hero (character forge).
+let forgeDrag: number | null = null;
+canvas.addEventListener('pointerdown', (e) => { if (state === 'forge') forgeDrag = e.clientX; });
+window.addEventListener('pointerup', () => { forgeDrag = null; });
+window.addEventListener('pointermove', (e) => {
+  if (state !== 'forge' || forgeDrag === null || !characterForge.isOpen) return;
+  player.bodyYaw += (e.clientX - forgeDrag) * 0.012; forgeDrag = e.clientX;
+  player.body.rotation.y = player.bodyYaw;
+});
+interactables.push(
+  { obj: world.stations.mirror, verb: () => 'Change your look', act: () => openCharacterForge() },
+  { obj: world.stations.banner, verb: () => 'Paint the banner', act: () => openSketchbook() },
+  { obj: world.stations.anvil, verb: () => inventory.count('crossbow') > 0 ? 'Forge your crossbow' : 'Anvil (bring a crossbow)', act: () => { if (inventory.count('crossbow') > 0) openWeaponForge(); else toast('Natalie has a crossbow you could borrow.'); } },
+);
 function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; }
+  if (rig.inShot) crossbow.viewmodel.visible = false;   // a framed dialogue/reading shot shows the player, not the held crossbow
 }
 let toastTimer = 0;
 function toast(msg: string, ms = 3000) {
@@ -421,19 +926,54 @@ dialogue.onAction = (a) => {
     toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1} (I: inventory)`);
   } else if (verb === 'unlock' && id === 'library_door') {
     world.openDoor();
-  } else console.warn('Unknown dialogue action', a);
+  } else if (verb === 'quest' && id === 'start') {
+    if (quest.stage === 'none') { quest.stage = 'clues'; saveQuest(quest); setTimeout(() => toast(`New: ${QUEST.title} (J: casebook)`, 4500), 600); }
+  } else if (verb === 'companion') {
+    companion.prefs.follow = id === 'follow'; saveCompanion(companion.prefs);
+  } else if (verb === 'folklore' && id === 'open') afterDialogue = openFolklore;
+  else if (verb === 'casebook' && id === 'open') afterDialogue = openCasebook;
+  else console.warn('Unknown dialogue action', a);
 };
 dialogue.onLine = () => audio.pageTurn();
+let afterDialogue: (() => void) | null = null;
+let dialogueWith = '';
 dialogue.onEnd = () => {
-  if (world.doorOpen) toast('The library door is open.');
+  const next = afterDialogue; afterDialogue = null;
+  if (next) { next(); return; }
+  if (world.doorOpen && dialogueWith === 'natalie' && quest.stage === 'clues' && quest.clues.length === 0) toast('The library door is open.');
   void resumePlay();
 };
-function talkToNatalie() {
+function talkTo(who: string, at: THREE.Vector3, script: DialogueScript) {
+  dialogueWith = who;
   setState('dialogue');   // F3.3: frees the pointer, freezes movement
-  rig.setShot(rig.twoShot(world.natalieTarget.position, 1.55));
+  rig.setShot(rig.twoShot(at, 1.55));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
-  dialogue.start(natalieScript as DialogueScript);
+  dialogue.start(script);
 }
+function talkToNatalie() {
+  talkTo('natalie', world.natalieTarget.position, quest.stage === 'none' ? natalieScript as DialogueScript : natalieCompanionScript());
+}
+// B2: once the quest has started, the same talk gains companion choices after the original three
+// (follow / wait, what she thinks, the casebook). Node ids and the first choices stay as they were.
+function natalieCompanionScript(): DialogueScript {
+  const base = structuredClone(natalieScript) as DialogueScript, n = QUEST.natalie, c = quest.clues.length;
+  const hint = quest.stage === 'lead' ? `${support(quest, quest.theory!) >= 2 ? n.supported : n.leap} Follow the blue light.`
+    : quest.stage === 'done' ? n.found : c === 0 ? n.hintNone : c < QUEST.minClues ? n.hintMore : n.hintReady;
+  base.nodes.n1.text = companion.prefs.follow ? "I'm right behind you." : 'You came back. Any sign of them?';
+  base.nodes.n2.choices = [...(base.nodes.n2.choices ?? []),
+    { text: 'What do you think?', next: 'hint' },
+    companion.prefs.follow ? { text: 'Wait here.', next: 'wait' } : { text: 'Come with me.', next: 'follow' },
+    { text: 'Let me check the casebook.', next: 'book' },
+  ];
+  Object.assign(base.nodes, {
+    hint: { text: hint, next: 'n2' },
+    wait: { text: n.wait, actions: ['companion:wait'], end: true },
+    follow: { text: n.follow, actions: ['companion:follow'], end: true },
+    book: { text: 'Read it out to me as you go.', actions: ['casebook:open'], end: true },
+  });
+  return base;
+}
+
 function openInventory() {
   if (state !== 'play') return;
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
@@ -445,6 +985,7 @@ function activate() {
   if (state !== 'play') return;
   if (lookingAt === 'book') void openBook();
   else if (lookingAt === 'natalie') talkToNatalie();
+  else if (lookingAt === 'thing') lookingAtThing?.act();
   else if (lookingAt === 'library' && libraryHit) useLibrary(libraryHit);
   else if (lookingAt === 'bolt') {
     const b = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange);
@@ -454,7 +995,7 @@ function activate() {
 
 // ---------- F5 shelves: grey books (roll table), red books + artifacts (reader) ----------
 function useLibrary(h: LibraryHit) {
-  if (h.kind === 'relic') { toast('A shard of the Noctavel Portal hums in its cradle. The fire never reached it.', 4000); return; }
+  if (h.kind === 'relic') { markSeen('noctavel_shard'); toast('A shard of the Noctavel Portal hums in its cradle. The fire never reached it. (The Curio Pedlar might know more.)', 4500); return; }
   if (h.kind === 'grey') { toast(greyBooks.lines[Math.floor(Math.random() * greyBooks.lines.length)], 3000); audio.pageTurn(); return; }   // F5.3
   const e = entryById.get(h.slug);
   if (!e) return;
@@ -468,6 +1009,7 @@ function useLibrary(h: LibraryHit) {
 async function openReader(slug: string) {
   const e = entryById.get(slug);
   if (!e) return;
+  markSeen('entry:' + slug);   // B9: read once = discovered for the gallery
   setState('book');
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   await reader.openEntries([e]);
@@ -584,21 +1126,30 @@ function toggleRun() {
 window.addEventListener('keydown', (e) => {
   setMode('mouse');
   // Keys the browser would otherwise act on (focus change, menu bar, scrolling).
-  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate'].includes(state)) e.preventDefault();
+  const typing = !!(e.target as HTMLElement)?.closest?.('input, textarea');   // a text field gets its spaces and arrows
+  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate', 'forge'].includes(state) && !typing) e.preventDefault();
   if (e.code === 'CapsLock') {
     // Some platforms (macOS) send only a keyup when Caps Lock turns off; see keyup below.
     if (state === 'play' && !e.repeat) { toggleRun(); capsToggledAt = performance.now(); }
     return;
   }
-  if (state === 'book') { if (!e.repeat) (reader.isOpen ? reader : book).handleKey(e.code); return; }   // F3.2: world input ignored
+  if (state === 'book') {
+    // B3: typing a margin note: keys belong to the text box; Esc puts the pen down.
+    if (typing) { if (e.code === 'Escape') (reader.isOpen ? readerDesk : lecternDesk).closeDesk(); return; }
+    if (!e.repeat) (reader.isOpen ? reader : book).handleKey(e.code);
+    return;
+  }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
   if (state === 'charcreate') { if (e.code === 'Escape' && !e.repeat) closeCharCreate(); return; }
+  if (state === 'forge') { if (e.code === 'Escape' && !e.repeat) closeForges(); return; }
   if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
   if (state === 'pause' && e.code === 'Escape' && !lockSupported) { closePauseMenu(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
+  if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
+  if (actionFor(e.code, ['map']) && !e.repeat) { openMap(); return; }
   if (!e.repeat) {
     const w = actionFor(e.code, ['equipCrossbow', 'equipHands', 'reload']);
     if (w === 'equipCrossbow') { equip(true); return; }
@@ -756,19 +1307,21 @@ function frame() {
       const moving = MOVE_ACTIONS.some((a) => player.held.has(a)) || Math.hypot(player.analog.x, player.analog.y) > 0.05;
       if (moving && !player.sneaking) {
         stepTimer -= SIM_STEP;
-        if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); }
+        if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); if (player.thirdPerson && player.speed() > controls.speeds.walk) dust.burst(footAt()); }
       } else stepTimer = 0;
     }
     rig.update(dt);   // R3: camera follows this frame's simulation before anything aims along it
     // F3.1: 2 m reach from the eyes along the view direction (same in 1st and 3rd person, F2.4).
     player.lookDir(lookDir);
     ray.set(player.eyePos, lookDir);
-    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget, ...library.targets], false)[0];
+    const things = interactables.filter((t) => !t.when || t.when());
+    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget, ...library.targets, ...things.map((t) => t.obj)], false)[0];
     libraryHit = (hit?.object.userData.hit as LibraryHit | undefined) ?? null;
-    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : hit.object === world.natalieTarget ? 'natalie' : 'library';
+    lookingAtThing = (hit && things.find((t) => t.obj === hit.object)) ?? null;
+    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : hit.object === world.natalieTarget ? 'natalie' : lookingAtThing ? 'thing' : 'library';
     if (!lookingAt && crossbow.boltAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'bolt';   // F4.4
     show('prompt', lookingAt !== null);
-    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt'
+    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : lookingAt === 'thing' ? lookingAtThing!.verb()
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     const s = (player.sneaking ? 'SNEAK' : player.speed() === controls.speeds.sprint ? 'SPRINT' : player.speed() === controls.speeds.run ? 'RUN' : 'WALK')
@@ -777,6 +1330,7 @@ function frame() {
     crossbow.update(dt);
     touch?.update();
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
+  animate(dt);
   updateAmmoHud();
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
@@ -785,7 +1339,15 @@ function frame() {
 setState('title');
 frame();
 // F2.1: everything is built and the first frame is drawn; fade in from black over 2 s (no pop-in).
-renderer.compile(world.scene, camera);
+// Compile hidden things too (player body, held crossbow, dust), so they don't stutter the first time they show.
+{
+  const hidden = [player.body, crossbow.viewmodel].filter((o) => !o.visible);
+  hidden.forEach((o) => { o.visible = true; });
+  dust.mesh.count = 1;
+  renderer.compile(world.scene, camera);
+  hidden.forEach((o) => { o.visible = false; });
+  dust.mesh.count = 0;
+}
 progress(100);
 requestAnimationFrame(() => requestAnimationFrame(() => {
   const loader = document.getElementById('loader');
@@ -816,4 +1378,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

@@ -1,4 +1,4 @@
-// Automated checks for the partial rebuild (docs/rebuild-plan.md): R1 look, R3 camera rig.
+// Automated checks for the partial rebuild (docs/rebuild-plan.md): R1 look, R3 camera rig, R4 gameplay port.
 // Usage: npm run build && node test/e2e-rebuild.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
@@ -56,6 +56,33 @@ await page.keyboard.press('Tab');
 const back = await until(page, () => { const g = window.__gametool; return g.state !== 'book' && !g.rig.inShot && Math.abs(g.camera.fov - g.settings.fov) < 0.5; });
 check('R3 closing the book blends back to the play camera', back);
 
+// ---------- R4: follow camera against a wall hides the body (no camera inside the player's head) ----------
+await G(page, () => { const p = window.__gametool.player; p.pos.set(4, 0, -16.3); p.yaw = Math.PI; p.pitch = 0; });   // just outside the library front wall, back to it
+const hidden = await until(page, () => { const g = window.__gametool; return g.player.thirdPerson && !g.player.body.visible; });
+check('R4 back to a wall: the follow camera hides the player body instead of sitting in it', hidden);
+await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; });
+check('R4 away from walls the body shows again', await until(page, () => window.__gametool.player.body.visible));
+
+// ---------- Phase A: body turns toward movement, limbs swing, NPCs look at you, dust on landing ----------
+await G(page, () => { const p = window.__gametool.player; p.pos.set(2, 0, 6); p.yaw = 0; p.pitch = 0; });
+await page.keyboard.down('KeyD');
+const turned = await until(page, () => { const p = window.__gametool.player; return Math.abs(Math.atan2(Math.sin(p.bodyYaw + Math.PI / 2), Math.cos(p.bodyYaw + Math.PI / 2))) < 0.25; });
+const swing = await G(page, () => Math.abs(window.__gametool.player.body.children[0].userData.rig.bones.thighN.rotation.x));
+await page.keyboard.up('KeyD');
+check('A strafing right turns the body to face right (third person)', turned);
+check('A running swings the legs', swing > 0.1, swing.toFixed(2));
+await G(page, () => { const p = window.__gametool.player, h = window.__gametool.world.standees.hero.position; p.pos.set(h.x - 2.2, 0, h.z + 0.6); });
+const looked = await until(page, () => Math.abs(window.__gametool.world.standees.hero.userData.rig.bones.head.rotation.y) > 0.3);
+check('A the hero turns his head toward a player standing near', looked);
+await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); });
+await page.keyboard.press('Space');
+check('A landing kicks up dust', await until(page, () => window.__gametool.world.scene.getObjectByName('dust').count > 0));
+
+// R4: talk with the crossbow in hand, so the dialogue shot below also checks the viewmodel is hidden.
+await G(page, () => { const i = window.__gametool.inventory; i.give('crossbow', 1); i.give('bolt', 2); });
+await page.keyboard.press('Digit1');
+await until(page, () => window.__gametool.crossbow.viewmodel.visible);
+
 // ---------- R3: dialogue two-shot ----------
 await G(page, () => {
   const g = window.__gametool, n = g.world.natalieTarget.position, pl = g.player;
@@ -72,7 +99,10 @@ const two = await until(page, () => {
 });
 await page.screenshot({ path: path.join(shots, 'rebuild-dialogue-shot.png') });
 check('R3 talking to Natalie frames her over the player\'s shoulder', two);
-
+check('R4 the held crossbow is not drawn in the dialogue shot', await until(page, () => !window.__gametool.crossbow.viewmodel.visible));
+// ---------- Phase A (B1): rigged figures + procedural animation ----------
+const rig = await G(page, () => { const r = window.__gametool.player.body.children[0].userData.rig; return r && { bones: Object.keys(r.bones).length, skinned: r.mesh.isSkinnedMesh }; });
+check('A every built-in figure is one skinned mesh on a 12-bone rig', !!rig && rig.bones === 12 && rig.skinned, JSON.stringify(rig));
 check('Rebuild: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 const failed = results.filter((r) => !r.ok).length;

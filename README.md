@@ -77,6 +77,59 @@ without writing the index.
 Style target: Mega Man Legends-like chunky low-poly parts with hand-painted textures (light painted in; textured models
 render unlit). Models load on the live site (and `npm run dev` after a restart); a double-clicked local `dist/index.html` shows placeholders instead.
 
+### Animation clips (optional)
+
+A character `.glb` can carry animation clips: armature or object animation exported with the model, not video.
+Name each clip after the state it plays in. Case doesn't matter, and Blender's `Armature|` prefix is ignored.
+
+| Clip name | Plays when | If the clip is missing |
+|---|---|---|
+| `idle` | Standing still (everyone) | The model holds its exported pose |
+| `walk` | Moving at walking pace | `idle` |
+| `run` | Moving at run or sprint pace | `walk`, then `idle` |
+| `talk` | During dialogue (you and Natalie) | `idle` |
+| `aim` | Crossbow in hand (you) | `idle` |
+
+Clips crossfade over 0.2 s and loop. Make them loopable: the last frame should match the first. In Blender, give
+each action a fake user (the shield icon) so the glTF exporter includes every clip, not only the active one.
+A model without clips still works; it just stands still.
+
+## Forges and dice (B4, B5, B6)
+
+At the travellers' camp by the stagecoach, the **mirror** opens the character forge and the **anvil** opens the
+weapon forge (you need the crossbow first). Both are also in the pause menu. Everything you make is saved in this browser.
+*Roll constraint dice* gives you three prompts to work into the story. *Submit…* sends your creation for review as a
+GitHub issue (or downloads the .md). A reviewed character placed in `content/artifacts/` keeps its `look:` line and
+shows up in the library with that look.
+
+## Writing on the world (B13, B3, B10)
+
+Open any book and press **✎** to pin a note to the page in your own ink, with a sketch as its wax seal. Notes show on
+the page, on the lectern's 3D pages, and as a ribbon on the shelf book. Pick your ink and paper in the same panel.
+The **banner** at the camp (or *Sketchbook* in the pause menu) opens a 32×32 pixel painter; *Hang on the banner*
+puts your sketch on the cloth. Notes and sketches stay in this browser; *Submit…* sends them for review.
+
+## Quests and folklore (B2, B12)
+
+After Natalie hands you the crossbow, look for things out of place (E). The **casebook** (J) collects clues; with
+three, write your theory of what happened to her party and pick who / where / why. The theory decides where the
+blue light leads. Ask Natalie *Come with me* and she follows and comments. The **Curio Pedlar** by the coach road
+knows the canon of legendary things and takes your own names, histories and rumors for anything you carry.
+Quest text lives in `content/quest/` (clues, tags, keywords, leads, barks, legendary items) and can be edited there.
+
+## Campfire, tunes and the gallery (B8, B11, B9)
+
+Sit by the **campfire** at the camp: write an 8-step tune, then tell your adventure in three turns. Natalie adds her
+own, and the bard sings it back as a ballad you can shelve, replay and submit. The **gallery hall** east of the dais
+shows what you've made and the library works you've read, each with its credit.
+
+## Places: dungeon, living map and dojo (B15, B7, B14)
+
+Open the **trapdoor** beside the library and descend into a seeded dungeon: the same seed always builds the same
+one, so you can share it. Press **M** for the **living map**, which fills in as you walk and lets you pin notes. At
+the **dojo** your character demonstrates drills while you follow beginner-safe versions; risky moves are done by
+the character only. Drills are light movement, not medical advice.
+
 ## Settings (F1)
 
 Open **Settings** from the title screen, or **Esc** during play, then expand **Graphics** / **Audio**.
@@ -177,7 +230,7 @@ test/e2e.mjs              automated Done-when checks (headless Chromium)
 | v0.02 — F1 Settings, A7 Audio, version label (spec §8) | `src/settings.ts`, `src/audio.ts`, `src/version.ts`, `src/world.ts`, `src/main.ts`, `src/style.css`; `content/` renamed from `campaign/` (D7); `sunset`/`dusk` palette tokens added (A5) | `test/e2e-v0.02.mjs`: presets/sliders apply live and persist, bus mute isolation, version label, Low vs. High relative frame cost (informational, #30), no audio-engine errors during play |
 | v0.03 — F2 world/camera, §5, §6.3 prompts | `index.html`, `src/world.ts`, `src/player.ts`, `src/prompts.ts`, `src/main.ts`, `src/controls.ts`, `src/input/touch.ts`, `content/rolltables/creation-prompts.json` | `test/e2e-v0.03.mjs`: fade-in, daily prompt, sun < 15°, 3.4 m door visible from spawn and locked, F toggles POV while moving, camera wall collision |
 | v0.04 — F3 dialogue + inventory | `src/dialogue.ts`, `src/inventory.ts`, `content/items.json`, `src/world.ts` (door, Natalie hitbox) | `test/e2e-v0.04.mjs`: typewriter rate, choices, frozen movement, give/unlock, inventory grid, walk through the open door, n5 prompt then crossbow |
-| .glb loader | `src/models.ts`, `public/draco/`, `vite.config.ts` | `test/e2e-models.mjs`: model replaces placeholder at slot height; missing/broken files fall back |
+| .glb loader + animation clips | `src/models.ts`, `public/draco/`, `vite.config.ts` | `test/e2e-models.mjs`: model replaces placeholder at slot height; missing/broken files fall back; clips play by state with fallbacks |
 | v0.05 — F4 crossbow | `src/crossbow.ts`, `src/main.ts`, input layers | `test/e2e-v0.05.mjs`: equip, ADS FOV, 60 m/s + gravity, sticking, all three reload outcomes, 2× bonus, pickup, 30 s despawn |
 
 Run the checks with:

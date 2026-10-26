@@ -2,7 +2,7 @@
 
 2026-10-22, approved scope: **partial**. We rebuild the look, the world, the camera and the player to match
 [vision.md](vision.md). The plumbing that doesn't depend on art style stays.
-Status 2026-10-22: R0 done (tag). R1 and R2 built, and Mike signed off on the look. R3 (camera rig) built on `claude/project-thread-urmx36`.
+Status 2026-10-22: R0 done (tag). R1 and R2 built, and Mike signed off on the look. R3 (camera rig) merged (PR #4). R4 (gameplay port) in PR #5. Phase A (B1 animation + R5 polish) built next; then backlog phases B–F (backlog.md).
 
 ## Keep (port as-is, light touch only)
 

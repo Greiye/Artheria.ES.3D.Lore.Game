@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
+import { buildCrossbowModel, loadWeapon, type WeaponCosmetic } from './forge/weapon';
 
 export const BOLT_SPEED = 60;         // m/s (F4.2)
 export const STICK_SECONDS = 30;      // F4.2
@@ -16,6 +17,8 @@ export const JAM_SECONDS = 3;
 // reload at 0.5 s (or at once, if pressed after 0.5 s). See docs/assumptions.md.
 export const ZONE = { start: 0.15, end: 0.30 };
 const GRAVITY = 9.8;
+const BOLT_GEO = new THREE.BoxGeometry(0.02, 0.02, 0.4);
+const BOLT_MAT = new THREE.MeshLambertMaterial({ color: 0xD9D8CC });
 const ADS_FOV_DROP = 15;              // F4.1
 
 export interface Bolt { mesh: THREE.Mesh; origin: THREE.Vector3; vel: THREE.Vector3; stuck: boolean; age: number; damage: number; hitbox: THREE.Mesh }
@@ -30,7 +33,7 @@ export class Crossbow {
   lastReloadOutcome: 'normal' | 'fast' | 'jam' | null = null;
   readonly bolts: Bolt[] = [];
   readonly viewmodel = new THREE.Group();
-  private loadedBolt: THREE.Mesh;
+  private loadedBolt!: THREE.Mesh;
   private fovOffset = 0;
   private ray = new THREE.Raycaster();
   onFire: () => void = () => undefined;
@@ -39,18 +42,21 @@ export class Crossbow {
 
   constructor(private scene: THREE.Scene, private camera: THREE.PerspectiveCamera, private player: Player,
     private inventory: Inventory, private solids: THREE.Object3D[], private baseFov: () => number) {
-    const wood = new THREE.MeshToonMaterial({ color: 0x7A5236 }), dark = new THREE.MeshToonMaterial({ color: 0x553823 });
-    const steel = new THREE.MeshToonMaterial({ color: 0xA4A7A6 });
-    const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); this.viewmodel.add(b); return b;
-    };
-    box(0.05, 0.06, 0.42, wood, 0, 0, 0);          // stock
-    box(0.44, 0.03, 0.04, dark, 0, 0.02, -0.17);   // limbs
-    box(0.42, 0.006, 0.006, steel, 0, 0.02, -0.12); // string
-    this.loadedBolt = box(0.012, 0.012, 0.3, steel, 0, 0.045, -0.08);
+    // Rebuild R4: pixel-textured like the world (docs/vision.md), lit by the same sun.
+    // Phase B (B5): the parts and materials come from the player's weapon forge cosmetic.
+    this.loadedBolt = this.applyCosmetic(loadWeapon());
     this.viewmodel.visible = false;
     camera.add(this.viewmodel);
     this.placeViewmodel(0);
+  }
+
+  // B5: rebuild the held crossbow from a cosmetic (looks only; stats never change).
+  applyCosmetic(c: WeaponCosmetic): THREE.Mesh {
+    this.viewmodel.clear();
+    const model = buildCrossbowModel(c);
+    this.viewmodel.add(...model.children);
+    this.loadedBolt = this.viewmodel.getObjectByName('loadedBolt') as THREE.Mesh;
+    return this.loadedBolt;
   }
 
   get bolts_left() { return this.inventory.count('bolt'); }
@@ -73,7 +79,7 @@ export class Crossbow {
     const dir = new THREE.Vector3();
     this.player.lookDir(dir);   // R3: aim follows the player's view even while the camera rig is blending
     const start = this.player.eyePos.clone().addScaledVector(dir, 0.45);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.4), new THREE.MeshToonMaterial({ color: 0xD9D8CC }));
+    const mesh = new THREE.Mesh(BOLT_GEO, BOLT_MAT);
     mesh.position.copy(start);
     mesh.lookAt(start.clone().add(dir));
     const hitbox = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.5), new THREE.MeshBasicMaterial({ visible: false }));
@@ -126,8 +132,7 @@ export class Crossbow {
     this.onChange();
   }
   private removeBolt(b: Bolt) {
-    this.scene.remove(b.mesh);
-    b.mesh.geometry.dispose();
+    this.scene.remove(b.mesh);   // geometry and material are shared by every bolt
     this.bolts.splice(this.bolts.indexOf(b), 1);
   }
 

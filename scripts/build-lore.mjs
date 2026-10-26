@@ -93,6 +93,7 @@ function read(dir, file, warnings) {
     links_out: [...new Set([...list(data.links), ...inline])],
     dedications: list(data.dedications),                       // F10.3 (0.07)
     color: data.color ? String(data.color) : undefined,        // §6.1 character capsule colour
+    look: data.look ? String(data.look) : undefined,           // B4: forged look (key=value; ...), drawn in the library
     body: body.trim(),
   };
 }

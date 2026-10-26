@@ -23,7 +23,7 @@ export class CameraRig {
   private m = new THREE.Matrix4();
   private up = new THREE.Vector3(0, 1, 0);
 
-  constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], private bounds: number, private baseFov: () => number) {}
+  constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], public bounds: number, private baseFov: () => number) {}
 
   get inShot(): boolean { return this.shot !== null; }
 
@@ -35,6 +35,7 @@ export class CameraRig {
   // Run once per frame, after the simulation steps.
   update(dt: number) {
     const p = this.player;
+    let near = false;   // follow camera pulled in so close it would sit inside the player's own head
     this.baseQ.setFromEuler(new THREE.Euler(p.pitch, p.yaw, 0, 'YXZ'));
     if (!p.thirdPerson) {
       this.basePos.copy(p.eyePos);
@@ -53,9 +54,10 @@ export class CameraRig {
       // Pull in at once (never clip a wall), ease back out (no popping when a tree passes).
       this.free = target < this.free || !this.wasThird ? target : Math.min(target, this.free + dt * 2.5);
       this.basePos.copy(p.eyePos).addScaledVector(offset, this.free);
+      near = this.free * offset.length() < 0.9;
     }
     this.wasThird = p.thirdPerson;
-    p.body.visible = p.thirdPerson || this.blend > 0.01 || this.shot !== null;
+    p.body.visible = (p.thirdPerson && !near) || this.blend > 0.01 || this.shot !== null;
 
     this.blend = THREE.MathUtils.clamp(this.blend + (this.shot ? dt : -dt) / 0.6, 0, 1);
     const s = this.shot ?? this.lastShot;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { pixelTexture, rng, type TexName } from '../tex/pixel';
 import { Batch } from './batch';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildSky } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { buildFigure, buildCoach } from './figure';
@@ -24,6 +25,10 @@ export interface World {
   sunElevationDeg: number;      // F2.2: < 15° for the sunset
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
+  stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D; campfire: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
+  campfireFlame: THREE.Mesh;                                  // B8: flickers in main.ts
+  bannerCloth: THREE.Mesh;                                    // B10: its map is the stamped sketch
+  lecternPages: [THREE.Mesh, THREE.Mesh];                     // B3: margin notes are drawn onto these
   doorOpen: boolean;
   openDoor(): void;             // F3.4 `unlock:library_door`
   standees: Record<string, THREE.Object3D>;  // placeholder characters; .glb model slots replace them
@@ -203,7 +208,11 @@ export function buildWorld(): World {
 
   // Keep-out zone for scattered props: dais + path + spawn + library and its forecourt.
   const clear = (x: number, z: number, pad: number) => Math.hypot(x, z) < 4.5 + pad || (Math.abs(x) < 2 + pad && z > LIB.front && z < 12 + pad)
-    || (Math.abs(x) < LIB.w / 2 + 2 + pad && z < LIB.front + 4 + pad && z > back - 2 - pad);
+    || (Math.abs(x) < LIB.w / 2 + 2 + pad && z < LIB.front + 4 + pad && z > back - 2 - pad)
+    // Phases B–E: the camp, the gallery hall, the quest's forest tracks and its two outdoor leads.
+    || (x > -11 - pad && x < -3 + pad && z > -7 - pad && z < 5 + pad) || (x > 9.5 - pad && x < 20.5 + pad && z > 2 - pad && z < 10 + pad)
+    || Math.hypot(x - 9.5, z + 10) < 3.5 + pad || Math.hypot(x - 16, z + 14) < 2 + pad || Math.hypot(x + 16, z + 4) < 2 + pad
+    || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad);   // Phase F dojo
 
   // ---------- trees: birch + oak, trunks batched, canopies as alpha-cut leaf blocks ----------
   const canopyDark = leafMaterial('leaves', true), canopyLight = leafMaterial('leavesLight', true);
@@ -307,13 +316,69 @@ export function buildWorld(): World {
   // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
   const NAT = { x: -2.8, z: LIB.front + 1.8 };
   place('natalie', buildFigure({ skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
+  // Phase D (B12): the Curio Pedlar, an Owlkin trader by the coach road (placeholder NPC, docs/assumptions.md #56).
+  place('pedlar', buildFigure({ skin: '#C9A27A', hair: '#7A5A3A', primary: '#5A6B3A', secondary: '#B08A4A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'owl', build: 1.15 }, 1.6), -7.8, -5.4, 0.9, 0.4);
   const natalieTarget = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
   natalieTarget.name = 'natalie';
   natalieTarget.position.set(NAT.x, 0.9, NAT.z);
   scene.add(natalieTarget);
 
+  // ---------- Phase B: the travellers' camp by the coach: a standing mirror (B4) and an anvil (B5) ----------
+  // Batched like the rest of the world: 3 materials + the glass = 4 draw calls for the whole camp.
+  const campB = new Batch();
+  const iron = new THREE.MeshLambertMaterial({ color: '#4A4C50' });
+  // Anvil on a tree stump.
+  const AX = -7.6, AZ = 1.2;
+  campB.add(tex('bark'), new THREE.CylinderGeometry(0.42, 0.48, 0.55, 8), V(AX, 0.27, AZ));
+  campB.box(iron, V(AX, 0.63, AZ), 0.34, 0.16, 0.24);
+  campB.box(iron, V(AX, 0.78, AZ), 0.62, 0.14, 0.3, 0.2);
+  campB.box(iron, V(AX + 0.36 * Math.cos(0.2), 0.8, AZ - 0.36 * Math.sin(0.2)), 0.22, 0.1, 0.16, 0.2);   // horn
+  campB.box(tex('wood'), V(AX - 0.1, 0.88, AZ + 0.08), 0.05, 0.05, 0.3, 1.1);                          // hammer handle
+  campB.box(iron, V(AX - 0.02, 0.89, AZ - 0.05), 0.1, 0.08, 0.08, 1.1);
+  colliders.push({ kind: 'circle', x: AX, z: AZ, r: 0.5 });
+  // Standing mirror: wooden frame, a pale glass that catches the sky.
+  const MX = -8.4, MZ = -0.6, MR = 1.1;
+  campB.box(tex('wood'), V(MX, 1.0, MZ), 0.9, 1.8, 0.08, MR);
+  for (const s of [-1, 1]) campB.box(tex('wood'), V(MX + Math.cos(MR) * s * 0.36, 0.05, MZ - Math.sin(MR) * s * 0.36), 0.08, 0.1, 0.5, MR);
+  // B10 banner pole: the cloth (a sketch, painted in the sketchbook) hangs from the crossbar and sways.
+  const BX = -9.2, BZ = 1.0, BR = Math.atan2(-BX, -BZ);
+  campB.box(tex('wood'), V(BX, 1.3, BZ), 0.09, 2.6, 0.09, BR);
+  campB.box(tex('wood'), V(BX, 2.45, BZ), 1.1, 0.07, 0.07, BR);
+  campB.add(tex('mossStone'), new THREE.CylinderGeometry(0.22, 0.28, 0.16, 7), V(BX, 0.08, BZ));
+  colliders.push({ kind: 'circle', x: BX, z: BZ, r: 0.3 });
+  const bannerCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.2, 6, 8), new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }));
+  bannerCloth.name = 'bannerCloth';
+  bannerCloth.position.set(BX + Math.sin(BR) * 0.06, 1.8, BZ + Math.cos(BR) * 0.06); bannerCloth.rotation.y = BR;
+  bannerCloth.castShadow = true;
+  scene.add(bannerCloth);
+  // B8 campfire: a ring of stones, crossed logs, and log seats; the flame is its own flickering mesh.
+  const FX = -5.4, FZ = 3.2;
+  for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; campB.add(tex('stone'), new THREE.DodecahedronGeometry(0.13, 0), V(FX + Math.cos(a) * 0.55, 0.08, FZ + Math.sin(a) * 0.55), new THREE.Vector3(1, 0.7, 1), a); }
+  for (const a of [0.3, 1.35, 2.4]) campB.add(tex('bark'), new THREE.CylinderGeometry(0.06, 0.07, 0.75, 6), V(FX, 0.12, FZ), undefined, a, Math.PI / 2 - 0.25);
+  for (const [dx, dz, ry] of [[1.5, 0.3, 1.4], [-0.6, 1.5, 0.2], [-1.3, -0.9, 2.3]] as const) campB.add(tex('bark'), new THREE.CylinderGeometry(0.2, 0.2, 1.2, 7), V(FX + dx, 0.2, FZ + dz), undefined, ry, Math.PI / 2);
+  colliders.push({ kind: 'circle', x: FX, z: FZ, r: 0.65 });
+  const flame = new THREE.Mesh(mergeGeometries([
+    new THREE.ConeGeometry(0.22, 0.6, 5).translate(0, 0.3, 0), new THREE.ConeGeometry(0.14, 0.42, 5).translate(0.09, 0.21, 0.05), new THREE.ConeGeometry(0.12, 0.36, 5).translate(-0.08, 0.18, -0.06),
+  ].map((g, i) => { const n = g.toNonIndexed(); const c = new THREE.Color(['#F2783A', '#FFD25A', '#FFB347'][i]); n.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: n.attributes.position.count }, () => [c.r, c.g, c.b]).flat(), 3)); n.deleteAttribute('uv'); return n; })), new THREE.MeshBasicMaterial({ vertexColors: true }));
+  flame.position.set(FX, 0.12, FZ); flame.name = 'campfire-flame'; flame.raycast = () => {};
+  scene.add(flame);
+  campB.flush(scene, 'camp').forEach((m) => { m.castShadow = true; shadowCasters.push(m); });
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 1.6), new THREE.MeshBasicMaterial({ color: '#BFD8E0' }));
+  glass.name = 'camp';
+  glass.position.set(MX + Math.sin(MR) * 0.045, 1.0, MZ + Math.cos(MR) * 0.045); glass.rotation.y = MR; scene.add(glass);
+  colliders.push({ kind: 'circle', x: MX, z: MZ, r: 0.45 });
+  const hitbox = (name: string, x: number, y: number, z: number, w: number, h: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshBasicMaterial({ visible: false }));
+    m.name = name; m.position.set(x, y, z); scene.add(m); return m;
+  };
+  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2), banner: hitbox('banner', BX, 1.4, BZ, 1.0, 2.8), campfire: hitbox('campfire', FX, 0.4, FZ, 1.4, 0.8) };
+
   let doorOpen = false, doorAngle = 0;
   return {
+    stations,
+    bannerCloth,
+    campfireFlame: flame,
+    lecternPages: [pageL, pageR],
     scene,
     colliders,
     bookTarget,

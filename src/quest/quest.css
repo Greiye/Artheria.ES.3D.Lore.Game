@@ -1,0 +1,23 @@
+/* Phase D: B2 casebook + companion line, B12 folklore. Panels reuse the forge layout (src/forge/forge.css). */
+.cb-clues { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.cb-clue { display: grid; gap: 3px; padding: 8px 10px; background: rgba(239,227,196,.06); border-left: 3px solid var(--clay); font-size: 13px; }
+.cb-clue b { color: var(--parchment); }
+.cb-clue span { color: var(--stone-l); }
+.cb-clue em { color: #d8c7a0; font-size: 12px; }
+.casebook-panel textarea, .folklore-panel textarea { width: 100%; box-sizing: border-box; }
+#cbTheory, .cb-theory { font: 17px/1.4 var(--hand, cursive); color: var(--my-ink, #2B2A24); background: var(--parchment); border: 0; border-radius: 6px; padding: 8px 10px; }
+.cb-theory { margin: 0; }
+.cb-reading { min-height: 1em; color: var(--rune); }
+.cb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.cb-tags span { padding: 3px 8px; border: 1px solid var(--stone-d); border-radius: 12px; font-size: 12px; }
+.cb-hint { color: var(--parchment); font-style: italic; }
+.cb-lead { color: #9fd0ff; }
+.cb-ending { margin: 0; padding: 10px 12px; background: var(--parchment); color: var(--ink); font: 15px/1.5 var(--serif); border-radius: 6px; }
+.casebook-panel h5 { text-transform: capitalize; }
+.chip.legendary { border-color: #F2C94C; color: #F2C94C; }
+.fl-canon { margin: 0; padding: 8px 10px; background: rgba(242,201,76,.08); border-left: 3px solid #F2C94C; font-size: 13px; color: var(--parchment); }
+.fl-canon cite, .fl-rumors cite { display: block; margin-top: 4px; font-size: 11px; color: var(--stone-l); }
+.fl-rumors { padding-left: 1.1em; font-size: 13px; }
+.companion-line { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 25; max-width: min(640px, calc(100vw - 32px));
+  padding: 8px 14px; border-radius: 8px; background: rgba(20,24,21,.72); color: var(--parchment); font: italic 15px/1.35 var(--serif);
+  text-align: center; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
