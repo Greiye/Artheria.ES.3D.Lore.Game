@@ -34,7 +34,7 @@ export class Player {
   // True once after touching down (read by the animator for the landing squash).
   consumeLanded(): boolean { const l = this.landedFlag; this.landedFlag = false; return l; }
 
-  constructor(private settings: Settings, private colliders: Collider[], private bounds: number) {
+  constructor(private settings: Settings, private colliders: Collider[], public bounds: number) {
     // PLACEHOLDER: Mega Man Legends-style figure until player.glb exists (H9, docs/vision.md).
     // children[0] is the model slot; children[1] marks "forward" and is hidden once a model shows its own front.
     const figure = buildFigure({ skin: '#F0C8A0', hair: '#5A3420', primary: '#4F7A3A', secondary: '#C9B48A', boots: '#5A3A22', accent: '#7A5236', hairStyle: 'spiky' }, controls.eyeHeight + 0.1);

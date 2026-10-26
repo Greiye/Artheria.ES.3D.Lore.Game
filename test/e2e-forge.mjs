@@ -96,8 +96,15 @@ check('B5 Esc closes the weapon forge', await until(page, () => window.__gametoo
 check('B5 the held crossbow now has the forged parts and engraving', await G(page, () => { const v = window.__gametool.crossbow.viewmodel; return !!v.getObjectByName('engraving') && !!v.getObjectByName('loadedBolt') && JSON.parse(localStorage.getItem('gametool.forge.weapon')).limbs === 'recurve'; }));
 
 // ---------- persistence across a reload ----------
-await page.reload();
-await page.waitForFunction(() => window.__gametool);
+// docs/assumptions.md #30: headless Chromium here sometimes drops keys across a file:// reload; restore and retry.
+const snap = await G(page, () => ({ ...localStorage }));
+for (let attempt = 0; attempt < 5; attempt++) {
+  await page.reload();
+  await page.waitForFunction(() => window.__gametool);
+  const lost = await G(page, (keys) => keys.filter((k) => localStorage.getItem(k) === null), Object.keys(snap));
+  if (!lost.length) break;
+  await G(page, (s) => { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v); }, snap);
+}
 check('B4/B5 the forged look and crossbow come back after a reload', (await vcount()) === infVerts && await G(page, () => !!window.__gametool.crossbow.viewmodel.getObjectByName('engraving')), `${await vcount()} vs ${infVerts}`);
 
 check('Forge: no console/page errors', errors.length === 0, errors.join(' | '));

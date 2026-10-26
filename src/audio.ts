@@ -109,6 +109,34 @@ class AudioEngine {
     return n;
   }
 
+  // B11 bard tunes: play an 8-step pattern (bitmask per step over `pitches`, MIDI) on the Music bus.
+  // `loops` repeats it; returns the scheduled length in seconds (0 when audio is unavailable).
+  tune(steps: number[], pitches: number[], instrument: 'lute' | 'flute' | 'bells', bpm: number, loops = 1): number {
+    if (!this.ensure() || !this.ctx || !this.bus) return 0;
+    const step = 60 / bpm / 2, t0 = this.ctx.currentTime + 0.05;
+    const shape: Record<string, { type: OscillatorType; attack: number; decay: number; gain: number }> = {
+      lute: { type: 'triangle', attack: 0.005, decay: 0.55, gain: 0.22 },
+      flute: { type: 'sine', attack: 0.06, decay: step * 1.6, gain: 0.2 },
+      bells: { type: 'square', attack: 0.002, decay: 0.9, gain: 0.07 },
+    };
+    const sh = shape[instrument] ?? shape.lute;
+    for (let l = 0; l < loops; l++) steps.forEach((mask, i) => {
+      pitches.forEach((midi, r) => {
+        if (!(mask & (1 << r))) return;
+        const t = t0 + (l * steps.length + i) * step;
+        const o = this.ctx!.createOscillator(), g = this.ctx!.createGain();
+        o.type = sh.type;
+        o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(sh.gain, t + sh.attack);
+        g.gain.exponentialRampToValueAtTime(0.001, t + sh.attack + sh.decay);
+        o.connect(g).connect(this.bus!.music);
+        o.start(t); o.stop(t + sh.attack + sh.decay + 0.05);
+      });
+    });
+    return loops * steps.length * step;
+  }
+
   // PLACEHOLDER: not wired to a trigger yet (F4/F6 not built). Kept here so those versions
   // only need to call these, not build the synth — see docs/assumptions.md #30.
   crossbowTwang(): void { this.noise('sfx', 0.18, 1600, 4, 0.4); }

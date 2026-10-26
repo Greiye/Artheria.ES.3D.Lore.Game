@@ -1,0 +1,14 @@
+/* Phase F: B7 living map. */
+.map-screen { position: fixed; inset: 0; z-index: 42; display: grid; place-items: center; background: rgba(12,14,12,.6); padding: 12px; }
+.map-card { display: grid; grid-template-columns: auto 260px; gap: 16px; align-items: start; background: var(--shadow); border: 1px solid var(--stone-d);
+  border-radius: 10px; padding: 16px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); overflow: auto; }
+.map-card .eyebrow { grid-column: 1 / -1; }
+#mpCanvas { width: min(600px, calc(100vh - 110px), calc(100vw - 340px)); aspect-ratio: 1; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+.map-pin-row { display: flex; gap: 6px; }
+.map-pin-row input { flex: 1; min-width: 0; }
+.map-pins { padding-left: 1.1em; font-size: 13px; color: var(--parchment); }
+.map-pins li { margin: 4px 0; }
+.map-pins .sk-del { position: static; display: inline-block; margin-left: 4px; }
+@media (max-width: 700px) { .map-card { grid-template-columns: 1fr; } #mpCanvas { width: calc(100vw - 56px); } }
+#mpText { font: 14px var(--ui); color: var(--parchment); background: rgba(122,125,128,.12); border: 1px solid var(--stone-d); border-radius: 6px; padding: 8px 10px; }
+#mpText:focus { outline: none; border-color: var(--rune); }

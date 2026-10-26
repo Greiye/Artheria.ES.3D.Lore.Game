@@ -117,6 +117,19 @@ blue light leads. Ask Natalie *Come with me* and she follows and comments. The *
 knows the canon of legendary things and takes your own names, histories and rumors for anything you carry.
 Quest text lives in `content/quest/` (clues, tags, keywords, leads, barks, legendary items) and can be edited there.
 
+## Campfire, tunes and the gallery (B8, B11, B9)
+
+Sit by the **campfire** at the camp: write an 8-step tune, then tell your adventure in three turns. Natalie adds her
+own, and the bard sings it back as a ballad you can shelve, replay and submit. The **gallery hall** east of the dais
+shows what you've made and the library works you've read, each with its credit.
+
+## Places: dungeon, living map and dojo (B15, B7, B14)
+
+Open the **trapdoor** beside the library and descend into a seeded dungeon: the same seed always builds the same
+one, so you can share it. Press **M** for the **living map**, which fills in as you walk and lets you pin notes. At
+the **dojo** your character demonstrates drills while you follow beginner-safe versions; risky moves are done by
+the character only. Drills are light movement, not medical advice.
+
 ## Settings (F1)
 
 Open **Settings** from the title screen, or **Esc** during play, then expand **Graphics** / **Audio**.

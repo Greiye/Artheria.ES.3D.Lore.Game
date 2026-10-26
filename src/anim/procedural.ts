@@ -12,7 +12,9 @@ export interface AnimInput {
   airborne?: boolean;
   landed?: boolean;       // true for the one frame the figure touches down
   look?: { yaw: number; pitch: number } | null;   // head target relative to the body, radians
+  pose?: Pose | null;     // Phase F (B14): a dojo drill takes over the whole body
 }
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank';
 
 const WALK = 2.5, RUN = 5;
 const smooth = (cur: number, target: number, rate: number, dt: number) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
@@ -20,7 +22,9 @@ const smooth = (cur: number, target: number, rate: number, dt: number) => cur + 
 export class FigureAnim {
   private phase = 0;
   private t = Math.random() * 10;   // de-sync idle breathing between figures
-  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0 };
+  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0 };
+  private pose: Pose = 'stance';
+  private poseT = 0;
   private head = { yaw: 0, pitch: 0 };
   private B: Record<BoneName, THREE.Bone>;
   private rest: Record<BoneName, THREE.Vector3>;
@@ -84,6 +88,40 @@ export class FigureAnim {
     this.head.yaw = smooth(this.head.yaw, ly + Math.sin(t * 0.3) * 0.08 * (1 - loco), 5, dt);
     this.head.pitch = smooth(this.head.pitch, lp, 5, dt);
     B.head.rotation.set(this.head.pitch - Math.sin(t * 5.2) * 0.07 * w.talk - B.spine.rotation.x * 0.6, this.head.yaw - B.spine.rotation.y, 0, 'YXZ');
+
+    // B14 drills: blend the whole body toward a demonstrated exercise.
+    if (i.pose) { if (i.pose !== this.pose) this.poseT = 0; this.pose = i.pose; }
+    w.pose = smooth(w.pose, i.pose ? 1 : 0, 5, dt);
+    this.poseT += dt;
+    const k = w.pose;
+    B.root.rotation.set(0, 0, 0); B.root.position.set(0, 0, 0);
+    if (k < 0.002) return;
+    const H = this.rest.hips.y / 0.78, pt = this.poseT;
+    const L = THREE.MathUtils.lerp;
+    const set = (b: BoneName, x: number, y = 0, z = 0) => { const r = B[b].rotation; r.set(L(r.x, x, k), L(r.y, y, k), L(r.z, z, k)); };
+    if (this.pose === 'stance' || this.pose === 'punch') {
+      set('thighN', -0.95, 0, -0.5); set('thighP', -0.95, 0, 0.5); set('shinN', 1.05); set('shinP', 1.05);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.2 * H, k);
+      set('spine', 0.05); set('head', -0.05);
+      if (this.pose === 'stance') { set('armN', 0.35, 0, -0.15); set('armP', 0.35, 0, 0.15); set('foreN', -1.8); set('foreP', -1.8); }
+      else {
+        const side = Math.sin(pt * 7) > 0, e = Math.min(1, Math.abs(Math.sin(pt * 7)) * 1.6);
+        set('armN', side ? L(0.3, -1.5, e) : 0.3, 0, -0.1); set('foreN', side ? L(-1.9, -0.05, e) : -1.9);
+        set('armP', side ? 0.3 : L(0.3, -1.5, e), 0, 0.1); set('foreP', side ? -1.9 : L(-1.9, -0.05, e));
+        set('spine', 0.05, side ? -0.25 * e : 0.25 * e);
+      }
+    } else if (this.pose === 'hang') {
+      // Upside down from the bar by the knees; curl up toward the knees and back down.
+      B.root.rotation.z = Math.PI * k; B.root.position.y = (2.3 + 0.49 * H) * k;   // knees hooked over the bar (2.3 m)
+      const c = 0.5 - 0.5 * Math.cos(pt * 2.2);
+      set('thighN', 0); set('thighP', 0); set('shinN', 1.7); set('shinP', 1.7);
+      set('spine', -1.25 * c); set('head', -0.4 * c);
+      set('armN', -0.6 - 1.6 * c, 0, -0.1); set('armP', -0.6 - 1.6 * c, 0, 0.1); set('foreN', -0.4 * c); set('foreP', -0.4 * c);
+    } else if (this.pose === 'plank') {
+      B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
+      set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);
+      set('armN', -1.45, 0, -0.1); set('armP', -1.45, 0, 0.1); set('foreN', -1.5); set('foreP', -1.5); set('head', -0.5);
+    }
   }
 }
 

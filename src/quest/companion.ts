@@ -38,8 +38,9 @@ export class Companion {
     const goal = new THREE.Vector3(player.x + Math.sin(playerYaw) * 1.4 - Math.cos(playerYaw) * 0.9, 0, player.z + Math.cos(playerYaw) * 1.4 + Math.sin(playerYaw) * 0.9);
     // The library has one way in: on the other side of its front wall from the player, head for the door first.
     const inside = (z: number) => z < DOOR_Z;
-    if (inside(player.z) !== inside(r.position.z)) goal.set(0, 0, inside(r.position.z) ? DOOR_Z - 1.2 : DOOR_Z + 1.2);
-    if (Math.abs(goal.z - DOOR_Z) < 1.5 && inside(player.z) !== inside(r.position.z) && Math.abs(r.position.x) < 1.2 && Math.hypot(goal.x - r.position.x, goal.z - r.position.z) < 0.6) goal.set(0, 0, inside(player.z) ? DOOR_Z - 1.2 : DOOR_Z + 1.2);
+    const glade = Math.abs(player.x) < 100;   // the dungeon (far east) has no library wall
+    if (glade && inside(player.z) !== inside(r.position.z)) goal.set(0, 0, inside(r.position.z) ? DOOR_Z - 1.2 : DOOR_Z + 1.2);
+    if (glade && Math.abs(goal.z - DOOR_Z) < 1.5 && inside(player.z) !== inside(r.position.z) && Math.abs(r.position.x) < 1.2 && Math.hypot(goal.x - r.position.x, goal.z - r.position.z) < 0.6) goal.set(0, 0, inside(player.z) ? DOOR_Z - 1.2 : DOOR_Z + 1.2);
     const dx = goal.x - r.position.x, dz = goal.z - r.position.z, d = Math.hypot(dx, dz);
     const far = Math.hypot(player.x - r.position.x, player.z - r.position.z);
     if (far > 30) { r.position.set(goal.x, 0, goal.z); this.speed = 0; this.syncTarget(); return; }   // left behind (teleport, respawn): catch up

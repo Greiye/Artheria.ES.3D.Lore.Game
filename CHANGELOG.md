@@ -27,6 +27,38 @@ Spec doc v0.05.
   The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
 - Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
 
+### Phase F: places (B15, B7, B14)
+
+- **Seeded dungeon (B15, `src/dungeon/`):** a trapdoor beside the Ruined Library (E: *Open the trapdoor*) leads to
+  a dungeon generated from a seed. The default is today's date; any number or word works, and the same seed always
+  builds the same dungeon, so you can send one to a friend. Rooms are tagged (entrance, treasure, goblin nest,
+  shrines, pools, halls), with one of five themes. Painted torch light is stored in tile colours, so it costs five
+  draw calls. Chests give a trinket once per seed. Shrine carvings quote library lore with its credit. *Climb back
+  up* returns you to the glade, and delves are saved on this device.
+- **Living map (B7, `src/map/`, M or the pause menu):** a hand-inked glade map that fills in as you walk (fog of
+  war in 4 m cells) and marks what you did: clues, your lead, the friend you found, your ballad, delved seeds and
+  drills done. *Pin it here* adds your own notes, and *Submit my notes…* exports them as `type: map-notes`.
+- **Dojo (B14, `src/dojo/`):** training mats, a bar and a water barrel south-west of the dais (E: *Train at the
+  dojo*). A safety disclaimer comes first. Your character then demonstrates each drill (horse stance, punches,
+  eyes-open focus, the inverted bowl crunch, plank) with new procedural poses, while the panel gives a
+  beginner-safe version to do yourself. Risky moves are marked *character only*. Holds count seconds, reps are on
+  the honour system, and *Teach a drill* submits a new one only with a beginner-safe version.
+
+### Phase E: campfire (B8, B11, B9)
+
+- **Campfire + the bard (B8, `src/campfire/`):** a fire ring with log seats at the camp (E: *Sit by the fire*). Tell the
+  adventure in three turns (how it started, what you found, how it ended). Natalie takes a turn between yours, from
+  your quest so far. She is a bard, so she turns it into a ballad: your lines become verses, with her couplets and a
+  refrain. Nothing about your story is invented. *Put it on the shelf* saves it, and *Submit…* exports a `type: song`.
+  A new telling can **pick up where another ballad left off** (collaborative chain).
+- **Bard tunes (B11):** an 8-step sequencer over a C-major pentatonic scale (any pattern sounds fine), with chords
+  allowed, three instruments (lute, flute, bells) and a tempo. The ballad keeps its tune (`tune:` line plus a
+  chord line for the library music box) and plays it whenever it's opened.
+- **Gallery hall (B9):** an open-air hall east of the dais with eight framed, credited exhibits: your hero (portrait
+  from the forge), your crossbow and its legend, your banner, your latest ballad, your theory, and three library
+  works once you've read them (Natalie Bourbon, Straphan at Sunset, Song of the Paved Road). E on a frame shows the
+  card, and *Open* reads it. All eight pictures share one canvas atlas.
+
 ### Phase D: quests (B2, B12)
 
 - **Story seed: "Where did Natalie's party go?"** (`content/quest/missing-party.json`, `src/quest/`). Natalie's

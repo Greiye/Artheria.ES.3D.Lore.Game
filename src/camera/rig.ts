@@ -23,7 +23,7 @@ export class CameraRig {
   private m = new THREE.Matrix4();
   private up = new THREE.Vector3(0, 1, 0);
 
-  constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], private bounds: number, private baseFov: () => number) {}
+  constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], public bounds: number, private baseFov: () => number) {}
 
   get inShot(): boolean { return this.shot !== null; }
 

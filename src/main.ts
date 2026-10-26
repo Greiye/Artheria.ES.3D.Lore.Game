@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import './style.css';
 import { buildWorld } from './world';
 import { Player } from './player';
@@ -31,11 +32,20 @@ import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from
 import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
 import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sketch';
 import { stampBanner, swayBanner, paintLecternPage, buildBookmarks } from './writing/stamps';
-import { QUEST, loadQuest, saveQuest, clueById, support, ending, type Theory } from './quest/quest';
+import { QUEST, loadQuest, saveQuest, clueById, support, ending, tagLabel, type Theory } from './quest/quest';
 import { Casebook } from './quest/casebook';
 import { QuestProps } from './quest/props';
 import { Companion, loadCompanion, saveCompanion } from './quest/companion';
 import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
+import { CampfirePanel } from './campfire/campfire';
+import { loadBallads, balladEntry, decodeTune, SCALE, type Ballad } from './campfire/ballad';
+import { Gallery, GALLERY, type Exhibit } from './campfire/gallery';
+import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
+import './dojo/dojo.css';
+import { drawSketch, loadSketches } from './writing/sketch';
+import { Dungeon } from './dungeon/dungeon';
+import { dailySeed, seedFrom } from './dungeon/gen';
+import { LivingMap, type Mark } from './map/livingmap';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -198,6 +208,7 @@ ui.innerHTML = `
       <button id="openWeaponForge" class="secondary">Weapon forge</button>
       <button id="openSketchbook" class="secondary">Sketchbook</button>
       <button id="openCasebook" class="secondary">Casebook (J)</button>
+      <button id="openMap" class="secondary">Map (M)</button>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
       <button id="writeLorePause" class="secondary">Write lore</button>
     </div>
@@ -363,6 +374,7 @@ $('openCharacterForge').addEventListener('click', () => openCharacterForge());
 $('openWeaponForge').addEventListener('click', () => openWeaponForge());
 $('openSketchbook').addEventListener('click', () => openSketchbook());
 $('openCasebook').addEventListener('click', () => openCasebook());
+$('openMap').addEventListener('click', () => openMap());
 
 $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
@@ -470,7 +482,7 @@ function animate(dt: number) {
   dust.update(dt, camera);
   const mine: AnimInput = {
     speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
-    airborne: player.airborne, landed,
+    airborne: player.airborne, landed, pose: dojo.pose,
     look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
   };
   for (const [id, p] of puppets) {
@@ -487,6 +499,15 @@ function animate(dt: number) {
   companion.update(dt, player.pos, player.bodyYaw, state !== 'play');
   questProps.update(bannerT);
   barkTick(dt);
+  dungeon.update(bannerT);
+  dojo.tick(dt);
+  mapClock += dt; if (mapClock > 0.5) { mapClock = 0; if (!inDungeon) livingMap.reveal(player.pos.x, player.pos.z); }
+  const fl = world.campfireFlame;
+  fl.scale.set(1 + Math.sin(bannerT * 13) * 0.06, 1 + Math.sin(bannerT * 9.3) * 0.14 + Math.sin(bannerT * 21) * 0.06, 1 + Math.cos(bannerT * 11) * 0.06);
+  fl.rotation.y = bannerT * 0.8;
+  const inside = player.pos.x > GALLERY.minX - 3 && player.pos.x < GALLERY.maxX && player.pos.z > GALLERY.minZ && player.pos.z < GALLERY.maxZ;
+  if (inside && !inGallery) refreshGallery();
+  inGallery = inside;
 }
 // ---------- Phase B: forges (B4 character, B5 weapon) with B6 dice; saved on this device ----------
 const loreWords = lore.entries.filter((e) => e.type === 'lore').map((e) => e.title.split(':')[0]).filter((t) => t.length < 28);
@@ -499,7 +520,13 @@ function setPlayerLook(c: ForgeCharacter) {
 }
 try { if (localStorage.getItem('gametool.forge.character')) setPlayerLook(loadForge(character.name)); } catch { /* storage blocked: default look */ }
 // The forge camera: a front three-quarter view of the player, with the figure in the right half of the screen.
-function frameForge(target: 'body' | 'crossbow' | 'banner') {
+function frameForge(target: 'body' | 'crossbow' | 'banner' | 'fire') {
+  if (target === 'fire') {
+    const f = world.stations.campfire.position, pos = new THREE.Vector3(f.x + 2.4, 1.5, f.z + 1.2);
+    const d = new THREE.Vector3(f.x - pos.x, 0, f.z - pos.z).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0));
+    rig.setShot({ pos, look: new THREE.Vector3(f.x, 0.5, f.z).addScaledVector(right, -0.9), fov: 46 });
+    return;
+  }
   if (target === 'banner') {
     // The banner in the right half of the screen, seen from the side it faces.
     const c = world.bannerCloth, n = new THREE.Vector3(Math.sin(c.rotation.y), 0, Math.cos(c.rotation.y));
@@ -556,7 +583,7 @@ function openWeaponForge() {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); }
+function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 let stationery: Stationery = loadStationery();
 const setStationery = (s: Stationery) => { stationery = s; saveStationery(s); applyStationery(s); refreshMarginsInWorld(); };
@@ -645,6 +672,207 @@ interactables.push({ obj: pedlarHit, verb: () => 'Talk to the Curio Pedlar', act
   if (inventory.count('crossbow') > 0) markSeen('crossbow');
   talkTo('pedlar', pedlarHit.position, pedlarScript(seen));
 } });
+// ---------- Phase E: B8 campfire telling + B11 bard tunes, B9 gallery hall ----------
+const campfire = new CampfirePanel(() => {
+  const first = quest.clues[0] ? clueById(quest.clues[0])?.name.toLowerCase() : null;
+  return [
+    first ? `I remember the ${first}. I didn't want to believe it.` : 'I remember the door, and how quiet it was.',
+    quest.theory ? `You said it was ${tagLabel('who', quest.theory.who).toLowerCase()}. I wrote it down.` : 'I was behind you the whole way. Mostly.',
+    quest.stage === 'done' && quest.theory ? `And ${ending(quest.theory).friend} came home.` : "And the fire's still going, so it isn't over.",
+  ];
+}, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); }, () => leaveForge(), forgeAuthor);
+function openCampfire() { enterForge(); frameForge('fire'); campfire.open(); }
+interactables.push({ obj: world.stations.campfire, verb: () => 'Sit by the fire', act: () => openCampfire() });
+async function openBallad(b: Ballad) {
+  setState('book');
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  const t = decodeTune(b.tune);
+  audio.tune(t.steps, SCALE, t.instrument, t.bpm, 2);
+  await reader.openEntries([balladEntry(b, forgeAuthor())]);
+}
+const gallery = new Gallery(world.scene, world.colliders);
+let galleryCard: HTMLElement | null = null;
+const portrait = (look: ReturnType<typeof loadForge>['look']) => (g: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+  // A Legends-style bust: shoulders, a big square head, hair cap, two eyes.
+  const u = size / 16;
+  g.fillStyle = '#6E8FA8'; g.fillRect(x, y, size, size - 50);
+  g.fillStyle = look.primary; g.fillRect(x + 3 * u, y + 10 * u, 10 * u, 3.6 * u);
+  g.fillStyle = look.skin; g.fillRect(x + 4.5 * u, y + 3 * u, 7 * u, 7 * u);
+  g.fillStyle = look.hair; g.fillRect(x + 4.2 * u, y + 2.4 * u, 7.6 * u, 2.2 * u);
+  g.fillStyle = look.eyes ?? '#2B2A24'; g.fillRect(x + 6 * u, y + 6 * u, 1.1 * u, 1.3 * u); g.fillRect(x + 8.9 * u, y + 6 * u, 1.1 * u, 1.3 * u);
+};
+const textTile = (lines: string[]) => (g: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+  g.fillStyle = '#EFE3C4'; g.fillRect(x, y, size, size - 50);
+  g.fillStyle = '#2B2A24'; g.font = 'italic 17px Georgia, serif'; g.textAlign = 'center';
+  lines.slice(0, 7).forEach((l, i) => g.fillText(l.length > 26 ? l.slice(0, 25) + '…' : l, x + size / 2, y + 30 + i * 22));
+};
+function galleryExhibits(): Exhibit[] {
+  const me = forgeAuthor() || 'you', out: Exhibit[] = [];
+  let forged = false, weapon = false;
+  try { forged = !!localStorage.getItem('gametool.forge.character'); weapon = !!localStorage.getItem('gametool.forge.weapon'); } catch { /* blocked */ }
+  const f = loadForge(character.name), w = loadWeapon();
+  out.push({ id: 'me', title: f.name || character.name || 'Your hero', credit: me, kind: 'hero', text: f.backstory || 'A traveller with no story written yet.', discovered: forged, hint: 'Forge your hero at the camp mirror.', paint: portrait(f.look) });
+  out.push({ id: 'weapon', title: w.name || 'Your crossbow', credit: me, kind: 'weapon', text: w.legend || w.engraving || 'Forged at the camp anvil.', discovered: weapon, hint: 'Forge a crossbow at the camp anvil.', paint: textTile([w.name || 'A crossbow', '', ...(w.legend || '').match(/.{1,24}(\s|$)/g) ?? []]) });
+  const sk = loadSketches()[0];
+  out.push({ id: 'banner', title: sk?.name || 'Your banner', credit: me, kind: 'sketch', text: 'Painted in the sketchbook.', discovered: !!sk, hint: 'Paint a banner at the camp.',
+    paint: sk ? (g, x, y, size) => { g.imageSmoothingEnabled = false; drawSketch(g, sk, x + (size - 192) / 2, y + 2, 6); } : undefined });
+  const bd = loadBallads()[0];
+  out.push({ id: 'ballad', title: bd?.title || 'Your ballad', credit: me, kind: 'song', text: bd ? bd.verses.slice(0, 2).map((v) => v.join(' / ')).join('\n') : '', discovered: !!bd, hint: 'Tell your story to the bard at the campfire.',
+    paint: bd ? textTile(bd.verses[0] ?? []) : undefined, open: bd ? () => { leaveForge(); void openBallad(bd); } : undefined });
+  out.push({ id: 'theory', title: 'Your theory', credit: me, kind: 'theory', text: quest.theory?.text ?? '', discovered: !!quest.theory, hint: "Write what you think happened to Natalie's party.",
+    paint: quest.theory ? textTile((quest.theory.text.match(/.{1,24}(\s|$)/g) ?? []).map((l) => l.trim())) : undefined });
+  for (const id of ['natalie-bourbon', 'straphan-at-sunset', 'song-of-the-paved-road']) {
+    const e = entryById.get(id);
+    if (!e) continue;
+    const plain = e.body.replace(/^#.*$/m, '').replace(/[*_#>[\]]|chords:.*$/gm, '').trim();
+    out.push({ id, title: e.title, credit: e.credit_as, kind: e.type, text: plain.slice(0, 400), discovered: seen.includes('entry:' + id), hint: 'Find it in the Ruined Library.',
+      open: () => { leaveForge(); void openReader(id); } });
+  }
+  return out;
+}
+function refreshGallery() { gallery.paint(galleryExhibits()); }
+refreshGallery();
+gallery.hitboxes.forEach((hb, i) => interactables.push({ obj: hb, verb: () => { const e = gallery.exhibits[i]; return e?.discovered ? `Look at "${e.title}"` : 'Look at the empty frame'; }, act: () => {
+  const e = gallery.exhibits[i];
+  if (!e) return;
+  enterForge();
+  galleryCard = gallery.showCard(e, () => { galleryCard = null; leaveForge(); });
+  galleryCard.querySelector('[data-act=open]')?.addEventListener('click', () => { galleryCard = null; });
+} }));
+let inGallery = false;
+// ---------- Phase F: B15 seeded dungeon under the library ----------
+const dungeon = new Dungeon(world.scene);
+const TRAPDOOR = new THREE.Vector3(6.5, 0, -33);
+{
+  const hatch = new THREE.Mesh(mergeGeometries([
+    new THREE.BoxGeometry(1.4, 0.06, 1.4).translate(0, 0.03, 0),
+    new THREE.BoxGeometry(1.5, 0.04, 0.12).translate(0, 0.07, -0.4), new THREE.BoxGeometry(1.5, 0.04, 0.12).translate(0, 0.07, 0.4),
+    new THREE.TorusGeometry(0.1, 0.02, 4, 8).rotateX(Math.PI / 2).translate(0.45, 0.08, 0).deleteAttribute('uv') as THREE.BufferGeometry,
+  ].map((g) => (g.index ? g.toNonIndexed() : g)).map((g) => { g.deleteAttribute('uv'); return g; })), new THREE.MeshLambertMaterial({ color: 0x5A3E26 }));
+  hatch.position.copy(TRAPDOOR); hatch.name = 'trapdoor'; hatch.raycast = () => {};
+  world.scene.add(hatch);
+}
+const trapHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
+trapHit.position.copy(TRAPDOOR).setY(0.3); world.scene.add(trapHit);
+let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
+const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; at: string }>; } catch { return {}; } })();
+const saveDelves = () => { try { localStorage.setItem('gametool.delves', JSON.stringify(delves)); } catch { /* blocked */ } };
+function enterDungeon(seed: number) {
+  const L = dungeon.build(seed);
+  dungeon.group.visible = true;
+  world.colliders.push(...dungeon.colliders);
+  player.bounds = rig.bounds = 2000;
+  const fog = world.scene.fog as THREE.Fog;
+  savedFog = { color: fog.color.clone(), near: fog.near, far: fog.far, bg: (world.scene.background as THREE.Color).clone() };
+  fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
+  player.spawn(dungeon.entrance(), dungeon.entranceYaw());
+  if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
+  inDungeon = true;
+  delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
+  saveDelves();
+  toast(`Under the library · seed ${seed} · ${L.theme}. Same seed, same dungeon.`, 4500);
+  companion.say('Stay close. I can hear something chewing.', { key: 'dungeon:' + seed, force: true });
+}
+function exitDungeon() {
+  if (!inDungeon) return;
+  inDungeon = false;
+  const set = new Set(dungeon.colliders);
+  for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1);
+  player.bounds = rig.bounds = world.bounds;
+  const fog = world.scene.fog as THREE.Fog;
+  if (savedFog) { fog.color.copy(savedFog.color); fog.near = savedFog.near; fog.far = savedFog.far; (world.scene.background as THREE.Color).copy(savedFog.bg); }
+  dungeon.group.visible = false; dungeon.hideSpots();
+  player.spawn(TRAPDOOR.clone().add(new THREE.Vector3(0, 0, 1.6)), 0);
+  if (companion.prefs.follow) natalieRoot().position.copy(TRAPDOOR).add(new THREE.Vector3(1.4, 0, 1.4));
+}
+let descendSheet: HTMLElement | null = null;
+function openDescend() {
+  enterForge();
+  const el = document.createElement('div');
+  el.className = 'gallery-card';
+  el.id = 'descend';
+  el.innerHTML = `<div class="card-in"><div class="credit">Under the Ruined Library</div><h3>A trapdoor, and stairs going down</h3>
+    <p>Every seed makes a different dungeon, and the same seed always makes the same one, so you can send a seed to a friend. Today's seed is ${dailySeed()}.</p>
+    <label class="field">Seed<input id="dgSeed" type="text" maxlength="24" value="${dailySeed()}"></label>
+    <div class="forge-actions"><button class="primary" data-act="go">Descend</button><button class="secondary" data-act="close">Not yet</button></div></div>`;
+  el.addEventListener('click', (ev) => {
+    const a = (ev.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
+    if (!a) return;
+    const seed = seedFrom((el.querySelector('#dgSeed') as HTMLInputElement).value || String(dailySeed()));
+    el.remove(); descendSheet = null;
+    leaveForge();
+    if (a.dataset.act === 'go') enterDungeon(seed);
+  });
+  document.body.appendChild(el);
+  descendSheet = el;
+}
+// ---------- Phase F: B7 living map ----------
+const livingMap = new LivingMap(() => {
+  const m: Mark[] = [];
+  for (const id of quest.clues) { const c = clueById(id); if (c) m.push({ x: c.at[0], z: c.at[2], label: '', kind: 'clue' }); }
+  if (quest.theory) {
+    const l = (QUEST.leads as Record<string, { at: number[]; friend: string }>)[quest.theory.where];
+    if (l) m.push({ x: l.at[0], z: l.at[2], label: quest.stage === 'done' ? `${l.friend} found here` : 'your lead', kind: quest.stage === 'done' ? 'found' : 'lead' });
+  }
+  const bd = loadBallads();
+  if (bd.length) m.push({ x: world.stations.campfire.position.x, z: world.stations.campfire.position.z + 1.6, label: `“${bd[0].title}” sung here`, kind: 'song' });
+  const n = Object.keys(delves).length;
+  if (n) m.push({ x: TRAPDOOR.x, z: TRAPDOOR.z, label: `${n} seed${n > 1 ? 's' : ''} delved`, kind: 'delve' });
+  if (dojo.st.done.length) m.push({ x: DOJO.x, z: DOJO.z + 3.4, label: `${dojo.st.done.length} drill${dojo.st.done.length > 1 ? 's' : ''} done`, kind: 'place' });
+  return m;
+}, () => ({ x: player.pos.x, z: player.pos.z, yaw: player.yaw }), () => leaveForge(), forgeAuthor);
+function openMap() { if (state !== 'play' && state !== 'pause') return; enterForge(); livingMap.open(); }
+let mapClock = 0;
+// ---------- Phase F: B14 dojo (your character demonstrates; you follow the beginner-safe version) ----------
+const dojoBoard = buildDojo(world.scene, world.colliders);
+let dojoView: boolean | null = null;
+const dojo = new DojoPanel((d) => {
+  if (!d) return;
+  // Stand on the mats (under the bar for the hanging drill), facing the camera, panel on the left.
+  const at = d.pose === 'hang' ? DOJO.bar.clone() : new THREE.Vector3(DOJO.x - 1, 0, DOJO.z);
+  player.spawn(at, d.pose === 'plank' ? Math.PI / 2 : Math.PI);   // the plank side-on
+  const up = d.pose === 'hang' ? 1.75 : d.pose === 'plank' ? 0.45 : 1.0, far = d.pose === 'hang' ? 2.9 : 3.3;
+  // Portrait phones put the panel along the bottom, so the figure goes in the top band instead.
+  const tall = innerHeight > innerWidth;
+  rig.setShot(tall ? { pos: new THREE.Vector3(at.x, up + 0.2, at.z + far * 1.5), look: new THREE.Vector3(at.x, up - 1.6, at.z), fov: 50 }
+    : { pos: new THREE.Vector3(at.x - 0.7, up + 0.45, at.z + far), look: new THREE.Vector3(at.x - 1.0, up, at.z), fov: 44 });
+}, () => { if (dojoView !== null) { player.thirdPerson = dojoView; dojoView = null; } leaveForge(); }, forgeAuthor);
+function openDojo() {
+  if (state !== 'play' && state !== 'pause') return;
+  enterForge();
+  if (dojoView === null) { dojoView = player.thirdPerson; player.thirdPerson = true; }
+  rig.setShot({ pos: new THREE.Vector3(DOJO.x - 1.7, 1.6, DOJO.z + 3.2), look: new THREE.Vector3(DOJO.x - 2, 1, DOJO.z), fov: 44 });
+  dojo.open();
+}
+interactables.push({ obj: dojoBoard, verb: () => 'Train at the dojo', act: () => openDojo(), when: () => !inDungeon });
+interactables.push({ obj: trapHit, verb: () => 'Open the trapdoor', act: () => openDescend(), when: () => !inDungeon });
+const shrineLines = lore.entries.filter((e) => e.type === 'lore' && e.body.length > 80);
+for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
+  const spotOf = () => dungeon.spots.find((s) => s.hit === hit);
+  interactables.push({ obj: hit, when: () => inDungeon && !!spotOf(), verb: () => {
+    const s = spotOf()!, d = delves[dungeon.layout!.seed];
+    return s.kind === 'stairs' ? 'Climb back up' : s.kind === 'chest' ? (d?.chest ? 'An empty chest' : 'Open the chest') : s.kind === 'shrine' ? 'Read the carving' : 'Search the nest';
+  }, act: () => {
+    const s = spotOf()!, seed = dungeon.layout!.seed, d = delves[seed];
+    if (s.kind === 'stairs') { exitDungeon(); return; }
+    if (s.kind === 'chest') {
+      if (d.chest) { toast('Empty. You already took what was here.'); return; }
+      d.chest = true; saveDelves();
+      inventory.give('trinket', 1);
+      toast(`A trinket from below (I: inventory). The Curio Pedlar would love to hear its story.`, 4500);
+      return;
+    }
+    if (s.kind === 'shrine') {
+      const e = shrineLines[(seed + s.room.cx * 7 + s.room.cy) % shrineLines.length];
+      const line = e.body.replace(/^#.*$/gm, '').replace(/[*_>[\]]/g, '').trim().split(/(?<=[.!?])\s+/)[0];
+      toast(`Carved in the stone: “${line}” (${e.title}, by ${e.credit_as})`, 7000);
+      return;
+    }
+    d.nest = true; saveDelves();
+    toast('The goblin\'s nest: a heap of red-book covers, gnawed at the corners, and four tally marks scratched by the door. A fifth is crossed out.', 7000);
+    companion.say('This is where it sleeps. It keeps them like treasure.', { force: true });
+  } });
+}
 // Natalie thinks out loud: one line per place, then the odd idle thought (25 s cooldown, mutable).
 let barkClock = 0, stillFor = 0;
 const lastPos = new THREE.Vector3();
@@ -781,6 +1009,7 @@ function useLibrary(h: LibraryHit) {
 async function openReader(slug: string) {
   const e = entryById.get(slug);
   if (!e) return;
+  markSeen('entry:' + slug);   // B9: read once = discovered for the gallery
   setState('book');
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   await reader.openEntries([e]);
@@ -920,6 +1149,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
+  if (actionFor(e.code, ['map']) && !e.repeat) { openMap(); return; }
   if (!e.repeat) {
     const w = actionFor(e.code, ['equipCrossbow', 'equipHands', 'reload']);
     if (w === 'equipCrossbow') { equip(true); return; }
@@ -1148,4 +1378,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
