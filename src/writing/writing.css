@@ -1,0 +1,51 @@
+/* Phase C: B13 ink and paper, B3 margin notes, B10 sketchbook. */
+:root { --my-ink: #2B2A24; --hand: "Segoe Print", "Bradley Hand", "Chalkboard SE", "Comic Sans MS", cursive; }
+
+/* Paper styles (B13): the reader's own stationery, applied to every book. */
+.book.paper-aged .page { background: radial-gradient(ellipse at 50% 45%, #EADAB2 55%, #D4BC86 100%); }
+.book.paper-aged .page-inner { color: #3a3021; }
+.book.paper-vellum .page { background: linear-gradient(180deg, #F6EEDC, #EDE2C8); }
+.book.paper-vellum .page::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(120,100,70,.05) 0 1px, transparent 1px 4px); }
+.book.paper-charred .page { background: radial-gradient(ellipse at 50% 50%, #E9D9AF 62%, #B88E55 86%, #4a3420 100%); }
+.book.paper-charred .page.left { border-radius: 14px 2px 2px 20px; }
+.book.paper-charred .page.right { border-radius: 2px 18px 12px 2px; }
+
+/* The pen and the margin desk. */
+.book-pen { position: absolute; left: -14px; top: -14px; z-index: 4; width: 42px; height: 42px; border-radius: 50%;
+  border: 2px solid #6b4730; background: var(--parchment); color: var(--my-ink); font-size: 20px; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.margin-desk { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 6; width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 24px); overflow-y: auto; background: rgba(30,36,32,.97); border: 1px solid var(--stone-d);
+  border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.margin-desk.hidden { display: none; }
+.margin-desk textarea { font: 18px/1.35 var(--hand); color: var(--my-ink); background: var(--parchment); border: 0; border-radius: 6px;
+  padding: 8px 10px; resize: vertical; }
+.margin-desk h5 { margin: 4px 0 0; font-size: 11px; color: var(--stone-l); }
+.margin-desk .forge-actions { margin-top: 6px; }
+.linkish { background: none; border: 0; color: var(--rune); text-decoration: underline; padding: 4px 0; justify-self: start; }
+.seal-chip img, .sk-thumb img { width: 32px; height: 32px; image-rendering: pixelated; display: block; }
+.seal-chip { padding: 3px; }
+
+/* Notes on a page: slips tucked over the bottom edge, tilted, in the ink they were written with. */
+.margins { position: absolute; left: 22px; right: 22px; bottom: 26px; z-index: 3; display: flex; flex-direction: column-reverse; gap: 0; pointer-events: none; }
+.margin-note { pointer-events: auto; position: relative; margin-top: -10px; padding: 7px 26px 7px 10px; max-height: 3.2em; overflow: hidden;
+  background: #F7EED3; color: var(--ink); border: 1px solid rgba(90,70,40,.25); box-shadow: 0 2px 6px rgba(60,40,20,.25);
+  transform: rotate(var(--tilt, 0deg)) translateX(calc(var(--i, 0) * 6px)); font: 15px/1.3 var(--hand); cursor: pointer;
+  transition: max-height .2s; }
+.margin-note .mn-text { color: var(--ink); }
+.margin-note.open { max-height: 14em; z-index: 1; }
+.margin-note .mn-seal { float: left; width: 26px; height: 26px; margin: 0 8px 0 0; image-rendering: pixelated; border-radius: 50%;
+  box-shadow: 0 0 0 3px #A8322A, 0 1px 2px rgba(0,0,0,.4); background: #A8322A; }
+.margin-note .mn-del { position: absolute; right: 2px; top: 2px; width: 22px; height: 22px; padding: 0; border: 0; background: none; color: #8a7b5c; font-size: 16px; }
+.mn-more { pointer-events: none; font: 12px var(--hand); color: #8a7b5c; text-align: right; }
+
+/* Sketchbook (B10). */
+.sketch-panel canvas#skCanvas { width: 100%; max-width: 320px; aspect-ratio: 1; image-rendering: pixelated; touch-action: none; display: block; margin: 0 auto 8px;
+  background: repeating-conic-gradient(#d9ccaa 0 25%, #efe3c4 0 50%) 0 0 / 20px 20px; border: 3px solid var(--wood); border-radius: 4px; cursor: crosshair; }
+.sk-palette { margin-bottom: 6px; }
+.sk-tools { margin-bottom: 8px; }
+.sk-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.sk-item { position: relative; }
+.sk-thumb { padding: 3px; background: rgba(239,227,196,.08); border: 1px solid var(--stone-d); }
+.sk-del { position: absolute; right: -6px; top: -6px; width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 0; background: var(--clay); color: #fff; font-size: 12px; line-height: 1; }
+@media (max-width: 600px) { .sketch-panel canvas#skCanvas { max-width: 200px; } }

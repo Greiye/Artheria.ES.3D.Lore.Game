@@ -10,6 +10,8 @@ import { audio } from './audio';
 // flow across pages with no clipped text (F3.5).
 
 interface Page { blocks: Node[]; entryId?: string }
+// B3: what a page on screen shows, so margin notes can be drawn onto it. `rel` = page number within its entry.
+export interface PageView { page: HTMLDivElement; index: number; entryId?: string; rel: number }
 
 const TURN_MS = 260; // F3.3: page-turn animation <= 300 ms
 
@@ -30,6 +32,8 @@ export class Book {
   isOpen = false;
   onClose: () => void = () => {};
   onLink: (slug: string) => void = () => {};   // F5.6
+  onRender: (views: PageView[]) => void = () => {};   // B3 margins
+  onHide: () => void = () => {};
   private contents: boolean;
   private persist: boolean;
 
@@ -117,6 +121,7 @@ export class Book {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.root.classList.add('hidden');
+    this.onHide();
     this.onClose();
   }
 
@@ -160,6 +165,16 @@ export class Book {
     this.root.querySelector<HTMLButtonElement>('.edge.prev')!.disabled = this.first === 0;
     this.root.querySelector<HTMLButtonElement>('.edge.next')!.disabled = this.first + this.perView >= this.pages.length;
     if (this.persist) { this.settings.lastPage = this.first; saveSettings(this.settings); }
+    const views: PageView[] = [];
+    const view = (el: HTMLDivElement, i: number) => {
+      const pg = this.pages[i];
+      if (!pg) return;
+      const start = pg.entryId ? this.entryStart.get(pg.entryId) ?? i : i;
+      views.push({ page: el.parentElement as HTMLDivElement, index: i, entryId: pg.entryId, rel: i - start });
+    };
+    view(this.left, this.first);
+    if (this.perView === 2) view(this.right, this.first + 1);
+    this.onRender(views);
   }
 
   // ---------- pagination ----------

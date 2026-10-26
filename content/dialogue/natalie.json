@@ -2,5 +2,5 @@
 "n1":{"text":"Stop. Don't go in there yet. My party did.","next":"n2"},
 "n2":{"text":"One goblin. Just one. It scattered all four of us. I don't know where they are.","choices":[{"text":"Is it dangerous?","next":"n3"},{"text":"I'll find them.","next":"n4"},{"text":"I don't know what to make.","next":"n5"}]},
 "n3":{"text":"It sees well but not low. Stay crouched and it loses you.","next":"n4"},
-"n4":{"text":"Take my scout's crossbow. He won't be needing it tonight. Mind the reload.","actions":["give:crossbow:1","give:bolt:10","unlock:library_door"],"end":true},
+"n4":{"text":"Take my scout's crossbow. He won't be needing it tonight. Mind the reload.","actions":["give:crossbow:1","give:bolt:10","unlock:library_door","quest:start"],"end":true},
 "n5":{"text":"<random §6.3 prompt>","next":"n4"}}}

@@ -28,6 +28,14 @@ import { FigureAnim, BodyAnim, type AnimInput } from './anim/procedural';
 import { Dust } from './fx/dust';
 import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
 import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
+import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
+import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sketch';
+import { stampBanner, swayBanner, paintLecternPage, buildBookmarks } from './writing/stamps';
+import { QUEST, loadQuest, saveQuest, clueById, support, ending, type Theory } from './quest/quest';
+import { Casebook } from './quest/casebook';
+import { QuestProps } from './quest/props';
+import { Companion, loadCompanion, saveCompanion } from './quest/companion';
+import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -185,8 +193,12 @@ ui.innerHTML = `
         <label class="check"><input id="muteDialogue" type="checkbox"> Mute dialogue</label>
       </details>
       <p class="fine">Settings are saved in this browser.</p>
-      <button id="editCharacter" class="secondary">Character forge</button>
+      <button id="editCharacter" class="secondary">Character</button>
+      <button id="openCharacterForge" class="secondary">Character forge</button>
       <button id="openWeaponForge" class="secondary">Weapon forge</button>
+      <button id="openSketchbook" class="secondary">Sketchbook</button>
+      <button id="openCasebook" class="secondary">Casebook (J)</button>
+      <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
       <button id="writeLorePause" class="secondary">Write lore</button>
     </div>
   </div>
@@ -346,8 +358,11 @@ $('ccSkip').addEventListener('click', () => {
   if (ccFrom === 'title') void begin();
   else setState(ccFrom);
 });
-$('editCharacter').addEventListener('click', () => openCharacterForge());
+$('editCharacter').addEventListener('click', () => openCharCreate('pause'));
+$('openCharacterForge').addEventListener('click', () => openCharacterForge());
 $('openWeaponForge').addEventListener('click', () => openWeaponForge());
+$('openSketchbook').addEventListener('click', () => openSketchbook());
+$('openCasebook').addEventListener('click', () => openCasebook());
 
 $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
@@ -434,7 +449,7 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   // Figures face +Z: turn the head toward the player when they come close.
   const rel = wrapAngle(Math.atan2(dx, dz) - npcE.y);
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
-  return { speed: 0, talking: id === 'natalie' && state === 'dialogue', look };
+  return { speed: id === 'natalie' ? companion.speed : 0, talking: (id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id, look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
   return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
@@ -447,6 +462,7 @@ const footAt = () => {
   const s = Math.sin(player.bodyYaw), c = Math.cos(player.bodyYaw);
   return new THREE.Vector3(player.pos.x + c * 0.12 * footSide + s * 0.15, 0, player.pos.z - s * 0.12 * footSide + c * 0.15);
 };
+let bannerT = 0;
 function animate(dt: number) {
   player.faceView = crossbow.equipped || !player.thirdPerson;
   const landed = player.consumeLanded();
@@ -467,6 +483,10 @@ function animate(dt: number) {
   }
   for (const a of animators.values()) a.update(dt);
   if (weaponDisplay.visible) weaponDisplay.rotation.y += dt * 0.5;
+  bannerT += dt; swayBanner(world.bannerCloth, bannerT);
+  companion.update(dt, player.pos, player.bodyYaw, state !== 'play');
+  questProps.update(bannerT);
+  barkTick(dt);
 }
 // ---------- Phase B: forges (B4 character, B5 weapon) with B6 dice; saved on this device ----------
 const loreWords = lore.entries.filter((e) => e.type === 'lore').map((e) => e.title.split(':')[0]).filter((t) => t.length < 28);
@@ -479,7 +499,15 @@ function setPlayerLook(c: ForgeCharacter) {
 }
 try { if (localStorage.getItem('gametool.forge.character')) setPlayerLook(loadForge(character.name)); } catch { /* storage blocked: default look */ }
 // The forge camera: a front three-quarter view of the player, with the figure in the right half of the screen.
-function frameForge(target: 'body' | 'crossbow') {
+function frameForge(target: 'body' | 'crossbow' | 'banner') {
+  if (target === 'banner') {
+    // The banner in the right half of the screen, seen from the side it faces.
+    const c = world.bannerCloth, n = new THREE.Vector3(Math.sin(c.rotation.y), 0, Math.cos(c.rotation.y));
+    const pos = c.position.clone().addScaledVector(n, 2.6).add(new THREE.Vector3(0, -0.1, 0));
+    const right = new THREE.Vector3().crossVectors(n.clone().negate(), new THREE.Vector3(0, 1, 0)).normalize();
+    rig.setShot({ pos, look: c.position.clone().addScaledVector(right, -0.45), fov: 42 });
+    return;
+  }
   if (target === 'crossbow') {
     // Close on the anvil, the crossbow in the right half of the screen (the panel takes the left).
     const a = world.stations.anvil.position, top = new THREE.Vector3(a.x, 1.3, a.z);
@@ -528,7 +556,110 @@ function openWeaponForge() {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { characterForge.close(); weaponForge.close(); }
+function closeForges() { characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); }
+// ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
+let stationery: Stationery = loadStationery();
+const setStationery = (s: Stationery) => { stationery = s; saveStationery(s); applyStationery(s); refreshMarginsInWorld(); };
+applyStationery(stationery);
+const bookmarks = new THREE.Group();
+world.scene.add(bookmarks);
+function refreshMarginsInWorld() {
+  const all = loadMargins();
+  const lect = all.filter((n) => entryById.get(n.entryId)?.type === 'lore');
+  world.lecternPages.forEach((m, i) => paintLecternPage(m, lect.filter((_, k) => k % 2 === i), stationery.paper, sketchById));
+  buildBookmarks(library.redBooks, all, bookmarks);
+}
+const deskFor = (b: Book) => {
+  const d = new MarginDesk(b, () => stationery, setStationery, (id) => entryById.get(id), forgeAuthor);
+  d.onChange = () => { otherDesks(d); refreshMarginsInWorld(); };
+  return d;
+};
+const lecternDesk = deskFor(book), readerDesk = deskFor(reader);
+const otherDesks = (d: MarginDesk) => { (d === lecternDesk ? readerDesk : lecternDesk).reload(); };
+refreshMarginsInWorld();
+const sketchPad = new SketchPad(
+  (s: Sketch) => { stampBanner(world.bannerCloth, s); try { localStorage.setItem('gametool.banner', s.id); } catch { /* blocked */ } toast(`"${s.name}" hangs on the banner.`); },
+  () => leaveForge(), forgeAuthor);
+stampBanner(world.bannerCloth, (() => { try { return sketchById(localStorage.getItem('gametool.banner') ?? '') ?? DEFAULT_SKETCH; } catch { return DEFAULT_SKETCH; } })());
+function openSketchbook() {
+  enterForge();
+  frameForge('banner');
+  sketchPad.open(sketchById(world.bannerCloth.userData.sketch));
+}
+// ---------- Phase D: B2 companion + detective quest, B12 item folklore; saved on this device ----------
+const quest = loadQuest();
+const questProps = new QuestProps(world.scene);
+questProps.sync(quest.clues);
+questProps.showLead(quest.stage === 'lead' ? quest.theory?.where ?? null : null);
+const natalieRoot = () => (world.standees.natalie.userData.replacedBy as THREE.Object3D | undefined) ?? world.standees.natalie;
+const companion = new Companion(natalieRoot, world.natalieTarget, world.colliders, world.bounds, loadCompanion());
+($('companionQuiet') as HTMLInputElement).checked = companion.prefs.quiet;
+$('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
+const seen = (() => { try { return JSON.parse(localStorage.getItem('gametool.seen') ?? '[]') as string[]; } catch { return [] as string[]; } })();
+function markSeen(id: string) { if (!seen.includes(id)) { seen.push(id); try { localStorage.setItem('gametool.seen', JSON.stringify(seen)); } catch { /* blocked */ } } }
+const casebook = new Casebook(() => quest, (th: Theory) => {
+  quest.theory = th; quest.stage = 'lead'; saveQuest(quest);
+  questProps.showLead(th.where);
+  companion.say(support(quest, th) >= 2 ? QUEST.natalie.supported : QUEST.natalie.leap, { force: true });
+}, () => leaveForge(), loreWords, forgeAuthor);
+function openCasebook() {
+  if (state !== 'play' && state !== 'pause' && state !== 'dialogue') return;
+  enterForge();
+  casebook.open();
+}
+const folklore = new FolklorePanel(
+  () => folkItems([...inventory.counts.keys()].filter((id) => inventory.count(id) > 0), quest.clues, seen, (id) => ITEMS[id]?.name ?? id),
+  () => leaveForge(), forgeAuthor);
+function openFolklore() { enterForge(); folklore.open(); }
+function findClue(id: string) {
+  const c = clueById(id);
+  if (!c || quest.clues.includes(id)) return;
+  quest.clues.push(id);
+  if (quest.stage === 'none') quest.stage = 'clues';
+  saveQuest(quest);
+  questProps.sync(quest.clues);
+  audio.pageTurn();
+  toast(`Clue: ${c.name}. ${c.text} (J: casebook)`, 6000);
+  if (companion.prefs.follow) setTimeout(() => companion.say(c.natalie, { key: 'clue:' + id, force: true }), 1800);
+  if (quest.clues.length === QUEST.minClues && quest.stage === 'clues') setTimeout(() => companion.say(QUEST.natalie.hintReady, { key: 'ready', force: true }), 7000);
+}
+for (const c of QUEST.clues) {
+  interactables.push({ obj: questProps.hitboxes.get(c.id)!, verb: () => 'Look closer', act: () => findClue(c.id), when: () => !quest.clues.includes(c.id) });
+}
+interactables.push({ obj: questProps.leadHit, verb: () => 'Follow the blue light', when: () => quest.stage === 'lead', act: () => {
+  const th = quest.theory!, end = ending(th);
+  quest.stage = 'done'; saveQuest(quest);
+  questProps.showLead(null);
+  afterDialogue = () => { toast("Natalie finished her field note. Read it in the casebook (J).", 5000); void resumePlay(); };
+  talkTo('natalie', questProps.leadHit.position, { speaker: 'Natalie Bourbon', start: 'f1', nodes: {
+    f1: { text: end.find, next: 'f2' },
+    f2: { text: QUEST.natalie.found, next: 'f3' },
+    f3: { text: end.note, end: true },
+  } });
+} });
+// B12: the Curio Pedlar by the coach road.
+const pedlarHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.7, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+pedlarHit.position.copy(world.standees.pedlar.position).setY(0.85);
+world.scene.add(pedlarHit);
+interactables.push({ obj: pedlarHit, verb: () => 'Talk to the Curio Pedlar', act: () => {
+  if (inventory.count('crossbow') > 0) markSeen('crossbow');
+  talkTo('pedlar', pedlarHit.position, pedlarScript(seen));
+} });
+// Natalie thinks out loud: one line per place, then the odd idle thought (25 s cooldown, mutable).
+let barkClock = 0, stillFor = 0;
+const lastPos = new THREE.Vector3();
+function barkTick(dt: number) {
+  barkClock += dt;
+  if (barkClock < 1 || !companion.prefs.follow || state !== 'play') return;
+  stillFor = player.pos.distanceTo(lastPos) < 0.2 ? stillFor + barkClock : 0;
+  lastPos.copy(player.pos); barkClock = 0;
+  const b = QUEST.barks, p = player.pos, any = (l: string[]) => l[Math.floor(Math.random() * l.length)];
+  if (p.z < -18.6) companion.say(any(b.library), { key: 'zone:library' }) || (Math.random() < 0.08 && companion.say(any(b.library)));
+  else if (Math.hypot(p.x + 9.2, p.z - 1) < 3) companion.say(any(b.banner), { key: 'zone:banner' });
+  else if (Math.hypot(p.x + 7.6, p.z - 0.5) < 4) companion.say(any(b.camp), { key: 'zone:camp' });
+  else if (Math.hypot(p.x, p.z) < 3) companion.say(any(b.dais), { key: 'zone:dais' });
+  if (stillFor > 20) { companion.say(any(b.idle)); stillFor = 0; }
+}
 // Drag on the scene to turn the hero (character forge).
 let forgeDrag: number | null = null;
 canvas.addEventListener('pointerdown', (e) => { if (state === 'forge') forgeDrag = e.clientX; });
@@ -540,6 +671,7 @@ window.addEventListener('pointermove', (e) => {
 });
 interactables.push(
   { obj: world.stations.mirror, verb: () => 'Change your look', act: () => openCharacterForge() },
+  { obj: world.stations.banner, verb: () => 'Paint the banner', act: () => openSketchbook() },
   { obj: world.stations.anvil, verb: () => inventory.count('crossbow') > 0 ? 'Forge your crossbow' : 'Anvil (bring a crossbow)', act: () => { if (inventory.count('crossbow') > 0) openWeaponForge(); else toast('Natalie has a crossbow you could borrow.'); } },
 );
 function syncCrossbowView() {
@@ -566,19 +698,54 @@ dialogue.onAction = (a) => {
     toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1} (I: inventory)`);
   } else if (verb === 'unlock' && id === 'library_door') {
     world.openDoor();
-  } else console.warn('Unknown dialogue action', a);
+  } else if (verb === 'quest' && id === 'start') {
+    if (quest.stage === 'none') { quest.stage = 'clues'; saveQuest(quest); setTimeout(() => toast(`New: ${QUEST.title} (J: casebook)`, 4500), 600); }
+  } else if (verb === 'companion') {
+    companion.prefs.follow = id === 'follow'; saveCompanion(companion.prefs);
+  } else if (verb === 'folklore' && id === 'open') afterDialogue = openFolklore;
+  else if (verb === 'casebook' && id === 'open') afterDialogue = openCasebook;
+  else console.warn('Unknown dialogue action', a);
 };
 dialogue.onLine = () => audio.pageTurn();
+let afterDialogue: (() => void) | null = null;
+let dialogueWith = '';
 dialogue.onEnd = () => {
-  if (world.doorOpen) toast('The library door is open.');
+  const next = afterDialogue; afterDialogue = null;
+  if (next) { next(); return; }
+  if (world.doorOpen && dialogueWith === 'natalie' && quest.stage === 'clues' && quest.clues.length === 0) toast('The library door is open.');
   void resumePlay();
 };
-function talkToNatalie() {
+function talkTo(who: string, at: THREE.Vector3, script: DialogueScript) {
+  dialogueWith = who;
   setState('dialogue');   // F3.3: frees the pointer, freezes movement
-  rig.setShot(rig.twoShot(world.natalieTarget.position, 1.55));
+  rig.setShot(rig.twoShot(at, 1.55));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
-  dialogue.start(natalieScript as DialogueScript);
+  dialogue.start(script);
 }
+function talkToNatalie() {
+  talkTo('natalie', world.natalieTarget.position, quest.stage === 'none' ? natalieScript as DialogueScript : natalieCompanionScript());
+}
+// B2: once the quest has started, the same talk gains companion choices after the original three
+// (follow / wait, what she thinks, the casebook). Node ids and the first choices stay as they were.
+function natalieCompanionScript(): DialogueScript {
+  const base = structuredClone(natalieScript) as DialogueScript, n = QUEST.natalie, c = quest.clues.length;
+  const hint = quest.stage === 'lead' ? `${support(quest, quest.theory!) >= 2 ? n.supported : n.leap} Follow the blue light.`
+    : quest.stage === 'done' ? n.found : c === 0 ? n.hintNone : c < QUEST.minClues ? n.hintMore : n.hintReady;
+  base.nodes.n1.text = companion.prefs.follow ? "I'm right behind you." : 'You came back. Any sign of them?';
+  base.nodes.n2.choices = [...(base.nodes.n2.choices ?? []),
+    { text: 'What do you think?', next: 'hint' },
+    companion.prefs.follow ? { text: 'Wait here.', next: 'wait' } : { text: 'Come with me.', next: 'follow' },
+    { text: 'Let me check the casebook.', next: 'book' },
+  ];
+  Object.assign(base.nodes, {
+    hint: { text: hint, next: 'n2' },
+    wait: { text: n.wait, actions: ['companion:wait'], end: true },
+    follow: { text: n.follow, actions: ['companion:follow'], end: true },
+    book: { text: 'Read it out to me as you go.', actions: ['casebook:open'], end: true },
+  });
+  return base;
+}
+
 function openInventory() {
   if (state !== 'play') return;
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
@@ -600,7 +767,7 @@ function activate() {
 
 // ---------- F5 shelves: grey books (roll table), red books + artifacts (reader) ----------
 function useLibrary(h: LibraryHit) {
-  if (h.kind === 'relic') { toast('A shard of the Noctavel Portal hums in its cradle. The fire never reached it.', 4000); return; }
+  if (h.kind === 'relic') { markSeen('noctavel_shard'); toast('A shard of the Noctavel Portal hums in its cradle. The fire never reached it. (The Curio Pedlar might know more.)', 4500); return; }
   if (h.kind === 'grey') { toast(greyBooks.lines[Math.floor(Math.random() * greyBooks.lines.length)], 3000); audio.pageTurn(); return; }   // F5.3
   const e = entryById.get(h.slug);
   if (!e) return;
@@ -730,13 +897,19 @@ function toggleRun() {
 window.addEventListener('keydown', (e) => {
   setMode('mouse');
   // Keys the browser would otherwise act on (focus change, menu bar, scrolling).
-  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate', 'forge'].includes(state)) e.preventDefault();
+  const typing = !!(e.target as HTMLElement)?.closest?.('input, textarea');   // a text field gets its spaces and arrows
+  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate', 'forge'].includes(state) && !typing) e.preventDefault();
   if (e.code === 'CapsLock') {
     // Some platforms (macOS) send only a keyup when Caps Lock turns off; see keyup below.
     if (state === 'play' && !e.repeat) { toggleRun(); capsToggledAt = performance.now(); }
     return;
   }
-  if (state === 'book') { if (!e.repeat) (reader.isOpen ? reader : book).handleKey(e.code); return; }   // F3.2: world input ignored
+  if (state === 'book') {
+    // B3: typing a margin note: keys belong to the text box; Esc puts the pen down.
+    if (typing) { if (e.code === 'Escape') (reader.isOpen ? readerDesk : lecternDesk).closeDesk(); return; }
+    if (!e.repeat) (reader.isOpen ? reader : book).handleKey(e.code);
+    return;
+  }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
   if (state === 'charcreate') { if (e.code === 'Escape' && !e.repeat) closeCharCreate(); return; }
   if (state === 'forge') { if (e.code === 'Escape' && !e.repeat) closeForges(); return; }
@@ -746,6 +919,7 @@ window.addEventListener('keydown', (e) => {
   if (state !== 'play') return;
   if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
+  if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
   if (!e.repeat) {
     const w = actionFor(e.code, ['equipCrossbow', 'equipHands', 'reload']);
     if (w === 'equipCrossbow') { equip(true); return; }
@@ -974,4 +1148,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

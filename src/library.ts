@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { decodeLook } from './forge/character';
 import { pixelTexture, type TexName } from './tex/pixel';
 import { Batch } from './world/batch';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildFigure } from './world/figure';
 import { lore, entryById, resolveImage, type LoreEntry } from './lore';
 import type { Collider } from './world';
@@ -242,6 +243,27 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
   baked.add(new THREE.MeshLambertMaterial({ map: pixelTexture('paving') }), new THREE.BoxGeometry(1, 1, 1),
     new THREE.Vector3(0, 0.005, (HALL.front + HALL.back) / 2), new THREE.Vector3(HALL.maxX - HALL.minX, 0.01, HALL.front - HALL.back));
   for (const m of baked.flush(scene, 'library-furniture')) { scene.remove(m); group.add(m); solids.push(m); m.receiveShadow = true; }
+
+  // Phase D budget: the red books draw as one vertex-coloured mesh. Each book mesh stays where it was,
+  // with an invisible material, so raycasts (E to read) and positions work exactly as before.
+  const spines: THREE.BufferGeometry[] = [], tint = new THREE.Color(), hidden = new THREE.MeshBasicMaterial({ visible: false });
+  for (const b of redBooks.values()) {
+    b.updateMatrix();
+    const g = unit.clone().toNonIndexed().applyMatrix4(b.matrix);
+    tint.copy((b.material as THREE.MeshLambertMaterial).color);
+    const cols = new Float32Array(g.attributes.position.count * 3);
+    for (let i = 0; i < cols.length; i += 3) { cols[i] = tint.r; cols[i + 1] = tint.g; cols[i + 2] = tint.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    g.deleteAttribute('uv');
+    spines.push(g);
+    b.userData.color = '#' + tint.getHexString();
+    b.material = hidden;
+  }
+  if (spines.length) {
+    const all = new THREE.Mesh(mergeGeometries(spines), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    all.name = 'red-books'; all.raycast = () => {};
+    group.add(all);
+  }
 
   return { group, targets, redBooks, artifacts, shelfOf, exitDoor, relic: shard };
 }

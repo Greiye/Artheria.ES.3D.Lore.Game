@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "missing-party",
+  "title": "Where did Natalie's party go?",
+  "intro": "Natalie went into the Ruined Library with three friends at noon and came out alone. Find what they left behind, then write down what you think happened. Your theory decides where you look.",
+  "minClues": 3,
+  "clues": [
+    { "id": "string", "name": "Bitten crossbow string", "at": [1.6, 0.05, -16.4], "prop": "string",
+      "text": "A crossbow string, cut clean through. Not by a blade: the ends are chewed. Small teeth.",
+      "supports": ["who:goblin", "where:library"],
+      "natalie": "That's from my scout's crossbow. It bit through it while he was aiming. I watched it happen." },
+    { "id": "lantern", "name": "Dropped lantern", "at": [-2.8, 0.05, -0.6], "prop": "lantern",
+      "text": "A hooded lantern on its side by the coach, oil still in it. Whoever dropped it left in a hurry, toward the road.",
+      "supports": ["where:road", "who:own"],
+      "natalie": "Our tracker's lantern. She never puts it down. Never." },
+    { "id": "tracks", "name": "Bootprints into the trees", "at": [9.0, 0.02, -8.0], "prop": "tracks",
+      "text": "A line of bootprints, long strides, running. They leave the path and go into the forest. One pair only.",
+      "supports": ["where:forest", "who:own"],
+      "natalie": "Running, not walking. Running from something, or after it?" },
+    { "id": "page", "name": "Torn red-book page", "at": [0.25, 0.84, -30.2], "prop": "page",
+      "text": "A page torn from one of the red books, folded small, with a tooth-hole through the corner. Someone kept it.",
+      "supports": ["why:books", "who:goblin", "where:library"],
+      "natalie": "It keeps the red books. I wrote that down and didn't believe it. Now look." },
+    { "id": "tally", "name": "Scratched tally", "at": [2.6, 0.7, 0.27], "prop": "tally",
+      "text": "Scratches on the dais pillar at knee height: four lines, and a fifth crossed out. A score, or a count.",
+      "supports": ["why:game", "who:goblin"],
+      "natalie": "Four of us went in. Who's the fifth? You?" },
+    { "id": "ash", "name": "Ring of blue ash", "at": [3.0, 0.03, -38.0], "prop": "ash",
+      "text": "A ring of cold blue ash near the altar, though nothing here has burned blue. The shard hums louder when you stand in it.",
+      "supports": ["who:unseen", "why:fear", "where:library"],
+      "natalie": "Blue fire doesn't belong to goblins. I don't like this one." },
+    { "id": "ration", "name": "Emptied ration sack", "at": [-6.6, 0.05, 0.6], "prop": "ration",
+      "text": "Our party's ration sack, licked clean, left by the camp. Something big passed by here and took every crumb.",
+      "supports": ["who:stagecoach", "why:hunger", "where:road"],
+      "natalie": "Every larder he passes is empty. If the Stagecoach came through here, we were lucky to only lose bread." }
+  ],
+  "tags": {
+    "who": { "goblin": "The goblin", "stagecoach": "The Stagecoach", "own": "They left on their own", "unseen": "Something not human" },
+    "where": { "library": "Deep in the library", "forest": "Out in the forest", "road": "Down the road" },
+    "why": { "books": "The red books", "game": "A game", "hunger": "Hunger", "fear": "Fear" }
+  },
+  "keywords": {
+    "who:goblin": ["goblin", "teeth", "bit", "small"],
+    "who:stagecoach": ["stagecoach", "giant", "coach", "larder"],
+    "who:own": ["ran", "fled", "left", "own", "escaped", "lost"],
+    "who:unseen": ["demon", "portal", "spirit", "ghost", "not human", "blue", "shard", "noctavel"],
+    "where:library": ["library", "shelf", "shelves", "altar", "inside", "hall"],
+    "where:forest": ["forest", "trees", "woods", "straphan"],
+    "where:road": ["road", "path", "coach", "camp", "wagon"],
+    "why:books": ["book", "books", "red", "page", "read"],
+    "why:game": ["game", "play", "tally", "score", "count"],
+    "why:hunger": ["hungry", "hunger", "food", "ration", "eat"],
+    "why:fear": ["fear", "afraid", "scared", "panic", "fright"]
+  },
+  "leads": {
+    "library": { "at": [-9.0, 0.6, -39.0], "friend": "the scout",
+      "find": "Behind a fallen shelf in the back hall: the scout, asleep on a nest of red-book covers, a broken bolt in his fist. Alive." },
+    "forest": { "at": [16.0, 0.6, -14.0], "friend": "the tracker",
+      "find": "Under an old oak, a rope ladder and a hidden perch: the tracker, keeping watch on the library with no lantern. Alive, and cross with herself." },
+    "road": { "at": [-16.0, 0.6, -4.0], "friend": "the shieldbearer",
+      "find": "In the ditch by the coach road, half under his own shield: the shieldbearer, bruised and starving, but alive." }
+  },
+  "whyLine": {
+    "goblin": "It was the goblin all along, you said. %FRIEND% won't say otherwise.",
+    "stagecoach": "Something big came down the road, you said. %FRIEND% only remembers the ground shaking.",
+    "own": "They split up on their own, you said. %FRIEND% looks ashamed, which is answer enough.",
+    "unseen": "Something not human, you said. %FRIEND% won't talk about the blue light."
+  },
+  "endingNote": "Field note, finished. %FRIEND% is found. %WHO_LINE% The others are still out there, and I have a new page to write. Whoever helped me: your theory is in this book now, in your own words.",
+  "natalie": {
+    "follow": "I can't sit by this door any longer. I'm coming with you.",
+    "wait": "I'll wait here. Don't be long.",
+    "supported": "That's what the evidence says. Let's go.",
+    "leap": "It's a leap. I'll follow you anyway.",
+    "found": "You found them. You actually found them.",
+    "hintNone": "Look around. They can't have vanished without leaving something.",
+    "hintMore": "We need more. Three things at least, before I believe any story.",
+    "hintReady": "That's enough to think with. Open the casebook (J) and write what you think happened."
+  },
+  "barks": {
+    "library": ["It's quieter in here than it should be.", "Keep low. It sees well, but not low.", "The shelves go on forever. They didn't."],
+    "camp": ["We camped here the night before. It feels like a year ago."],
+    "banner": ["Is that yours? It suits you."],
+    "dais": ["The runes still glow. Nobody knows who keeps them lit."],
+    "idle": ["I keep thinking I hear them.", "Write it down. Whatever it is, write it down.", "Four went in. One came out. I'm counting on you to change that."],
+    "reading": ["Read it twice. The second time it says something else."]
+  }
+}

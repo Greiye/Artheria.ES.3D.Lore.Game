@@ -24,7 +24,9 @@ export interface World {
   sunElevationDeg: number;      // F2.2: < 15° for the sunset
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
-  stations: { mirror: THREE.Object3D; anvil: THREE.Object3D };   // Phase B forges: E opens them
+  stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
+  bannerCloth: THREE.Mesh;                                    // B10: its map is the stamped sketch
+  lecternPages: [THREE.Mesh, THREE.Mesh];                     // B3: margin notes are drawn onto these
   doorOpen: boolean;
   openDoor(): void;             // F3.4 `unlock:library_door`
   standees: Record<string, THREE.Object3D>;  // placeholder characters; .glb model slots replace them
@@ -308,44 +310,57 @@ export function buildWorld(): World {
   // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
   const NAT = { x: -2.8, z: LIB.front + 1.8 };
   place('natalie', buildFigure({ skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
+  // Phase D (B12): the Curio Pedlar, an Owlkin trader by the coach road (placeholder NPC, docs/assumptions.md #56).
+  place('pedlar', buildFigure({ skin: '#C9A27A', hair: '#7A5A3A', primary: '#5A6B3A', secondary: '#B08A4A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'owl', build: 1.15 }, 1.6), -7.8, -5.4, 0.9, 0.4);
   const natalieTarget = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
   natalieTarget.name = 'natalie';
   natalieTarget.position.set(NAT.x, 0.9, NAT.z);
   scene.add(natalieTarget);
 
   // ---------- Phase B: the travellers' camp by the coach: a standing mirror (B4) and an anvil (B5) ----------
-  const camp = new THREE.Group(); camp.name = 'camp';
-  const part = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, ry = 0) => {
-    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; camp.add(m); return m;
-  };
+  // Batched like the rest of the world: 3 materials + the glass = 4 draw calls for the whole camp.
+  const campB = new Batch();
   const iron = new THREE.MeshLambertMaterial({ color: '#4A4C50' });
   // Anvil on a tree stump.
   const AX = -7.6, AZ = 1.2;
-  part(new THREE.CylinderGeometry(0.42, 0.48, 0.55, 8), tex('bark'), AX, 0.27, AZ);
-  part(new THREE.BoxGeometry(0.34, 0.16, 0.24), iron, AX, 0.63, AZ);
-  part(new THREE.BoxGeometry(0.62, 0.14, 0.3), iron, AX, 0.78, AZ, 0.2);
-  part(new THREE.BoxGeometry(0.22, 0.1, 0.16), iron, AX + 0.36 * Math.cos(0.2), 0.8, AZ - 0.36 * Math.sin(0.2), 0.2);   // horn
-  part(new THREE.BoxGeometry(0.05, 0.05, 0.3), tex('wood'), AX - 0.1, 0.88, AZ + 0.08, 1.1);                          // hammer handle
-  part(new THREE.BoxGeometry(0.1, 0.08, 0.08), iron, AX - 0.02, 0.89, AZ - 0.05, 1.1);
+  campB.add(tex('bark'), new THREE.CylinderGeometry(0.42, 0.48, 0.55, 8), V(AX, 0.27, AZ));
+  campB.box(iron, V(AX, 0.63, AZ), 0.34, 0.16, 0.24);
+  campB.box(iron, V(AX, 0.78, AZ), 0.62, 0.14, 0.3, 0.2);
+  campB.box(iron, V(AX + 0.36 * Math.cos(0.2), 0.8, AZ - 0.36 * Math.sin(0.2)), 0.22, 0.1, 0.16, 0.2);   // horn
+  campB.box(tex('wood'), V(AX - 0.1, 0.88, AZ + 0.08), 0.05, 0.05, 0.3, 1.1);                          // hammer handle
+  campB.box(iron, V(AX - 0.02, 0.89, AZ - 0.05), 0.1, 0.08, 0.08, 1.1);
   colliders.push({ kind: 'circle', x: AX, z: AZ, r: 0.5 });
   // Standing mirror: wooden frame, a pale glass that catches the sky.
   const MX = -8.4, MZ = -0.6, MR = 1.1;
-  const frame = tex('wood');
-  part(new THREE.BoxGeometry(0.9, 1.8, 0.08), frame, MX, 1.0, MZ, MR);
+  campB.box(tex('wood'), V(MX, 1.0, MZ), 0.9, 1.8, 0.08, MR);
+  for (const s of [-1, 1]) campB.box(tex('wood'), V(MX + Math.cos(MR) * s * 0.36, 0.05, MZ - Math.sin(MR) * s * 0.36), 0.08, 0.1, 0.5, MR);
+  // B10 banner pole: the cloth (a sketch, painted in the sketchbook) hangs from the crossbar and sways.
+  const BX = -9.2, BZ = 1.0, BR = Math.atan2(-BX, -BZ);
+  campB.box(tex('wood'), V(BX, 1.3, BZ), 0.09, 2.6, 0.09, BR);
+  campB.box(tex('wood'), V(BX, 2.45, BZ), 1.1, 0.07, 0.07, BR);
+  campB.add(tex('mossStone'), new THREE.CylinderGeometry(0.22, 0.28, 0.16, 7), V(BX, 0.08, BZ));
+  colliders.push({ kind: 'circle', x: BX, z: BZ, r: 0.3 });
+  const bannerCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.2, 6, 8), new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }));
+  bannerCloth.name = 'bannerCloth';
+  bannerCloth.position.set(BX + Math.sin(BR) * 0.06, 1.8, BZ + Math.cos(BR) * 0.06); bannerCloth.rotation.y = BR;
+  bannerCloth.castShadow = true;
+  scene.add(bannerCloth);
+  campB.flush(scene, 'camp').forEach((m) => { m.castShadow = true; shadowCasters.push(m); });
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 1.6), new THREE.MeshBasicMaterial({ color: '#BFD8E0' }));
-  glass.position.set(MX + Math.sin(MR) * 0.045, 1.0, MZ + Math.cos(MR) * 0.045); glass.rotation.y = MR; camp.add(glass);
-  for (const s of [-1, 1]) part(new THREE.BoxGeometry(0.08, 0.1, 0.5), frame, MX + Math.cos(MR) * s * 0.36, 0.05, MZ - Math.sin(MR) * s * 0.36, MR);
+  glass.name = 'camp';
+  glass.position.set(MX + Math.sin(MR) * 0.045, 1.0, MZ + Math.cos(MR) * 0.045); glass.rotation.y = MR; scene.add(glass);
   colliders.push({ kind: 'circle', x: MX, z: MZ, r: 0.45 });
-  scene.add(camp);
   const hitbox = (name: string, x: number, y: number, z: number, w: number, h: number) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshBasicMaterial({ visible: false }));
     m.name = name; m.position.set(x, y, z); scene.add(m); return m;
   };
-  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2) };
+  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2), banner: hitbox('banner', BX, 1.4, BZ, 1.0, 2.8) };
 
   let doorOpen = false, doorAngle = 0;
   return {
     stations,
+    bannerCloth,
+    lecternPages: [pageL, pageR],
     scene,
     colliders,
     bookTarget,

@@ -27,6 +27,42 @@ Spec doc v0.05.
   The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
 - Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
 
+### Phase D: quests (B2, B12)
+
+- **Story seed: "Where did Natalie's party go?"** (`content/quest/missing-party.json`, `src/quest/`). Natalie's
+  crossbow talk starts it. Seven clues are hidden around the glade, the camp and the library (a rune glint marks
+  each one; E: *Look closer*). With three or more, the **casebook** (J, or the pause menu) lets you write what you
+  think happened. Natalie reads your words and suggests *who / where / why* tags; you pick the tags. Optional
+  constraint dice (B6). Your theory decides where the blue lead light appears (library, forest or road), which friend
+  you find, and how Natalie finishes her field note. No theory is wrong. Natalie also says whether the clues back it up.
+  *Submit my theory…* exports it as a `type: theory` reply to *Natalie's Field Note*.
+- **Companion (B2):** talk to Natalie again after the crossbow and she adds *What do you think?*, *Come with me /
+  Wait here* and *casebook* to her usual choices. Following, she walks a step behind you (through the library door
+  too), turns to face you, and thinks out loud about places and clues. *Quiet companion* in the pause menu mutes her
+  ambient lines.
+- **Item folklore + the Curio Pedlar (B12, `src/quest/folklore.ts`):** an Owlkin trader by the coach road
+  (placeholder NPC). Legendary things you've seen (the Noctavel shard, the scout's crossbow) carry fixed canon,
+  credited, with curated player rumors under it. *I want to tell you about something I found* opens the folklore
+  panel: name any item or clue you hold, give it a history and a rumor, and *Submit…* it.
+- Budget: the library's red books draw as one mesh (13 → 1 draw calls); clicking a book works as before.
+
+### Phase C: writing on the world (B13, B3, B10)
+
+- **Sketchbook + camp banner (B10, `src/writing/sketch.ts`):** a 32×32 pixel painter with a 15-colour Legends/Vintage
+  Story palette, pen, fill, eraser, mirror, undo and a shelf of up to 12 saved sketches. *Hang on the banner* stamps the
+  sketch onto a cloth banner at the camp, which sways in the wind. Open it at the banner pole (E) or from the pause menu.
+  Sketches double as wax seals on margin notes. *Submit…* exports the sketch as a lore file (`pixels:` front matter).
+- **Margin notes (B3, `src/writing/margins.ts`):** the ✎ on any open book (the lectern book or a shelf book) pins a
+  handwritten note to that page. Notes show as tilted paper slips in the ink they were written in, with an optional
+  wax seal. Tap to unfold, × to remove. The lectern's 3D pages get ink scribbles and seals, and every shelf book you
+  wrote in gets a ribbon bookmark in your ink. *Submit my notes on this story…* exports a `type: margin` file with
+  `reply_to` the entry.
+- **Ink and paper (B13):** six inks (iron gall, sepia, cinnabar, verdigris, indigo, rune glow) and four papers (fresh,
+  aged, vellum, charred) restyle every book and the lectern pages.
+- Text boxes now keep Space and the arrow keys (they were swallowed by the game). The camp is batched (10 → 4 draw
+  calls) so the scene stays under the F5.1 budget. The pause menu has *Character* (the original form) and
+  *Character forge* as separate buttons again.
+
 ### Phase B: forges and dice (B4, B5, B6)
 
 - **Travellers' camp** by the stagecoach: a standing **mirror** (character forge) and an **anvil** (weapon forge).

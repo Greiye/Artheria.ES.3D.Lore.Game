@@ -102,6 +102,21 @@ weapon forge (you need the crossbow first). Both are also in the pause menu. Eve
 GitHub issue (or downloads the .md). A reviewed character placed in `content/artifacts/` keeps its `look:` line and
 shows up in the library with that look.
 
+## Writing on the world (B13, B3, B10)
+
+Open any book and press **✎** to pin a note to the page in your own ink, with a sketch as its wax seal. Notes show on
+the page, on the lectern's 3D pages, and as a ribbon on the shelf book. Pick your ink and paper in the same panel.
+The **banner** at the camp (or *Sketchbook* in the pause menu) opens a 32×32 pixel painter; *Hang on the banner*
+puts your sketch on the cloth. Notes and sketches stay in this browser; *Submit…* sends them for review.
+
+## Quests and folklore (B2, B12)
+
+After Natalie hands you the crossbow, look for things out of place (E). The **casebook** (J) collects clues; with
+three, write your theory of what happened to her party and pick who / where / why. The theory decides where the
+blue light leads. Ask Natalie *Come with me* and she follows and comments. The **Curio Pedlar** by the coach road
+knows the canon of legendary things and takes your own names, histories and rumors for anything you carry.
+Quest text lives in `content/quest/` (clues, tags, keywords, leads, barks, legendary items) and can be edited there.
+
 ## Settings (F1)
 
 Open **Settings** from the title screen, or **Esc** during play, then expand **Graphics** / **Audio**.
