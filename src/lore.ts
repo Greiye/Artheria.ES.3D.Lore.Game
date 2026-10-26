@@ -18,6 +18,7 @@ export interface LoreEntry {
   links_in: string[];
   dedications: string[];
   color?: string;
+  look?: string;          // B4: forged look from the character forge ("key=value; ...")
   body: string;
 }
 export interface Shelf { id: string; label: string; red: string[]; grey: number; auto?: boolean }

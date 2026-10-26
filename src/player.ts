@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { controls, type Action } from './controls';
 import type { Collider } from './world';
 import type { Settings } from './settings';
-import { buildFigure } from './world/figure';
+import { buildFigure, type FigureLook } from './world/figure';
 
 // M1 — first-person player. Covers D2, F2.1 (movement half), F1.3.
 // Pointer lock is used when the browser grants it; otherwise hold the left mouse button to look
@@ -44,6 +44,18 @@ export class Player {
     facing.position.set(0, controls.eyeHeight - 0.15, -controls.playerRadius - 0.05);
     this.body.add(figure, facing);
     this.body.visible = false;
+  }
+
+  // B4 character forge: swap in a figure built from the forged look. Returns the new figure.
+  setLook(look: FigureLook, height: number): THREE.Object3D {
+    const old = this.body.children[0];
+    const figure = buildFigure(look, height);
+    figure.rotation.y = Math.PI;
+    figure.visible = old.visible;   // stays hidden when a player.glb has replaced it
+    figure.userData.replacedBy = old.userData.replacedBy;
+    this.body.remove(old);
+    this.body.children.unshift(figure); figure.parent = this.body;
+    return figure;
   }
 
   // Where the player is looking (yaw/pitch), independent of where the camera rig currently is.

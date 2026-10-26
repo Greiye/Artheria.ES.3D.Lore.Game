@@ -27,6 +27,25 @@ Spec doc v0.05.
   The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
 - Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
 
+### Phase B: forges and dice (B4, B5, B6)
+
+- **Travellers' camp** by the stagecoach: a standing **mirror** (character forge) and an **anvil** (weapon forge).
+  Both are also in the pause menu.
+- **Character forge** (`src/forge/character.ts`): 11 lore species (Human, Elf, Infernling, Drakari, Owlkin, Emberkin,
+  Stonekin, Cinderkin, Titankin, Corvani, Lumari). Species add horns, tails, snouts, beaks, wing feathers, ear tufts,
+  pointed ears, a halo, a flame crest or rock plates. You also pick height, build, skin, eye style and colour,
+  freckles or paint, six hair styles, outfit colours and coat tails, plus a name and backstory. The camera frames your
+  real in-game character, which updates live (drag to turn it). Your look replaces the default body everywhere.
+- **Weapon forge** (`src/forge/weapon.ts`), cosmetic only: stock style, limb style, five materials, a tint, metal
+  and string colours, an engraving drawn on the stock, a name and a legend. It previews over the anvil, and your held
+  crossbow uses it.
+- **Constraint dice** (`src/forge/dice.ts`, `content/rolltables/constraint-dice.json`): roll a word, a mood and a rule
+  to work into a backstory or legend. Lore names and species are faces too. You get two rerolls.
+- **Curated submissions** (`src/submit.ts`, Mike's decision 2026-10-26): everything is saved on the device. *Submit*
+  offers a pre-filled GitHub issue for review, a .md download, or a copy. Nothing goes public until Mike merges it.
+  A submitted character keeps its `look:` line, and the library draws it with that look.
+- `test/e2e-forge.mjs` (18 checks).
+
 ### Phase A: animation and polish (B1, R5)
 
 - **Every character animates** (`src/anim/procedural.ts`). The built-in figures are now one skinned mesh on a

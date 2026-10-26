@@ -26,6 +26,8 @@ import { CameraRig } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
 import { FigureAnim, BodyAnim, type AnimInput } from './anim/procedural';
 import { Dust } from './fx/dust';
+import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
+import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -183,7 +185,8 @@ ui.innerHTML = `
         <label class="check"><input id="muteDialogue" type="checkbox"> Mute dialogue</label>
       </details>
       <p class="fine">Settings are saved in this browser.</p>
-      <button id="editCharacter" class="secondary">Character</button>
+      <button id="editCharacter" class="secondary">Character forge</button>
+      <button id="openWeaponForge" class="secondary">Weapon forge</button>
       <button id="writeLorePause" class="secondary">Write lore</button>
     </div>
   </div>
@@ -241,7 +244,11 @@ let state: State = 'title';
 let lockSupported = true;
 let expectUnlock = false;
 let mouseHeld = false;
-let lookingAt: 'book' | 'natalie' | 'bolt' | 'library' | null = null;
+let lookingAt: 'book' | 'natalie' | 'bolt' | 'library' | 'thing' | null = null;
+// Phase B+: things in the world E can use (forge stations, and later quests, campfire, map...).
+interface Interactable { obj: THREE.Object3D; verb: () => string; act: () => void; when?: () => boolean }
+const interactables: Interactable[] = [];
+let lookingAtThing: Interactable | null = null;
 let libraryHit: LibraryHit | null = null;   // F3.1 / F3: what E would activate
 let inputMode: InputMode = coarse ? 'touch' : 'mouse';
 
@@ -270,7 +277,7 @@ function setState(s: State) {
     touch?.reset();
   }
   document.body.dataset.state = s;
-  if (s !== 'dialogue' && s !== 'book') rig.setShot(null);   // R3: framed shots only while reading or talking
+  if (s !== 'dialogue' && s !== 'book' && s !== 'forge') rig.setShot(null);   // R3: framed shots only while reading or talking
 }
 
 // ---------- pointer lock ----------
@@ -339,7 +346,8 @@ $('ccSkip').addEventListener('click', () => {
   if (ccFrom === 'title') void begin();
   else setState(ccFrom);
 });
-$('editCharacter').addEventListener('click', () => openCharCreate('pause'));
+$('editCharacter').addEventListener('click', () => openCharacterForge());
+$('openWeaponForge').addEventListener('click', () => openWeaponForge());
 
 $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
@@ -458,7 +466,82 @@ function animate(dt: number) {
     else if (p.fig) p.fig.update(dt, input);
   }
   for (const a of animators.values()) a.update(dt);
+  if (weaponDisplay.visible) weaponDisplay.rotation.y += dt * 0.5;
 }
+// ---------- Phase B: forges (B4 character, B5 weapon) with B6 dice; saved on this device ----------
+const loreWords = lore.entries.filter((e) => e.type === 'lore').map((e) => e.title.split(':')[0]).filter((t) => t.length < 28);
+const forgeAuthor = () => loadAuthor() || character.name;
+let forgeFrom: State = 'play';
+function setPlayerLook(c: ForgeCharacter) {
+  const fig = player.setLook(c.look, c.height);
+  puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
+  if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
+}
+try { if (localStorage.getItem('gametool.forge.character')) setPlayerLook(loadForge(character.name)); } catch { /* storage blocked: default look */ }
+// The forge camera: a front three-quarter view of the player, with the figure in the right half of the screen.
+function frameForge(target: 'body' | 'crossbow') {
+  if (target === 'crossbow') {
+    // Close on the anvil, the crossbow in the right half of the screen (the panel takes the left).
+    const a = world.stations.anvil.position, top = new THREE.Vector3(a.x, 1.3, a.z);
+    const pos = new THREE.Vector3(a.x + 2.1, 1.65, a.z + 0.5);
+    const d = top.clone().sub(pos).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
+    rig.setShot({ pos, look: top.addScaledVector(right, -0.32), fov: 42 });
+    return;
+  }
+  const fx = -Math.sin(player.bodyYaw), fz = -Math.cos(player.bodyYaw);   // body forward
+  const pos = new THREE.Vector3(player.pos.x + fx * 3.0 - fz * 0.9, 1.35, player.pos.z + fz * 3.0 + fx * 0.9);
+  const look = new THREE.Vector3(player.pos.x - fz * 0.75, 0.95, player.pos.z + fx * 0.75);
+  rig.setShot({ pos, look, fov: 40 });
+}
+function enterForge() {
+  forgeFrom = state === 'pause' ? 'pause' : 'play';
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  setState('forge');
+}
+function leaveForge() {
+  rig.setShot(null);
+  if (forgeFrom === 'pause') setState('pause'); else void resumePlay();
+}
+const characterForge = new CharacterForge(
+  (c) => setPlayerLook(c),
+  (c) => { character = { ...character, name: c.name || character.name, created: true }; saveCharacter(character); leaveForge(); },
+  loreWords, forgeAuthor);
+function openCharacterForge() {
+  enterForge();
+  player.thirdPerson = true;
+  frameForge('body');
+  characterForge.open(loadForge(character.name));
+}
+// B5: the forged crossbow hovers over the anvil at twice size while you work on it, turning slowly.
+const weaponDisplay = new THREE.Group();
+weaponDisplay.position.set(world.stations.anvil.position.x, 1.3, world.stations.anvil.position.z);   // hovers over the anvil
+weaponDisplay.scale.setScalar(2.2);
+weaponDisplay.visible = false;
+world.scene.add(weaponDisplay);
+const weaponForge = new WeaponForge(
+  (c: WeaponCosmetic) => { weaponDisplay.clear(); weaponDisplay.add(buildCrossbowModel(c)); },
+  (c: WeaponCosmetic) => { crossbow.applyCosmetic(c); weaponDisplay.visible = false; leaveForge(); },
+  loreWords, forgeAuthor);
+function openWeaponForge() {
+  enterForge();
+  frameForge('crossbow');
+  weaponDisplay.visible = true;
+  weaponForge.open(loadWeapon());
+}
+function closeForges() { characterForge.close(); weaponForge.close(); }
+// Drag on the scene to turn the hero (character forge).
+let forgeDrag: number | null = null;
+canvas.addEventListener('pointerdown', (e) => { if (state === 'forge') forgeDrag = e.clientX; });
+window.addEventListener('pointerup', () => { forgeDrag = null; });
+window.addEventListener('pointermove', (e) => {
+  if (state !== 'forge' || forgeDrag === null || !characterForge.isOpen) return;
+  player.bodyYaw += (e.clientX - forgeDrag) * 0.012; forgeDrag = e.clientX;
+  player.body.rotation.y = player.bodyYaw;
+});
+interactables.push(
+  { obj: world.stations.mirror, verb: () => 'Change your look', act: () => openCharacterForge() },
+  { obj: world.stations.anvil, verb: () => inventory.count('crossbow') > 0 ? 'Forge your crossbow' : 'Anvil (bring a crossbow)', act: () => { if (inventory.count('crossbow') > 0) openWeaponForge(); else toast('Natalie has a crossbow you could borrow.'); } },
+);
 function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; }
@@ -507,6 +590,7 @@ function activate() {
   if (state !== 'play') return;
   if (lookingAt === 'book') void openBook();
   else if (lookingAt === 'natalie') talkToNatalie();
+  else if (lookingAt === 'thing') lookingAtThing?.act();
   else if (lookingAt === 'library' && libraryHit) useLibrary(libraryHit);
   else if (lookingAt === 'bolt') {
     const b = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange);
@@ -646,7 +730,7 @@ function toggleRun() {
 window.addEventListener('keydown', (e) => {
   setMode('mouse');
   // Keys the browser would otherwise act on (focus change, menu bar, scrolling).
-  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate'].includes(state)) e.preventDefault();
+  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate', 'forge'].includes(state)) e.preventDefault();
   if (e.code === 'CapsLock') {
     // Some platforms (macOS) send only a keyup when Caps Lock turns off; see keyup below.
     if (state === 'play' && !e.repeat) { toggleRun(); capsToggledAt = performance.now(); }
@@ -655,6 +739,7 @@ window.addEventListener('keydown', (e) => {
   if (state === 'book') { if (!e.repeat) (reader.isOpen ? reader : book).handleKey(e.code); return; }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
   if (state === 'charcreate') { if (e.code === 'Escape' && !e.repeat) closeCharCreate(); return; }
+  if (state === 'forge') { if (e.code === 'Escape' && !e.repeat) closeForges(); return; }
   if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
   if (state === 'pause' && e.code === 'Escape' && !lockSupported) { closePauseMenu(); return; }
@@ -825,12 +910,14 @@ function frame() {
     // F3.1: 2 m reach from the eyes along the view direction (same in 1st and 3rd person, F2.4).
     player.lookDir(lookDir);
     ray.set(player.eyePos, lookDir);
-    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget, ...library.targets], false)[0];
+    const things = interactables.filter((t) => !t.when || t.when());
+    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget, ...library.targets, ...things.map((t) => t.obj)], false)[0];
     libraryHit = (hit?.object.userData.hit as LibraryHit | undefined) ?? null;
-    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : hit.object === world.natalieTarget ? 'natalie' : 'library';
+    lookingAtThing = (hit && things.find((t) => t.obj === hit.object)) ?? null;
+    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : hit.object === world.natalieTarget ? 'natalie' : lookingAtThing ? 'thing' : 'library';
     if (!lookingAt && crossbow.boltAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'bolt';   // F4.4
     show('prompt', lookingAt !== null);
-    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt'
+    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : lookingAt === 'thing' ? lookingAtThing!.verb()
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     const s = (player.sneaking ? 'SNEAK' : player.speed() === controls.speeds.sprint ? 'SPRINT' : player.speed() === controls.speeds.run ? 'RUN' : 'WALK')
@@ -887,4 +974,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

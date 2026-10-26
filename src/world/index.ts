@@ -24,6 +24,7 @@ export interface World {
   sunElevationDeg: number;      // F2.2: < 15° for the sunset
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
+  stations: { mirror: THREE.Object3D; anvil: THREE.Object3D };   // Phase B forges: E opens them
   doorOpen: boolean;
   openDoor(): void;             // F3.4 `unlock:library_door`
   standees: Record<string, THREE.Object3D>;  // placeholder characters; .glb model slots replace them
@@ -312,8 +313,39 @@ export function buildWorld(): World {
   natalieTarget.position.set(NAT.x, 0.9, NAT.z);
   scene.add(natalieTarget);
 
+  // ---------- Phase B: the travellers' camp by the coach: a standing mirror (B4) and an anvil (B5) ----------
+  const camp = new THREE.Group(); camp.name = 'camp';
+  const part = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, ry = 0) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; camp.add(m); return m;
+  };
+  const iron = new THREE.MeshLambertMaterial({ color: '#4A4C50' });
+  // Anvil on a tree stump.
+  const AX = -7.6, AZ = 1.2;
+  part(new THREE.CylinderGeometry(0.42, 0.48, 0.55, 8), tex('bark'), AX, 0.27, AZ);
+  part(new THREE.BoxGeometry(0.34, 0.16, 0.24), iron, AX, 0.63, AZ);
+  part(new THREE.BoxGeometry(0.62, 0.14, 0.3), iron, AX, 0.78, AZ, 0.2);
+  part(new THREE.BoxGeometry(0.22, 0.1, 0.16), iron, AX + 0.36 * Math.cos(0.2), 0.8, AZ - 0.36 * Math.sin(0.2), 0.2);   // horn
+  part(new THREE.BoxGeometry(0.05, 0.05, 0.3), tex('wood'), AX - 0.1, 0.88, AZ + 0.08, 1.1);                          // hammer handle
+  part(new THREE.BoxGeometry(0.1, 0.08, 0.08), iron, AX - 0.02, 0.89, AZ - 0.05, 1.1);
+  colliders.push({ kind: 'circle', x: AX, z: AZ, r: 0.5 });
+  // Standing mirror: wooden frame, a pale glass that catches the sky.
+  const MX = -8.4, MZ = -0.6, MR = 1.1;
+  const frame = tex('wood');
+  part(new THREE.BoxGeometry(0.9, 1.8, 0.08), frame, MX, 1.0, MZ, MR);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 1.6), new THREE.MeshBasicMaterial({ color: '#BFD8E0' }));
+  glass.position.set(MX + Math.sin(MR) * 0.045, 1.0, MZ + Math.cos(MR) * 0.045); glass.rotation.y = MR; camp.add(glass);
+  for (const s of [-1, 1]) part(new THREE.BoxGeometry(0.08, 0.1, 0.5), frame, MX + Math.cos(MR) * s * 0.36, 0.05, MZ - Math.sin(MR) * s * 0.36, MR);
+  colliders.push({ kind: 'circle', x: MX, z: MZ, r: 0.45 });
+  scene.add(camp);
+  const hitbox = (name: string, x: number, y: number, z: number, w: number, h: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshBasicMaterial({ visible: false }));
+    m.name = name; m.position.set(x, y, z); scene.add(m); return m;
+  };
+  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2) };
+
   let doorOpen = false, doorAngle = 0;
   return {
+    stations,
     scene,
     colliders,
     bookTarget,

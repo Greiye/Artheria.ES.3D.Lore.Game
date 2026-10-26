@@ -170,8 +170,8 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   const sp = look.species ?? 'human', fc = look.feature ?? FEATURE[sp];
   if (sp === 'infernling' || sp === 'drakari') {
     for (const s of [-1, 1]) {   // horns: back-swept
-      box('head', 0.06, 0.16, 0.06, s * 0.13, 1.66, -0.02, fc, s * -0.35, -0.5);
-      box('head', 0.05, 0.1, 0.05, s * 0.17, 1.74, -0.09, fc, s * -0.6, -1.0);
+      box('head', 0.08, 0.2, 0.08, s * 0.14, 1.7, 0.02, fc, s * -0.35, -0.4);
+      box('head', 0.06, 0.14, 0.06, s * 0.19, 1.81, -0.04, fc, s * -0.6, -0.9);
     }
     for (let i = 0; i < 4; i++) box('hips', 0.08 - i * 0.012, 0.08, 0.16, 0, 0.7 - i * 0.07, -0.18 - i * 0.13, look.skin, 0, 0.5);   // tail
   }

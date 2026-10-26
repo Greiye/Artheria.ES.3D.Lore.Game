@@ -94,6 +94,14 @@ Clips crossfade over 0.2 s and loop. Make them loopable: the last frame should m
 each action a fake user (the shield icon) so the glTF exporter includes every clip, not only the active one.
 A model without clips still works; it just stands still.
 
+## Forges and dice (B4, B5, B6)
+
+At the travellers' camp by the stagecoach, the **mirror** opens the character forge and the **anvil** opens the
+weapon forge (you need the crossbow first). Both are also in the pause menu. Everything you make is saved in this browser.
+*Roll constraint dice* gives you three prompts to work into the story. *Submit…* sends your creation for review as a
+GitHub issue (or downloads the .md). A reviewed character placed in `content/artifacts/` keeps its `look:` line and
+shows up in the library with that look.
+
 ## Settings (F1)
 
 Open **Settings** from the title screen, or **Esc** during play, then expand **Graphics** / **Audio**.

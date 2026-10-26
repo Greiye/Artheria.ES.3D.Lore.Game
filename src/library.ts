@@ -4,6 +4,7 @@
 // Rebuild R4: restyled to the new look: pixel-textured wood and stone (world-metre UVs, batched), a
 // flagstone floor, Legends-style figures for character artifacts. PLACEHOLDER: a .glb pass comes later.
 import * as THREE from 'three';
+import { decodeLook } from './forge/character';
 import { pixelTexture, type TexName } from './tex/pixel';
 import { Batch } from './world/batch';
 import { buildFigure } from './world/figure';
@@ -167,7 +168,10 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
       obj = new THREE.Group();
       // Legends-style figure in the contributor's colour (A6); faces +Z, turned to the aisle below.
       const col = e.color ?? '#9A9A9A';
-      (obj as THREE.Group).add(buildFigure({ skin: '#E8C0A0', hair: '#3A2A1C', primary: col, secondary: '#C9B48A', boots: '#4A3020', accent: '#2B2A24', hairStyle: 'hood' }, 1.7));
+      // B4: a character forged in-game and submitted carries its look; others get the hooded placeholder.
+      const forged = e.look ? decodeLook(e.look) : null;
+      (obj as THREE.Group).add(forged ? buildFigure(forged.look, forged.height)
+        : buildFigure({ skin: '#E8C0A0', hair: '#3A2A1C', primary: col, secondary: '#C9B48A', boots: '#4A3020', accent: '#2B2A24', hairStyle: 'hood' }, 1.7));
       const c = document.createElement('canvas'); c.width = 256; c.height = 48;
       const g = c.getContext('2d')!; g.fillStyle = 'rgba(30,36,32,.85)'; g.fillRect(0, 0, 256, 48); g.fillStyle = '#EFE3C4'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.fillText(e.title, 128, 31);
       const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;

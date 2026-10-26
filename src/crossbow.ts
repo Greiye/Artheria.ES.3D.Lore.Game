@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
-import { pixelTexture } from './tex/pixel';
+import { buildCrossbowModel, loadWeapon, type WeaponCosmetic } from './forge/weapon';
 
 export const BOLT_SPEED = 60;         // m/s (F4.2)
 export const STICK_SECONDS = 30;      // F4.2
@@ -33,7 +33,7 @@ export class Crossbow {
   lastReloadOutcome: 'normal' | 'fast' | 'jam' | null = null;
   readonly bolts: Bolt[] = [];
   readonly viewmodel = new THREE.Group();
-  private loadedBolt: THREE.Mesh;
+  private loadedBolt!: THREE.Mesh;
   private fovOffset = 0;
   private ray = new THREE.Raycaster();
   onFire: () => void = () => undefined;
@@ -43,18 +43,20 @@ export class Crossbow {
   constructor(private scene: THREE.Scene, private camera: THREE.PerspectiveCamera, private player: Player,
     private inventory: Inventory, private solids: THREE.Object3D[], private baseFov: () => number) {
     // Rebuild R4: pixel-textured like the world (docs/vision.md), lit by the same sun.
-    const wood = new THREE.MeshLambertMaterial({ map: pixelTexture('wood') }), dark = new THREE.MeshLambertMaterial({ map: pixelTexture('planks') });
-    const steel = new THREE.MeshLambertMaterial({ color: 0xA4A7A6 });
-    const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); this.viewmodel.add(b); return b;
-    };
-    box(0.05, 0.06, 0.42, wood, 0, 0, 0);          // stock
-    box(0.44, 0.03, 0.04, dark, 0, 0.02, -0.17);   // limbs
-    box(0.42, 0.006, 0.006, steel, 0, 0.02, -0.12); // string
-    this.loadedBolt = box(0.012, 0.012, 0.3, steel, 0, 0.045, -0.08);
+    // Phase B (B5): the parts and materials come from the player's weapon forge cosmetic.
+    this.loadedBolt = this.applyCosmetic(loadWeapon());
     this.viewmodel.visible = false;
     camera.add(this.viewmodel);
     this.placeViewmodel(0);
+  }
+
+  // B5: rebuild the held crossbow from a cosmetic (looks only; stats never change).
+  applyCosmetic(c: WeaponCosmetic): THREE.Mesh {
+    this.viewmodel.clear();
+    const model = buildCrossbowModel(c);
+    this.viewmodel.add(...model.children);
+    this.loadedBolt = this.viewmodel.getObjectByName('loadedBolt') as THREE.Mesh;
+    return this.loadedBolt;
   }
 
   get bolts_left() { return this.inventory.count('bolt'); }
