@@ -23,7 +23,9 @@ import { Crossbow, ZONE } from './crossbow';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
 import { CameraRig } from './camera/rig';
-import { fillSlots, loadedModels, failedModels, animators, type ModelSlot } from './models';
+import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
+import { FigureAnim, BodyAnim, type AnimInput } from './anim/procedural';
+import { Dust } from './fx/dust';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -138,6 +140,7 @@ ui.innerHTML = `
       <p class="fine">Private project · all rights reserved.</p>
     </div>
   </div>
+  <div id="vignette"></div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
@@ -398,17 +401,62 @@ function equip(on: boolean) {
 // R3: the crossbow is aimed in first person (viewmodel); putting it away restores the previous view.
 // Watched per frame so keyboard, touch and gamepad equips all behave the same.
 let viewBeforeCrossbow: boolean | null = null;
-// R4: drive .glb animation clips from game state (src/models.ts Animator; no clips → static model).
-const lastBodyPos = new THREE.Vector3();
-function animate(dt: number) {
-  if (animators.size === 0) return;
-  const pa = animators.get('player');
-  if (pa && dt > 0) {
-    const v = Math.hypot(player.pos.x - lastBodyPos.x, player.pos.z - lastBodyPos.z) / dt;
-    pa.set(state === 'dialogue' ? 'talk' : crossbow.equipped ? 'aim' : v > controls.speeds.walk + 0.5 ? 'run' : v > 0.3 ? 'walk' : 'idle');
+// Phase A (B1): every character animates. A .glb with clips plays them (src/models.ts Animator); a
+// .glb without clips moves as a whole (BodyAnim); the built-in rigged figures run the procedural rig.
+interface Puppet { root: THREE.Object3D; fig?: FigureAnim; body?: BodyAnim }
+const puppets = new Map<string, Puppet>();
+const figureOf = (o: THREE.Object3D): Puppet => ({ root: o, fig: o.userData.rig ? new FigureAnim(o.userData.rig) : undefined });
+for (const [id, o] of Object.entries(world.standees)) puppets.set(id, figureOf(o));
+puppets.set('player', figureOf(player.body.children[0]));
+let libNpc = 0;
+library.group.traverse((o) => { if (o.userData.rig) puppets.set(`library:${libNpc++}`, figureOf(o)); });
+modelsReady.then(() => {
+  for (const [id, holder] of loadedModels) {
+    const p = puppets.get(id);
+    if (p) puppets.set(id, { root: holder, body: animators.has(id) ? undefined : new BodyAnim(holder.children[0]) });
   }
-  lastBodyPos.copy(player.pos);
-  animators.get('natalie')?.set(state === 'dialogue' ? 'talk' : 'idle');
+});
+const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+const npcPos = new THREE.Vector3(), npcQ = new THREE.Quaternion(), npcE = new THREE.Euler();
+function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
+  root.getWorldPosition(npcPos);
+  const dx = player.pos.x - npcPos.x, dz = player.pos.z - npcPos.z, d = Math.hypot(dx, dz);
+  if (d > 40) return null;   // too far to see: skip the work
+  npcE.setFromQuaternion(root.getWorldQuaternion(npcQ), 'YXZ');
+  // Figures face +Z: turn the head toward the player when they come close.
+  const rel = wrapAngle(Math.atan2(dx, dz) - npcE.y);
+  const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
+  return { speed: 0, talking: id === 'natalie' && state === 'dialogue', look };
+}
+function clipState(i: AnimInput): AnimState {
+  return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
+}
+// Phase A: dust at the trailing foot on running steps, a ring of it on landing.
+const dust = new Dust(world.scene);
+let footSide = 1;
+const footAt = () => {
+  footSide = -footSide;
+  const s = Math.sin(player.bodyYaw), c = Math.cos(player.bodyYaw);
+  return new THREE.Vector3(player.pos.x + c * 0.12 * footSide + s * 0.15, 0, player.pos.z - s * 0.12 * footSide + c * 0.15);
+};
+function animate(dt: number) {
+  player.faceView = crossbow.equipped || !player.thirdPerson;
+  const landed = player.consumeLanded();
+  if (landed && player.thirdPerson) dust.burst(player.pos, 6, 0.35);
+  dust.update(dt, camera);
+  const mine: AnimInput = {
+    speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
+    airborne: player.airborne, landed,
+    look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
+  };
+  for (const [id, p] of puppets) {
+    const input = id === 'player' ? (player.body.visible ? mine : null) : npcInput(id, p.root);
+    if (!input) continue;
+    const clips = animators.get(id);
+    if (clips) clips.set(clipState(input));
+    else if (p.body) p.body.update(dt, input);
+    else if (p.fig) p.fig.update(dt, input);
+  }
   for (const a of animators.values()) a.update(dt);
 }
 function syncCrossbowView() {
@@ -770,7 +818,7 @@ function frame() {
       const moving = MOVE_ACTIONS.some((a) => player.held.has(a)) || Math.hypot(player.analog.x, player.analog.y) > 0.05;
       if (moving && !player.sneaking) {
         stepTimer -= SIM_STEP;
-        if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); }
+        if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); if (player.thirdPerson && player.speed() > controls.speeds.walk) dust.burst(footAt()); }
       } else stepTimer = 0;
     }
     rig.update(dt);   // R3: camera follows this frame's simulation before anything aims along it
@@ -800,7 +848,15 @@ function frame() {
 setState('title');
 frame();
 // F2.1: everything is built and the first frame is drawn; fade in from black over 2 s (no pop-in).
-renderer.compile(world.scene, camera);
+// Compile hidden things too (player body, held crossbow, dust), so they don't stutter the first time they show.
+{
+  const hidden = [player.body, crossbow.viewmodel].filter((o) => !o.visible);
+  hidden.forEach((o) => { o.visible = true; });
+  dust.mesh.count = 1;
+  renderer.compile(world.scene, camera);
+  hidden.forEach((o) => { o.visible = false; });
+  dust.mesh.count = 0;
+}
 progress(100);
 requestAnimationFrame(() => requestAnimationFrame(() => {
   const loader = document.getElementById('loader');
@@ -831,4 +887,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

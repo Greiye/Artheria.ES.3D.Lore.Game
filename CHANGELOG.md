@@ -27,6 +27,20 @@ Spec doc v0.05.
   The stagecoach is a chunky coach with lit lanterns. `.glb` model slots work as before.
 - Legacy `src/world.ts` and `src/palette.ts` were removed. Tests were updated for the post-effects toggle.
 
+### Phase A: animation and polish (B1, R5)
+
+- **Every character animates** (`src/anim/procedural.ts`). The built-in figures are now one skinned mesh on a
+  12-bone rig (still one draw call). They get walk and run cycles with knee bend, arm swing, hip bob and lean,
+  idle breathing and weight shift, talk gestures with nods, a two-handed aim pose, a jump tuck and a landing squash.
+  All of these blend smoothly.
+- **NPCs look at you:** Natalie, the hero and the library figures turn their heads toward a player within 6 m.
+- **Your body turns to where you move** in third person, instead of strafing sideways. With the crossbow in hand,
+  or in first person, it faces the view.
+- **`.glb` models:** clips win when present (R4). A model without clips now bobs, leans and breathes as a whole,
+  instead of standing frozen.
+- **Footstep dust** on running steps, and a ring of it on landing (one draw call).
+- **Look:** a soft vignette on every preset, and a light colour grade on High (cool shadows, warm highlights).
+
 ### Rebuild R4: gameplay port
 
 - **Crossbow** viewmodel and bolts use the world's pixel textures and sunlight instead of the legacy toon

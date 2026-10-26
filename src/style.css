@@ -9,6 +9,9 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--shadow); color: var(--parchment); font-family: var(--ui); }
 #app, #app canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+/* Phase A polish: a soft lens vignette on every preset (no GPU cost). */
+#vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 58%, rgba(28,18,8,.32) 100%); }
 .hidden { display: none !important; }
 
 button { font: 600 14px var(--ui); cursor: pointer; border-radius: 6px; }

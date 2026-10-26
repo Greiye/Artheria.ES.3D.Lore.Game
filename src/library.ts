@@ -13,6 +13,7 @@ import type { Collider } from './world';
 export type LibraryHit = { kind: 'red'; slug: string } | { kind: 'grey'; shelf: string } | { kind: 'artifact'; slug: string } | { kind: 'relic' };
 
 export interface Library {
+  group: THREE.Group;                 // everything inside the hall (phase A: NPC figures are found here)
   targets: THREE.Object3D[];            // raycast targets; userData.hit is a LibraryHit
   redBooks: Map<string, THREE.Mesh>;    // slug -> the book's mesh (F5.2: every slug is on a shelf)
   artifacts: Map<string, THREE.Object3D>;
@@ -238,5 +239,5 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
     new THREE.Vector3(0, 0.005, (HALL.front + HALL.back) / 2), new THREE.Vector3(HALL.maxX - HALL.minX, 0.01, HALL.front - HALL.back));
   for (const m of baked.flush(scene, 'library-furniture')) { scene.remove(m); group.add(m); solids.push(m); m.receiveShadow = true; }
 
-  return { targets, redBooks, artifacts, shelfOf, exitDoor, relic: shard };
+  return { group, targets, redBooks, artifacts, shelfOf, exitDoor, relic: shard };
 }

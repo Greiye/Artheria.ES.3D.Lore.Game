@@ -24,6 +24,15 @@ export class Player {
   thirdPerson = true;   // rebuild R3: third-person follow is the default view (docs/vision.md)
   readonly body = new THREE.Group();
   readonly eyePos = new THREE.Vector3();   // F3.1 reach is measured from the eyes, not the 3rd-person camera
+  // Phase A: in third person the body turns toward where it moves (Legends / modern 3rd-person feel);
+  // it faces the view instead when `faceView` is set (first person, crossbow in hand).
+  bodyYaw = 0;
+  faceView = false;
+  hSpeed = 0;                // horizontal speed, m/s, for the animator
+  private landedFlag = false;
+  get airborne() { return !this.grounded; }
+  // True once after touching down (read by the animator for the landing squash).
+  consumeLanded(): boolean { const l = this.landedFlag; this.landedFlag = false; return l; }
 
   constructor(private settings: Settings, private colliders: Collider[], private bounds: number) {
     // PLACEHOLDER: Mega Man Legends-style figure until player.glb exists (H9, docs/vision.md).
@@ -45,7 +54,7 @@ export class Player {
   togglePOV() { this.thirdPerson = !this.thirdPerson; }
 
   spawn(p: THREE.Vector3, yaw: number) {
-    this.pos.copy(p); this.yaw = yaw; this.pitch = 0; this.vy = 0; this.grounded = true; this.sneaking = false;
+    this.pos.copy(p); this.yaw = yaw; this.bodyYaw = yaw; this.hSpeed = 0; this.pitch = 0; this.vy = 0; this.grounded = true; this.sneaking = false;
     this.eye = controls.eyeHeight;
     this.syncBody();
   }
@@ -98,18 +107,28 @@ export class Player {
       const dz = (-r * sin - f * cos) / len * sp;
       // Sub-step so a sprint frame can't tunnel through a thin collider.
       const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.15));
+      const x0 = this.pos.x, z0 = this.pos.z;
       for (let i = 0; i < steps; i++) { this.pos.x += dx / steps; this.pos.z += dz / steps; this.resolve(); }
-    }
+      const moved = Math.hypot(this.pos.x - x0, this.pos.z - z0);
+      this.hSpeed = moved / dt;
+      if (!this.faceView && moved > 1e-4) this.turnBody(Math.atan2(-dx, -dz), dt);
+    } else this.hSpeed = 0;
+    if (this.faceView) this.turnBody(this.yaw, dt);
     // Vertical: gravity + flat ground at y = 0 (F1.3 ground collision).
     if (!this.grounded) {
       this.vy -= controls.gravity * dt;
       this.pos.y += this.vy * dt;
-      if (this.pos.y <= 0) { this.pos.y = 0; this.vy = 0; this.grounded = true; }
+      if (this.pos.y <= 0) { this.pos.y = 0; this.vy = 0; this.grounded = true; this.landedFlag = true; }
     }
     // D2 / F2 C: eye height eases between 1.7 m and 1.1 m.
     const target = this.sneaking ? controls.sneakEyeHeight : controls.eyeHeight;
     this.eye += (target - this.eye) * Math.min(1, dt * 12);
     this.syncBody();
+  }
+
+  private turnBody(target: number, dt: number) {
+    const d = Math.atan2(Math.sin(target - this.bodyYaw), Math.cos(target - this.bodyYaw));
+    this.bodyYaw += d * (1 - Math.exp(-14 * dt));
   }
 
   // F1.3: push the player circle out of every collider, then clamp to the invisible boundary.
@@ -146,6 +165,6 @@ export class Player {
     this.eyePos.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
     this.body.position.set(this.pos.x, this.pos.y - (controls.eyeHeight - this.eye) * 0.5, this.pos.z);
     this.body.scale.y = this.eye / controls.eyeHeight;
-    this.body.rotation.y = this.yaw;
+    this.body.rotation.y = this.bodyYaw;
   }
 }
