@@ -243,13 +243,22 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     hbox(0.39, 0.08, 0.39, 0, 1.6, -0.01, look.hair);
     hbox(0.39, 0.2, 0.08, 0, 1.5, -0.16, look.hair);
   } else if (look.hairStyle === 'flowing') {
-    // Long wavy hair to the hips (Tree of Savior style): crown, fringe, wavy side locks, a big back mass.
+    // Long wavy hair (Tree of Savior style): crown, fringe, wavy side locks, separate strands down the back.
     hbox(0.43, 0.3, 0.36, 0, 1.52, -0.05, look.hair);                         // rounded crown
-    hbox(0.42, 0.3, 0.14, 0, 1.42, -0.16, look.hair);                          // back of the head
-    for (let i = -2; i <= 2; i++) {                                              // wavy strands down the back
-      const len = 0.42 - Math.abs(i) * 0.07 + (i % 2 ? 0.04 : 0);
-      hbox(0.1, len, 0.09, i * 0.075, 1.3 - len / 2, -0.19 + Math.abs(i) * 0.01, look.hair, i * 0.06);
-      hbox(0.08, 0.08, 0.08, i * 0.075 + (i % 2 ? 0.02 : -0.02), 1.3 - len - 0.02, -0.18, look.hair);   // curled tip
+    hbox(0.38, 0.26, 0.12, 0, 1.43, -0.15, look.hair);                          // back of the head
+    const shade = '#' + new THREE.Color(look.hair).multiplyScalar(0.82).getHexString();
+    for (let i = -1; i <= 1; i++) hbox(0.035, 0.22, 0.02, i * 0.1, 1.44, -0.21, shade);   // strand lines over the crown
+    // Thin wavy strands down the back with gaps between them: each is three segments that sway side to side,
+    // alternate strands a shade darker so they read apart, and each ends in a little curl.
+    for (let i = 0; i < 5; i++) {
+      const x = (i - 2) * 0.09, col = i % 2 ? shade : look.hair, len = 0.13 - Math.abs(i - 2) * 0.012;
+      let y = 1.32;
+      for (let k = 0; k < 3; k++) {
+        const sway = (k % 2 ? 1 : -1) * (i % 2 ? -1 : 1) * 0.018;
+        hbox(0.065 - k * 0.006, len, 0.06, x + sway, y - len / 2, -0.19 + Math.abs(i - 2) * 0.012, col, sway * 4);
+        y -= len * 0.9;
+      }
+      hbox(0.06, 0.05, 0.06, x + (i % 2 ? 0.02 : -0.02), y - 0.01, -0.18, col);   // curled tip
     }
     for (let i = -2; i <= 2; i++) hbox(0.1, 0.11, 0.06, i * 0.085, 1.555 - Math.abs(i) * 0.012, 0.19, look.hair, i * 0.2);
     for (const s of [-1, 1]) {
@@ -277,8 +286,8 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   }
   if (look.headpiece) {
     // A band across the crown with three little flowers.
-    hbox(0.4, 0.035, 0.06, 0, 1.6, 0.14, look.headpiece);
-    for (let i = -1; i <= 1; i++) hbox(0.06, 0.06, 0.04, i * 0.1, 1.66 - Math.abs(i) * 0.015, 0.14, i ? look.headpiece : look.scarf ?? '#7A2A3A');
+    hbox(0.4, 0.035, 0.05, 0, 1.63, 0.105, look.headpiece);
+    for (let i = -1; i <= 1; i++) hbox(0.06, 0.06, 0.04, i * 0.1, 1.66 - Math.abs(i) * 0.015, 0.12, i ? look.headpiece : look.scarf ?? '#7A2A3A');
   }
   // Species features, all rigid boxes on the bones they move with.
   const sp = look.species ?? 'human', fc = look.feature ?? FEATURE[sp];

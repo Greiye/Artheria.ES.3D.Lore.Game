@@ -13,7 +13,8 @@ Spec doc v0.05.
   billboard that turns through 8 directions. It is drawn live from the 3D head (skull, hair, hats, species
   features and the pixel face), with a 1 px ink outline. The body masks it, so long hair hangs behind the
   body from the front and over it from the back.
-- **New default hero:** a gothic chibi after Mike's Tree of Savior reference: long wavy platinum hair, red eyes,
+- **New default hero:** a gothic chibi after Mike's Tree of Savior reference: long wavy platinum hair (separate
+  swaying strands down the back, alternately shaded, with curled tips), red eyes,
   a flowered headband, a black bell dress with a pale frill and puffed sleeves, small black wings, and platform
   boots with strapped stockings.
 - **Forge:** adds the Flowing hair style, Bell dress and Platform boots toggles, Wings and Headpiece choices, and
