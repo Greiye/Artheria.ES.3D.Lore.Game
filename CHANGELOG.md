@@ -7,6 +7,18 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S2d: Tree of Savior heads and the gothic heroine
+
+- **Pixel-art heads:** as in Tree of Savior, the body stays a 3D toon-lit mesh, but the head is a pixel-art
+  billboard that turns through 8 directions. It is drawn live from the 3D head (skull, hair, hats, species
+  features and the pixel face), with a 1 px ink outline. The body masks it, so long hair hangs behind the
+  body from the front and over it from the back.
+- **New default hero:** a gothic chibi after Mike's Tree of Savior reference: long wavy platinum hair, red eyes,
+  a flowered headband, a black bell dress with a pale frill and puffed sleeves, small black wings, and platform
+  boots with strapped stockings.
+- **Forge:** adds the Flowing hair style, Bell dress and Platform boots toggles, Wings and Headpiece choices, and
+  black, platinum and red swatches.
+
 ### Storybook restyle S2c: hybrid characters (default)
 
 - **Hybrid characters:** as in Tree of Savior, characters are 3D bodies with pixel-art faces. The body is built in

@@ -14,13 +14,18 @@ export interface FigureLook {
   skin: string; hair: string; primary: string; secondary: string; boots: string;
   accent?: string;      // belt / trim
   eyes?: string;
-  hairStyle?: 'spiky' | 'long' | 'hood' | 'short' | 'bald' | 'topknot' | 'cap';
+  hairStyle?: 'spiky' | 'long' | 'hood' | 'short' | 'bald' | 'topknot' | 'cap' | 'flowing';
   skirt?: boolean;      // coat tails / dress below the belt
   // Restyle S2 trims (all optional; derived from the colours above when missing):
   gloves?: string;      // leather gloves
   scarf?: string;       // neckerchief
   legs?: string;        // trousers (defaults to primary)
   pack?: boolean;       // satchel strap and pouches
+  // Restyle S2d (Tree of Savior gothic look):
+  dress?: boolean;      // bell skirt with a frill, puffed sleeves
+  wings?: string;       // small feathered wings on the back
+  headpiece?: string;   // band with little flowers
+  platform?: boolean;   // platform boots with strapped stockings
   // Phase B (B4 character forge):
   species?: Species;
   build?: number;       // width multiplier, 0.85 (slim) – 1.25 (broad)
@@ -28,6 +33,13 @@ export interface FigureLook {
   marks?: string;       // freckles / war paint colour, '' for none
   feature?: string;     // horns / beak / wing / ear colour (defaults per species)
 }
+
+// Restyle S2d: the default hero, after Mike's Tree of Savior reference (gothic chibi, platinum hair, wings).
+export const GOTHIC_LOOK: FigureLook = {
+  skin: '#F8E2D2', hair: '#D2C6B6', primary: '#26222C', secondary: '#3C3644', boots: '#1C1820', accent: '#B8935A',
+  gloves: '#26222C', scarf: '#7A2A3A', legs: '#2A2630', eyes: '#C8463A', hairStyle: 'flowing',
+  dress: true, wings: '#1E1A24', headpiece: '#2A2430', platform: true, pack: false, build: 0.9,
+};
 
 // Public lore species names only (lore/Artheria-IP-Renames.md).
 export type Species = 'human' | 'elf' | 'infernling' | 'drakari' | 'owlkin' | 'emberkin' | 'stonekin' | 'cinderkin' | 'titankin' | 'corvani' | 'lumari';
@@ -153,11 +165,14 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   const W = THREE.MathUtils.clamp(look.build ?? (look.species === 'titankin' ? 1.2 : 1), 0.8, 1.3);   // body width
   const root = new THREE.Group();
   const parts: [THREE.BufferGeometry, string, BoneName][] = [];
-  const place = (g: THREE.BufferGeometry, bone: BoneName, x: number, y: number, z: number, color: string, rz = 0, rx = 0) => {
+  const headParts: [THREE.BufferGeometry, string][] = [];   // S2d: the head is drawn as a pixel-art billboard
+  const place = (g: THREE.BufferGeometry, bone: BoneName, x: number, y: number, z: number, color: string, rz = 0, rx = 0, ry = 0) => {
+    if (ry) g.rotateY(ry);
     if (rx) g.rotateX(rx);
     if (rz) g.rotateZ(rz);
     g.translate(x * U, y * U, z * U);
-    parts.push([g, color, bone]);
+    if (bone === 'head') headParts.push([g, color]);
+    else parts.push([g, color, bone]);
   };
   // Pillowy rounded box and a round limb: the sprite pass (src/render/sprites.ts) pixelates them, so soft
   // shapes read as drawn pixel art rather than boxes.
@@ -178,8 +193,15 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   for (const s of [-1, 1]) {
     const side = s < 0 ? 'N' : 'P';
     // Chunky boots with a turned-down cuff, short legs.
-    box(`shin${side}`, 0.19, 0.2, 0.3, s * 0.11, 0.1, 0.035, look.boots, 0, 0, 0.06);
-    box(`shin${side}`, 0.21, 0.06, 0.22, s * 0.11, 0.22, 0, trim, 0, 0, 0.02);
+    if (look.platform) {
+      // Platform boots: a thick sole, a rounded toe and crossed straps up the stockings.
+      box(`shin${side}`, 0.2, 0.09, 0.31, s * 0.11, 0.045, 0.04, '#141218', 0, 0, 0.03);
+      box(`shin${side}`, 0.18, 0.16, 0.27, s * 0.11, 0.16, 0.035, look.boots, 0, 0, 0.06);
+      for (const [y, t] of [[0.3, 1], [0.4, -1], [0.5, 1]]) box(`${y > 0.38 ? 'thigh' : 'shin'}${side}` as BoneName, 0.18, 0.025, 0.19, s * 0.11, y, 0.002, look.boots, t * 0.35, 0, 0.01);
+    } else {
+      box(`shin${side}`, 0.19, 0.2, 0.3, s * 0.11, 0.1, 0.035, look.boots, 0, 0, 0.06);
+      box(`shin${side}`, 0.21, 0.06, 0.22, s * 0.11, 0.22, 0, trim, 0, 0, 0.02);
+    }
     limb(`shin${side}`, 0.075, 0.08, 0.18, s * 0.11, 0.33, 0, legs);
     limb(`thigh${side}`, 0.095, 0.085, 0.3, s * 0.11, 0.56, 0, legs);
     // Arms: short sleeve, bare forearm, a big glove.
@@ -188,12 +210,26 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     box(`fore${side}`, 0.15, 0.15, 0.15, s * 0.295, 0.67, 0.01, gloves, 0, 0, 0.045);
     box(`fore${side}`, 0.16, 0.05, 0.16, s * 0.29, 0.75, 0.01, gloves, 0, 0, 0.015);   // glove cuff
   }
-  if (look.skirt) box('hips', 0.46, 0.3, 0.3, 0, 0.6, 0, look.primary, 0, 0, 0.05);
+  if (look.dress) {
+    // Bell skirt with a pale frill at the hem, puffed sleeves and a frilled collar.
+    place(new THREE.CylinderGeometry(0.19 * W * U, 0.4 * W * U, 0.34 * U, 14), 'hips', 0, 0.58, 0, look.primary);
+    place(new THREE.CylinderGeometry(0.4 * W * U, 0.43 * W * U, 0.06 * U, 14), 'hips', 0, 0.4, 0, look.secondary);
+    place(new THREE.CylinderGeometry(0.43 * W * U, 0.41 * W * U, 0.03 * U, 14), 'hips', 0, 0.36, 0, '#E8E0D8');
+    for (const s of [-1, 1]) box(s < 0 ? 'armN' : 'armP', 0.17, 0.15, 0.17, s * 0.265, 1.0, 0, look.secondary, 0, 0, 0.07);
+    box('spine', 0.3, 0.05, 0.22, 0, 1.15, 0.01, '#E8E0D8', 0, 0, 0.02);
+  } else if (look.skirt) box('hips', 0.46, 0.3, 0.3, 0, 0.6, 0, look.primary, 0, 0, 0.05);
+  if (look.wings) {
+    // Small feathered wings, three fanned feathers a side.
+    for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+      box('spine', 0.06, 0.46 - i * 0.08, 0.14, s * (0.24 + i * 0.12), 1.08 + i * 0.05, -0.22 - i * 0.02, look.wings, s * -(0.75 + i * 0.35), 0, 0.02);
+    }
+  }
   // Belt with pouches, a vest over the shirt, a neckerchief.
   box('hips', 0.42, 0.07, 0.29, 0, 0.75, 0, trim, 0, 0, 0.02);
   box('spine', 0.4, 0.34, 0.27, 0, 0.94, 0, look.primary, 0, 0, 0.06);
   box('spine', 0.22, 0.2, 0.02, 0, 1.0, 0.135, look.secondary, 0, 0, 0.005);           // shirt showing at the open vest
-  box('spine', 0.3, 0.07, 0.24, 0, 1.12, 0, look.scarf ?? '#A8423A', 0, 0, 0.03);       // neckerchief
+  if (!look.dress) box('spine', 0.3, 0.07, 0.24, 0, 1.12, 0, look.scarf ?? '#A8423A', 0, 0, 0.03);   // neckerchief
+  else box('spine', 0.08, 0.06, 0.04, 0, 1.1, 0.14, look.scarf ?? '#7A2A3A', 0, 0, 0.015);          // ribbon
   if (look.pack !== false) {
     for (const s of [-1, 1]) box('hips', 0.1, 0.1, 0.08, s * 0.17, 0.71, 0.13, trim, 0, 0, 0.02);   // pouches
     box('spine', 0.05, 0.5, 0.02, 0.02, 0.95, 0.14, trim, 0.62);                                       // satchel strap
@@ -206,6 +242,21 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   } else if (look.hairStyle === 'short') {
     hbox(0.39, 0.08, 0.39, 0, 1.6, -0.01, look.hair);
     hbox(0.39, 0.2, 0.08, 0, 1.5, -0.16, look.hair);
+  } else if (look.hairStyle === 'flowing') {
+    // Long wavy hair to the hips (Tree of Savior style): crown, fringe, wavy side locks, a big back mass.
+    hbox(0.43, 0.3, 0.36, 0, 1.52, -0.05, look.hair);                         // rounded crown
+    hbox(0.42, 0.3, 0.14, 0, 1.42, -0.16, look.hair);                          // back of the head
+    for (let i = -2; i <= 2; i++) {                                              // wavy strands down the back
+      const len = 0.42 - Math.abs(i) * 0.07 + (i % 2 ? 0.04 : 0);
+      hbox(0.1, len, 0.09, i * 0.075, 1.3 - len / 2, -0.19 + Math.abs(i) * 0.01, look.hair, i * 0.06);
+      hbox(0.08, 0.08, 0.08, i * 0.075 + (i % 2 ? 0.02 : -0.02), 1.3 - len - 0.02, -0.18, look.hair);   // curled tip
+    }
+    for (let i = -2; i <= 2; i++) hbox(0.1, 0.11, 0.06, i * 0.085, 1.555 - Math.abs(i) * 0.012, 0.19, look.hair, i * 0.2);
+    for (const s of [-1, 1]) {
+      hbox(0.1, 0.24, 0.14, s * 0.2, 1.42, 0.02, look.hair);
+      hbox(0.1, 0.2, 0.12, s * 0.23, 1.24, 0, look.hair, s * -0.15);
+      hbox(0.09, 0.18, 0.1, s * 0.24, 1.08, -0.02, look.hair, s * 0.2);
+    }
   } else if (look.hairStyle === 'topknot') {
     hbox(0.39, 0.08, 0.39, 0, 1.6, -0.01, look.hair);
     hbox(0.14, 0.14, 0.14, 0, 1.72, -0.06, look.hair);
@@ -223,6 +274,11 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
       for (const s of [-1, 1]) hbox(0.11, 0.08, 0.05, s * 0.08, 1.62, 0.2, '#C9A23A');
       for (const s of [-1, 1]) hbox(0.07, 0.05, 0.02, s * 0.08, 1.62, 0.23, '#9FD0D8');
     }
+  }
+  if (look.headpiece) {
+    // A band across the crown with three little flowers.
+    hbox(0.4, 0.035, 0.06, 0, 1.6, 0.14, look.headpiece);
+    for (let i = -1; i <= 1; i++) hbox(0.06, 0.06, 0.04, i * 0.1, 1.66 - Math.abs(i) * 0.015, 0.14, i ? look.headpiece : look.scarf ?? '#7A2A3A');
   }
   // Species features, all rigid boxes on the bones they move with.
   const sp = look.species ?? 'human', fc = look.feature ?? FEATURE[sp];
@@ -266,21 +322,38 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));
   mesh.frustumCulled = false;   // small and always near; skips per-frame skinned bounds
   root.add(mesh);
-  // The painted face rides the head bone.
-  // Curved to follow the rounded head, and toon-lit like the body so its edge never shows.
+  // S2d: the head (skull, hair, hats, species features, face) is its own rigid mesh on the head bone. The
+  // main camera never sees it: src/render/sprites.ts draws it as a pixel-art billboard from 8 directions.
+  const headGroup = new THREE.Group();
+  headGroup.name = 'head-group';
+  const headGeo = mergeGeometries(headParts.map(([g, c]) => painted(g, c, 0, height)));
+  headGeo.translate(-RIG.head[1][0] * U, -RIG.head[1][1] * U, -RIG.head[1][2] * U);
+  const headMesh = new THREE.Mesh(headGeo, figureMats.flat);
+  headMesh.name = 'figure-head';
+  headMesh.raycast = noRaycast;
+  headGroup.add(headMesh);
+  bones.head.add(headGroup);
+  // Curved to follow the rounded head.
   const fs = headS * 0.76, faceGeo = new THREE.PlaneGeometry(fs, fs, 4, 4), fp = faceGeo.attributes.position;
   for (let i = 0; i < fp.count; i++) {
     const u = fp.getX(i) / (fs / 2), v = fp.getY(i) / (fs / 2);
     fp.setZ(i, -headS * (0.06 * u * u + 0.03 * v * v));
   }
   faceGeo.computeVertexNormals();
-  const faceMap = faceTexture(look);
-  const faceToon = new THREE.MeshToonMaterial({ map: faceMap, gradientMap: figureMats.toon.gradientMap });
-  const face = new THREE.Mesh(faceGeo, faceToon);
+  const face = new THREE.Mesh(faceGeo, new THREE.MeshBasicMaterial({ map: faceTexture(look) }));
   face.name = 'face';
-  face.userData.mats = { toon: faceToon, flat: new THREE.MeshBasicMaterial({ map: faceMap }) };
+  face.raycast = noRaycast;
   face.position.set(0, headY - RIG.head[1][1] * U - headS * 0.04, headS * 0.45 + 0.01);
-  bones.head.add(face);
+  headGroup.add(face);
+  // Billboard frame: the head's extent around its centre, radially (it turns), plus a margin.
+  const anchor = new THREE.Object3D();
+  anchor.name = 'head-anchor';
+  anchor.position.set(0, headY - RIG.head[1][1] * U, 0);
+  bones.head.add(anchor);
+  headGeo.computeBoundingBox();
+  const hb = headGeo.boundingBox!.translate(new THREE.Vector3(0, -anchor.position.y, 0));
+  const reach = Math.max(-hb.min.x, hb.max.x, -hb.min.z, hb.max.z, headS * 0.5) * 1.12;
+  root.userData.head = { anchor, group: headGroup, w: reach * 2, h: (hb.max.y - hb.min.y) * 1.1, cy: (hb.max.y + hb.min.y) / 2 };
   root.add(blobShadow(0.36 * U));
   root.userData.height = height;
   spriteFigure(root);

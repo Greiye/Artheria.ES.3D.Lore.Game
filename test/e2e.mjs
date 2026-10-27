@@ -230,7 +230,8 @@ if (!longOnly) {
     let st = await state(page);
     if (st === 'resume') { await page.click('#relockBtn'); await page.waitForTimeout(300); st = await state(page); }
     await frames(page, 3);   // let the view settle (SwiftShader can stall a frame compiling the play view)
-    const a = await pos(page); await hold(page, 'KeyS', 300); const b = await pos(page);
+    // Hold for at least a few rendered frames as well as 300 ms (slow SwiftShader frames).
+    const a = await pos(page); await page.keyboard.down('KeyS'); await page.waitForTimeout(300); await frames(page, 4); await page.keyboard.up('KeyS'); const b = await pos(page);
     check(`F3.6 ${key} closes the book; player can walk again`, st === 'play' && !(await page.isVisible('#book .spread')) && Math.hypot(b.x - a.x, b.z - a.z) > 0.5, `state ${st} moved ${Math.hypot(b.x - a.x, b.z - a.z).toFixed(2)}`);
   }
   await teleport(page, 0, 1.4, 0, -0.45); await page.waitForTimeout(100);

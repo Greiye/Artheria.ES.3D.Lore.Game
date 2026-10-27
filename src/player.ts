@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { controls, type Action } from './controls';
 import type { Collider } from './world';
 import type { Settings } from './settings';
-import { buildFigure, type FigureLook } from './world/figure';
+import { buildFigure, GOTHIC_LOOK, type FigureLook } from './world/figure';
 
 // M1 — first-person player. Covers D2, F2.1 (movement half), F1.3.
 // Pointer lock is used when the browser grants it; otherwise hold the left mouse button to look
@@ -37,7 +37,7 @@ export class Player {
   constructor(private settings: Settings, private colliders: Collider[], public bounds: number) {
     // PLACEHOLDER: Mega Man Legends-style figure until player.glb exists (H9, docs/vision.md).
     // children[0] is the model slot; children[1] marks "forward" and is hidden once a model shows its own front.
-    const figure = buildFigure({ skin: '#F2CDA8', hair: '#6B3E22', primary: '#34406A', secondary: '#E8DCC0', boots: '#6B4428', accent: '#8A5A32', gloves: '#5A3A22', scarf: '#A8423A', hairStyle: 'cap', eyes: '#3E5A8A' }, controls.eyeHeight + 0.1);
+    const figure = buildFigure(GOTHIC_LOOK, controls.eyeHeight + 0.1);
     figure.rotation.y = Math.PI;   // figures face +Z; the player faces -Z at yaw 0
     const facing = new THREE.Object3D();
     facing.name = 'facing';
