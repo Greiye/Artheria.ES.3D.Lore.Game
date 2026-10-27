@@ -14,6 +14,7 @@ export interface Settings {
   fov: number;         // F1.1: 60-100 (D2)
   invertY: boolean;
   alwaysRun: boolean;  // default true
+  view: 'follow' | 'first';   // storybook restyle S1: starting camera, follow (Dark Cloud 2 style) by default
   lastPage: number;
   // F1.1 graphics
   preset: Preset;
@@ -38,7 +39,7 @@ const KEY = 'gametool.settings';
 const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 90, muteMaster: false, muteMusic: false, muteSfx: false, muteDialogue: false };
 export const defaults: Settings = {
   schemaVersion: 1,
-  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, lastPage: 0,
+  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'follow', lastPage: 0,
   preset: 'medium', ...PRESETS.medium,
   audio: { ...defaultAudio },
 };
@@ -73,6 +74,7 @@ export function loadSettings(): Settings {
       fov: clamp(s.fov, 60, 100, defaults.fov),
       invertY: bool(s.invertY, defaults.invertY),
       alwaysRun: bool(s.alwaysRun, defaults.alwaysRun),
+      view: s.view === 'first' ? 'first' : 'follow',
       lastPage: Number.isInteger(s.lastPage) && (s.lastPage as number) >= 0 ? (s.lastPage as number) : 0,
       preset,
       renderScale: clamp(s.renderScale, 50, 100, PRESETS[preset].renderScale),

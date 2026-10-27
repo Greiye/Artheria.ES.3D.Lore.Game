@@ -96,7 +96,7 @@ export class FigureAnim {
     const k = w.pose;
     B.root.rotation.set(0, 0, 0); B.root.position.set(0, 0, 0);
     if (k < 0.002) return;
-    const H = this.rest.hips.y / 0.78, pt = this.poseT;
+    const H = this.rest.hips.y / 0.72, pt = this.poseT;   // figure height unit (hips at 0.72 of 1.75 m, src/world/figure.ts RIG)
     const L = THREE.MathUtils.lerp;
     const set = (b: BoneName, x: number, y = 0, z = 0) => { const r = B[b].rotation; r.set(L(r.x, x, k), L(r.y, y, k), L(r.z, z, k)); };
     if (this.pose === 'stance' || this.pose === 'punch') {
@@ -112,7 +112,7 @@ export class FigureAnim {
       }
     } else if (this.pose === 'hang') {
       // Upside down from the bar by the knees; curl up toward the knees and back down.
-      B.root.rotation.z = Math.PI * k; B.root.position.y = (2.3 + 0.49 * H) * k;   // knees hooked over the bar (2.3 m)
+      B.root.rotation.z = Math.PI * k; B.root.position.y = (2.3 + 0.4 * H) * k;   // knees hooked over the bar (2.3 m)
       const c = 0.5 - 0.5 * Math.cos(pt * 2.2);
       set('thighN', 0); set('thighP', 0); set('shinN', 1.7); set('shinP', 1.7);
       set('spine', -1.25 * c); set('head', -0.4 * c);

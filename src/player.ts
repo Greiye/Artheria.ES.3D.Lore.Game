@@ -37,7 +37,7 @@ export class Player {
   constructor(private settings: Settings, private colliders: Collider[], public bounds: number) {
     // PLACEHOLDER: Mega Man Legends-style figure until player.glb exists (H9, docs/vision.md).
     // children[0] is the model slot; children[1] marks "forward" and is hidden once a model shows its own front.
-    const figure = buildFigure({ skin: '#F0C8A0', hair: '#5A3420', primary: '#4F7A3A', secondary: '#C9B48A', boots: '#5A3A22', accent: '#7A5236', hairStyle: 'spiky' }, controls.eyeHeight + 0.1);
+    const figure = buildFigure({ skin: '#F2CDA8', hair: '#6B3E22', primary: '#34406A', secondary: '#E8DCC0', boots: '#6B4428', accent: '#8A5A32', gloves: '#5A3A22', scarf: '#A8423A', hairStyle: 'cap', eyes: '#3E5A8A' }, controls.eyeHeight + 0.1);
     figure.rotation.y = Math.PI;   // figures face +Z; the player faces -Z at yaw 0
     const facing = new THREE.Object3D();
     facing.name = 'facing';
@@ -63,7 +63,7 @@ export class Player {
     return out.set(0, 0, -1).applyEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
   }
 
-  togglePOV() { this.thirdPerson = !this.thirdPerson; }
+  togglePOV() { this.thirdPerson = !this.thirdPerson; if (this.thirdPerson) this.pitch = 0; }
 
   spawn(p: THREE.Vector3, yaw: number) {
     this.pos.copy(p); this.yaw = yaw; this.bodyYaw = yaw; this.hSpeed = 0; this.pitch = 0; this.vy = 0; this.grounded = true; this.sneaking = false;
@@ -71,11 +71,15 @@ export class Player {
     this.syncBody();
   }
 
+  // Storybook restyle S1: in the follow view, vertical look input zooms the camera instead of pitching.
+  zoomBy: ((d: number) => void) | null = null;
+
   // F2.1 Mouse: look, pitch clamped ±89°, invert Y + sensitivity from settings (F2.3).
   look(dx: number, dy: number) {
     const k = controls.mouseBase * this.settings.sensitivity;
     const lim = THREE.MathUtils.degToRad(controls.pitchLimitDeg);
     this.yaw -= dx * k;
+    if (this.thirdPerson && this.zoomBy) { this.zoomBy(dy * k * 0.5); return; }
     this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k * (this.settings.invertY ? -1 : 1), -lim, lim);
   }
 
@@ -100,7 +104,8 @@ export class Player {
     if (this.analogLook.x || this.analogLook.y) {
       const lim = THREE.MathUtils.degToRad(controls.pitchLimitDeg);
       this.yaw -= this.analogLook.x * dt;
-      this.pitch = THREE.MathUtils.clamp(this.pitch - this.analogLook.y * dt * (this.settings.invertY ? -1 : 1), -lim, lim);
+      if (this.thirdPerson && this.zoomBy) this.zoomBy(this.analogLook.y * dt * 0.35);
+      else this.pitch = THREE.MathUtils.clamp(this.pitch - this.analogLook.y * dt * (this.settings.invertY ? -1 : 1), -lim, lim);
     }
     let f = (this.held.has('forward') ? 1 : 0) - (this.held.has('back') ? 1 : 0);
     let r = (this.held.has('right') ? 1 : 0) - (this.held.has('left') ? 1 : 0);
@@ -173,6 +178,7 @@ export class Player {
   }
 
   // Eyes + body follow the simulation; the camera itself is placed by CameraRig (src/camera/rig.ts).
+  syncNow() { this.syncBody(); }
   private syncBody() {
     this.eyePos.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
     this.body.position.set(this.pos.x, this.pos.y - (controls.eyeHeight - this.eye) * 0.5, this.pos.z);

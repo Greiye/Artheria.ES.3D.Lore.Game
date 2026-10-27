@@ -7,6 +7,41 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S2b: Tree of Savior style pixel-art sprites
+
+- **Sprite characters:** every character is now drawn as a pixel-art sprite that faces the camera, like Tree of
+  Savior and Ragnarok Online. Each one is redrawn from its 3D figure in one of 8 directions (45° steps) at a sprite
+  frame rate of 12 fps, with a dark 1 px outline. It leans back toward a high camera, so the overview isn't squashed.
+- Walking, poses, the forge, species and contributor looks all still work, because the sprite is drawn from the
+  live figure (`src/render/sprites.ts`).
+- The figures under the sprites are softer: pillowy rounded parts, round limbs and a rounder head.
+
+### Storybook restyle S2+S3: chibi characters and painted world (style slice)
+
+- **Chibi figures:** everyone is rebuilt to the "Echoes of Avalon" boards: about 2.7 heads tall, a rounded
+  head with big anime eyes (highlights, lashes, blush), and bevelled low-poly parts. The new default look has
+  a newsboy cap with goggles, a navy vest and trousers over a cream shirt, a rust neckerchief, leather gloves,
+  chunky cuffed boots, a satchel strap and belt pouches. The character forge adds the Cap hair style and a
+  navy/rust/leather/cream/moss palette. Poses and animations are retargeted to the shorter rig.
+- **Painted world:** brighter storybook colours for grass, dirt, paving, stone, bark and leaves, with smooth
+  filtering instead of crisp pixels. Cut-out textures (grass blades, ferns, leaves) fill their holes with edge
+  colour so smooth filtering doesn't leave dark fringes. Tree canopies and bushes are faceted low-poly balls.
+- **Sky:** a clear blue storybook sky with a warm cream horizon and softer, brighter fill light.
+
+### Storybook restyle S1: camera and controls
+
+- **Follow camera:** a Dark Cloud 2 style follow camera above and behind you, easing after you. The mouse wheel
+  zooms out to a high Ragnarok Online / Tree of Savior overview (narrower FOV). Dragging turns it. Walls still
+  pull it in, it looks down over the roofless library, and it stays under the dungeon ceiling.
+- **First person:** optional and off by default. Scroll in past the closest zoom and the camera glides into the
+  eyes; scroll out to leave it. F and the new pause-menu Camera list (for phones) also switch it, and the choice
+  is saved. Aiming the crossbow still goes first person.
+- **Free cursor:** no pointer lock or crosshair in the follow view. Hovering highlights what's within reach and
+  a click uses it. E uses the highlighted thing, else the eye ray, else the nearest thing in front of you, and
+  it now re-checks at the moment of the press.
+- The light shafts are one instanced mesh, so the wider view stays inside the draw-call budget.
+- Reference boards and coding references: SimonDev's Quick_3D_RPG (MIT) for the camera easing idea.
+
 ### Rebuild R1–R2: new look (docs/vision.md, docs/rebuild-plan.md)
 
 - **R1 render core:** pixel textures painted at load time from colour ramps plus clustered per-texel

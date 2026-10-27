@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { updateSprites } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';
 import { Player } from './player';
@@ -103,6 +104,7 @@ const player = new Player(settings, world.colliders, world.bounds);
 player.spawn(world.spawn.pos, world.spawn.yaw);
 // R3: the camera rig places the camera (follow / first person / framed shots); the player only moves.
 const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => settings.fov);
+player.zoomBy = (d) => rig.zoomBy(d);
 rig.update(0);
 world.scene.add(player.body);
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
@@ -176,6 +178,7 @@ ui.innerHTML = `
       <button id="resume" class="primary">Resume</button>
       <label>Look sensitivity <output id="sensOut"></output><input id="sens" type="range" min="0.2" max="3" step="0.05"></label>
       <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
+      <label>Camera <select id="viewSel"><option value="follow">Follow (Dark Cloud 2 style)</option><option value="first">First person</option></select></label>
       <label class="check"><input id="invert" type="checkbox"> Invert Y</label>
       <label class="check"><input id="always" type="checkbox"> Always run (Caps Lock)</label>
       <details id="graphicsSettings">
@@ -267,6 +270,11 @@ let state: State = 'title';
 let lockSupported = true;
 let expectUnlock = false;
 let mouseHeld = false;
+// Storybook restyle S1: the follow view plays with a free cursor (hover and click things, drag to turn).
+// Pointer lock is only for first person (F, or aiming the crossbow) with a mouse.
+const wantLock = () => inputMode === 'mouse' && !player.thirdPerson;
+const cursor = { x: 0, y: 0, on: false, downX: 0, downY: 0, dragged: false };
+let rightHeld = false;
 let lookingAt: 'book' | 'natalie' | 'bolt' | 'library' | 'thing' | null = null;
 // Phase B+: things in the world E can use (forge stations, and later quests, campfire, map...).
 interface Interactable { obj: THREE.Object3D; verb: () => string; act: () => void; when?: () => boolean }
@@ -281,7 +289,7 @@ function setMode(m: InputMode) {
   document.body.dataset.input = m;
   $('begin').textContent = m === 'touch' ? 'Tap to begin' : m === 'pad' ? 'Press A to begin' : 'Click to begin';
   $('prompt').querySelector('kbd')!.textContent = m === 'pad' ? 'A' : 'E';
-  show('nolock', state === 'play' && !lockSupported && m === 'mouse');
+  show('nolock', state === 'play' && !lockSupported && m === 'mouse' && !player.thirdPerson);
 }
 
 function setState(s: State) {
@@ -293,7 +301,8 @@ function setState(s: State) {
   show('editor', s === 'editor');
   show('charcreate', s === 'charcreate');
   show('inventory', s === 'inventory');
-  show('nolock', s === 'play' && !lockSupported && inputMode === 'mouse');
+  show('nolock', s === 'play' && !lockSupported && wantLock());
+  cursor.on = false;   // a stale cursor never picks a target after a menu closes
   if (s !== 'play') {
     player.held.clear(); mouseHeld = false; show('prompt', false);
     player.analog.x = player.analog.y = player.analogLook.x = player.analogLook.y = 0;
@@ -335,6 +344,8 @@ document.addEventListener('pointerlockchange', () => {
 // F1.1: title -> pointer lock -> spawned in first person.
 async function begin() {
   player.spawn(world.spawn.pos, world.spawn.yaw);
+  player.thirdPerson = settings.view !== 'first';
+  document.body.dataset.view = settings.view;
   setState('play');                             // in the world immediately, even before lock resolves
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
@@ -342,9 +353,9 @@ async function begin() {
     document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => undefined);
     return;
   }
-  if (inputMode !== 'mouse') return;            // gamepad: no pointer lock needed
+  if (!wantLock()) return;                       // follow view / gamepad: no pointer lock needed
   lockSupported = await requestLock();
-  show('nolock', state === 'play' && !lockSupported && inputMode === 'mouse');
+  show('nolock', state === 'play' && !lockSupported && wantLock());
 }
 let character: Character = loadCharacter();
 let ccFrom: State = 'title';
@@ -391,7 +402,7 @@ function pause() {
 
 async function resumePlay() {
   setState('play');
-  if (!lockSupported || inputMode !== 'mouse') return;
+  if (!lockSupported || !wantLock()) return;
   const ok = await requestLock();
   // Browsers refuse a re-lock right after Esc or without a user gesture: ask for one click.
   if (!ok && state === 'play') setState('resume');
@@ -409,7 +420,7 @@ const inventory = new Inventory();
 inventory.root.querySelector('.inv-close')!.addEventListener('click', () => closeInventory());
 // ---------- F4 crossbow ----------
 world.scene.add(camera);   // the first-person crossbow rides on the camera
-const crossbow = new Crossbow(world.scene, camera, player, inventory, world.solids, () => settings.fov);
+const crossbow = new Crossbow(world.scene, camera, player, inventory, world.solids, () => rig.playFov);
 crossbow.onFire = () => audio.crossbowTwang();
 crossbow.onReloadClick = () => audio.reloadClick();
 const ammoText = $('ammoText'), reloadBar = $('reloadBar'), reloadFill = reloadBar.querySelector<HTMLElement>('.fill')!;
@@ -755,6 +766,7 @@ const TRAPDOOR = new THREE.Vector3(6.5, 0, -33);
 const trapHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
 trapHit.position.copy(TRAPDOOR).setY(0.3); world.scene.add(trapHit);
 let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
+rig.ceiling = () => (inDungeon ? 2.9 : Infinity);   // the follow camera stays under the dungeon ceiling
 const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; at: string }>; } catch { return {}; } })();
 const saveDelves = () => { try { localStorage.setItem('gametool.delves', JSON.stringify(delves)); } catch { /* blocked */ } };
 function enterDungeon(seed: number) {
@@ -903,9 +915,27 @@ interactables.push(
   { obj: world.stations.anvil, verb: () => inventory.count('crossbow') > 0 ? 'Forge your crossbow' : 'Anvil (bring a crossbow)', act: () => { if (inventory.count('crossbow') > 0) openWeaponForge(); else toast('Natalie has a crossbow you could borrow.'); } },
 );
 function syncCrossbowView() {
-  if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; }
-  else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; }
+  if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; syncLock(); }
+  else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; if (player.thirdPerson) player.pitch = 0; syncLock(); }
+  document.body.dataset.view = player.thirdPerson ? 'follow' : 'first';
   if (rig.inShot) crossbow.viewmodel.visible = false;   // a framed dialogue/reading shot shows the player, not the held crossbow
+}
+// S1: follow (default) or first person. Scrolling in past the closest follow zoom goes first person;
+// scrolling out leaves it. The pause menu's Camera list sets the same thing (and is how phones pick it).
+function setView(v: 'follow' | 'first', save = true) {
+  if (crossbow.equipped) { viewBeforeCrossbow = v === 'follow'; return; }   // applies when the crossbow is put away
+  player.thirdPerson = v === 'follow';
+  if (player.thirdPerson) player.pitch = 0;
+  document.body.dataset.view = v;
+  if (save && settings.view !== v) { settings.view = v; saveSettings(settings); }
+  syncLock();
+}
+// First person locks the pointer (from the key press that switched to it); the follow view frees it.
+function syncLock() {
+  if (state !== 'play') return;
+  if (wantLock() && lockSupported && !document.pointerLockElement) void requestLock().then((ok) => { if (!ok && !document.pointerLockElement) { lockSupported = false; show('nolock', state === 'play' && wantLock()); } });
+  else if (!wantLock() && document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  show('nolock', !lockSupported && wantLock());
 }
 let toastTimer = 0;
 function toast(msg: string, ms = 3000) {
@@ -983,6 +1013,7 @@ function openInventory() {
 function closeInventory() { if (state === 'inventory') void resumePlay(); }
 function activate() {
   if (state !== 'play') return;
+  player.syncNow(); camera.updateMatrixWorld(); updateTarget();
   if (lookingAt === 'book') void openBook();
   else if (lookingAt === 'natalie') talkToNatalie();
   else if (lookingAt === 'thing') lookingAtThing?.act();
@@ -1144,7 +1175,7 @@ window.addEventListener('keydown', (e) => {
   if (state === 'forge') { if (e.code === 'Escape' && !e.repeat) closeForges(); return; }
   if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
-  if (state === 'pause' && e.code === 'Escape' && !lockSupported) { closePauseMenu(); return; }
+  if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
@@ -1162,7 +1193,7 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (a === 'jump') player.jump();
   else if (a === 'sneak') player.toggleSneak();
-  else if (a === 'pov') player.togglePOV();
+  else if (a === 'pov') setView(player.thirdPerson ? 'first' : 'follow');
   else if (a === 'toggleRun') toggleRun();
   else if (a === 'activate') activate();
   else if (a === 'pause') { pauseFrom = 'play'; setState('pause'); }   // only reaches here when the pointer isn't locked
@@ -1179,12 +1210,38 @@ window.addEventListener('blur', () => player.held.clear());
 window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') setMode('mouse'); });
 window.addEventListener('mousedown', (e) => {
   if (state !== 'play') return;
-  if (e.button === 0) { mouseHeld = true; if (crossbow.equipped && (e.target === canvas || document.pointerLockElement)) fire(); }   // F4.1 LMB fires
-  if (e.button === 2) crossbow.setADS(true);                                // F4.1 RMB aims
+  if (e.button === 0) {
+    mouseHeld = true;
+    cursor.downX = e.clientX; cursor.downY = e.clientY; cursor.dragged = false;
+    if (wantLock() && lockSupported && !document.pointerLockElement && e.target === canvas) void requestLock();   // first person: a click takes the pointer
+    if (crossbow.equipped && (e.target === canvas || document.pointerLockElement)) fire();   // F4.1 LMB fires
+  }
+  if (e.button === 2) { rightHeld = true; crossbow.setADS(true); }   // F4.1 RMB aims; in the follow view RMB-drag turns the camera
 });
-window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseHeld = false; if (e.button === 2) crossbow.setADS(false); });
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 0) {
+    mouseHeld = false;
+    // S1: a click (not a drag) on something within reach uses it.
+    if (state === 'play' && e.target === canvas && player.thirdPerson && !crossbow.equipped && !cursor.dragged && hovering) activate();
+  }
+  if (e.button === 2) { rightHeld = false; crossbow.setADS(false); }
+});
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('click', () => { if (state === 'dialogue') dialogue.advance(); });
+// Only a real move counts: browsers also send zero-movement moves when a panel vanishes under a still cursor.
+canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && (e.movementX || e.movementY)) { cursor.x = e.clientX; cursor.y = e.clientY; cursor.on = true; } });
+canvas.addEventListener('pointerleave', () => { cursor.on = false; });
+// S1: the wheel zooms the follow camera between the close view and the overview.
+let pushIn = 0;
+canvas.addEventListener('wheel', (e) => {
+  if (state !== 'play' || crossbow.equipped) return;
+  e.preventDefault();
+  if (!player.thirdPerson) { if (e.deltaY > 0) { rig.zoom = 0; setView('follow'); } return; }
+  const d = Math.sign(e.deltaY) * Math.min(0.12, Math.abs(e.deltaY) * 0.0012);
+  if (d < 0 && rig.zoom <= 0) { pushIn -= d; if (pushIn >= 0.2) { pushIn = 0; setView('first'); } return; }   // two more notches in
+  pushIn = 0;
+  rig.zoomBy(d);
+}, { passive: false });
 window.addEventListener('mousemove', (e) => {
   if (state !== 'play') return;
   const locked = document.pointerLockElement === canvas;
@@ -1192,7 +1249,12 @@ window.addEventListener('mousemove', (e) => {
   // Chromium sometimes sends one bogus huge delta under pointer lock (on lock, or re-centring the cursor);
   // a real hand never moves 350 px in a single event, so drop it instead of snapping the view.
   if (Math.abs(e.movementX) > 350 || Math.abs(e.movementY) > 350) return;
-  if (locked || (!lockSupported && mouseHeld)) player.look(e.movementX, e.movementY);
+  if (locked) { player.look(e.movementX, e.movementY); return; }
+  if (player.thirdPerson) {
+    // Follow view: drag (either button) turns the camera around the player.
+    if (mouseHeld && Math.hypot(e.clientX - cursor.downX, e.clientY - cursor.downY) > 5) cursor.dragged = true;
+    if ((mouseHeld && cursor.dragged) || rightHeld) player.look(e.movementX * 1.4, 0);
+  } else if (mouseHeld || rightHeld) player.look(e.movementX, e.movementY);   // first person, pointer not locked: drag to look
 });
 
 // ---------- pause menu (F1.1 / F1.2 / F2.3) ----------
@@ -1215,6 +1277,7 @@ function syncMenu() {
   sens.value = String(settings.sensitivity); $('sensOut').textContent = settings.sensitivity.toFixed(2);
   fov.value = String(settings.fov); $('fovOut').textContent = settings.fov + '°';
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
+  $<HTMLSelectElement>('viewSel').value = settings.view;
   presetSel.value = settings.preset;
   renderScaleEl.value = String(settings.renderScale); $('renderScaleOut').textContent = settings.renderScale + '%';
   shadowsEl.checked = settings.shadows; postFxEl.checked = settings.postFx;
@@ -1235,6 +1298,8 @@ fov.addEventListener('input', () => {
   camera.fov = settings.fov; camera.updateProjectionMatrix();
 });
 inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSettings(settings); });
+const viewSel = $<HTMLSelectElement>('viewSel');
+viewSel.addEventListener('change', () => setView(viewSel.value === 'first' ? 'first' : 'follow'));
 always.addEventListener('change', () => { settings.alwaysRun = always.checked; saveSettings(settings); });
 
 // F1.1 graphics — a preset fills every slider below it; each slider then applies live on its own.
@@ -1264,6 +1329,48 @@ syncMenu();
 const ray = new THREE.Raycaster();
 ray.far = controls.activateRange;
 const lookDir = new THREE.Vector3();
+const hoverRay = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let hovering = false;
+// S1: with no aim, E uses the nearest thing within reach in front of the body (keyboard / pad / touch).
+const nearBox = new THREE.Box3(), nearC = new THREE.Vector3();
+function nearestAhead(objs: THREE.Object3D[]): THREE.Object3D | null {
+  const fx = -Math.sin(player.bodyYaw), fz = -Math.cos(player.bodyYaw);
+  let best: THREE.Object3D | null = null, bestD = Infinity;
+  for (const o of objs) {
+    nearBox.setFromObject(o).getCenter(nearC);
+    const dx = nearC.x - player.pos.x, dz = nearC.z - player.pos.z, d = Math.hypot(dx, dz);
+    if (d > controls.activateRange + 0.4 || nearC.y > player.eyePos.y + 1.2) continue;
+    if (d > 0.6 && (dx * fx + dz * fz) / d < 0.35) continue;   // within ~70° of where the body faces
+    if (d < bestD) { bestD = d; best = o; }
+  }
+  return best;
+}
+// F3.1 / S1: recomputed every frame, and again on E / click so a slow frame never uses a stale target.
+function updateTarget() {
+  // F3.1 / S1: what E (or a click) would use. In order: the thing under the mouse cursor (follow view,
+  // within reach), then the 2 m ray from the eyes along the view, then the nearest thing ahead of the body.
+  player.lookDir(lookDir);
+  const things = interactables.filter((t) => !t.when || t.when());
+  const targets = [world.bookTarget, world.natalieTarget, ...library.targets, ...things.map((t) => t.obj)];
+  let hit: THREE.Intersection | undefined;
+  hovering = false;
+  if (cursor.on && player.thirdPerson && inputMode === 'mouse' && !crossbow.equipped) {
+    ndc.set((cursor.x / innerWidth) * 2 - 1, -(cursor.y / innerHeight) * 2 + 1);
+    hoverRay.setFromCamera(ndc, camera);
+    hit = hoverRay.intersectObjects(targets, false).find((h) => h.point.distanceTo(player.eyePos) <= controls.activateRange + 1.2);
+    hovering = !!hit;
+  }
+  if (!hit) { ray.set(player.eyePos, lookDir); hit = ray.intersectObjects(targets, false)[0]; }
+  if (!hit && player.thirdPerson) {
+    const near = nearestAhead([world.bookTarget, world.natalieTarget, ...things.map((t) => t.obj)]);
+    if (near) hit = { object: near, distance: 0, point: near.position } as unknown as THREE.Intersection;
+  }
+  canvas.style.cursor = hovering ? 'pointer' : '';
+  libraryHit = (hit?.object.userData.hit as LibraryHit | undefined) ?? null;
+  lookingAtThing = (hit && things.find((t) => t.obj === hit!.object)) ?? null;
+  lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : hit.object === world.natalieTarget ? 'natalie' : lookingAtThing ? 'thing' : 'library';
+  if (!lookingAt && crossbow.boltAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'bolt';   // F4.4
+}
 const clock = new THREE.Clock();
 const statusEl = $('status');
 function libraryVerb(h: LibraryHit): string {
@@ -1311,15 +1418,7 @@ function frame() {
       } else stepTimer = 0;
     }
     rig.update(dt);   // R3: camera follows this frame's simulation before anything aims along it
-    // F3.1: 2 m reach from the eyes along the view direction (same in 1st and 3rd person, F2.4).
-    player.lookDir(lookDir);
-    ray.set(player.eyePos, lookDir);
-    const things = interactables.filter((t) => !t.when || t.when());
-    const hit = ray.intersectObjects([world.bookTarget, world.natalieTarget, ...library.targets, ...things.map((t) => t.obj)], false)[0];
-    libraryHit = (hit?.object.userData.hit as LibraryHit | undefined) ?? null;
-    lookingAtThing = (hit && things.find((t) => t.obj === hit.object)) ?? null;
-    lookingAt = !hit ? null : hit.object === world.bookTarget ? 'book' : hit.object === world.natalieTarget ? 'natalie' : lookingAtThing ? 'thing' : 'library';
-    if (!lookingAt && crossbow.boltAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'bolt';   // F4.4
+    updateTarget();
     show('prompt', lookingAt !== null);
     const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : lookingAt === 'thing' ? lookingAtThing!.verb()
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
@@ -1332,6 +1431,7 @@ function frame() {
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
   animate(dt);
   updateAmmoHud();
+  updateSprites(renderer, world.scene, camera, dt);
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
@@ -1378,4 +1478,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });

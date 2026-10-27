@@ -5,15 +5,17 @@ import { shaftTexture } from '../tex/pixel';
 // F2.2 still holds: a low orange sun (< 15°) and long shadows; the sky is teal overhead (Sacrifire)
 // fading to warm gold at the horizon so the forest reads bright, not dusky.
 
+// Storybook restyle S3: a bright storybook sky (deep blue overhead, pale toward a warm horizon) and
+// lighter, bluer haze, after the "Echoes of Avalon" boards; the sun stays low and warm (F2.2).
 export const SKY = {
-  zenith: '#3F7FA6',
-  upper: '#7FB3BF',
-  horizon: '#EBCB92',
-  glow: '#FFD9A0',
-  fog: '#D9C79E',
-  sunLight: '#FFC488',
-  hemiSky: '#BFD8D2',
-  hemiGround: '#4B5A2C',
+  zenith: '#3A78C8',
+  upper: '#78AEE0',
+  horizon: '#E8E2C8',
+  glow: '#FFE2A8',
+  fog: '#C8DCE6',
+  sunLight: '#FFD8A8',
+  hemiSky: '#D0E4F0',
+  hemiGround: '#6A7A3A',
 };
 
 export interface Sky {
@@ -78,13 +80,11 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   const flat = new THREE.Vector3(sunDir.x, 0, sunDir.z).normalize();
   const axis = flat.multiplyScalar(Math.cos(THREE.MathUtils.degToRad(55))).add(new THREE.Vector3(0, Math.sin(THREE.MathUtils.degToRad(55)), 0)).normalize();
   const spots: [number, number, number][] = [[-7, -6, 3.2], [6.5, -9, 2.6], [-11, 5, 2.2], [9, 4, 3.0], [-3.5, -12, 2.4], [13, -3, 2.0], [-15, -8, 2.8]];
-  for (const [x, z, w] of spots) {
-    const m = new THREE.Mesh(geo, shaftMat);
-    m.scale.set(w, 16, 1);
-    m.position.set(x, -0.5, z);
-    m.raycast = noRaycast;
-    shafts.add(m);
-  }
+  // One instanced mesh: a single draw call for every shaft.
+  const shaftMesh = new THREE.InstancedMesh(geo, shaftMat, spots.length);
+  shaftMesh.raycast = noRaycast;
+  shaftMesh.frustumCulled = false;
+  shafts.add(shaftMesh);
   scene.add(shafts);
 
   // Drifting motes / pollen catching the light (Sacrifire, DDLC fanart).
@@ -105,14 +105,17 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   return {
     sun, sunDir, shafts,
     update(t: number, camera: THREE.Camera) {
-      const toCam = new THREE.Vector3(), n = new THREE.Vector3(), xa = new THREE.Vector3(), basis = new THREE.Matrix4();
-      for (const m of shafts.children) {
-        toCam.copy(camera.position).sub(m.position);
+      const toCam = new THREE.Vector3(), n = new THREE.Vector3(), xa = new THREE.Vector3(), basis = new THREE.Matrix4(), sp0 = new THREE.Vector3(), q0 = new THREE.Quaternion(), sc0 = new THREE.Vector3();
+      spots.forEach(([x, z, w], i) => {
+        sp0.set(x, -0.5, z);
+        toCam.copy(camera.position).sub(sp0);
         n.copy(toCam).addScaledVector(axis, -axis.dot(toCam)).normalize();
         xa.crossVectors(axis, n).normalize();
         basis.makeBasis(xa, axis, n);
-        m.quaternion.setFromRotationMatrix(basis);
-      }
+        q0.setFromRotationMatrix(basis);
+        shaftMesh.setMatrixAt(i, basis.compose(sp0, q0, sc0.set(w, 16, 1)));
+      });
+      shaftMesh.instanceMatrix.needsUpdate = true;
       shaftMat.opacity = 0.18 + Math.sin(t * 0.5) * 0.04;
       const p = mg.attributes.position as THREE.BufferAttribute;
       for (let i = 0; i < N; i++) {

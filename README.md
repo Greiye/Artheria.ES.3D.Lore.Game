@@ -149,18 +149,20 @@ in — either way it won't ask again on that browser. Revisit or change answers 
 
 | Key | Action |
 |---|---|
-| W A S D | Move (runs at 5 m/s by default) |
-| Mouse | Look (drag with left button if pointer lock is blocked) |
+| W A S D | Move, relative to the camera (runs at 5 m/s by default) |
+| Mouse | Hover something to highlight it, click to use it (within reach) |
+| Drag (either button) | Turn the camera around you |
+| Wheel | Zoom from the close follow view out to the high overview |
 | Shift (hold) | Walk, 2.5 m/s |
 | Caps Lock | Toggle always-run |
 | Alt (hold) | Sprint, 8 m/s |
 | Space | Jump, about 1 m |
 | C | Sneak / crouch toggle (eye height 1.1 m) |
-| E | Read the book (within 2 m, aimed at it) |
+| E | Use what's highlighted, or the nearest thing in front of you |
 | L | Write lore |
 | A/D, ←/→, page-edge click | Turn pages |
 | Tab / Esc / E | Close the book |
-| F | Third person (default) / first person |
+| F | Follow camera (default) / first person (pointer locked) |
 | I | Inventory |
 | 1 / 2 | Crossbow / hands |
 | RMB / LMB | Aim / fire (crossbow) |

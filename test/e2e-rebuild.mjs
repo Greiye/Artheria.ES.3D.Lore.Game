@@ -30,9 +30,9 @@ await page.waitForFunction(() => window.__gametool);
 const tex = await G(page, () => {
   const g = window.__gametool, ground = g.world.scene.getObjectByName('ground');
   const t = ground.material.map;
-  return { mag: t.magFilter, nearest: 1003, w: t.image.width };
+  return { mag: t.magFilter, linear: 1006, w: t.image.width };
 });
-check('R1 ground uses a nearest-filtered 32 px pixel texture', tex.mag === tex.nearest && tex.w === 32, JSON.stringify(tex));
+check('R1/S3 ground uses a smooth-filtered 32 px painted texture', tex.mag === tex.linear && tex.w === 32, JSON.stringify(tex));
 const batched = await G(page, () => { let n = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'static') n++; }); return n; });
 check('R1 static props are batched into a handful of meshes', batched > 0 && batched < 20, `${batched} meshes`);
 
@@ -41,8 +41,8 @@ await page.waitForFunction(() => window.__gametool.state === 'play', null, { tim
 
 // ---------- R3: follow camera ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; p.pitch = 0; });
-const follow = await until(page, () => { const g = window.__gametool; const d = g.player.eyePos.distanceTo(g.camera.position); return g.player.thirdPerson && d > 2.5 && d < 3.2; });
-check('R3 default view: third-person follow ~3 m behind the eyes', follow);
+const follow = await until(page, () => { const g = window.__gametool; const d = g.player.eyePos.distanceTo(g.camera.position); return g.player.thirdPerson && d > 3 && d < 11 && g.camera.position.y > g.player.eyePos.y; });
+check('R3/S1 default view: follow camera behind and above the player', follow);
 
 // ---------- R3: reading shot ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0.2, 0, 1.6); p.yaw = 0; p.pitch = -0.35; });

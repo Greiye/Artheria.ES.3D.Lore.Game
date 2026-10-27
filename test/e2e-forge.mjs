@@ -47,7 +47,7 @@ await page.click('#forge [data-f="species"][data-v="infernling"]');
 const inf = await until(page, (h) => window.__gametool.player.body.children[0].userData.rig.mesh.geometry.attributes.position.count > h, humanVerts);
 check('B4 picking Infernling rebuilds the live figure with horns and a tail', inf);
 await page.click('#forge [data-f="hairStyle"][data-v="topknot"]');
-await page.click('#forge [data-f="primary"][data-v="#A8423A"]');
+await page.click('#forge [data-f="primary"][data-v="#A8523A"]');
 await page.fill('#fgName', 'Kazka Test');
 await page.fill('#fgStory', 'Born under a grey sky.');
 

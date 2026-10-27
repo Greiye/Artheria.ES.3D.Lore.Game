@@ -1,5 +1,22 @@
 # Vision: look, camera, feel
 
+> **2026-10-27: direction changed.** Mike moved the look to a low-poly storybook style (his "Echoes of Avalon"
+> boards: Tree of Savior + Ragnarok Online + Dark Cloud 2), with no MMORPG elements and the creative tools
+> central. The camera section and "Storybook style" below are current. The older sections describe the earlier
+> Legends/Vintage Story look and stay for history.
+
+## Storybook style (current, S2b+S3)
+
+- **Characters:** Tree of Savior / RO style pixel-art sprites, 8 directions, 12 fps, 1 px ink outline. They are
+  rendered live from chibi 3D rigs (about 2.7 heads tall, soft rounded parts, anime eyes on a face plane, chunky
+  cuffed boots and gloves), so forged looks and all poses carry over. Default adventurer: newsboy cap with goggles, navy vest
+  and trousers, cream shirt, rust neckerchief, leather satchel. Light painted into vertex colours (warm key,
+  cool shadow), blob shadow underneath.
+- **Palette:** navy, rust, leather, cream, moss; bright greens and warm stone in the world.
+- **World:** procedural textures kept, but brighter and smoothly filtered (painted, not pixel-crisp).
+  Faceted low-poly canopies and bushes. Clear blue sky with a warm cream horizon.
+- **Next:** storybook town pieces (timber houses, red roofs, bunting, cobbles) and the UI skin (S4).
+
 Distilled 2026-10-22 from Mike's references (`references/` on his PC, project uploads, lore image board).
 Reference files are third-party: never commit them, never put them under `public/`, never copy their code.
 
@@ -32,7 +49,11 @@ A small, sunlit, hand-made 3D world that friends walk through to read and write 
 
 ## Camera and perspective
 
-- Default: third-person over-the-shoulder, slightly low, Legends-style follow cam; first-person toggle stays (F).
+- Default (S1): a Dark Cloud 2 style follow camera above and behind the player. The mouse wheel zooms from a
+  close over-the-back view out to a high, narrow-FOV Ragnarok Online / Tree of Savior overview. Dragging turns it.
+  The cursor stays free: hover highlights things, click (or E) uses them.
+- First person is optional and off by default: scroll in past the closest zoom (the camera glides into the eyes),
+  press F, or pick it from the pause menu's Camera list (how phones choose it). Aiming the crossbow uses it too.
 - Reading/lore moments: camera eases to a framed shot of the book/lectern with background blur (Replaced/DDLC).
 - Optional later: orbit/diorama view of a location (BRiTEBOT rotate) for showing a friend's build or map.
 
