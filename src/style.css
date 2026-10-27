@@ -44,6 +44,7 @@ output { color: var(--parchment); font-variant-numeric: tabular-nums; }
 
 /* HUD (F3.1) */
 #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+body[data-view=follow] #crosshair { display: none; }
 #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
   background: var(--parchment); box-shadow: 0 0 0 2px rgba(30,36,32,.7); }
 #prompt { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); padding: 7px 14px; border-radius: 6px;
@@ -136,6 +137,7 @@ html, body { touch-action: none; overscroll-behavior: none; -webkit-user-select:
 /* ---------- Touch controls ---------- */
 #touch { position: fixed; inset: 0; z-index: 11; }
 body:not([data-state="play"]) #touch { display: none; }
+body:not([data-input="touch"]) #touch { display: none; }   /* S1: a mouse hovers and clicks the world itself */
 .t-zone { position: absolute; inset: 0; touch-action: none; }
 .t-base { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; pointer-events: none;
   background: rgba(30,36,32,.35); border: 2px solid rgba(239,227,196,.55); }

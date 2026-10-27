@@ -41,8 +41,8 @@ await page.waitForFunction(() => window.__gametool.state === 'play', null, { tim
 
 // ---------- R3: follow camera ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; p.pitch = 0; });
-const follow = await until(page, () => { const g = window.__gametool; const d = g.player.eyePos.distanceTo(g.camera.position); return g.player.thirdPerson && d > 2.5 && d < 3.2; });
-check('R3 default view: third-person follow ~3 m behind the eyes', follow);
+const follow = await until(page, () => { const g = window.__gametool; const d = g.player.eyePos.distanceTo(g.camera.position); return g.player.thirdPerson && d > 3 && d < 11 && g.camera.position.y > g.player.eyePos.y; });
+check('R3/S1 default view: follow camera behind and above the player', follow);
 
 // ---------- R3: reading shot ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0.2, 0, 1.6); p.yaw = 0; p.pitch = -0.35; });

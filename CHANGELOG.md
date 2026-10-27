@@ -7,6 +7,20 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S1: camera and controls
+
+- **Follow camera:** a Dark Cloud 2 style follow camera above and behind you, easing after you. The mouse wheel
+  zooms out to a high Ragnarok Online / Tree of Savior overview (narrower FOV). Dragging turns it. Walls still
+  pull it in, it looks down over the roofless library, and it stays under the dungeon ceiling.
+- **First person:** optional and off by default. Scroll in past the closest zoom and the camera glides into the
+  eyes; scroll out to leave it. F and the new pause-menu Camera list (for phones) also switch it, and the choice
+  is saved. Aiming the crossbow still goes first person.
+- **Free cursor:** no pointer lock or crosshair in the follow view. Hovering highlights what's within reach and
+  a click uses it. E uses the highlighted thing, else the eye ray, else the nearest thing in front of you, and
+  it now re-checks at the moment of the press.
+- The light shafts are one instanced mesh, so the wider view stays inside the draw-call budget.
+- Reference boards and coding references: SimonDev's Quick_3D_RPG (MIT) for the camera easing idea.
+
 ### Rebuild R1–R2: new look (docs/vision.md, docs/rebuild-plan.md)
 
 - **R1 render core:** pixel textures painted at load time from colour ramps plus clustered per-texel

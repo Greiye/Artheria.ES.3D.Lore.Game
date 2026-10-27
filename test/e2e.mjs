@@ -42,7 +42,7 @@ const hold = async (page, key, ms) => { await page.keyboard.down(key); await pag
 const frames = (page, n = 2) => G(page, (n) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
 const teleport = async (page, x, z, yaw = 0, pitch = 0) => {
   await G(page, ([x, z, yaw, pitch]) => {
-    const p = window.__gametool.player; p.pos.set(x, 0, z); p.yaw = yaw; p.pitch = pitch; p.update(0);
+    const p = window.__gametool.player; p.pos.set(x, 0, z); p.yaw = yaw; p.bodyYaw = yaw; p.pitch = pitch; p.update(0);
   }, [x, z, yaw, pitch]);
   await frames(page);
 };
@@ -142,10 +142,12 @@ if (!longOnly) {
   await page.keyboard.press('KeyC'); await page.waitForTimeout(300);
   check('F2 C toggles sneak (eye 1.1 m, slower)', camY === true && sneakSpeed < 2.0 && (await G(page, () => window.__gametool.player.sneaking)) === false, `sneak speed ${sneakSpeed.toFixed(2)} m/s`);
   const look = await G(page, () => {
+    // Pitch is a first-person thing (the follow view turns vertical look into zoom, see e2e-camera).
     const p = window.__gametool.player, y0 = p.yaw;
+    p.thirdPerson = false;
     p.look(100, 0); const dy = p.yaw - y0;
     p.look(0, -100000); const up = p.pitch; p.look(0, 200000); const down = p.pitch;
-    p.pitch = 0;
+    p.pitch = 0; p.thirdPerson = true;
     return { dy, up: up * 57.2958, down: down * 57.2958 };
   });
   check('F2 Mouse look; pitch clamped ±89°', look.dy < 0 && Math.abs(look.up - 89) < 0.01 && Math.abs(look.down + 89) < 0.01, `up ${look.up.toFixed(1)}°, down ${look.down.toFixed(1)}°`);
@@ -286,12 +288,17 @@ if (!longOnly) {
   await page.waitForFunction(() => window.__gametool);
   await page.click('#begin');
   await page.waitForTimeout(400);
-  const hint = await page.isVisible('#nolock');
+  // The follow view never needs the lock; first person (F) shows the drag-to-look hint and drag still looks.
   const y0 = await G(page, () => window.__gametool.player.yaw);
   await page.mouse.move(640, 400); await page.mouse.down(); await page.mouse.move(740, 400, { steps: 5 }); await page.mouse.up();
   await frames(page);
   const y1 = await G(page, () => window.__gametool.player.yaw);
-  check('Fallback: no pointer lock → still playable, drag-to-look works', (await state(page)) === 'play' && hint && y1 < y0, `yaw ${y0.toFixed(2)} → ${y1.toFixed(2)}`);
+  await page.keyboard.press('KeyF'); await page.waitForTimeout(400);
+  const hint = await page.isVisible('#nolock');
+  await page.mouse.move(640, 400); await page.mouse.down(); await page.mouse.move(740, 400, { steps: 5 }); await page.mouse.up();
+  await frames(page);
+  const y2 = await G(page, () => window.__gametool.player.yaw);
+  check('Fallback: no pointer lock → still playable, drag-to-look works', (await state(page)) === 'play' && hint && y1 < y0 && y2 < y1, `yaw ${y0.toFixed(2)} → ${y1.toFixed(2)} → ${y2.toFixed(2)}, hint ${hint}`);
   await teleport(page, 0, 1.4, 0, -0.45);
   await page.keyboard.press('KeyE'); await page.waitForTimeout(400);
   const opened = (await state(page)) === 'book';
