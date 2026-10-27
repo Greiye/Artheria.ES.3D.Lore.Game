@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S2b: Tree of Savior style pixel-art sprites
+
+- **Sprite characters:** every character is now drawn as a pixel-art sprite that faces the camera, like Tree of
+  Savior and Ragnarok Online. Each one is redrawn from its 3D figure in one of 8 directions (45° steps) at a sprite
+  frame rate of 12 fps, with a dark 1 px outline. It leans back toward a high camera, so the overview isn't squashed.
+- Walking, poses, the forge, species and contributor looks all still work, because the sprite is drawn from the
+  live figure (`src/render/sprites.ts`).
+- The figures under the sprites are softer: pillowy rounded parts, round limbs and a rounder head.
+
 ### Storybook restyle S2+S3: chibi characters and painted world (style slice)
 
 - **Chibi figures:** everyone is rebuilt to the "Echoes of Avalon" boards: about 2.7 heads tall, a rounded

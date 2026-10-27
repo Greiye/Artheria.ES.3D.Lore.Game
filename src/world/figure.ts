@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { spriteFigure } from '../render/sprites';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { blobShadowTexture } from '../tex/pixel';
@@ -145,14 +146,15 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     g.translate(x * U, y * U, z * U);
     parts.push([g, color, bone]);
   };
-  // Chamfered box (low-poly, one bevel segment) and a six-sided limb.
-  const box = (bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0, r = 0.03) => {
+  // Pillowy rounded box and a round limb: the sprite pass (src/render/sprites.ts) pixelates them, so soft
+  // shapes read as drawn pixel art rather than boxes.
+  const box = (bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0, r = 0.06) => {
     const k = bone === 'head' ? 1 : W;
     w *= k; d *= k; x *= k;
-    place(new RoundedBoxGeometry(w * U, h * U, d * U, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
+    place(new RoundedBoxGeometry(w * U, h * U, d * U, 3, Math.min(Math.max(r, Math.min(w, h, d) * 0.35), w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
   };
   const limb = (bone: BoneName, rTop: number, rBot: number, h: number, x: number, y: number, z: number, color: string, rz = 0) => {
-    place(new THREE.CylinderGeometry(rTop * W * U, rBot * W * U, h * U, 6), bone, x * W, y, z, color, rz);
+    place(new THREE.CylinderGeometry(rTop * W * U, rBot * W * U, h * U, 12), bone, x * W, y, z, color, rz);
   };
   // Head-space parts (hair, hats, species features) were authored for a 0.36 m head centred at y 1.4;
   // map them onto the big chibi head.
@@ -231,7 +233,7 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   if (sp === 'emberkin' || sp === 'cinderkin') for (let i = -1; i <= 1; i++) hbox(0.1, 0.16, 0.1, i * 0.11, 1.7, -0.02, fc, i * -0.3);   // flame crest
   if (sp === 'stonekin') { box('spine', 0.18, 0.1, 0.08, -0.08, 1.02, 0.14, fc); box('spine', 0.12, 0.08, 0.08, 0.1, 0.9, 0.14, fc); }   // rock plates
   const headY = HEAD_Y * U, headS = HEAD * U;
-  place(new RoundedBoxGeometry(headS, headS * 0.96, headS * 0.9, 2, headS * 0.16), 'head', 0, HEAD_Y, 0, look.skin);
+  place(new RoundedBoxGeometry(headS, headS * 0.96, headS * 0.9, 4, headS * 0.2), 'head', 0, HEAD_Y, 0, look.skin);
 
   // Skeleton: bone positions are relative to the parent's pivot.
   const bones = {} as Record<BoneName, THREE.Bone>, rest = {} as Record<BoneName, THREE.Vector3>;
@@ -251,12 +253,13 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   mesh.frustumCulled = false;   // small and always near; skips per-frame skinned bounds
   root.add(mesh);
   // The painted face rides the head bone.
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(headS * 0.74, headS * 0.74), new THREE.MeshBasicMaterial({ map: faceTexture(look) }));
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(headS * 0.68, headS * 0.68), new THREE.MeshBasicMaterial({ map: faceTexture(look) }));
   face.name = 'face';
   face.position.set(0, headY - RIG.head[1][1] * U - headS * 0.04, headS * 0.45 + 0.003);
   bones.head.add(face);
   root.add(blobShadow(0.36 * U));
   root.userData.height = height;
+  spriteFigure(root);
   root.userData.rig = { bones, rest, mesh } satisfies FigureRig;
   return root;
 }

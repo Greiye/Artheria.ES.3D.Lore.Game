@@ -5,10 +5,11 @@
 > central. The camera section and "Storybook style" below are current. The older sections describe the earlier
 > Legends/Vintage Story look and stay for history.
 
-## Storybook style (current, S2+S3)
+## Storybook style (current, S2b+S3)
 
-- **Characters:** chibi, about 2.7 heads tall. Rounded low-poly head, anime eyes painted on a face plane,
-  bevelled limbs, chunky cuffed boots and gloves. Default adventurer: newsboy cap with goggles, navy vest
+- **Characters:** Tree of Savior / RO style pixel-art sprites, 8 directions, 12 fps, 1 px ink outline. They are
+  rendered live from chibi 3D rigs (about 2.7 heads tall, soft rounded parts, anime eyes on a face plane, chunky
+  cuffed boots and gloves), so forged looks and all poses carry over. Default adventurer: newsboy cap with goggles, navy vest
   and trousers, cream shirt, rust neckerchief, leather satchel. Light painted into vertex colours (warm key,
   cool shadow), blob shadow underneath.
 - **Palette:** navy, rust, leather, cream, moss; bright greens and warm stone in the world.

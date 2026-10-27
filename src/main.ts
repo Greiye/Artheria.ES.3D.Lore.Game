@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { updateSprites } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';
 import { Player } from './player';
@@ -1430,6 +1431,7 @@ function frame() {
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
   animate(dt);
   updateAmmoHud();
+  updateSprites(renderer, world.scene, camera, dt);
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);

@@ -98,6 +98,21 @@ await page.waitForTimeout(1500);
 check('S1 below ground the follow camera stays under the dungeon ceiling', await G(page, () => window.__gametool.camera.position.y < 3.2), JSON.stringify(await cam()));
 await G(page, () => window.__gametool.exitDungeon());
 
+// ---------- S2b pixel-art sprites ----------
+const spr = await G(page, () => {
+  const out = { figures: 0, boards: 0, hidden3d: true, nearest: true };
+  window.__gametool.world.scene.traverse((o) => {
+    if (!o.userData.sprite) return;
+    out.figures++;
+    o.traverse((c) => {
+      if (c.name === 'sprite') { out.boards++; const t = c.material.uniforms.map.value; out.nearest &&= t.magFilter === 1003; }
+      else if (c.isMesh && c.name !== 'blob-shadow' && c.layers.test(window.__gametool.camera.layers)) out.hidden3d = false;
+    });
+  });
+  return out;
+});
+check('S2b every figure shows as a nearest-filtered pixel sprite; its 3D rig is hidden from the main camera', spr.figures >= 3 && spr.boards === spr.figures && spr.hidden3d && spr.nearest, JSON.stringify(spr));
+
 check('Camera: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 const failed = results.filter((r) => !r.ok).length;
