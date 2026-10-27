@@ -57,45 +57,58 @@ function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: n
   return g;
 }
 
-// The painted face (64 px, smooth): big anime eyes with a highlight, brows, a small mouth, blush.
+// Restyle S2c: the face is pixel art (24 px, nearest-filtered, like Tree of Savior's 3D bodies with pixel
+// faces), stamped in layers: skin, fringe, eyes (whites, iris, pupil, highlight, lashes), brows, blush, mouth.
+const EYES: Record<string, string[]> = {
+  round:  ['.kkkk.', 'kkkkkk', 'khhiik', 'khddik', 'kiddik', 'kiddik', 'kliilk', '.kllk.'],
+  sleepy: ['......', '......', 'kkkkkk', 'kiddik', 'kliilk', '.kkkk.', '......'],
+  slit:   ['.kkkk.', 'kkkkkk', 'khiiik', 'kiidik', 'kiidik', 'kiidik', 'kliilk', '.kllk.'],
+  owl:    ['.wwww.', 'wiiiiw', 'iikkii', 'iikkhi', 'iikkii', 'wiiiiw', '.wwww.'],
+};
 function faceTexture(look: FigureLook): THREE.CanvasTexture {
-  const S = 64, c = document.createElement('canvas'); c.width = c.height = S;
+  const S = 24, c = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d')!;
+  const px = (x: number, y: number, col: string) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
   g.fillStyle = look.skin; g.fillRect(0, 0, S, S);
   const style = look.eyeStyle ?? (look.species === 'owlkin' || look.species === 'corvani' ? 'owl' : look.species === 'drakari' ? 'slit' : 'round');
-  const iris = look.eyes ?? '#4A6A8A', ink = '#2A2026';
-  const ell = (x: number, y: number, rx: number, ry: number, col: string) => { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
-  // Fringe shadow across the top, so the hair mass reads over the forehead.
-  g.fillStyle = look.hair; g.fillRect(0, 0, S, 9);
-  for (let x = 0; x < S; x += 8) { g.beginPath(); g.moveTo(x, 9); g.lineTo(x + 4, 15); g.lineTo(x + 8, 9); g.fill(); }
+  const base = new THREE.Color(look.eyes ?? (style === 'owl' ? '#E0A020' : '#4A6A8A'));
+  const pal: Record<string, string> = {
+    k: '#2A2026', w: '#FFF8EC', h: '#FFFFFF',
+    i: '#' + base.getHexString(), d: '#' + base.clone().multiplyScalar(0.5).getHexString(),
+    l: '#' + base.clone().lerp(new THREE.Color('#FFFFFF'), 0.45).getHexString(),
+  };
+  // Fringe: a hair band with a jagged lower edge.
+  g.fillStyle = look.hair; g.fillRect(0, 0, S, 3);
+  for (let x = 0; x < S; x++) if (x % 3 !== 2) px(x, 3, look.hair);
+  for (let x = 1; x < S; x += 3) px(x, 4, look.hair);
+  const eye = EYES[style] ?? EYES.round;
   for (const side of [-1, 1]) {
-    const ex = 32 + side * 12.5, ey = 34;
-    if (style === 'owl') {
-      ell(ex, ey, 9, 9, '#FFF8EC'); ell(ex, ey, 6, 6, look.eyes ?? '#E0A020'); ell(ex, ey, 3, 3, ink); ell(ex - 2, ey - 2, 1.6, 1.6, '#FFFFFF');
-      continue;
-    }
-    const sleepy = style === 'sleepy';
-    const eh = sleepy ? 6 : 11;
-    ell(ex, ey, 8, eh, '#FFFFFF');                                  // white
-    ell(ex + side * 0.5, ey + (sleepy ? 1 : 2), 6.5, sleepy ? 5 : 9, iris);
-    if (!sleepy) ell(ex + side * 0.5, ey + 6, 5, 3.5, 'rgba(255,255,255,0.22)');   // lower iris glow   // iris
-    if (style === 'slit') { g.fillStyle = ink; g.fillRect(ex - 0.8, ey - 5, 1.6, 12); }
-    else ell(ex + side * 0.5, ey + 2.5, 3.2, sleepy ? 2.5 : 4.6, ink);    // pupil
-    ell(ex - 2.4, ey - 3, 2.4, 2.6, '#FFFFFF'); ell(ex + 2.2, ey + 4, 1.1, 1.1, '#FFFFFF');                       // highlight
-    g.fillStyle = ink; g.fillRect(ex - 8.5, ey - eh - 1, 17, 2.6);       // upper lash line
-    g.fillRect(ex - side * 1 - 5, ey - eh - 5, 10, 1.6);               // brow
+    const x0 = side < 0 ? 4 : 14, y0 = 8;
+    eye.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch === '.') return;
+      const xx = side < 0 ? x : row.length - 1 - x;   // mirror the right eye (highlight stays outer-top)
+      px(x0 + xx, y0 + y, pal[ch]);
+    }));
+    if (style !== 'owl') for (let x = 0; x < 5; x++) px(x0 + (side < 0 ? x : x + 1), 6 + (x === (side < 0 ? 0 : 4) ? 1 : 0), pal.k);   // brow
   }
-  if (look.marks) { g.fillStyle = look.marks; for (const [x, y] of [[16, 44], [19, 46], [45, 44], [48, 46]]) g.fillRect(x, y, 2, 2); }
-  g.fillStyle = 'rgba(232,120,110,0.28)'; ell(13, 49, 5, 2.5, 'rgba(232,120,110,0.3)'); ell(51, 49, 5, 2.5, 'rgba(232,120,110,0.3)');   // blush
-  g.fillStyle = look.species === 'infernling' || look.species === 'drakari' ? '#3A1A1A' : '#8A3A34';
-  g.beginPath(); g.moveTo(29, 54); g.quadraticCurveTo(32, 56.5, 35, 54); g.lineWidth = 1.6; g.strokeStyle = g.fillStyle as string; g.stroke();   // mouth
+  if (look.marks) for (const [x, y] of [[3, 16], [4, 17], [19, 16], [20, 17]]) px(x, y, look.marks);
+  for (const x of [3, 4, 19, 20]) px(x, 17, '#F0A098');   // blush
+  const lip = look.species === 'infernling' || look.species === 'drakari' ? '#3A1A1A' : '#8A3A34';
+  px(11, 19, lip); px(12, 19, lip); px(10, 18, lip); px(13, 18, lip);   // a small smile
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
   return t;
 }
 
 const bodyMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+// Hybrid characters (default): the 3D body is lit with a 3-step toon ramp, like Tree of Savior. The flat,
+// light-painted material is used when characters are drawn as pixel sprites (src/render/sprites.ts).
+const ramp = new THREE.DataTexture(new Uint8Array([150, 150, 150, 255, 215, 215, 215, 255, 255, 255, 255, 255]), 3, 1);
+ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
+export const figureMats = { flat: bodyMat, toon: new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: ramp }) };
 const noRaycast = () => {};
 
 export function blobShadow(radius: number): THREE.Mesh {
@@ -151,10 +164,10 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   const box = (bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0, r = 0.06) => {
     const k = bone === 'head' ? 1 : W;
     w *= k; d *= k; x *= k;
-    place(new RoundedBoxGeometry(w * U, h * U, d * U, 3, Math.min(Math.max(r, Math.min(w, h, d) * 0.35), w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
+    place(new RoundedBoxGeometry(w * U, h * U, d * U, 2, Math.min(Math.max(r, Math.min(w, h, d) * 0.45), w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
   };
   const limb = (bone: BoneName, rTop: number, rBot: number, h: number, x: number, y: number, z: number, color: string, rz = 0) => {
-    place(new THREE.CylinderGeometry(rTop * W * U, rBot * W * U, h * U, 12), bone, x * W, y, z, color, rz);
+    place(new THREE.CylinderGeometry(rTop * W * U, rBot * W * U, h * U, 8), bone, x * W, y, z, color, rz);
   };
   // Head-space parts (hair, hats, species features) were authored for a 0.36 m head centred at y 1.4;
   // map them onto the big chibi head.
@@ -233,7 +246,7 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   if (sp === 'emberkin' || sp === 'cinderkin') for (let i = -1; i <= 1; i++) hbox(0.1, 0.16, 0.1, i * 0.11, 1.7, -0.02, fc, i * -0.3);   // flame crest
   if (sp === 'stonekin') { box('spine', 0.18, 0.1, 0.08, -0.08, 1.02, 0.14, fc); box('spine', 0.12, 0.08, 0.08, 0.1, 0.9, 0.14, fc); }   // rock plates
   const headY = HEAD_Y * U, headS = HEAD * U;
-  place(new RoundedBoxGeometry(headS, headS * 0.96, headS * 0.9, 4, headS * 0.2), 'head', 0, HEAD_Y, 0, look.skin);
+  place(new RoundedBoxGeometry(headS, headS * 0.96, headS * 0.9, 4, headS * 0.4), 'head', 0, HEAD_Y, 0, look.skin);
 
   // Skeleton: bone positions are relative to the parent's pivot.
   const bones = {} as Record<BoneName, THREE.Bone>, rest = {} as Record<BoneName, THREE.Vector3>;
@@ -247,15 +260,26 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     bones[name] = b;
   }
   const geo = mergeGeometries(parts.map(([g, c, b]) => rigged(painted(g, c, 0, height), BONES.indexOf(b))));
-  const mesh = new THREE.SkinnedMesh(geo, bodyMat);
+  const mesh = new THREE.SkinnedMesh(geo, figureMats.toon);
+  mesh.name = 'figure-body';
   mesh.add(bones.root);
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));
   mesh.frustumCulled = false;   // small and always near; skips per-frame skinned bounds
   root.add(mesh);
   // The painted face rides the head bone.
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(headS * 0.68, headS * 0.68), new THREE.MeshBasicMaterial({ map: faceTexture(look) }));
+  // Curved to follow the rounded head, and toon-lit like the body so its edge never shows.
+  const fs = headS * 0.76, faceGeo = new THREE.PlaneGeometry(fs, fs, 4, 4), fp = faceGeo.attributes.position;
+  for (let i = 0; i < fp.count; i++) {
+    const u = fp.getX(i) / (fs / 2), v = fp.getY(i) / (fs / 2);
+    fp.setZ(i, -headS * (0.06 * u * u + 0.03 * v * v));
+  }
+  faceGeo.computeVertexNormals();
+  const faceMap = faceTexture(look);
+  const faceToon = new THREE.MeshToonMaterial({ map: faceMap, gradientMap: figureMats.toon.gradientMap });
+  const face = new THREE.Mesh(faceGeo, faceToon);
   face.name = 'face';
-  face.position.set(0, headY - RIG.head[1][1] * U - headS * 0.04, headS * 0.45 + 0.003);
+  face.userData.mats = { toon: faceToon, flat: new THREE.MeshBasicMaterial({ map: faceMap }) };
+  face.position.set(0, headY - RIG.head[1][1] * U - headS * 0.04, headS * 0.45 + 0.01);
   bones.head.add(face);
   root.add(blobShadow(0.36 * U));
   root.userData.height = height;

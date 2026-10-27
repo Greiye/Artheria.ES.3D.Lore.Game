@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import { figureMats } from '../world/figure';
 
-// Restyle S2b: Tree of Savior / Ragnarok Online style characters. Every figure from buildFigure() is drawn
+// Restyle S2b: optional Ragnarok Online style sprite characters (the default is the hybrid 3D body with a
+// pixel face, S2c; Graphics > Characters switches). Every figure from buildFigure() is drawn
 // into its own small render target from one of 8 directions around it (snapped to 45° from where the
 // camera sees it), at a low pixel density and a sprite frame rate, then shown as a camera-facing pixel-art
 // billboard with a 1 px ink outline. Rigs, poses, the forge and species all keep working: the sprite is
@@ -94,13 +96,27 @@ function attach(root: THREE.Object3D): Sprite {
     board.normalMatrix.getNormalMatrix(board.modelViewMatrix);
   };
   root.add(board);
-  root.traverse((o) => {
-    if (o === board || o.name === 'blob-shadow') return;
-    if ((o as THREE.Mesh).isMesh) o.layers.set(SPRITE_LAYER);
-  });
   const s: Sprite = { rt, board, w, h, t: Infinity, dir: -1 };
   sprites.set(root, s);
   return s;
+}
+
+let spriteMode = false;
+/** true = pixel sprites, false = hybrid 3D bodies (default). */
+export function setSpriteCharacters(on: boolean) { spriteMode = on; }
+
+// Move a figure between the main camera (hybrid, toon-lit) and the sprite pass (flat, painted light).
+function applyMode(root: THREE.Object3D) {
+  root.userData.spriteMode = spriteMode;
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || m.name === 'sprite' || m.name === 'blob-shadow') return;
+    m.layers.set(spriteMode ? SPRITE_LAYER : 0);
+    if (m.name === 'figure-body') m.material = spriteMode ? figureMats.flat : figureMats.toon;
+    if (m.name === 'face') m.material = m.userData.mats[spriteMode ? 'flat' : 'toon'];
+  });
+  const s = sprites.get(root);
+  if (s) s.board.visible = spriteMode;
 }
 
 /** Mark a figure root for the sprite pass (buildFigure calls this). */
@@ -110,14 +126,16 @@ export function spriteFigure(root: THREE.Object3D) { root.userData.sprite = true
 export function updateSprites(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, dt: number) {
   const roots: THREE.Object3D[] = [];
   scene.traverse((o) => { if (o.userData.sprite) roots.push(o); });
-  if (!roots.length) return;
+  for (const root of roots) if (root.userData.spriteMode !== spriteMode) applyMode(root);
+  if (!roots.length || !spriteMode) return;
   scene.updateMatrixWorld();
   const prevTarget = renderer.getRenderTarget(), prevAlpha = renderer.getClearAlpha();
   renderer.getClearColor(clear);
   renderer.setClearColor(0x000000, 0);
   for (const root of roots) {
     if (!shown(root)) continue;
-    const s = sprites.get(root) ?? attach(root);
+    let s = sprites.get(root);
+    if (!s) { s = attach(root); s.board.visible = true; }
     root.matrixWorld.decompose(tmpV, tmpQ, tmpS);
     tmpE.setFromQuaternion(tmpQ, 'YXZ');
     const facing = tmpE.y;

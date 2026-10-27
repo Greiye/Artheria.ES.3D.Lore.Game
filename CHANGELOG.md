@@ -7,9 +7,19 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
-### Storybook restyle S2b: Tree of Savior style pixel-art sprites
+### Storybook restyle S2c: hybrid characters (default)
 
-- **Sprite characters:** every character is now drawn as a pixel-art sprite that faces the camera, like Tree of
+- **Hybrid characters:** as in Tree of Savior, characters are 3D bodies with pixel-art faces. The body is built in
+  layers (base body, outfit, hair and headgear) and lit with a 3-step toon ramp. Parts are rounder and softer, and
+  the head is close to a ball.
+- **Pixel-art face:** 24 px, nearest-filtered and stamped in layers (skin, fringe, eyes with whites, iris, pupil,
+  highlight and lashes, brows, blush, mouth). It curves to follow the head and is toon-lit, so its edge never shows.
+- **Graphics > Characters:** switches between "3D with pixel faces" (the default) and "Pixel sprites" (the S2b
+  billboards). The choice is saved.
+
+### Storybook restyle S2b: pixel-art sprite characters (option)
+
+- **Sprite characters (option since S2c):** every character can be drawn as a pixel-art sprite that faces the camera, like Tree of
   Savior and Ragnarok Online. Each one is redrawn from its 3D figure in one of 8 directions (45° steps) at a sprite
   frame rate of 12 fps, with a dark 1 px outline. It leans back toward a high camera, so the overview isn't squashed.
 - Walking, poses, the forge, species and contributor looks all still work, because the sprite is drawn from the
