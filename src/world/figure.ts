@@ -3,6 +3,7 @@ import { spriteFigure } from '../render/sprites';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { blobShadowTexture } from '../tex/pixel';
+import { paintedAtlas, toTile, type PaintKind } from '../tex/paintedAtlas';
 
 // Storybook restyle S2 (docs/vision.md, Mike's "Echoes of Avalon" boards): low-poly chibi characters,
 // about 2.8 heads tall. Chamfered boxes and six-sided limbs, a big rounded head with a painted anime face,
@@ -123,6 +124,12 @@ function faceTexture(look: FigureLook): THREE.CanvasTexture {
 // (painted()), so they read the same in any light, as ToS bakes it into hand-painted diffuse maps.
 const bodyMat = new THREE.MeshBasicMaterial({ vertexColors: true });
 export const figureMats = { flat: bodyMat };
+const atlasMats = new Map<THREE.Texture, THREE.MeshBasicMaterial>();
+function atlasMaterial(map: THREE.Texture): THREE.MeshBasicMaterial {
+  let m = atlasMats.get(map);
+  if (!m) { m = new THREE.MeshBasicMaterial({ vertexColors: true, map }); atlasMats.set(map, m); }
+  return m;
+}
 const noRaycast = () => {};
 
 export function blobShadow(radius: number): THREE.Mesh {
@@ -326,8 +333,15 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     if (parent) bones[parent].add(b);
     bones[name] = b;
   }
-  const geo = mergeGeometries(parts.map(([g, c, b]) => rigged(painted(g, c, 0, height), BONES.indexOf(b))));
-  const mesh = new THREE.SkinnedMesh(geo, figureMats.flat);
+  // S2g: a painted atlas tile per colour; the vertex colours then carry only the baked light (white base).
+  const kindOf = (c: string): PaintKind => c === look.skin ? 'skin' : c === look.hair ? 'hair'
+    : c === look.boots || c === gloves || c === '#141218' ? 'leather' : c === look.accent || c === '#C9A23A' ? 'metal' : 'cloth';
+  const colours = [...new Set([...parts.map(([, c]) => c), ...headParts.map(([, c]) => c)])];
+  const atlas = paintedAtlas(colours.map((c) => ({ color: c, kind: kindOf(c) })));
+  const mat = atlasMaterial(atlas.texture);
+  for (const [g, c] of [...parts, ...headParts]) toTile(g, atlas.rect(c));
+  const geo = mergeGeometries(parts.map(([g, , b]) => rigged(painted(g, '#FFFFFF', 0, height), BONES.indexOf(b))));
+  const mesh = new THREE.SkinnedMesh(geo, mat);
   mesh.name = 'figure-body';
   mesh.add(bones.root);
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));
@@ -337,9 +351,9 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   // main camera never sees it: src/render/sprites.ts draws it as a pixel-art billboard from 8 directions.
   const headGroup = new THREE.Group();
   headGroup.name = 'head-group';
-  const headGeo = mergeGeometries(headParts.map(([g, c]) => painted(g, c, 0, height)));
+  const headGeo = mergeGeometries(headParts.map(([g]) => painted(g, '#FFFFFF', 0, height)));
   headGeo.translate(-RIG.head[1][0] * U, -RIG.head[1][1] * U, -RIG.head[1][2] * U);
-  const headMesh = new THREE.Mesh(headGeo, figureMats.flat);
+  const headMesh = new THREE.Mesh(headGeo, mat);
   headMesh.name = 'figure-head';
   headMesh.raycast = noRaycast;
   headGroup.add(headMesh);

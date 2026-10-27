@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S2g: hand-painted character textures
+
+- **Painted atlas:** every character gets a 512 px hand-painted diffuse atlas, generated at load (`src/tex/paintedAtlas.ts`).
+  There's one tile per colour, painted by material: cloth gets brush strokes and fold lines with lit edges,
+  hair gets strands and a shine band, leather gets scuffs and stitching, metal gets a sheen, and skin stays
+  soft. Every tile darkens toward its edges, so each face of a part reads as painted occlusion. The baked light
+  rides on top in the vertex colours.
+- Figures with the same colours share one atlas and material. The billboard heads are painted from the same atlas.
+
 ### Storybook restyle S2f: Tree of Savior pipeline pass
 
 - **Unlit characters:** bodies drop the toon lighting and, as ToS does, carry all their shading baked in. Each
