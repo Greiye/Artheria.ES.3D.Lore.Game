@@ -30,9 +30,9 @@ await page.waitForFunction(() => window.__gametool);
 const tex = await G(page, () => {
   const g = window.__gametool, ground = g.world.scene.getObjectByName('ground');
   const t = ground.material.map;
-  return { mag: t.magFilter, nearest: 1003, w: t.image.width };
+  return { mag: t.magFilter, linear: 1006, w: t.image.width };
 });
-check('R1 ground uses a nearest-filtered 32 px pixel texture', tex.mag === tex.nearest && tex.w === 32, JSON.stringify(tex));
+check('R1/S3 ground uses a smooth-filtered 32 px painted texture', tex.mag === tex.linear && tex.w === 32, JSON.stringify(tex));
 const batched = await G(page, () => { let n = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'static') n++; }); return n; });
 check('R1 static props are batched into a handful of meshes', batched > 0 && batched < 20, `${batched} meshes`);
 

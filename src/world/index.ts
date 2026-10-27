@@ -229,8 +229,9 @@ export function buildWorld(): World {
     for (let i = 0; i < blocks; i++) {
       const s = (birch ? 0.9 : 1.1) + R() * (birch ? 0.6 : 0.9);
       const a = R() * Math.PI * 2, d = R() * cr * 0.8, y = h - (birch ? 1.6 : 0.6) + R() * cr * (birch ? 2.0 : 1.1);
-      leafB.add(R() < 0.5 ? canopyDark : canopyLight, new THREE.BoxGeometry(1, 1, 1),
-        V(x + Math.cos(a) * d, y, z + Math.sin(a) * d), V(s, s * (birch ? 1.1 : 0.75), s), R() * 1.5);
+      // S3: rounded low-poly leaf clumps (storybook canopies) instead of Vintage Story leaf cubes.
+      leafB.add(R() < 0.5 ? canopyDark : canopyLight, new THREE.IcosahedronGeometry(0.66, 1),
+        V(x + Math.cos(a) * d, y, z + Math.sin(a) * d), V(s, s * (birch ? 1.1 : 0.8), s), R() * 1.5);
     }
     if (!birch) for (let i = 0; i < 2; i++) {   // stubby branches out to the crown
       const a = R() * Math.PI * 2;
@@ -248,14 +249,14 @@ export function buildWorld(): World {
   for (let a = 0; a < Math.PI * 2; a += 0.09) {
     const r = HALF + 4 + R() * 12, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 7 + R() * 5;
     B.add(tex(R() < 0.4 ? 'birch' : 'bark'), new THREE.CylinderGeometry(0.3, 0.4, h, 5), V(x, h / 2, z));
-    leafB.add(canopyDark, new THREE.BoxGeometry(1, 1, 1), V(x, h, z), V(4 + R() * 2, 3.5 + R() * 2, 4 + R() * 2), R());
+    leafB.add(canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, h, z), V(4 + R() * 2, 3.5 + R() * 2, 4 + R() * 2), R());
   }
   // Bushes: low leaf blocks, walk-through (soft foliage, see assumptions).
   for (let i = 0; i < 110; i++) {
     const x = (R() * 2 - 1) * (HALF - 1), z = (R() * 2 - 1) * (HALF - 1);
     if (clear(x, z, 1)) continue;
     const s = 0.6 + R() * 0.7;
-    leafB.add(R() < 0.5 ? canopyLight : canopyDark, new THREE.BoxGeometry(1, 1, 1), V(x, s * 0.4, z), V(s * 1.3, s * 0.85, s * 1.2), R() * 3);
+    leafB.add(R() < 0.5 ? canopyLight : canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, s * 0.4, z), V(s * 1.3, s * 0.85, s * 1.2), R() * 3);
   }
   leafB.flush(scene, 'canopy').forEach((m) => { m.raycast = () => {}; shadowCasters.push(m); });
 

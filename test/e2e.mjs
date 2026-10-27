@@ -230,7 +230,7 @@ if (!longOnly) {
     let st = await state(page);
     if (st === 'resume') { await page.click('#relockBtn'); await page.waitForTimeout(300); st = await state(page); }
     const a = await pos(page); await hold(page, 'KeyS', 300); const b = await pos(page);
-    check(`F3.6 ${key} closes the book; player can walk again`, st === 'play' && !(await page.isVisible('#book .spread')) && Math.hypot(b.x - a.x, b.z - a.z) > 0.5, `state ${st}`);
+    check(`F3.6 ${key} closes the book; player can walk again`, st === 'play' && !(await page.isVisible('#book .spread')) && Math.hypot(b.x - a.x, b.z - a.z) > 0.5, `state ${st} moved ${Math.hypot(b.x - a.x, b.z - a.z).toFixed(2)}`);
   }
   await teleport(page, 0, 1.4, 0, -0.45); await page.waitForTimeout(100);
   await page.keyboard.press('KeyE'); await page.waitForFunction(() => window.__gametool.state === 'book'); await page.waitForTimeout(300);

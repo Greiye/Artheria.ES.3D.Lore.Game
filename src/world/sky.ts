@@ -5,15 +5,17 @@ import { shaftTexture } from '../tex/pixel';
 // F2.2 still holds: a low orange sun (< 15°) and long shadows; the sky is teal overhead (Sacrifire)
 // fading to warm gold at the horizon so the forest reads bright, not dusky.
 
+// Storybook restyle S3: a bright storybook sky (deep blue overhead, pale toward a warm horizon) and
+// lighter, bluer haze, after the "Echoes of Avalon" boards; the sun stays low and warm (F2.2).
 export const SKY = {
-  zenith: '#3F7FA6',
-  upper: '#7FB3BF',
-  horizon: '#EBCB92',
-  glow: '#FFD9A0',
-  fog: '#D9C79E',
-  sunLight: '#FFC488',
-  hemiSky: '#BFD8D2',
-  hemiGround: '#4B5A2C',
+  zenith: '#3A78C8',
+  upper: '#78AEE0',
+  horizon: '#E8E2C8',
+  glow: '#FFE2A8',
+  fog: '#C8DCE6',
+  sunLight: '#FFD8A8',
+  hemiSky: '#D0E4F0',
+  hemiGround: '#6A7A3A',
 };
 
 export interface Sky {

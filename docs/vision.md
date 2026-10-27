@@ -2,8 +2,19 @@
 
 > **2026-10-27: direction changed.** Mike moved the look to a low-poly storybook style (his "Echoes of Avalon"
 > boards: Tree of Savior + Ragnarok Online + Dark Cloud 2), with no MMORPG elements and the creative tools
-> central. The camera section below is current. The rest describes the earlier Legends/Vintage Story look and
-> is rewritten as the restyle lands (S2–S4).
+> central. The camera section and "Storybook style" below are current. The older sections describe the earlier
+> Legends/Vintage Story look and stay for history.
+
+## Storybook style (current, S2+S3)
+
+- **Characters:** chibi, about 2.7 heads tall. Rounded low-poly head, anime eyes painted on a face plane,
+  bevelled limbs, chunky cuffed boots and gloves. Default adventurer: newsboy cap with goggles, navy vest
+  and trousers, cream shirt, rust neckerchief, leather satchel. Light painted into vertex colours (warm key,
+  cool shadow), blob shadow underneath.
+- **Palette:** navy, rust, leather, cream, moss; bright greens and warm stone in the world.
+- **World:** procedural textures kept, but brighter and smoothly filtered (painted, not pixel-crisp).
+  Faceted low-poly canopies and bushes. Clear blue sky with a warm cream horizon.
+- **Next:** storybook town pieces (timber houses, red roofs, bunting, cobbles) and the UI skin (S4).
 
 Distilled 2026-10-22 from Mike's references (`references/` on his PC, project uploads, lore image board).
 Reference files are third-party: never commit them, never put them under `public/`, never copy their code.
