@@ -74,52 +74,6 @@ function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: n
   return g;
 }
 
-// Restyle S2c: the face is pixel art (24 px, nearest-filtered, like Tree of Savior's 3D bodies with pixel
-// faces), stamped in layers: skin, fringe, eyes (whites, iris, pupil, highlight, lashes), brows, blush, mouth.
-const EYES: Record<string, string[]> = {
-  round:  ['.kkkk.', 'kkkkkk', 'khhiik', 'khddik', 'kiddik', 'kiddik', 'kliilk', '.kllk.'],
-  sleepy: ['......', '......', 'kkkkkk', 'kiddik', 'kliilk', '.kkkk.', '......'],
-  slit:   ['.kkkk.', 'kkkkkk', 'khiiik', 'kiidik', 'kiidik', 'kiidik', 'kliilk', '.kllk.'],
-  owl:    ['.wwww.', 'wiiiiw', 'iikkii', 'iikkhi', 'iikkii', 'wiiiiw', '.wwww.'],
-};
-function faceTexture(look: FigureLook): THREE.CanvasTexture {
-  const S = 24, c = document.createElement('canvas'); c.width = c.height = S;
-  const g = c.getContext('2d')!;
-  const px = (x: number, y: number, col: string) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
-  g.fillStyle = look.skin; g.fillRect(0, 0, S, S);
-  const style = look.eyeStyle ?? (look.species === 'owlkin' || look.species === 'corvani' ? 'owl' : look.species === 'drakari' ? 'slit' : 'round');
-  const base = new THREE.Color(look.eyes ?? (style === 'owl' ? '#E0A020' : '#4A6A8A'));
-  const pal: Record<string, string> = {
-    k: '#2A2026', w: '#FFF8EC', h: '#FFFFFF',
-    i: '#' + base.getHexString(), d: '#' + base.clone().multiplyScalar(0.5).getHexString(),
-    l: '#' + base.clone().lerp(new THREE.Color('#FFFFFF'), 0.45).getHexString(),
-  };
-  // Fringe: a hair band with a jagged lower edge.
-  g.fillStyle = look.hair; g.fillRect(0, 0, S, 3);
-  for (let x = 0; x < S; x++) if (x % 3 !== 2) px(x, 3, look.hair);
-  for (let x = 1; x < S; x += 3) px(x, 4, look.hair);
-  const eye = EYES[style] ?? EYES.round;
-  for (const side of [-1, 1]) {
-    const x0 = side < 0 ? 4 : 14, y0 = 8;
-    eye.forEach((row, y) => [...row].forEach((ch, x) => {
-      if (ch === '.') return;
-      const xx = side < 0 ? x : row.length - 1 - x;   // mirror the right eye (highlight stays outer-top)
-      px(x0 + xx, y0 + y, pal[ch]);
-    }));
-    if (style !== 'owl') for (let x = 0; x < 5; x++) px(x0 + (side < 0 ? x : x + 1), 6 + (x === (side < 0 ? 0 : 4) ? 1 : 0), pal.k);   // brow
-  }
-  if (look.marks) for (const [x, y] of [[3, 16], [4, 17], [19, 16], [20, 17]]) px(x, y, look.marks);
-  for (const x of [3, 4, 19, 20]) px(x, 17, '#F0A098');   // blush
-  const lip = look.species === 'infernling' || look.species === 'drakari' ? '#3A1A1A' : '#8A3A34';
-  px(11, 19, lip); px(12, 19, lip); px(10, 18, lip); px(13, 18, lip);   // a small smile
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
-  t.generateMipmaps = false;
-  return t;
-}
-
 // S2f (Tree of Savior pipeline): characters are unlit. All shading is baked into the vertex colours
 // (painted()), so they read the same in any light, as ToS bakes it into hand-painted diffuse maps.
 const bodyMat = new THREE.MeshBasicMaterial({ vertexColors: true });
@@ -174,13 +128,12 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   const W = THREE.MathUtils.clamp(look.build ?? (look.species === 'titankin' ? 1.2 : 1), 0.8, 1.3);   // body width
   const root = new THREE.Group();
   const parts: [THREE.BufferGeometry, string, BoneName][] = [];
-  const headParts: [THREE.BufferGeometry, string][] = [];   // S2d: the head is drawn as a pixel-art billboard
-  const place = (g: THREE.BufferGeometry, bone: BoneName, x: number, y: number, z: number, color: string, rz = 0, rx = 0, ry = 0) => {
+    const place = (g: THREE.BufferGeometry, bone: BoneName, x: number, y: number, z: number, color: string, rz = 0, rx = 0, ry = 0) => {
     if (ry) g.rotateY(ry);
     if (rx) g.rotateX(rx);
     if (rz) g.rotateZ(rz);
     g.translate(x * U, y * U, z * U);
-    if (bone === 'head') headParts.push([g, color]);
+    if (bone === 'head') g.dispose();   // S2h: no 3D head; src/render/headArt.ts draws it in 2D
     else parts.push([g, color, bone]);
   };
   // Pillowy rounded box and a round limb: the sprite pass (src/render/sprites.ts) pixelates them, so soft
@@ -336,10 +289,10 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   // S2g: a painted atlas tile per colour; the vertex colours then carry only the baked light (white base).
   const kindOf = (c: string): PaintKind => c === look.skin ? 'skin' : c === look.hair ? 'hair'
     : c === look.boots || c === gloves || c === '#141218' ? 'leather' : c === look.accent || c === '#C9A23A' ? 'metal' : 'cloth';
-  const colours = [...new Set([...parts.map(([, c]) => c), ...headParts.map(([, c]) => c)])];
+  const colours = [...new Set(parts.map(([, c]) => c))];
   const atlas = paintedAtlas(colours.map((c) => ({ color: c, kind: kindOf(c) })));
   const mat = atlasMaterial(atlas.texture);
-  for (const [g, c] of [...parts, ...headParts]) toTile(g, atlas.rect(c));
+  for (const [g, c] of parts) toTile(g, atlas.rect(c));
   const geo = mergeGeometries(parts.map(([g, , b]) => rigged(painted(g, '#FFFFFF', 0, height), BONES.indexOf(b))));
   const mesh = new THREE.SkinnedMesh(geo, mat);
   mesh.name = 'figure-body';
@@ -347,38 +300,14 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));
   mesh.frustumCulled = false;   // small and always near; skips per-frame skinned bounds
   root.add(mesh);
-  // S2d: the head (skull, hair, hats, species features, face) is its own rigid mesh on the head bone. The
-  // main camera never sees it: src/render/sprites.ts draws it as a pixel-art billboard from 8 directions.
-  const headGroup = new THREE.Group();
-  headGroup.name = 'head-group';
-  const headGeo = mergeGeometries(headParts.map(([g]) => painted(g, '#FFFFFF', 0, height)));
-  headGeo.translate(-RIG.head[1][0] * U, -RIG.head[1][1] * U, -RIG.head[1][2] * U);
-  const headMesh = new THREE.Mesh(headGeo, mat);
-  headMesh.name = 'figure-head';
-  headMesh.raycast = noRaycast;
-  headGroup.add(headMesh);
-  bones.head.add(headGroup);
-  // Curved to follow the rounded head.
-  const fs = headS * 0.76, faceGeo = new THREE.PlaneGeometry(fs, fs, 4, 4), fp = faceGeo.attributes.position;
-  for (let i = 0; i < fp.count; i++) {
-    const u = fp.getX(i) / (fs / 2), v = fp.getY(i) / (fs / 2);
-    fp.setZ(i, -headS * (0.06 * u * u + 0.03 * v * v));
-  }
-  faceGeo.computeVertexNormals();
-  const face = new THREE.Mesh(faceGeo, new THREE.MeshBasicMaterial({ map: faceTexture(look) }));
-  face.name = 'face';
-  face.raycast = noRaycast;
-  face.position.set(0, headY - RIG.head[1][1] * U - headS * 0.04, headS * 0.45 + 0.01);
-  headGroup.add(face);
-  // Billboard frame: the head's extent around its centre, radially (it turns), plus a margin.
+  // S2h (Tree of Savior): there is no 3D head. The head is flat 2D pixel art drawn from 8 directions
+  // (src/render/headArt.ts) on a billboard at this anchor, the head's centre on the head bone.
   const anchor = new THREE.Object3D();
   anchor.name = 'head-anchor';
   anchor.position.set(0, headY - RIG.head[1][1] * U, 0);
   bones.head.add(anchor);
-  headGeo.computeBoundingBox();
-  const hb = headGeo.boundingBox!.translate(new THREE.Vector3(0, -anchor.position.y, 0));
-  const reach = Math.max(-hb.min.x, hb.max.x, -hb.min.z, hb.max.z, headS * 0.5) * 1.12;
-  root.userData.head = { anchor, group: headGroup, w: reach * 2, h: (hb.max.y - hb.min.y) * 1.1, cy: (hb.max.y + hb.min.y) / 2 };
+  root.userData.head = { anchor, size: headS };
+  root.userData.look = look;
   root.add(blobShadow(0.36 * U));
   root.userData.height = height;
   spriteFigure(root);

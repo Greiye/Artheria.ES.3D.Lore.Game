@@ -100,28 +100,33 @@ await G(page, () => window.__gametool.exitDungeon());
 
 // ---------- S2c hybrid characters, S2b sprite option ----------
 const figs = () => G(page, () => {
-  const out = { figures: 0, boards: 0, bodies3d: 0, heads3d: 0, headBoards: 0, pixelFaces: 0, nearest: true };
+  const out = { figures: 0, boards: 0, bodies3d: 0, heads3d: 0, headBoards: 0, drawnHeads: 0, nearest: true };
   const cam = window.__gametool.camera;
   window.__gametool.world.scene.traverse((o) => {
     if (!o.userData.sprite) return;
     out.figures++;
     o.traverse((c) => {
       if (c.name === 'sprite' && c.visible) { out.boards++; out.nearest &&= c.material.uniforms.map.value.magFilter === 1003; }
-      if (c.name === 'head-sprite' && c.visible) { out.headBoards++; out.nearest &&= c.material.uniforms.map.value.magFilter === 1003; }
+      if (c.name === 'head-sprite' && c.visible) {
+        const map = c.material.uniforms.map.value;
+        out.headBoards++; out.nearest &&= map.magFilter === 1003;
+        if (map.image instanceof HTMLCanvasElement && map.image.width === map.image.height * 8 * 96 / 104) out.drawnHeads++;   // an 8-frame drawn sheet
+      }
       if (c.name === 'figure-body' && c.layers.test(cam.layers)) out.bodies3d++;
-      if (c.name === 'figure-head' && c.layers.test(cam.layers)) out.heads3d++;
-      if (c.name === 'face' && c.material.map.magFilter === 1003 && c.material.map.image.width <= 32) out.pixelFaces++;
+      if (c.name === 'figure-head' || c.name === 'face') out.heads3d++;
     });
   });
   return out;
 });
 const hy = await figs();
-check('S2d default: every character is a 3D body under a pixel-art head billboard (pixel face, no 3D head on screen)', hy.figures >= 3 && hy.bodies3d === hy.figures && hy.headBoards === hy.figures && hy.heads3d === 0 && hy.pixelFaces === hy.figures && hy.boards === 0 && hy.nearest, JSON.stringify(hy));
+check('S2h default: every character is a 3D body under a flat 2D drawn head (8-frame sheet); no 3D head exists', hy.figures >= 3 && hy.bodies3d === hy.figures && hy.headBoards === hy.figures && hy.drawnHeads === hy.figures && hy.heads3d === 0 && hy.boards === 0 && hy.nearest, JSON.stringify(hy));
 const setChars = (v) => G(page, (v) => { const s = document.getElementById('charsSel'); s.value = v; s.dispatchEvent(new Event('change')); }, v);
-await setChars('sprite'); await page.waitForTimeout(800);
+await setChars('sprite');
+await until(page, () => { let n = 0, f = 0; window.__gametool.world.scene.traverse((o) => { if (o.userData.sprite) f++; if (o.name === 'sprite' && o.visible) n++; }); return n === f; }, null, 5000);
 const sp = await figs();
-check('S2b Characters > Pixel sprites: every figure becomes a nearest-filtered billboard; its 3D rig leaves the main camera', sp.boards === sp.figures && sp.bodies3d === 0 && sp.headBoards === 0 && sp.nearest, JSON.stringify(sp));
-await setChars('hybrid'); await page.waitForTimeout(500);
+check('S2b Characters > Pixel sprites: every body becomes a nearest-filtered billboard under its 2D head; its 3D rig leaves the main camera', sp.boards === sp.figures && sp.bodies3d === 0 && sp.headBoards === sp.figures && sp.nearest, JSON.stringify(sp));
+await setChars('hybrid');
+await until(page, () => { let n = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'sprite' && o.visible) n++; }); return n === 0; }, null, 5000);
 const back = await figs();
 check('S2c switching back restores the 3D bodies', back.bodies3d === back.figures && back.headBoards === back.figures && back.boards === 0 && await G(page, () => JSON.parse(localStorage.getItem('gametool.settings')).chars === 'hybrid'), JSON.stringify(back));
 

@@ -7,6 +7,17 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S2h: 2D drawn heads, no 3D head
+
+- **Heads are flat 2D pixel art** (`src/render/headArt.ts`), as in Tree of Savior. Each look gets one drawn
+  8-frame sheet (45° apart; the three turns to the right are the left ones mirrored): skin, ears, big pixel eyes,
+  brows, blush and mouth, then a crown with pointed fringe locks, side locks, long hair as a sheet of pointed
+  strands from the side and back, caps, headpieces and species features (horns, ear tufts, beaks, halo, flame).
+- **There is no 3D head.** The skull, hair and face meshes are gone; the head bone only carries an anchor that the
+  billboard follows. The billboard just picks the frame for the side it's seen from, with no render pass per head.
+- Pixel-sprite mode (Graphics > Characters) uses the same drawn heads over the sprite body.
+- Graphics > Characters now reads "3D bodies, drawn heads" / "Pixel sprites".
+
 ### Storybook restyle S2g: hand-painted character textures
 
 - **Painted atlas:** every character gets a 512 px hand-painted diffuse atlas, generated at load (`src/tex/paintedAtlas.ts`).
@@ -14,7 +25,7 @@ Spec doc v0.05.
   hair gets strands and a shine band, leather gets scuffs and stitching, metal gets a sheen, and skin stays
   soft. Every tile darkens toward its edges, so each face of a part reads as painted occlusion. The baked light
   rides on top in the vertex colours.
-- Figures with the same colours share one atlas and material. The billboard heads are painted from the same atlas.
+- Figures with the same colours share one atlas and material.
 
 ### Storybook restyle S2f: Tree of Savior pipeline pass
 
