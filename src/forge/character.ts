@@ -4,7 +4,7 @@ import './forge.css';
 // on the real in-game character. Saved on this device only; "Submit" exports a character entry
 // for review (curated submissions, Mike 2026-10-26).
 import type { FigureLook, Species } from '../world/figure';
-import { FEATURE } from '../world/figure';
+import { FEATURE, GOTHIC_LOOK } from '../world/figure';
 import { ConstraintDice, rollText, type DieKind, type Roll } from './dice';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 
@@ -26,17 +26,17 @@ export const SPECIES: SpeciesPreset[] = [
   { id: 'corvani', label: 'Corvani', blurb: 'Raven-folk who trade in secrets.', skins: ['#3A3A44', '#2A2A30', '#4A4A5A'], height: 1.7, look: { hairStyle: 'short', hair: '#1A1A22' } },
   { id: 'lumari', label: 'Lumari', blurb: 'Touched by light from somewhere else.', skins: ['#F8E0C8', '#E8D0F0', '#D8E8F0'], height: 1.78 },
 ];
-const HAIR_STYLES: NonNullable<FigureLook['hairStyle']>[] = ['cap', 'spiky', 'short', 'long', 'topknot', 'hood', 'bald'];
+const HAIR_STYLES: NonNullable<FigureLook['hairStyle']>[] = ['flowing', 'cap', 'spiky', 'short', 'long', 'topknot', 'hood', 'bald'];
 const EYE_STYLES: NonNullable<FigureLook['eyeStyle']>[] = ['round', 'sleepy', 'slit', 'owl'];
 // Restyle S2: the board palette (navy, slate, rust, brick, cream, leathers, tan, moss, forest, plus two accents).
-const PALETTE = ['#34406A', '#5A6A8A', '#A8523A', '#8A3A30', '#E8DCC0', '#6B4428', '#4A2E1E', '#C9A06B', '#6A7A3A', '#3A5A3A', '#5A4A8A', '#C98A30'];
-const HAIR = ['#5A3420', '#2A1A12', '#C9A050', '#E8E0D0', '#A83A2A', '#3A3A44', '#6A9A4A', '#4A6AA8'];
-const EYES = ['#3E7A4A', '#3A5A9A', '#6A4A2A', '#5A3A7A', '#E0A020', '#A82A2A'];
+const PALETTE = ['#26222C', '#3C3644', '#34406A', '#5A6A8A', '#A8523A', '#8A3A30', '#E8DCC0', '#6B4428', '#4A2E1E', '#C9A06B', '#6A7A3A', '#3A5A3A', '#5A4A8A', '#C98A30'];
+const HAIR = ['#D2C6B6', '#5A3420', '#2A1A12', '#C9A050', '#E8E0D0', '#A83A2A', '#3A3A44', '#6A9A4A', '#4A6AA8'];
+const EYES = ['#C8463A', '#3E7A4A', '#3A5A9A', '#6A4A2A', '#5A3A7A', '#E0A020', '#A82A2A'];
 
 export function defaultForge(name = ''): ForgeCharacter {
   return {
     name, backstory: '', height: 1.8, roll: null,
-    look: { species: 'human', skin: '#F2CDA8', hair: '#6B3E22', primary: '#34406A', secondary: '#E8DCC0', boots: '#6B4428', accent: '#8A5A32', hairStyle: 'cap', eyeStyle: 'round', eyes: '#3E5A8A', build: 1, marks: '' },
+    look: { species: 'human', ...GOTHIC_LOOK, eyeStyle: 'round', marks: '' },
   };
 }
 
@@ -156,9 +156,13 @@ export class CharacterForge {
         <section><h4>Face</h4>${this.chips('eyeStyle', EYE_STYLES)}<h5>Eyes</h5>${this.swatches('eyes', EYES)}
           <h5>Marks</h5>${this.chips('marks', ['', '#A0603A', '#2A2A30', '#C83A3A', '#3A8AC8'], ['none', 'freckles', 'ink', 'war paint', 'woad'])}</section>
         <section><h4>Hair</h4>${this.chips('hairStyle', HAIR_STYLES)}${this.swatches('hair', HAIR)}</section>
-        <section><h4>Outfit</h4><h5>Vest, cap &amp; trousers</h5>${this.swatches('primary', PALETTE)}<h5>Shirt</h5>${this.swatches('secondary', PALETTE)}
+        <section><h4>Outfit</h4><h5>Dress / vest, cap &amp; trousers</h5>${this.swatches('primary', PALETTE)}<h5>Shirt</h5>${this.swatches('secondary', PALETTE)}
           <h5>Boots</h5>${this.swatches('boots', ['#6B4428', '#4A2E1E', '#2B2A24', '#8A5A32', '#3A4A5A'])}<h5>Belt &amp; trim</h5>${this.swatches('accent', PALETTE)}
-          <label class="check"><input type="checkbox" id="fgSkirt"${l.skirt ? ' checked' : ''}> Coat tails / robe</label></section>
+          <label class="check"><input type="checkbox" id="fgSkirt"${l.skirt ? ' checked' : ''}> Coat tails / robe</label>
+          <label class="check"><input type="checkbox" id="fgDress"${l.dress ? ' checked' : ''}> Bell dress</label>
+          <label class="check"><input type="checkbox" id="fgPlatform"${l.platform ? ' checked' : ''}> Platform boots</label>
+          <h5>Wings</h5>${this.chips('wings', ['', '#1E1A24', '#E8E0D8', '#8A3A4A'], ['none', 'black', 'white', 'crimson'])}
+          <h5>Headpiece</h5>${this.chips('headpiece', ['', '#2A2430', '#B8935A', '#E8E0D8'], ['none', 'black', 'gold', 'white'])}</section>
         <section><h4>Story</h4>
           <label class="field">Name<input id="fgName" type="text" maxlength="40" value="${escapeHtml(name)}" placeholder="e.g. Kazka of the Ash Road"></label>
           <label class="field">Backstory <span class="hint">a few lines</span><textarea id="fgStory" rows="4" maxlength="1200" placeholder="Where they came from, and what they want.">${escapeHtml(story)}</textarea></label>
@@ -186,6 +190,8 @@ export class CharacterForge {
     q<HTMLInputElement>('#fgHeight').addEventListener('change', (e) => this.set('height', (e.target as HTMLInputElement).value));
     q<HTMLInputElement>('#fgBuild').addEventListener('change', (e) => this.set('build', Number((e.target as HTMLInputElement).value)));
     q<HTMLInputElement>('#fgSkirt').addEventListener('change', (e) => this.set('skirt', (e.target as HTMLInputElement).checked));
+    q<HTMLInputElement>('#fgDress').addEventListener('change', (e) => this.set('dress', (e.target as HTMLInputElement).checked));
+    q<HTMLInputElement>('#fgPlatform').addEventListener('change', (e) => this.set('platform', (e.target as HTMLInputElement).checked));
     q('#fgRoll').addEventListener('click', () => { this.c.roll = this.dice.roll(); this.render(); });
     this.el.querySelectorAll<HTMLElement>('[data-die]').forEach((d) => d.addEventListener('click', () => {
       const r = this.c.roll && this.dice.reroll(this.c.roll, d.dataset.die as DieKind);

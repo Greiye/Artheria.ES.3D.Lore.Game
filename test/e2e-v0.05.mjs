@@ -122,8 +122,9 @@ check('F4.4 E picks up a stuck bolt → count restores', verb === 'Pick up bolt'
 
 // F4.2: stuck bolts vanish after 30 s (fast-forwarded).
 await cb(() => window.__gametool.crossbow.bolts.forEach((b) => { if (b.stuck) b.age = 31; }));
-await page.waitForTimeout(150);
-check('F4.2 stuck bolts disappear after 30 s', await cb(() => window.__gametool.crossbow.bolts.every((b) => !b.stuck)));
+// Wait on frames, not wall time: SwiftShader can stall a frame for longer than a fixed wait.
+const gone = await page.waitForFunction(() => window.__gametool.crossbow.bolts.every((b) => !b.stuck), null, { timeout: 5000 }).then(() => true, () => false);
+check('F4.2 stuck bolts disappear after 30 s', gone);
 
 await page.keyboard.press('Digit2'); await page.waitForTimeout(150);   // visibility follows on the next frame
 check('§5 2 = hands (crossbow away)', await cb(() => !window.__gametool.crossbow.equipped && !window.__gametool.crossbow.viewmodel.visible));

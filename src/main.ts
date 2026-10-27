@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { updateSprites } from './render/sprites';
+import { updateSprites, setSpriteCharacters } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';
 import { Player } from './player';
@@ -179,6 +179,7 @@ ui.innerHTML = `
       <label>Look sensitivity <output id="sensOut"></output><input id="sens" type="range" min="0.2" max="3" step="0.05"></label>
       <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
       <label>Camera <select id="viewSel"><option value="follow">Follow (Dark Cloud 2 style)</option><option value="first">First person</option></select></label>
+      <label>Characters <select id="charsSel"><option value="hybrid">3D with pixel faces</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="invert" type="checkbox"> Invert Y</label>
       <label class="check"><input id="always" type="checkbox"> Always run (Caps Lock)</label>
       <details id="graphicsSettings">
@@ -1278,6 +1279,7 @@ function syncMenu() {
   fov.value = String(settings.fov); $('fovOut').textContent = settings.fov + '°';
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
   $<HTMLSelectElement>('viewSel').value = settings.view;
+  $<HTMLSelectElement>('charsSel').value = settings.chars;
   presetSel.value = settings.preset;
   renderScaleEl.value = String(settings.renderScale); $('renderScaleOut').textContent = settings.renderScale + '%';
   shadowsEl.checked = settings.shadows; postFxEl.checked = settings.postFx;
@@ -1300,6 +1302,12 @@ fov.addEventListener('input', () => {
 inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSettings(settings); });
 const viewSel = $<HTMLSelectElement>('viewSel');
 viewSel.addEventListener('change', () => setView(viewSel.value === 'first' ? 'first' : 'follow'));
+const charsSel = $<HTMLSelectElement>('charsSel');
+charsSel.addEventListener('change', () => {
+  settings.chars = charsSel.value === 'sprite' ? 'sprite' : 'hybrid'; saveSettings(settings);
+  setSpriteCharacters(settings.chars === 'sprite');
+});
+setSpriteCharacters(settings.chars === 'sprite');
 always.addEventListener('change', () => { settings.alwaysRun = always.checked; saveSettings(settings); });
 
 // F1.1 graphics — a preset fills every slider below it; each slider then applies live on its own.

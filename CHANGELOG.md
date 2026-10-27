@@ -7,9 +7,31 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
-### Storybook restyle S2b: Tree of Savior style pixel-art sprites
+### Storybook restyle S2d: Tree of Savior heads and the gothic heroine
 
-- **Sprite characters:** every character is now drawn as a pixel-art sprite that faces the camera, like Tree of
+- **Pixel-art heads:** as in Tree of Savior, the body stays a 3D toon-lit mesh, but the head is a pixel-art
+  billboard that turns through 8 directions. It is drawn live from the 3D head (skull, hair, hats, species
+  features and the pixel face), with a 1 px ink outline. The body masks it, so long hair hangs behind the
+  body from the front and over it from the back.
+- **New default hero:** a gothic chibi after Mike's Tree of Savior reference: long wavy platinum hair, red eyes,
+  a flowered headband, a black bell dress with a pale frill and puffed sleeves, small black wings, and platform
+  boots with strapped stockings.
+- **Forge:** adds the Flowing hair style, Bell dress and Platform boots toggles, Wings and Headpiece choices, and
+  black, platinum and red swatches.
+
+### Storybook restyle S2c: hybrid characters (default)
+
+- **Hybrid characters:** as in Tree of Savior, characters are 3D bodies with pixel-art faces. The body is built in
+  layers (base body, outfit, hair and headgear) and lit with a 3-step toon ramp. Parts are rounder and softer, and
+  the head is close to a ball.
+- **Pixel-art face:** 24 px, nearest-filtered and stamped in layers (skin, fringe, eyes with whites, iris, pupil,
+  highlight and lashes, brows, blush, mouth). It curves to follow the head and is toon-lit, so its edge never shows.
+- **Graphics > Characters:** switches between "3D with pixel faces" (the default) and "Pixel sprites" (the S2b
+  billboards). The choice is saved.
+
+### Storybook restyle S2b: pixel-art sprite characters (option)
+
+- **Sprite characters (option since S2c):** every character can be drawn as a pixel-art sprite that faces the camera, like Tree of
   Savior and Ragnarok Online. Each one is redrawn from its 3D figure in one of 8 directions (45° steps) at a sprite
   frame rate of 12 fps, with a dark 1 px outline. It leans back toward a high camera, so the overview isn't squashed.
 - Walking, poses, the forge, species and contributor looks all still work, because the sprite is drawn from the
