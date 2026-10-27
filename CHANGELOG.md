@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S2f: Tree of Savior pipeline pass
+
+- **Unlit characters:** bodies drop the toon lighting and, as ToS does, carry all their shading baked in. Each
+  part is also shaded down its own height (occlusion underneath, light on top), so bodies match the head sprites.
+- **Stepped animation:** skeletal poses update at 12 fps instead of every frame, for the flipbook feel of 8-direction
+  sprite cycles. Walking through the world stays smooth.
+- **Billboard pass:** updates only the figures it draws, not the whole scene graph, each frame.
+- **Tests:** B7, B8 and the leg-swing check now wait on frames rather than a fixed wall-clock sample.
+
 ### Storybook restyle S2d: Tree of Savior heads and the gothic heroine
 
 - **Pixel-art heads:** as in Tree of Savior, the body stays a 3D toon-lit mesh, but the head is a pixel-art

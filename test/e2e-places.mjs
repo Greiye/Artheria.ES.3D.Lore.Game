@@ -69,8 +69,7 @@ check('B15 delves are saved on this device', await G(page, () => Object.keys(JSO
 
 // ---------- B7 living map ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(-30, 0, 30); });
-await page.waitForTimeout(800);
-check('B7 walking reveals the map around you', await G(page, () => window.__gametool.livingMap.isSeen(-30, 30) && !window.__gametool.livingMap.isSeen(40, 40)));
+check('B7 walking reveals the map around you', await until(page, () => window.__gametool.livingMap.isSeen(-30, 30) && !window.__gametool.livingMap.isSeen(40, 40), null, 5000));
 await page.keyboard.press('KeyM');
 check('B7 M opens the living map', await until(page, () => window.__gametool.state === 'forge' && window.__gametool.livingMap.isOpen));
 await page.fill('#mpText', 'Mushrooms here');

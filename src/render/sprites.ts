@@ -1,12 +1,11 @@
 import * as THREE from 'three';
-import { figureMats } from '../world/figure';
 
 // Pixel-art billboards drawn live from the 3D figures. Each billboard has its own small render target: the
 // part is drawn into it from one of 8 directions around it (snapped to 45° from where the camera sees it),
 // at a low pixel density and a sprite frame rate, then shown facing the camera with a 1 px ink outline.
 // Rigs, poses, the forge and species all keep working, because the source is the live rig.
 //
-// - Hybrid (default, S2d, as in Tree of Savior): the body is a 3D toon-lit mesh; only the head is a
+// - Hybrid (default, S2d, as in Tree of Savior): the body is an unlit 3D mesh with baked shading; only the head is a
 //   pixel-art billboard. The body is drawn into the head's frame as a depth-only mask first, so hair
 //   that hangs behind the body is hidden from the front and shows from the back.
 // - Sprites (S2b, Graphics > Characters): the whole figure is one billboard, as in Ragnarok Online.
@@ -133,8 +132,8 @@ let spriteMode = false;
 /** true = whole-figure pixel sprites, false = hybrid 3D bodies with pixel-art heads (default). */
 export function setSpriteCharacters(on: boolean) { spriteMode = on; }
 
-// Hybrid: the body on the main camera (toon-lit), the head on the sprite layer. Sprites: all on the sprite
-// layer, flat (light painted into the vertex colours; the sprite pass has no lights).
+// Hybrid: the body on the main camera, the head on the sprite layer. Sprites: all on the sprite layer.
+// Both are unlit (light painted into the vertex colours), so the sprite pass needs no lights.
 function applyMode(root: THREE.Object3D) {
   root.userData.spriteMode = spriteMode;
   root.traverse((o) => {
@@ -143,7 +142,6 @@ function applyMode(root: THREE.Object3D) {
     if (m.name === 'figure-body') {
       m.layers.set(spriteMode ? SPRITE_LAYER : 0);
       if (!spriteMode) m.layers.enable(MASK_LAYER);
-      m.material = spriteMode ? figureMats.flat : figureMats.toon;
     }
     else if (m.name === 'figure-head' || m.name === 'face' || m.parent?.name === 'head-group') m.layers.set(SPRITE_LAYER);
     else m.layers.set(spriteMode ? SPRITE_LAYER : 0);
@@ -184,12 +182,12 @@ export function updateSprites(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   scene.traverse((o) => { if (o.userData.sprite) roots.push(o); });
   if (!roots.length) return;
   for (const root of roots) if (root.userData.spriteMode !== spriteMode) applyMode(root);
-  scene.updateMatrixWorld();
   const prevTarget = renderer.getRenderTarget(), prevAlpha = renderer.getClearAlpha(), prevAuto = renderer.autoClear;
   renderer.getClearColor(clear);
   renderer.setClearColor(0x000000, 0);
   for (const root of roots) {
     if (!shown(root)) continue;
+    root.updateWorldMatrix(true, true);   // this frame's pose; cheaper than updating the whole scene
     if (spriteMode) {
       const b = bodyBoard(root);
       b.mesh.visible = true;

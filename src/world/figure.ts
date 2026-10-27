@@ -52,6 +52,10 @@ const WARM = new THREE.Color('#FFE2B8'), COOL = new THREE.Color('#7E8CB8');
 function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: number): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   g.computeVertexNormals();
+  // S2f: each part is also shaded down its own height (occlusion under it, light on top), as ToS bakes
+  // shading into hand-painted diffuse maps.
+  g.computeBoundingBox();
+  const pMin = g.boundingBox!.min.y, pSpan = Math.max(1e-3, g.boundingBox!.max.y - pMin);
   const base = new THREE.Color(color), c = new THREE.Color(), n = new THREE.Vector3();
   const p = g.attributes.position, nn = g.attributes.normal, col = new Float32Array(p.count * 3);
   for (let i = 0; i < p.count; i++) {
@@ -62,7 +66,7 @@ function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: n
     if (lambert > 0.7) c.multiplyScalar(1.1).lerp(WARM, 0.1);
     else if (lambert > 0.25) c.multiplyScalar(0.97);
     else c.multiplyScalar(0.8).lerp(COOL, 0.16);
-    c.multiplyScalar(0.9 + 0.14 * h);
+    c.multiplyScalar((0.9 + 0.14 * h) * (0.84 + 0.18 * ((p.getY(i) - pMin) / pSpan)));
     col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -115,12 +119,10 @@ function faceTexture(look: FigureLook): THREE.CanvasTexture {
   return t;
 }
 
+// S2f (Tree of Savior pipeline): characters are unlit. All shading is baked into the vertex colours
+// (painted()), so they read the same in any light, as ToS bakes it into hand-painted diffuse maps.
 const bodyMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-// Hybrid characters (default): the 3D body is lit with a 3-step toon ramp, like Tree of Savior. The flat,
-// light-painted material is used when characters are drawn as pixel sprites (src/render/sprites.ts).
-const ramp = new THREE.DataTexture(new Uint8Array([150, 150, 150, 255, 215, 215, 215, 255, 255, 255, 255, 255]), 3, 1);
-ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
-export const figureMats = { flat: bodyMat, toon: new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: ramp }) };
+export const figureMats = { flat: bodyMat };
 const noRaycast = () => {};
 
 export function blobShadow(radius: number): THREE.Mesh {
@@ -325,7 +327,7 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     bones[name] = b;
   }
   const geo = mergeGeometries(parts.map(([g, c, b]) => rigged(painted(g, c, 0, height), BONES.indexOf(b))));
-  const mesh = new THREE.SkinnedMesh(geo, figureMats.toon);
+  const mesh = new THREE.SkinnedMesh(geo, figureMats.flat);
   mesh.name = 'figure-body';
   mesh.add(bones.root);
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));
