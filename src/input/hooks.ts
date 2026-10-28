@@ -24,5 +24,7 @@ export interface GameHooks {
   toggleRun(): void;
   toggleView(): void;            // first person <-> follow
   stepCamera(n: number): void;  // v0.04: one camera distance out (+1) or in (-1)
+  toggleTorch(): void;          // v0.04
+  quickSwap(hand: 'left' | 'right'): void;   // v0.04 D-pad quick swap
   setMode(m: InputMode): void;
 }

@@ -18,22 +18,48 @@ export const SKY = {
   hemiGround: '#6A7A3A',
 };
 
+// v0.04 time of day. The game starts at a dark sunset (bring a torch); sleeping on the bedroll moves it on:
+// day -> sunset -> night -> day. Each phase sets the sun (or moon), sky gradient, haze, fill light and shafts.
+export type TimeOfDay = 'day' | 'sunset' | 'night';
+export const NEXT_TIME: Record<TimeOfDay, TimeOfDay> = { day: 'sunset', sunset: 'night', night: 'day' };
+interface Phase {
+  elev: number; az: number; sun: string; sunI: number; hemiSky: string; hemiGround: string; hemiI: number;
+  zenith: string; upper: string; horizon: string; glow: string; fog: string; shafts: number; disc: string; stars: number;
+}
+const PHASES: Record<TimeOfDay, Phase> = {
+  day: { elev: 38, az: 38, sun: '#FFF0D8', sunI: 2.6, hemiSky: '#D8EAF4', hemiGround: '#6A7A3A', hemiI: 1.35,
+    zenith: SKY.zenith, upper: SKY.upper, horizon: '#E8EEEC', glow: '#FFF2D0', fog: SKY.fog, shafts: 0.12, disc: '#FFF4DC', stars: 0 },
+  // Darker than the old golden hour: the sun is nearly down, the fill is dim and violet.
+  sunset: { elev: 6, az: 38, sun: '#FF9A50', sunI: 1.5, hemiSky: '#9AA6C8', hemiGround: '#4A4034', hemiI: 0.62,
+    zenith: '#22346E', upper: '#5E64A0', horizon: '#F0A070', glow: '#FFB060', fog: '#8E8098', shafts: 0.16, disc: '#FFC890', stars: 0.25 },
+  night: { elev: 32, az: 218, sun: '#8AA4E0', sunI: 0.32, hemiSky: '#3A4C74', hemiGround: '#16161E', hemiI: 0.34,
+    zenith: '#050918', upper: '#0E1834', horizon: '#26304C', glow: '#3A4668', fog: '#141A2C', shafts: 0, disc: '#DCE6FF', stars: 1 },
+};
+
 export interface Sky {
   sun: THREE.DirectionalLight;
   sunDir: THREE.Vector3;
   shafts: THREE.Group;
+  readonly time: TimeOfDay;
+  readonly elevationDeg: number;
+  setTime(t: TimeOfDay): void;
   update(t: number, camera: THREE.Camera): void;
 }
 
 const noRaycast = () => {};
 
-export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sky {
+// Azimuth measured from -Z (straight ahead at spawn) toward +X.
+const dirOf = (elevDeg: number, azDeg: number, out = new THREE.Vector3()) => {
   const el = THREE.MathUtils.degToRad(elevDeg), az = THREE.MathUtils.degToRad(azDeg);
-  // Azimuth measured from -Z (straight ahead at spawn) toward +X.
-  const sunDir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+  return out.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+};
+
+export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sky {
+  const sunDir = dirOf(elevDeg, azDeg);
   scene.background = new THREE.Color(SKY.fog);
   scene.fog = new THREE.Fog(SKY.fog, 28, 85);
-  scene.add(new THREE.HemisphereLight(SKY.hemiSky, SKY.hemiGround, 1.25));
+  const hemi = new THREE.HemisphereLight(SKY.hemiSky, SKY.hemiGround, 1.25);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(SKY.sunLight, 2.4);
   sun.position.copy(sunDir).multiplyScalar(90);
   sun.shadow.mapSize.set(2048, 2048);
@@ -46,16 +72,19 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
 
   // Sky dome: vertex-coloured gradient, warmest toward the sun. PLACEHOLDER: a sky shader with clouds.
   const skyGeo = new THREE.SphereGeometry(180, 48, 24);
-  const col: number[] = [];
-  const cZ = new THREE.Color(SKY.zenith), cU = new THREE.Color(SKY.upper), cH = new THREE.Color(SKY.horizon), cG = new THREE.Color(SKY.glow), c = new THREE.Color();
-  const sp = skyGeo.attributes.position, v = new THREE.Vector3();
-  for (let i = 0; i < sp.count; i++) {
-    v.fromBufferAttribute(sp, i).normalize();
-    const up = THREE.MathUtils.clamp(v.y, 0, 1), toSun = Math.max(0, v.dot(sunDir));
-    c.copy(cH).lerp(cU, Math.pow(up, 0.45)).lerp(cZ, Math.pow(up, 1.6)).lerp(cG, Math.pow(toSun, 8) * 0.9);
-    col.push(c.r, c.g, c.b);
-  }
-  skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(skyGeo.attributes.position.count * 3), 3));
+  const paintDome = (p: Pick<Phase, 'zenith' | 'upper' | 'horizon' | 'glow'>) => {
+    const cZ = new THREE.Color(p.zenith), cU = new THREE.Color(p.upper), cH = new THREE.Color(p.horizon), cG = new THREE.Color(p.glow), c = new THREE.Color();
+    const sp = skyGeo.attributes.position, col = skyGeo.attributes.color as THREE.BufferAttribute, v = new THREE.Vector3();
+    for (let i = 0; i < sp.count; i++) {
+      v.fromBufferAttribute(sp, i).normalize();
+      const up = THREE.MathUtils.clamp(v.y, 0, 1), toSun = Math.max(0, v.dot(sunDir));
+      c.copy(cH).lerp(cU, Math.pow(up, 0.45)).lerp(cZ, Math.pow(up, 1.6)).lerp(cG, Math.pow(toSun, 8) * 0.9);
+      col.setXYZ(i, c.r, c.g, c.b);
+    }
+    col.needsUpdate = true;
+  };
+  paintDome(SKY);
   const dome = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
   dome.name = 'sky';
   dome.renderOrder = 10;   // drawn after the world, so depth testing skips every pixel already covered
@@ -68,6 +97,18 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   disc.raycast = noRaycast;
   disc.renderOrder = 11;
   scene.add(disc);
+  // Stars, for dusk and night.
+  const starPos: number[] = [];
+  for (let i = 0; i < 500; i++) {
+    const a = i * 2.399, y = 0.12 + (i * 0.618 % 1) * 0.88, r = Math.sqrt(1 - y * y);
+    starPos.push(Math.cos(a) * r * 172, y * 172, Math.sin(a) * r * 172);
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+  const starMat = new THREE.PointsMaterial({ color: '#E8EEFF', size: 1.1, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
+  const stars = new THREE.Points(starGeo, starMat);
+  stars.name = 'stars'; stars.raycast = noRaycast; stars.renderOrder = 11;
+  scene.add(stars);
 
   // Light shafts: soft additive planes leaning along the sun direction, through the canopy gaps.
   // Cheap stand-ins for volumetric god rays (no extra pass, works on Low).
@@ -101,9 +142,29 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   motes.name = 'motes';
   scene.add(motes);
   const base = pos.slice();
+  let shaftBase = 0.18;
 
+  let time: TimeOfDay = 'day', elev = elevDeg;
   return {
     sun, sunDir, shafts,
+    get time() { return time; },
+    get elevationDeg() { return elev; },
+    setTime(t: TimeOfDay) {
+      const p = PHASES[t];
+      time = t; elev = p.elev;
+      dirOf(p.elev, p.az, sunDir);
+      sun.position.copy(sunDir).multiplyScalar(90);
+      sun.color.set(p.sun); sun.intensity = p.sunI;
+      hemi.color.set(p.hemiSky); hemi.groundColor.set(p.hemiGround); hemi.intensity = p.hemiI;
+      (scene.fog as THREE.Fog).color.set(p.fog);
+      (scene.background as THREE.Color).set(p.fog);
+      paintDome(p);
+      disc.position.copy(sunDir).multiplyScalar(170); disc.lookAt(0, 0, 0);
+      (disc.material as THREE.MeshBasicMaterial).color.set(p.disc).multiplyScalar(t === 'night' ? 1.1 : 1.5);
+      disc.scale.setScalar(t === 'night' ? 0.55 : 1);
+      shafts.visible = p.shafts > 0; shaftBase = p.shafts;
+      starMat.opacity = p.stars;
+    },
     update(t: number, camera: THREE.Camera) {
       const toCam = new THREE.Vector3(), n = new THREE.Vector3(), xa = new THREE.Vector3(), basis = new THREE.Matrix4(), sp0 = new THREE.Vector3(), q0 = new THREE.Quaternion(), sc0 = new THREE.Vector3();
       spots.forEach(([x, z, w], i) => {
@@ -116,7 +177,7 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
         shaftMesh.setMatrixAt(i, basis.compose(sp0, q0, sc0.set(w, 16, 1)));
       });
       shaftMesh.instanceMatrix.needsUpdate = true;
-      shaftMat.opacity = 0.18 + Math.sin(t * 0.5) * 0.04;
+      shaftMat.opacity = shaftBase + Math.sin(t * 0.5) * 0.04;
       const p = mg.attributes.position as THREE.BufferAttribute;
       for (let i = 0; i < N; i++) {
         p.array[i * 3] = base[i * 3] + Math.sin(t * 0.21 + seed[i]) * 0.6;

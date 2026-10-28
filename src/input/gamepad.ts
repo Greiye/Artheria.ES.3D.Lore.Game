@@ -9,6 +9,8 @@ import { padFamily, type PadFamily } from './glyphs';
 export class GamepadControls {
   private prev: boolean[] = [];
   private bookStickArmed = true;
+  private torchHold = 0;   // when D-pad down went down (ms)
+  private torchDone = false;
   connected = false;
   family: PadFamily = 'xbox';   // whose button names to show
   onFamily: (f: PadFamily) => void = () => {};
@@ -74,6 +76,11 @@ export class GamepadControls {
       if (pressed(B.pause)) this.g.pause();
       const cb = this.g.crossbow;   // F4
       if (pressed(B.equip)) { if (cb.equipped) cb.unequip(); else cb.equip(); haptics.play('tap'); }
+      if (pressed(B.dpadLeft)) this.g.quickSwap('left');
+      if (pressed(B.dpadRight)) this.g.quickSwap('right');
+      // Torch: hold D-pad down for 0.4 s to light it or put it out.
+      if (pressed(B.dpadDown)) { this.torchHold = performance.now(); this.torchDone = false; }
+      if (now[B.dpadDown] && !this.torchDone && performance.now() - this.torchHold >= 400) { this.torchDone = true; this.g.toggleTorch(); }
       if (pressed(B.fire)) this.g.fire();
       if (pressed(B.reload)) cb.pressReload();
       cb.setADS(!!now[B.aim]);

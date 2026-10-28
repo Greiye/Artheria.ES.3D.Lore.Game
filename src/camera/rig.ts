@@ -130,7 +130,7 @@ export class CameraRig {
         target = 0;
         for (let t = 0.05; t <= 1.0001; t += 0.05) {
           q.copy(this.look).addScaledVector(offset, t);
-          if (q.y < 0.2 || q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad))) break;
+          if (q.y < 0.2 || q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad, q.y))) break;
           target = t;
         }
         if (target * dist >= Math.min(MIN_CLEAR, dist) || elev >= 1.35) break;
@@ -200,9 +200,10 @@ export class CameraRig {
     return { pos, look: book.clone(), fov: 45 };
   }
 
-  private blocked(x: number, z: number, pad: number): boolean {
+  private blocked(x: number, z: number, pad: number, y = 0): boolean {
     if (Math.abs(x) > this.bounds - pad || Math.abs(z) > this.bounds - pad) return true;
     for (const c of this.colliders) {
+      if (c.top !== undefined && y > c.top + 0.3) continue;   // above a rock or low wall: clear
       if (c.kind === 'circle') { if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return true; }
       else if (x > c.minX - pad && x < c.maxX + pad && z > c.minZ - pad && z < c.maxZ + pad) return true;
     }

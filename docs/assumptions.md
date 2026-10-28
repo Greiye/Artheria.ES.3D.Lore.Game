@@ -83,3 +83,7 @@ Places where the spec was ambiguous, where browsers forced a choice, or where th
 | 77 | v0.04 camera | "Only 5 perspective distances": first person, over the shoulder, follow, high, overhead. The follow camera still turns freely; only the distance is stepped. |
 | 78 | v0.04 controller | Mike asked for a new controller layout without naming one. It follows action-RPG convention (A use, Y jump, triggers aim/fire, shoulders camera). The D-pad's left, right and down stay free for the quick-swap and torch work. |
 | 79 | v0.04 mobile | "Mobile primarily, landscape" means landscape is requested, not forced: iOS Safari can't lock orientation, so portrait shows a hint instead. Portrait stays allowed for reading (feedback item, coming later). |
+| 80 | v0.04 torch | Mike picked: hold D-pad down 0.4 s to light it, hold again to put it out, so a tap stays free. Everyone carries a torch from the start. |
+| 81 | v0.04 quick swap | Skyrim's D-pad favourites are reduced to two hand slots: left (empty / torch), right (hands / crossbow). More items join the cycle as they're added (instruments, tools). |
+| 82 | v0.04 climbing | "Climbable section of fallen rocks" is a stack of stone slabs with flat tops, placed away from the paths so the scattered props keep their spots. Vaulting is automatic on jump; there's no separate climb button. |
+| 83 | v0.04 time | Time of day has three phases (day, sunset, night) and moves only when you sleep; there is no running clock. A new session always starts at sunset. |
