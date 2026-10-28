@@ -204,10 +204,11 @@ async function open(opts, init) {
   const half = await stickRun(-0.45);
   check('Gamepad: left stick full = run, forward', full.v > 4 && full.v < 5.8 && full.dx < 0, full.v.toFixed(2) + ' m/s');
   check('Gamepad: left stick partial = walk', half.v > 0.3 && half.v < 2.6, half.v.toFixed(2) + ' m/s');
-  await G(page, () => { window.__pad.buttons[4].pressed = true; });
+  await axes([0, -1, 0, 0]); await btn(10);   // L3 click while moving: sprint until the stick is let go
   const spr = await stickRun(-1);
-  await G(page, () => { window.__pad.buttons[4].pressed = false; }); await frames(page);
-  check('Gamepad: LB (hold) sprints', spr.v > 6.8 && spr.v < 8.8, spr.v.toFixed(2) + ' m/s');
+  await frames(page, 3);
+  const sprintOff = await G(page, () => !window.__gametool.player.held.has('sprint'));
+  check('v0.04 Gamepad: L3 sprints until the stick is let go', sprintOff && spr.v > 6.8 && spr.v < 8.8, spr.v.toFixed(2) + ' m/s');
   await restoreColliders(page);
   const y0 = await G(page, () => window.__gametool.player.yaw);
   await axes([0, 0, 1, 0]); await page.waitForTimeout(400); await axes([0, 0, 0, 0]);
@@ -219,10 +220,25 @@ async function open(opts, init) {
   for (let i = 0; i < 12; i++) { peak = Math.max(peak, (await pos(page)).y); await page.waitForTimeout(40); }
   check('Gamepad: Y jumps', peak > 0.5, 'apex ' + peak.toFixed(2));
   await page.waitForTimeout(800);
-  await btn(10);
+  await btn(1);
   const sn = await G(page, () => window.__gametool.player.sneaking);
-  await btn(10);
-  check('Gamepad: L3 toggles sneak', sn && !(await G(page, () => window.__gametool.player.sneaking)));
+  await btn(1);
+  check('v0.04 Gamepad: B toggles sneak', sn && !(await G(page, () => window.__gametool.player.sneaking)));
+  const h0 = await G(page, () => window.__gametool.haptics.played);
+  await btn(3, 60); await page.waitForTimeout(900);
+  check('v0.04 Gamepad: haptics fire on jump and landing', (await G(page, () => window.__gametool.haptics.played)) >= h0 + 2);
+  const st0 = await G(page, () => window.__gametool.rig.step);
+  await btn(5); const st1 = await G(page, () => window.__gametool.rig.step);
+  await btn(4); await btn(4); const st2 = await G(page, () => window.__gametool.rig.step);
+  check('v0.04 Gamepad: RB / LB step the camera out / in', st1 === st0 + 1 && st2 === st0 - 1, [st0, st1, st2].join('→'));
+  await btn(5);
+  await btn(11); const fp = await G(page, () => !window.__gametool.player.thirdPerson);
+  await btn(11); const back3 = await G(page, () => window.__gametool.player.thirdPerson);
+  check('v0.04 Gamepad: R3 toggles first person', fp && back3);
+  await G(page, () => { window.__pad.id = 'DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c)'; }); await frames(page);
+  const ps = await G(page, () => ({ pad: document.body.dataset.pad, map: document.querySelector('#pause [data-padmap]').textContent }));
+  check('v0.04 Gamepad: a PlayStation pad shows its own button names in the controls map', ps.pad === 'playstation' && ps.map.includes('✕') && ps.map.includes('R2'), JSON.stringify(ps).slice(0, 120));
+  await G(page, () => { window.__pad.id = 'Test Pad (STANDARD GAMEPAD)'; }); await frames(page);
   await teleport(page, 0, 1.4, 0, -0.45);
   check('Gamepad: prompt shows "A — Read"', (await page.textContent('#prompt')).includes('A'));
   await btn(0);

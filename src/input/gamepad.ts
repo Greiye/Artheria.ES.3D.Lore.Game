@@ -1,5 +1,7 @@
 import { controls } from '../controls';
 import type { GameHooks } from './hooks';
+import { haptics } from './haptics';
+import { padFamily, type PadFamily } from './glyphs';
 
 // Gamepad support via the standard Gamepad API mapping (Xbox / PlayStation / Switch Pro on
 // Chrome, Edge, Firefox, Safari incl. iOS). Owner promoted B7 gamepad on 2026-10-16.
@@ -8,6 +10,8 @@ export class GamepadControls {
   private prev: boolean[] = [];
   private bookStickArmed = true;
   connected = false;
+  family: PadFamily = 'xbox';   // whose button names to show
+  onFamily: (f: PadFamily) => void = () => {};
 
   constructor(private g: GameHooks, private sensitivity: () => number) {
     window.addEventListener('gamepadconnected', () => { this.connected = true; });
@@ -40,9 +44,11 @@ export class GamepadControls {
     if (!p) return;
     this.connected = true;
     const B = controls.gamepad.buttons;
-    const now = p.buttons.map((b) => b.pressed);
+    const fam = padFamily(p.id);
+    if (fam !== this.family) { this.family = fam; this.onFamily(fam); }
+    // Triggers count as pressed past the threshold of their analog travel.
+    const now = p.buttons.map((b, i) => i === B.aim || i === B.fire ? b.value > controls.gamepad.trigger || (b.pressed && b.value === 0) : b.pressed);
     const pressed = (i: number) => !!now[i] && !this.prev[i];
-    const released = (i: number) => !now[i] && !!this.prev[i];
     const [lx, ly] = this.stick(p.axes[0] ?? 0, p.axes[1] ?? 0);
     const [rx, ry] = this.stick(p.axes[2] ?? 0, p.axes[3] ?? 0);
     if (now.some(Boolean) || lx || ly || rx || ry) this.g.setMode('pad');
@@ -55,15 +61,19 @@ export class GamepadControls {
       const ls = controls.gamepad.lookSpeed * this.sensitivity();
       pl.analogLook.x = rx * Math.abs(rx) * ls;     // squared response: fine aim near centre
       pl.analogLook.y = ry * Math.abs(ry) * ls;
+      // Sprint: click L3, it holds until the stick is let go.
       if (pressed(B.sprint)) pl.held.add('sprint');
-      if (released(B.sprint)) pl.held.delete('sprint');
-      if (pressed(B.jump)) pl.jump();
+      else if (Math.hypot(lx, ly) < 0.2) pl.held.delete('sprint');
+      if (pressed(B.jump)) { pl.jump(); haptics.play('jump'); }
       if (pressed(B.sneak)) pl.toggleSneak();
-      if (pressed(B.toggleRun)) this.g.toggleRun();
+      if (pressed(B.view)) this.g.toggleView();
+      if (pressed(B.zoomIn)) this.g.stepCamera(-1);
+      if (pressed(B.zoomOut)) this.g.stepCamera(1);
       if (pressed(B.activate)) this.g.activate();
+      if (pressed(B.inventory)) this.g.openInventory();
       if (pressed(B.pause)) this.g.pause();
       const cb = this.g.crossbow;   // F4
-      if (pressed(B.equip)) { if (cb.equipped) cb.unequip(); else cb.equip(); }
+      if (pressed(B.equip)) { if (cb.equipped) cb.unequip(); else cb.equip(); haptics.play('tap'); }
       if (pressed(B.fire)) this.g.fire();
       if (pressed(B.reload)) cb.pressReload();
       cb.setADS(!!now[B.aim]);

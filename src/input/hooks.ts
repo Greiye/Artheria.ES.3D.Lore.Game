@@ -22,5 +22,7 @@ export interface GameHooks {
   closeInventory(): void;
   openInventory(): void;
   toggleRun(): void;
+  toggleView(): void;            // first person <-> follow
+  stepCamera(n: number): void;  // v0.04: one camera distance out (+1) or in (-1)
   setMode(m: InputMode): void;
 }

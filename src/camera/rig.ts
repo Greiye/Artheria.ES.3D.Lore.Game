@@ -5,8 +5,10 @@ import type { Player } from '../player';
 
 // The camera rig, split out of the player (rebuild R3; storybook restyle S1, docs/vision.md).
 // - follow (default): a Dark Cloud 2 / Ragnarok Online style orbit camera above and behind the player.
-//   The wheel (or a vertical drag / right stick) zooms from a close over-the-back view out to a high,
-//   narrow-FOV overview; dragging turns it. It eases after the player and never sits inside a wall.
+//   The wheel (or a pinch / right stick) steps through 5 fixed distances (v0.04 feedback): first person,
+//   over the shoulder, follow, high and overhead; the camera eases between them. Dragging turns it. It eases
+//   after the player and never sits inside a wall: blocked close up, it cranes up over the head rather than
+//   pushing into it, so a wall never turns the view into first person.
 // - first person (F, or aiming the crossbow): camera at the eyes.
 // - shot: a framed cinematic pose for reading and dialogue, blended in and out over ~0.6 s.
 export interface Shot { pos: THREE.Vector3; look: THREE.Vector3; fov: number }
@@ -15,6 +17,12 @@ const ease = (t: number) => t * t * (3 - 2 * t);
 const ZOOM_KEY = 'gametool.camZoom';
 // Follow camera shape at zoom 0 (close) and 1 (overview).
 export const FOLLOW = { distNear: 3.6, distFar: 17, elevNear: 0.32, elevFar: 0.95, fovFar: 32, lookNear: 1.45, lookFar: 0.9 };
+/** The 5 camera distances, near to far. Step 0 is first person; the others are follow-camera zooms. */
+export const STEPS = [
+  { name: 'first', zoom: 0 }, { name: 'shoulder', zoom: 0 }, { name: 'follow', zoom: 0.3 }, { name: 'high', zoom: 0.65 }, { name: 'overhead', zoom: 1 },
+] as const;
+const SHOULDER = { side: 0.55, dist: 2.3, elev: 0.14, look: 1.5 };   // over the right shoulder
+const MIN_CLEAR = 1.3;   // closest the follow camera may come to the look point before it cranes up instead
 
 export class CameraRig {
   private shot: Shot | null = null;
@@ -35,17 +43,46 @@ export class CameraRig {
   private viewT = 1;
   private viewFromPos = new THREE.Vector3();
   private viewFromQ = new THREE.Quaternion();
-  zoom = 0.35;
+  private cur = 0.3;                      // the zoom shown, easing toward `target`
+  private target = 0.3;
+  private shoulderT = 0;                  // 0..1 blend into the over-the-shoulder framing
+  private stepAcc = 0;
+  /** Follow-camera step, 1 (shoulder) … 4 (overhead). */
+  step = 2;
+  get zoom(): number { return this.cur; }
+  /** Jump straight to a zoom (tests, framed setups); the nearest step is remembered. */
+  set zoom(z: number) {
+    this.cur = this.target = THREE.MathUtils.clamp(z, 0, 1);
+    this.step = this.nearestStep(this.cur);
+  }
   // Highest the camera may go at (x, z), e.g. under the dungeon ceiling. Set by main.ts.
   ceiling: (x: number, z: number) => number = () => Infinity;
 
   constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], public bounds: number, private baseFov: () => number) {
-    try { const z = Number(localStorage.getItem(ZOOM_KEY)); if (localStorage.getItem(ZOOM_KEY) !== null && z >= 0 && z <= 1) this.zoom = z; } catch { /* default */ }
+    try {
+      const v = Number(localStorage.getItem(ZOOM_KEY));
+      if (localStorage.getItem(ZOOM_KEY) !== null && v >= 0 && v <= 1) { this.zoom = v; this.target = STEPS[this.step].zoom; }
+    } catch { /* default */ }
   }
 
-  zoomBy(d: number) {
-    this.zoom = THREE.MathUtils.clamp(this.zoom + d, 0, 1);
-    try { localStorage.setItem(ZOOM_KEY, this.zoom.toFixed(3)); } catch { /* blocked */ }
+  private nearestStep(z: number): number {
+    let best = 2;
+    for (let i = 2; i < STEPS.length; i++) if (Math.abs(STEPS[i].zoom - z) < Math.abs(STEPS[best].zoom - z)) best = i;
+    return z < 0.15 ? 1 : best;
+  }
+  /** Go to a follow step (1..4). */
+  setStep(i: number) {
+    this.step = THREE.MathUtils.clamp(i, 1, STEPS.length - 1);
+    this.target = STEPS[this.step].zoom;
+    try { localStorage.setItem(ZOOM_KEY, this.target.toFixed(3)); } catch { /* blocked */ }
+  }
+  /** A continuous zoom input (pinch, right stick): every 0.12 of it is one step. Returns the steps taken (±). */
+  zoomBy(d: number): number {
+    this.stepAcc += d;
+    if (Math.abs(this.stepAcc) < 0.12) return 0;
+    const n = Math.sign(this.stepAcc);
+    this.stepAcc = 0;
+    return n;
   }
   // FOV of the play view: the overview end of the zoom narrows it toward a near-isometric look.
   get playFov(): number {
@@ -72,18 +109,32 @@ export class CameraRig {
       this.free = 0;
       this.hasSmooth = false;
     } else {
-      const z = this.zoom, L = THREE.MathUtils.lerp;
-      const dist = L(FOLLOW.distNear, FOLLOW.distFar, Math.pow(z, 1.2)), elev = L(FOLLOW.elevNear, FOLLOW.elevFar, z);
-      this.look.set(p.pos.x, p.pos.y + L(FOLLOW.lookNear, FOLLOW.lookFar, z), p.pos.z);
-      const offset = new THREE.Vector3(Math.sin(p.yaw) * Math.cos(elev), Math.sin(elev), Math.cos(p.yaw) * Math.cos(elev)).multiplyScalar(dist);
+      const L = THREE.MathUtils.lerp, ek = 1 - Math.pow(0.002, dt);
+      this.cur = Math.abs(this.target - this.cur) < 0.002 ? this.target : L(this.cur, this.target, ek);
+      this.shoulderT = L(this.shoulderT, this.step === 1 ? 1 : 0, ek);
+      const z = this.cur, sh = this.shoulderT;
+      const dist = L(L(FOLLOW.distNear, FOLLOW.distFar, Math.pow(z, 1.2)), SHOULDER.dist, sh);
+      let elev = L(L(FOLLOW.elevNear, FOLLOW.elevFar, z), SHOULDER.elev, sh);
+      // Over the shoulder: the look point shifts right of the player (the camera follows it sideways).
+      const side = SHOULDER.side * sh, rx = -Math.cos(p.yaw), rz = Math.sin(p.yaw);
+      this.look.set(p.pos.x + rx * side, p.pos.y + L(L(FOLLOW.lookNear, FOLLOW.lookFar, z), SHOULDER.look, sh), p.pos.z + rz * side);
+      const offset = new THREE.Vector3();
+      const q = new THREE.Vector3();
       // F2.4 wall collision: walk out from the look point in 5% steps and stop before a collider
       // (walls count only below 9 m, so the overview can look down over the library's roofless walls).
-      const q = new THREE.Vector3();
+      // v0.04 fix: if that leaves the camera too close (it would sit in the head and read as first person),
+      // crane up in steps until it clears, as a real crane would over a wall.
       let target = 0;
-      for (let t = 0.05; t <= 1.0001; t += 0.05) {
-        q.copy(this.look).addScaledVector(offset, t);
-        if (q.y < 0.2 || q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad))) break;
-        target = t;
+      for (let crane = 0; crane < 6; crane++) {
+        offset.set(Math.sin(p.yaw) * Math.cos(elev), Math.sin(elev), Math.cos(p.yaw) * Math.cos(elev)).multiplyScalar(dist);
+        target = 0;
+        for (let t = 0.05; t <= 1.0001; t += 0.05) {
+          q.copy(this.look).addScaledVector(offset, t);
+          if (q.y < 0.2 || q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad))) break;
+          target = t;
+        }
+        if (target * dist >= Math.min(MIN_CLEAR, dist) || elev >= 1.35) break;
+        elev = Math.min(1.35, elev + 0.22);
       }
       // Pull in at once (never clip a wall), ease back out (no popping when a tree passes).
       this.free = target < this.free || !this.wasThird ? target : Math.min(target, this.free + dt * 2.5);
