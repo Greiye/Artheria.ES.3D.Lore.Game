@@ -7,6 +7,18 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Hand-drawn head and face sheets
+
+- **Your own head art:** drop `<id>.png` (head) and `<id>-face.png` (face) into `src/art/heads/` and rebuild.
+  They're inlined into the game file. Optional Aseprite JSON sets the frames, and each tag becomes an expression.
+  Ids: `heroine` (default player), `hero`, `natalie`, `pedlar`. Missing files fall back to the drawn heads.
+  The format is in `src/art/heads/README.md`.
+- **Heads are two layers:** a head sheet (5 directions, the other 3 mirrored, or 8 as drawn) and a face sheet
+  (one row per expression; front, three-quarter and profile columns). The drawn heads use the same layout.
+- **Face swap, as in Mega Man Legends:** characters blink every 2–5 s and move their mouths (`talk-a`/`talk-b`)
+  while talking. Changing expression only moves the face to another frame of its sheet.
+- `art-templates/`: guide templates and starter sheets (the current drawn heads) to paint over in Aseprite.
+
 ### Storybook restyle S2h: 2D drawn heads, no 3D head
 
 - **Heads are flat 2D pixel art** (`src/render/headArt.ts`), as in Tree of Savior. Each look gets one drawn

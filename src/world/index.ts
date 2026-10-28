@@ -313,12 +313,12 @@ export function buildWorld(): World {
     standees[id] = obj;
   };
   place('stagecoach', buildCoach(3.4), -5.0, -2.6, 0.5, 1.5);
-  place('hero', buildFigure({ skin: '#F0C8A0', hair: '#6B3E22', primary: '#3E6FA8', secondary: '#7FA8D0', boots: '#2E4A6E', accent: '#F2C94C', hairStyle: 'spiky' }, 1.8), 3.8, 3.2, -0.6, 0.35);
+  place('hero', buildFigure({ art: 'hero', skin: '#F0C8A0', hair: '#6B3E22', primary: '#3E6FA8', secondary: '#7FA8D0', boots: '#2E4A6E', accent: '#F2C94C', hairStyle: 'spiky' }, 1.8), 3.8, 3.2, -0.6, 0.35);
   // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
   const NAT = { x: -2.8, z: LIB.front + 1.8 };
-  place('natalie', buildFigure({ skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
+  place('natalie', buildFigure({ art: 'natalie', skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
   // Phase D (B12): the Curio Pedlar, an Owlkin trader by the coach road (placeholder NPC, docs/assumptions.md #56).
-  place('pedlar', buildFigure({ skin: '#C9A27A', hair: '#7A5A3A', primary: '#5A6B3A', secondary: '#B08A4A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'owl', build: 1.15 }, 1.6), -7.8, -5.4, 0.9, 0.4);
+  place('pedlar', buildFigure({ art: 'pedlar', skin: '#C9A27A', hair: '#7A5A3A', primary: '#5A6B3A', secondary: '#B08A4A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'owl', build: 1.15 }, 1.6), -7.8, -5.4, 0.9, 0.4);
   const natalieTarget = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
   natalieTarget.name = 'natalie';
   natalieTarget.position.set(NAT.x, 0.9, NAT.z);

@@ -110,7 +110,7 @@ const figs = () => G(page, () => {
       if (c.name === 'head-sprite' && c.visible) {
         const map = c.material.uniforms.map.value;
         out.headBoards++; out.nearest &&= map.magFilter === 1003;
-        if (map.image instanceof HTMLCanvasElement && map.image.width === map.image.height * 8 * 96 / 104) out.drawnHeads++;   // an 8-frame drawn sheet
+        if (map.image.height === 104 && c.material.uniforms.faceMap.value) out.drawnHeads++;   // a head sheet with a face sheet
       }
       if (c.name === 'figure-body' && c.layers.test(cam.layers)) out.bodies3d++;
       if (c.name === 'figure-head' || c.name === 'face') out.heads3d++;
@@ -119,7 +119,15 @@ const figs = () => G(page, () => {
   return out;
 });
 const hy = await figs();
-check('S2h default: every character is a 3D body under a flat 2D drawn head (8-frame sheet); no 3D head exists', hy.figures >= 3 && hy.bodies3d === hy.figures && hy.headBoards === hy.figures && hy.drawnHeads === hy.figures && hy.heads3d === 0 && hy.boards === 0 && hy.nearest, JSON.stringify(hy));
+check('S2h default: every character is a 3D body under a flat 2D head (head + face sheets); no 3D head exists', hy.figures >= 3 && hy.bodies3d === hy.figures && hy.headBoards === hy.figures && hy.drawnHeads === hy.figures && hy.heads3d === 0 && hy.boards === 0 && hy.nearest, JSON.stringify(hy));
+// Face swap: an expression only moves the face layer to another row of its sheet. Read the heads seen from the
+// front side (the back shows no face).
+const faceRows = () => G(page, () => { const r = []; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) r.push(o.material.uniforms.faceFrame.value.w); }); return r; });
+const rows0 = await faceRows();
+await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) o.userData.expression = 'talk-b'; }));
+const swapped = await until(page, () => { let n = 0, moved = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) { n++; if (o.material.uniforms.faceFrame.value.w < 0.01) moved++; } }); return n > 0 && moved === n; }, null, 5000);
+await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) delete o.userData.expression; }));
+check('Faces swap expressions by frame (talk-b moves every visible face to the last row of its sheet)', rows0.length > 0 && rows0.every((v) => v > 0.01) && swapped, JSON.stringify({ rows0 }));
 const setChars = (v) => G(page, (v) => { const s = document.getElementById('charsSel'); s.value = v; s.dispatchEvent(new Event('change')); }, v);
 await setChars('sprite');
 await until(page, () => { let n = 0, f = 0; window.__gametool.world.scene.traverse((o) => { if (o.userData.sprite) f++; if (o.name === 'sprite' && o.visible) n++; }); return n === f; }, null, 5000);
