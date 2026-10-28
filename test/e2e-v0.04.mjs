@@ -98,6 +98,22 @@ const node = (page) => G(page, () => window.__gametool.dialogue.currentId);
   check('F3.4 talking again does not duplicate items', await G(page, () => window.__gametool.inventory.count('crossbow') === 1 && window.__gametool.inventory.count('bolt') === 10));
   if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn');
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 8000 });
+  // v0.05: choices are D-pad / arrow friendly: one is highlighted, up/down move it (wrapping), E / Enter / A pick it.
+  await faceNatalie(page); await page.waitForTimeout(200);
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => window.__gametool.state === 'dialogue');
+  for (let i = 0; i < 6 && (await node(page)) !== 'n2'; i++) { await page.keyboard.press('Space'); await page.waitForTimeout(150); }
+  await waitTyped(page);
+  const hi = () => G(page, () => [...document.querySelectorAll('#dialogue .d-choice')].findIndex((b) => b.classList.contains('on')));
+  const h0 = await hi(), nCh = await G(page, () => document.querySelectorAll('#dialogue .d-choice').length);
+  await page.keyboard.press('ArrowUp'); const hWrap = await hi();
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown'); const h1 = await hi();
+  await page.keyboard.press('KeyE');
+  await page.waitForTimeout(100);
+  check('v0.05 dialogue choices: up/down move the highlight (wrapping), E picks it (2nd -> n4)', h0 === 0 && hWrap === nCh - 1 && h1 === 1 && (await node(page)) === 'n4', [h0, hWrap, h1].join(','));
+  for (let i = 0; i < 6 && await G(page, () => window.__gametool.state === 'dialogue'); i++) { await page.keyboard.press('Space'); await page.waitForTimeout(150); }
+  if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn');
+  await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 8000 });
   // F3.4 inventory (I)
   await page.keyboard.press('KeyI');
   await page.waitForFunction(() => window.__gametool.state === 'inventory', null, { timeout: 3000 });
@@ -110,7 +126,10 @@ const node = (page) => G(page, () => window.__gametool.dialogue.currentId);
   // The door is open: walk through it into the library.
   await page.waitForTimeout(1200);
   await G(page, () => { const pl = window.__gametool.player; pl.pos.set(0, 0, -14); pl.yaw = 0; pl.pitch = 0; });
-  await page.keyboard.down('KeyW'); await page.waitForTimeout(1600); await page.keyboard.up('KeyW');
+  // Hold W until through the doorway (or 6 s): game time, not a fixed wall-clock walk, so slow frames don't fail it.
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction(() => window.__gametool.player.pos.z < -20, null, { timeout: 6000, polling: 100 }).catch(() => undefined);
+  await page.keyboard.up('KeyW');
   const z = await G(page, () => window.__gametool.player.pos.z);
   check('F3.4 door opens: the player can walk into the library', z < -20, `z ${z.toFixed(2)}`);
   check('v0.04 path A: no console/page errors', errors.length === 0, errors.join(' | '));

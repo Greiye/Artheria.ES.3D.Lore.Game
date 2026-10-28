@@ -8,13 +8,15 @@ export interface AudioSettings {
   muteMaster: boolean; muteMusic: boolean; muteSfx: boolean; muteDialogue: boolean;
 }
 
+/** v0.05: the three camera perspectives. */
+export type View = 'first' | 'shoulder' | 'overhead';
 export interface Settings {
   schemaVersion: 1;
   sensitivity: number; // default 1.0
   fov: number;         // F1.1: 60-100 (D2)
   invertY: boolean;
   alwaysRun: boolean;  // default true
-  view: 'follow' | 'first';   // storybook restyle S1: starting camera, follow (Dark Cloud 2 style) by default
+  view: View;   // v0.05: the camera perspective; overhead (Dark Cloud 2 style) by default
   chars: 'hybrid' | 'sprite';   // restyle S2c: 3D bodies with pixel faces (default) or RO-style pixel sprites
   lastPage: number;
   haptics: boolean;    // v0.04: controller rumble / phone vibration
@@ -43,7 +45,7 @@ const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 
 const firstPreset: Preset = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'medium';
 const defaults: Settings = {
   schemaVersion: 1,
-  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'follow', chars: 'hybrid', lastPage: 0, haptics: true,
+  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true,
   preset: firstPreset, ...PRESETS[firstPreset],
   audio: { ...defaultAudio },
 };
@@ -79,7 +81,7 @@ export function loadSettings(): Settings {
       fov: clamp(s.fov, 60, 100, defaults.fov),
       invertY: bool(s.invertY, defaults.invertY),
       alwaysRun: bool(s.alwaysRun, defaults.alwaysRun),
-      view: s.view === 'first' ? 'first' : 'follow',
+      view: s.view === 'first' || s.view === 'shoulder' ? s.view : 'overhead',   // pre-v0.05 'follow' becomes overhead
       chars: s.chars === 'sprite' ? 'sprite' : 'hybrid',
       haptics: bool(s.haptics, true),
       lastPage: Number.isInteger(s.lastPage) && (s.lastPage as number) >= 0 ? (s.lastPage as number) : 0,

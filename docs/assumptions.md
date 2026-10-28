@@ -105,3 +105,6 @@ Places where the spec was ambiguous, where browsers forced a choice, or where th
 | 99 | CI scope | CI runs only the boot and town suites (the fast, stable ones). The full suite stays a local `npm run test:e2e`, because software rendering on CI makes the timing checks flaky. |
 | 100 | Painted atlas | "One atlas" from the style plan became one 64 px painted tile per surface (same API, same draw calls). A single packed atlas would break the 1 m tiling that every batched prop relies on. |
 | 101 | UI accent | The cyan accent becomes antique gold across the HTML UI. The in-world rune glow stays cyan. |
+| 102 | v0.05 perspectives | The three perspectives replace the v0.04 five-step zoom. Overhead uses the old "high" distance (zoom 0.7), a playable Dark Cloud 2 framing, and is the default, so v0.04 players keep a similar view. |
+| 103 | v0.05 shoulder swap | "Doubles as stance or weapon switching" = in the shoulder view the button swaps shoulders; in the other two views it switches weapon (hands ↔ crossbow). It takes D-pad up, which was already the weapon switch. Phones pick the perspective from the Camera list; there's no touch shoulder button yet. |
+| 104 | v0.05 dialogue keys | E, Enter and pad A pick the highlighted choice; Space and clicks on the box keep F3.2 (they never pick a choice). |

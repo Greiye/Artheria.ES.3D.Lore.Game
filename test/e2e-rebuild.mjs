@@ -41,8 +41,8 @@ await page.waitForFunction(() => window.__gametool.state === 'play', null, { tim
 
 // ---------- R3: follow camera ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; p.pitch = 0; });
-const follow = await until(page, () => { const g = window.__gametool; const d = g.player.eyePos.distanceTo(g.camera.position); return g.player.thirdPerson && d > 3 && d < 11 && g.camera.position.y > g.player.eyePos.y; });
-check('R3/S1 default view: follow camera behind and above the player', follow);
+const follow = await until(page, () => { const g = window.__gametool; const d = g.player.eyePos.distanceTo(g.camera.position); return g.player.thirdPerson && d > 3 && d < 15 && g.camera.position.y > g.player.eyePos.y; });
+check('R3/S1 default view: overhead (v0.05) camera behind and above the player', follow);
 
 // ---------- R3: reading shot ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0.2, 0, 1.6); p.yaw = 0; p.pitch = -0.35; });
@@ -53,7 +53,7 @@ const framed = await until(page, () => { const g = window.__gametool; return g.c
 await page.screenshot({ path: path.join(shots, 'rebuild-reading-shot.png') });
 check('R3 opening the lectern book frames it (camera < 2.2 m away, 45° FOV)', framed);
 await page.keyboard.press('Tab');
-const back = await until(page, () => { const g = window.__gametool; return g.state !== 'book' && !g.rig.inShot && Math.abs(g.camera.fov - g.settings.fov) < 0.5; });
+const back = await until(page, () => { const g = window.__gametool; return g.state !== 'book' && !g.rig.inShot && Math.abs(g.camera.fov - g.rig.playFov) < 0.5; });
 check('R3 closing the book blends back to the play camera', back);
 
 // ---------- R4 / v0.04: follow camera against a wall cranes up over the player (never inside the head) ----------

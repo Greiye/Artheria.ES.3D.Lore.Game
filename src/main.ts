@@ -12,7 +12,7 @@ import { buildLibrary, type LibraryHit } from './library';
 import { setLinkResolver } from './markdown';
 import greyBooks from '../content/rolltables/grey-books.json';
 import { controls, actionFor, binds, REBINDABLE, bindKey, resetKeys, keyLabel, type Action } from './controls';
-import { loadSettings, saveSettings, flushSettings, PRESETS, type Preset, type FpsCap } from './settings';
+import { loadSettings, saveSettings, flushSettings, PRESETS, type Preset, type FpsCap, type View } from './settings';
 import { audio } from './audio';
 import { VERSION, AUTHOR } from './version';
 import { TouchControls } from './input/touch';
@@ -26,7 +26,7 @@ import { Inventory, ITEMS } from './inventory';
 import { Crossbow, ZONE } from './crossbow';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
-import { CameraRig } from './camera/rig';
+import { CameraRig, OVERHEAD } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
 import { FigureAnim, BodyAnim, type AnimInput } from './anim/procedural';
 import { Dust } from './fx/dust';
@@ -170,7 +170,8 @@ ui.innerHTML = `
         <tr><td>Alt</td><td>Sprint (hold)</td><td>Space</td><td>Jump</td></tr>
         <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
-        <tr><td>F</td><td>Third / first person</td><td>Wheel</td><td>Camera distance (5 steps)</td></tr>
+        <tr><td>F</td><td>Camera: first person / shoulder / overhead</td><td>Wheel</td><td>Camera in / out</td></tr>
+        <tr><td>Q</td><td>Swap shoulder (or weapon)</td><td></td><td></td></tr>
         <tr><td>E at the fire</td><td>Write lore</td><td>T</td><td>Torch</td></tr>
       </table>
       <p class="fine">Private project · all rights reserved.</p>
@@ -206,7 +207,7 @@ ui.innerHTML = `
       <button id="quitToMenu" class="secondary">Save and return to the menu</button>
       <label>Look sensitivity <output id="sensOut"></output><input id="sens" type="range" min="0.2" max="3" step="0.05"></label>
       <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
-      <label>Camera <select id="viewSel"><option value="follow">Follow (Dark Cloud 2 style)</option><option value="first">First person</option></select></label>
+      <label>Camera <select id="viewSel"><option value="overhead">Overhead (Dark Cloud 2 style)</option><option value="shoulder">Over the shoulder</option><option value="first">First person</option></select></label>
       <label>Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="invert" type="checkbox"> Invert Y</label>
       <label class="check"><input id="always" type="checkbox"> Always run (Caps Lock)</label>
@@ -329,9 +330,9 @@ function setMode(m: InputMode) {
 // v0.04: the controller map, drawn from controls.gamepad with the pad's own button names.
 const PAD_MAP: [side: 'l' | 'r', button: number | string, what: string][] = [
   ['l', 6, 'Aim (crossbow)'], ['l', 4, 'Camera in · page back'], ['l', 'Left stick', 'Move · click: sprint'],
-  ['l', 12, 'Crossbow / hands'], ['l', 14, 'Quick swap: left hand (torch)'], ['l', 13, 'Hold: torch'], ['l', 8, 'Bag'],
+  ['l', 12, 'Swap shoulder · weapon'], ['l', 14, 'Quick swap: left hand (torch)'], ['l', 13, 'Hold: torch'], ['l', 8, 'Bag'],
   ['r', 7, 'Fire'], ['r', 15, 'Quick swap: right hand'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
-  ['r', 0, 'Use · talk · read'], ['r', 'Right stick', 'Look · click: first person'], ['r', 9, 'Pause'],
+  ['r', 0, 'Use · talk · read'], ['r', 'Right stick', 'Look · click: change camera'], ['r', 9, 'Pause'],
 ];
 function renderPadMap(fam: PadFamily) {
   const row = ([, b, what]: (typeof PAD_MAP)[number]) =>
@@ -409,8 +410,7 @@ async function begin() {
   }
   begun = true;
   audio.water(false);
-  player.thirdPerson = settings.view !== 'first';
-  document.body.dataset.view = settings.view;
+  setView(settings.view, false);
   setState('play');                             // in the world immediately, even before lock resolves
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
@@ -1127,22 +1127,32 @@ function quickSwap(hand: 'left' | 'right') {
   haptics.play('tap');
   showQuick();
 }
-// One camera step out (+1) or in (-1): first person <-> shoulder <-> follow <-> high <-> overhead.
+// v0.05: three perspectives, first person <-> over the shoulder <-> overhead. One step out (+1) or in (-1).
+const VIEWS: View[] = ['first', 'shoulder', 'overhead'];
+const currentView = (): View => (!player.thirdPerson ? 'first' : rig.step === 1 ? 'shoulder' : 'overhead');
 function stepView(n: number) {
   if (!n || crossbow.equipped) return;
-  if (!player.thirdPerson) { if (n > 0) { rig.setStep(1); setView('follow'); } return; }
-  if (n < 0 && rig.step <= 1) { setView('first'); return; }
-  rig.setStep(rig.step + n);
+  const i = THREE.MathUtils.clamp(VIEWS.indexOf(currentView()) + Math.sign(n), 0, VIEWS.length - 1);
+  setView(VIEWS[i]);
 }
-// S1: follow (default) or first person. Stepping in past the shoulder view goes first person;
-// stepping out leaves it. The pause menu's Camera list sets the same thing (and is how phones pick it).
-function setView(v: 'follow' | 'first', save = true) {
-  if (crossbow.equipped) { viewBeforeCrossbow = v === 'follow'; return; }   // applies when the crossbow is put away
-  player.thirdPerson = v === 'follow';
-  if (player.thirdPerson) player.pitch = 0;
-  document.body.dataset.view = v;
+/** F / R3 / the touch eye button: cycle first person -> shoulder -> overhead -> first person. */
+function cycleView() { setView(VIEWS[(VIEWS.indexOf(currentView()) + 1) % VIEWS.length]); }
+// The pause menu's Camera list sets the same thing (and is how phones pick it).
+function setView(v: View, save = true) {
+  if (v !== 'first') rig.setStep(v === 'shoulder' ? 1 : OVERHEAD);
   if (save && settings.view !== v) { settings.view = v; saveSettings(settings); }
+  if (crossbow.equipped) { viewBeforeCrossbow = v !== 'first'; return; }   // applies when the crossbow is put away
+  player.thirdPerson = v !== 'first';
+  if (player.thirdPerson) player.pitch = 0;
+  document.body.dataset.view = player.thirdPerson ? 'follow' : 'first';
   syncLock();
+}
+// v0.05 shoulder swap (Q / D-pad up): in the shoulder view it swaps the shoulder; in the other views it
+// doubles as the weapon switch (hands <-> crossbow), like the shoulder / stance swap in other action games.
+function shoulderSwap() {
+  if (state !== 'play') return;
+  if (player.thirdPerson && rig.step === 1 && !crossbow.equipped) { rig.swapShoulder(); haptics.play('tap'); return; }
+  quickSwap('right');
 }
 // First person locks the pointer (from the key press that switched to it); the follow view frees it.
 function syncLock() {
@@ -1452,14 +1462,16 @@ const hooks: GameHooks = {
   resume: () => void resumePlay(),
   activate,
   lookingAtBook: () => lookingAt !== null,
-  advanceDialogue: () => dialogue.advance(),
+  advanceDialogue: () => dialogue.press(),
   closeInventory,
   openInventory,
   crossbow,
   fire,
   hasCrossbow: () => inventory.count('crossbow') > 0,
   toggleRun: () => toggleRun(),
-  toggleView: () => setView(player.thirdPerson ? 'first' : 'follow'),
+  toggleView: () => cycleView(),
+  shoulderSwap: () => shoulderSwap(),
+  dialogueMove: (d: number) => dialogue.move(d),
   stepCamera: (n) => stepView(n),
   toggleTorch: () => toggleTorch(),
   quickSwap: (h) => quickSwap(h),
@@ -1475,7 +1487,7 @@ $('begin').textContent = inputMode === 'touch' ? 'Tap to begin' : 'Click to begi
 
 // ---------- keyboard (F2.1) ----------
 const MOVE: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'sprint'];
-const ALL: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'toggleRun', 'sprint', 'jump', 'sneak', 'activate', 'pov', 'close', 'pause'];
+const ALL: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'toggleRun', 'sprint', 'jump', 'sneak', 'activate', 'pov', 'shoulder', 'close', 'pause'];
 let capsToggledAt = -1e9;
 
 function toggleRun() {
@@ -1524,7 +1536,8 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (a === 'jump') player.jump();
   else if (a === 'sneak') player.toggleSneak();
-  else if (a === 'pov') setView(player.thirdPerson ? 'first' : 'follow');
+  else if (a === 'pov') cycleView();
+  else if (a === 'shoulder') shoulderSwap();
   else if (a === 'toggleRun') toggleRun();
   else if (a === 'activate') activate();
   else if (a === 'pause') { pauseFrom = 'play'; setState('pause'); }   // only reaches here when the pointer isn't locked
@@ -1631,7 +1644,7 @@ fov.addEventListener('input', () => {
 });
 inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSettings(settings); });
 const viewSel = $<HTMLSelectElement>('viewSel');
-viewSel.addEventListener('change', () => setView(viewSel.value === 'first' ? 'first' : 'follow'));
+viewSel.addEventListener('change', () => setView(VIEWS.includes(viewSel.value as View) ? viewSel.value as View : 'overhead'));
 $<HTMLInputElement>('haptics').addEventListener('change', (e) => {
   settings.haptics = (e.target as HTMLInputElement).checked; saveSettings(settings);
   haptics.setEnabled(settings.haptics);

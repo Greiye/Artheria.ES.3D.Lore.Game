@@ -13,7 +13,8 @@ export const controls = {
     jump: ['Space'],
     sneak: ['KeyC'],                        // toggle sneak / crouch
     activate: ['KeyE'],
-    pov: ['KeyF'],                          // D2 / F2.4: toggle 1st / 3rd person
+    pov: ['KeyF'],                          // v0.05: cycle first person / over the shoulder / overhead
+    shoulder: ['KeyQ'],                     // v0.05: swap shoulder (shoulder view) or weapon (other views)
     inventory: ['KeyI'],                    // F3.4
     journal: ['KeyJ'],                      // Phase D (B2): the casebook
     map: ['KeyM'],                          // Phase F (B7): the living map
@@ -63,8 +64,8 @@ export const controls = {
       inventory: 8,  // View / Create: bag
       pause: 9,      // Menu / Options
       sprint: 10,    // L3: sprint until the stick is let go
-      view: 11,      // R3: first person / follow
-      equip: 12,     // D-pad up: crossbow / hands
+      view: 11,      // R3: cycle first person / shoulder / overhead
+      equip: 12,     // D-pad up: swap shoulder (shoulder view) or crossbow / hands
       dpadUp: 12,    // (menus: up)
       dpadDown: 13,
       dpadLeft: 14,
@@ -90,7 +91,7 @@ export const binds = Object.fromEntries(Object.entries(controls.keys).map(([a, k
 /** The actions the Controls page lets you rebind, in the order it lists them. */
 export const REBINDABLE: [Action, string][] = [
   ['forward', 'Forward'], ['back', 'Back'], ['left', 'Left'], ['right', 'Right'], ['jump', 'Jump'], ['sneak', 'Sneak'],
-  ['walk', 'Walk (hold)'], ['sprint', 'Sprint (hold)'], ['activate', 'Use · talk · read'], ['pov', 'Camera view'],
+  ['walk', 'Walk (hold)'], ['sprint', 'Sprint (hold)'], ['activate', 'Use · talk · read'], ['pov', 'Camera view'], ['shoulder', 'Swap shoulder / weapon'],
   ['torch', 'Torch'], ['inventory', 'Bag'], ['journal', 'Casebook'], ['map', 'Map'],
   ['equipCrossbow', 'Crossbow'], ['equipHands', 'Hands'], ['reload', 'Reload'],
 ];

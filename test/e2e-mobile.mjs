@@ -232,14 +232,22 @@ async function open(opts, init) {
   const h0 = await G(page, () => window.__gametool.haptics.played);
   await btn(3, 60); await page.waitForTimeout(900);
   check('v0.04 Gamepad: haptics fire on jump and landing', (await G(page, () => window.__gametool.haptics.played)) >= h0 + 2);
-  const st0 = await G(page, () => window.__gametool.rig.step);
-  await btn(5); const st1 = await G(page, () => window.__gametool.rig.step);
-  await btn(4); await btn(4); const st2 = await G(page, () => window.__gametool.rig.step);
-  check('v0.04 Gamepad: RB / LB step the camera out / in', st1 === st0 + 1 && st2 === st0 - 1, [st0, st1, st2].join('→'));
+  // v0.05: three perspectives. LB steps in (overhead -> shoulder -> first person), RB steps out.
+  const view = () => G(page, () => window.__gametool.settings.view);
+  const v0 = await view();
+  await btn(4); const v1 = await view();
+  await btn(4); const v2 = await view();
+  await btn(5); await btn(5); const v3 = await view();
+  check('v0.05 Gamepad: LB / RB step between overhead, shoulder and first person', [v0, v1, v2, v3].join('→') === 'overhead→shoulder→first→overhead', [v0, v1, v2, v3].join('→'));
+  const r3 = [];
+  for (let i = 0; i < 3; i++) { await btn(11); r3.push(await view()); }
+  check('v0.05 Gamepad: R3 cycles the three perspectives', r3.join(',') === 'first,shoulder,overhead', r3.join(','));
+  await btn(4);
+  const sh0 = await G(page, () => window.__gametool.rig.shoulderSide);
+  await btn(12); const sh1 = await G(page, () => window.__gametool.rig.shoulderSide);
+  await btn(12);
+  check('v0.05 Gamepad: D-pad up swaps the shoulder in the shoulder view', sh0 === 1 && sh1 === -1 && (await G(page, () => window.__gametool.rig.shoulderSide)) === 1);
   await btn(5);
-  await btn(11); const fp = await G(page, () => !window.__gametool.player.thirdPerson);
-  await btn(11); const back3 = await G(page, () => window.__gametool.player.thirdPerson);
-  check('v0.04 Gamepad: R3 toggles first person', fp && back3);
   await G(page, () => { window.__pad.id = 'DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c)'; }); await frames(page);
   const ps = await G(page, () => ({ pad: document.body.dataset.pad, map: document.querySelector('#pause [data-padmap]').textContent }));
   check('v0.04 Gamepad: a PlayStation pad shows its own button names in the controls map', ps.pad === 'playstation' && ps.map.includes('✕') && ps.map.includes('R2'), JSON.stringify(ps).slice(0, 120));

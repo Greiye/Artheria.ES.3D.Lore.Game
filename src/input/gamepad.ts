@@ -79,7 +79,7 @@ export class GamepadControls {
       if (pressed(B.inventory)) this.g.openInventory();
       if (pressed(B.pause)) this.g.pause();
       const cb = this.g.crossbow;   // F4
-      if (pressed(B.equip)) { if (cb.equipped) cb.unequip(); else cb.equip(); haptics.play('tap'); }
+      if (pressed(B.equip)) this.g.shoulderSwap();
       if (pressed(B.dpadLeft)) this.g.quickSwap('left');
       if (pressed(B.dpadRight)) this.g.quickSwap('right');
       // Torch: hold D-pad down for 0.4 s to light it or put it out.
@@ -99,6 +99,11 @@ export class GamepadControls {
         else if (this.bookStickArmed && Math.abs(lx) > 0.75) { this.bookStickArmed = false; (lx > 0 ? bk.next() : bk.prev()); }
         if (pressed(B.back) || pressed(B.activate) || pressed(B.pause)) bk.close();
       } else if (st === 'dialogue') {
+        // v0.05: D-pad up / down (or a stick flick) moves between choices; A picks the highlighted one.
+        if (pressed(B.dpadUp)) this.g.dialogueMove(-1);
+        if (pressed(B.dpadDown)) this.g.dialogueMove(1);
+        if (Math.abs(ly) < 0.3) this.bookStickArmed = true;
+        else if (this.bookStickArmed && Math.abs(ly) > 0.75) { this.bookStickArmed = false; this.g.dialogueMove(ly > 0 ? 1 : -1); }
         if (pressed(B.activate)) this.g.advanceDialogue();
       } else if (st === 'inventory') {
         if (pressed(B.back) || pressed(B.activate) || pressed(B.pause)) this.g.closeInventory();

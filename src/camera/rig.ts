@@ -4,24 +4,22 @@ import type { Collider } from '../world';
 import type { Player } from '../player';
 
 // The camera rig, split out of the player (rebuild R3; storybook restyle S1, docs/vision.md).
-// - follow (default): a Dark Cloud 2 / Ragnarok Online style orbit camera above and behind the player.
-//   The wheel (or a pinch / right stick) steps through 5 fixed distances (v0.04 feedback): first person,
-//   over the shoulder, follow, high and overhead; the camera eases between them. Dragging turns it. It eases
-//   after the player and never sits inside a wall: blocked close up, it cranes up over the head rather than
-//   pushing into it, so a wall never turns the view into first person.
+// - v0.05: three perspectives, first person, over the shoulder and overhead (a Dark Cloud 2 / Ragnarok Online
+//   style orbit camera above and behind the player, the default). The wheel (or a pinch / right stick / LB RB)
+//   steps between them and F cycles them; the camera eases between them. The shoulder view can swap sides
+//   (Q / D-pad up). Dragging turns the camera. It eases after the player and never sits inside a wall:
+//   blocked close up, it cranes up over the head rather than pushing into it.
 // - first person (F, or aiming the crossbow): camera at the eyes.
 // - shot: a framed cinematic pose for reading and dialogue, blended in and out over ~0.6 s.
 export interface Shot { pos: THREE.Vector3; look: THREE.Vector3; fov: number }
 
 const ease = (t: number) => t * t * (3 - 2 * t);
-const ZOOM_KEY = 'gametool.camZoom';
 // Follow camera shape at zoom 0 (close) and 1 (overview).
 const FOLLOW = { distNear: 3.6, distFar: 17, elevNear: 0.32, elevFar: 0.95, fovFar: 32, lookNear: 1.45, lookFar: 0.9 };
-/** The 5 camera distances, near to far. Step 0 is first person; the others are follow-camera zooms. */
-const STEPS = [
-  { name: 'first', zoom: 0 }, { name: 'shoulder', zoom: 0 }, { name: 'follow', zoom: 0.3 }, { name: 'high', zoom: 0.65 }, { name: 'overhead', zoom: 1 },
-] as const;
-const SHOULDER = { side: 0.55, dist: 2.3, elev: 0.14, look: 1.5 };   // over the right shoulder
+/** The 3 perspectives, near to far. Step 0 is first person; the others are follow-camera zooms. */
+const STEPS = [{ name: 'first', zoom: 0 }, { name: 'shoulder', zoom: 0 }, { name: 'overhead', zoom: 0.7 }] as const;
+export const OVERHEAD = 2;
+const SHOULDER = { side: 0.55, dist: 2.3, elev: 0.14, look: 1.5 };   // over the shoulder (right by default)
 const MIN_CLEAR = 1.3;   // closest the follow camera may come to the look point before it cranes up instead
 
 export class CameraRig {
@@ -43,12 +41,15 @@ export class CameraRig {
   private viewT = 1;
   private viewFromPos = new THREE.Vector3();
   private viewFromQ = new THREE.Quaternion();
-  private cur = 0.3;                      // the zoom shown, easing toward `target`
-  private target = 0.3;
+  private cur = 0.7;                      // the zoom shown, easing toward `target`
+  private target = 0.7;
   private shoulderT = 0;                  // 0..1 blend into the over-the-shoulder framing
+  private sideCur = 1;                    // eases toward `shoulderSide` when the shoulder swaps
   private stepAcc = 0;
-  /** Follow-camera step, 1 (shoulder) … 4 (overhead). */
-  step = 2;
+  /** Which shoulder the shoulder view looks over: 1 right, -1 left. */
+  shoulderSide = 1;
+  /** Follow-camera step: 1 (shoulder) or 2 (overhead). */
+  step = OVERHEAD;
   get zoom(): number { return this.cur; }
   /** Jump straight to a zoom (tests, framed setups); the nearest step is remembered. */
   set zoom(z: number) {
@@ -58,23 +59,16 @@ export class CameraRig {
   // Highest the camera may go at (x, z), e.g. under the dungeon ceiling. Set by main.ts.
   ceiling: (x: number, z: number) => number = () => Infinity;
 
-  constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], public bounds: number, private baseFov: () => number) {
-    try {
-      const v = Number(localStorage.getItem(ZOOM_KEY));
-      if (localStorage.getItem(ZOOM_KEY) !== null && v >= 0 && v <= 1) { this.zoom = v; this.target = STEPS[this.step].zoom; }
-    } catch { /* default */ }
-  }
+  // The perspective is saved with the settings (settings.view); main.ts sets the step at Begin.
+  constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], public bounds: number, private baseFov: () => number) {}
 
-  private nearestStep(z: number): number {
-    let best = 2;
-    for (let i = 2; i < STEPS.length; i++) if (Math.abs(STEPS[i].zoom - z) < Math.abs(STEPS[best].zoom - z)) best = i;
-    return z < 0.15 ? 1 : best;
-  }
-  /** Go to a follow step (1..4). */
+  private nearestStep(z: number): number { return z < 0.35 ? 1 : OVERHEAD; }
+  /** Swap the shoulder view to the other shoulder (eases across). */
+  swapShoulder() { this.shoulderSide = -this.shoulderSide; }
+  /** Go to a follow step (1 shoulder, 2 overhead). */
   setStep(i: number) {
     this.step = THREE.MathUtils.clamp(i, 1, STEPS.length - 1);
     this.target = STEPS[this.step].zoom;
-    try { localStorage.setItem(ZOOM_KEY, this.target.toFixed(3)); } catch { /* blocked */ }
   }
   /** A continuous zoom input (pinch, right stick): every 0.12 of it is one step. Returns the steps taken (±). */
   zoomBy(d: number): number {
@@ -112,11 +106,12 @@ export class CameraRig {
       const L = THREE.MathUtils.lerp, ek = 1 - Math.pow(0.002, dt);
       this.cur = Math.abs(this.target - this.cur) < 0.002 ? this.target : L(this.cur, this.target, ek);
       this.shoulderT = L(this.shoulderT, this.step === 1 ? 1 : 0, ek);
+      this.sideCur = L(this.sideCur, this.shoulderSide, 1 - Math.pow(0.0005, dt));
       const z = this.cur, sh = this.shoulderT;
       const dist = L(L(FOLLOW.distNear, FOLLOW.distFar, Math.pow(z, 1.2)), SHOULDER.dist, sh);
       let elev = L(L(FOLLOW.elevNear, FOLLOW.elevFar, z), SHOULDER.elev, sh);
-      // Over the shoulder: the look point shifts right of the player (the camera follows it sideways).
-      const side = SHOULDER.side * sh, rx = -Math.cos(p.yaw), rz = Math.sin(p.yaw);
+      // Over the shoulder: the look point shifts to the player's right (or left) and the camera follows it sideways.
+      const side = SHOULDER.side * sh * this.sideCur, rx = -Math.cos(p.yaw), rz = Math.sin(p.yaw);
       this.look.set(p.pos.x + rx * side, p.pos.y + L(L(FOLLOW.lookNear, FOLLOW.lookFar, z), SHOULDER.look, sh), p.pos.z + rz * side);
       const offset = new THREE.Vector3();
       const q = new THREE.Vector3();
