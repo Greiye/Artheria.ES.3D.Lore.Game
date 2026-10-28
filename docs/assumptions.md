@@ -87,3 +87,4 @@ Places where the spec was ambiguous, where browsers forced a choice, or where th
 | 81 | v0.04 quick swap | Skyrim's D-pad favourites are reduced to two hand slots: left (empty / torch), right (hands / crossbow). More items join the cycle as they're added (instruments, tools). |
 | 82 | v0.04 climbing | "Climbable section of fallen rocks" is a stack of stone slabs with flat tops, placed away from the paths so the scattered props keep their spots. Vaulting is automatic on jump; there's no separate climb button. |
 | 83 | v0.04 time | Time of day has three phases (day, sunset, night) and moves only when you sleep; there is no running clock. A new session always starts at sunset. |
+| 84 | v0.04 reading | "Portrait = vertical scroll" applies to touch devices held upright; desktop windows that are tall still turn pages. The hint in landscape is advisory and fades; nothing is forced. |

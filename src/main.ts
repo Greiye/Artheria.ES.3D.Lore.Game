@@ -49,6 +49,7 @@ import { dailySeed, seedFrom } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
 import { Torch } from './torch';
+import { HeldBook } from './heldBook';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
 
@@ -112,6 +113,7 @@ player.zoomBy = (d) => stepView(rig.zoomBy(d));   // pinch / right stick: steps 
 rig.update(0);
 world.scene.add(player.body);
 const torch = new Torch(world.scene, camera, player);   // v0.04
+const heldBook = new HeldBook(player);   // v0.04: the 'read' pose holds an open book (shelf reader)
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
 const modelSlots: ModelSlot[] = [
   ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number })),
@@ -165,6 +167,7 @@ ui.innerHTML = `
   <div id="vignette"></div>
   <div id="sleepFade"></div>
   <div id="rotateHint">⟳ Turn your phone sideways to play</div>
+  <div id="readHint">⟳ Turn your phone upright to scroll the pages</div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
@@ -530,6 +533,7 @@ function animate(dt: number) {
   if (landed && player.thirdPerson) dust.burst(player.pos, 6, 0.35);
   if (landed) haptics.play('land');
   torch.update(dt, !player.thirdPerson);
+  heldBook.set(state === 'book' && reader.isOpen);
   if (quickTimer > 0 && (quickTimer -= dt) <= 0) $('quick').classList.add('hidden');
   if (player.vaults !== lastVaults) { lastVaults = player.vaults; haptics.play('jump'); }
   const rm = crossbow.reload.active ? crossbow.reload.mode : null;   // v0.04: feel the reload start and a jam
@@ -537,7 +541,7 @@ function animate(dt: number) {
   dust.update(dt, camera);
   const mine: AnimInput = {
     speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
-    airborne: player.airborne, landed, pose: dojo.pose,
+    airborne: player.airborne, landed, pose: dojo.pose ?? (state === 'book' ? 'read' : null),
     look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
   };
   for (const [id, p] of puppets) {
@@ -572,6 +576,7 @@ let forgeFrom: State = 'play';
 function setPlayerLook(c: ForgeCharacter) {
   const fig = player.setLook(c.look, c.height);
   torch.attach();
+  heldBook.attach();
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
 }
@@ -1148,6 +1153,8 @@ book.onLink = (slug) => { book.close(); void openReader(slug); };
 // ---------- book open / close (F3.2, F3.6) ----------
 async function openBook() {
   setState('book');
+  const b = world.bookCenter;   // v0.04: face the lectern to read
+  player.bodyYaw = Math.atan2(-(b.x - player.pos.x), -(b.z - player.pos.z));
   rig.setShot(rig.readingShot(world.bookCenter));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   await book.open();

@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### v0.04 feedback, part 4: reading
+
+- **Read pose:** while a book is open the avatar reads: head down, an open book held at the chest (shelf books),
+  a page turned now and then. At the lectern the avatar turns to face the stand.
+- **Phones held upright:** the book becomes one vertical scroll; pages run on with small page numbers, and the
+  page at the top is remembered as the last page read. Margin notes follow the page in view.
+- **Phones held sideways:** opening a book shows a faint "turn your phone upright" hint for a few seconds;
+  pages still turn by swipe.
+
 ### v0.04 feedback, part 3: time of day
 
 - **Starts at a dark sunset:** the sun sits low and orange, the sky dims and the first stars show. Bring a torch.

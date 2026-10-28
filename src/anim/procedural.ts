@@ -12,9 +12,9 @@ export interface AnimInput {
   airborne?: boolean;
   landed?: boolean;       // true for the one frame the figure touches down
   look?: { yaw: number; pitch: number } | null;   // head target relative to the body, radians
-  pose?: Pose | null;     // Phase F (B14): a dojo drill takes over the whole body
+  pose?: Pose | null;     // Phase F (B14): a dojo drill takes over the whole body; v0.04: 'read' while a book is open
 }
-export type Pose = 'stance' | 'punch' | 'hang' | 'plank';
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'read';
 
 const WALK = 2.5, RUN = 5;
 // Restyle S2f (Tree of Savior): poses are stepped at a sprite frame rate, not interpolated every frame, for
@@ -133,6 +133,12 @@ export class FigureAnim {
       set('thighN', 0); set('thighP', 0); set('shinN', 1.7); set('shinP', 1.7);
       set('spine', -1.25 * c); set('head', -0.4 * c);
       set('armN', -0.6 - 1.6 * c, 0, -0.1); set('armP', -0.6 - 1.6 * c, 0, 0.1); set('foreN', -0.4 * c); set('foreP', -0.4 * c);
+    } else if (this.pose === 'read') {
+      // v0.04: reading. Head down over a book held at the chest; every few seconds one hand turns a page.
+      const turn = Math.max(0, Math.sin(pt * 1.8)) ** 8;
+      set('spine', 0.1); set('head', 0.38 + Math.sin(t * 0.7) * 0.03);
+      set('armN', -0.42, 0, 0.32); set('foreN', -1.25, 0.2);
+      set('armP', -0.42 - 0.25 * turn, 0, -0.32 + 0.3 * turn); set('foreP', -1.25 + 0.35 * turn, -0.2 - 0.6 * turn);
     } else if (this.pose === 'plank') {
       B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);
