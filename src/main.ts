@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import './render/grade';   // style pass 1: global colour grade (patches a shader chunk, so it must load first)
 import { updateSprites, setSpriteCharacters } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';

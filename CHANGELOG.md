@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.05,
 Mike 2026-10-28). Spec doc v0.05.
 
+### Style pass 1: fully painted
+- Every texture is repainted at 64 px with soft washes and brush strokes instead of pixel noise: clumped grass with a few flowers, cobbles on dark grout, chiselled stone, bark furrows, plank grain, leaf clumps.
+- New lime-plaster walls (rain streaks) and slate roof tiles for the town; brighter roof colours.
+- One colour grade for every material (more saturation, warmer highlights, a faint cool lift in the shadows). It is folded into each shader, so it costs nothing and works on Low.
+- Warm sunlight with cooler fill light from below, and the haze starts further out.
+- Baked shading at the foot of walls, trunks, rocks and props, plus a light top edge (vertex colours, free at runtime).
+- Fixed: grass and fern tufts rendered near-black when seen from behind.
+- Menus and panels re-skinned as tooled leather with gold borders, gold serif headings and carved-wood buttons, to match the title wall.
+
 ### Leanness pass: lighter on phones, faster first frame, tests in CI
 - Phones (touch screens) now start on the Low preset. Antialiasing is off on phones and on Low.
 - The bloom chain is only built the first time post effects are switched on, so Low/Medium no longer allocate it.

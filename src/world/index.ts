@@ -453,7 +453,8 @@ export function buildWorld(): World {
       undergrowth.forEach((m, i) => { m.count = Math.round(fullCounts[i] * THREE.MathUtils.clamp(density, 0, 1)); });
     },
     setFogDistance(far: number) {
-      if (scene.fog instanceof THREE.Fog) { scene.fog.near = far * 0.33; scene.fog.far = far; }
+      // Style pass 1: the haze starts later, so the painted colour reads.
+      if (scene.fog instanceof THREE.Fog) { scene.fog.near = far * 0.45; scene.fog.far = far; }
     },
   };
 }

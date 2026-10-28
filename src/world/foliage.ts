@@ -22,6 +22,11 @@ function windify(mat: THREE.Material, strength: number) {
       transformed.x += sway * ${strength.toFixed(3)} * position.y * position.y;
       transformed.z += sway * ${(strength * 0.6).toFixed(3)} * position.y * position.y;`,
     );
+    // Style pass 1: tufts are double-sided cards with up-facing normals. Three flips the normal on back faces,
+    // which lit half of every tuft from below (near black); keep it pointing up on both sides.
+    if (mat.side === THREE.DoubleSide) {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''));
+    }
   };
   mat.customProgramCacheKey = () => 'wind' + strength + (mat as THREE.MeshLambertMaterial).alphaTest;
 }

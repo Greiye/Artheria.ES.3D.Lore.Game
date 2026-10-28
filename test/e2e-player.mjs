@@ -77,9 +77,10 @@ const out = await until(page, () => !window.__gametool.torch.lit && window.__gam
 check('v0.04 T lights the torch (a warm light) and puts it out; the quick-swap line shows', lit && out && quickShown);
 // Controller: D-pad down held 0.4 s.
 const btn = (i, on) => G(page, ([i, on]) => { window.__pad.buttons[i].pressed = on; window.__pad.buttons[i].value = on ? 1 : 0; }, [i, on]);
-// A tap: down for two rendered frames only (the test browser's frames can be slower than a real tap).
+// A tap: down for one rendered frame only. Software-rendered frames can each be 0.25 s of game time (the dt cap),
+// so two frames could already pass the 0.4 s hold.
 const tap = (i) => G(page, (i) => new Promise((done) => { const b = window.__pad.buttons[i]; b.pressed = true; b.value = 1;
-  requestAnimationFrame(() => requestAnimationFrame(() => { b.pressed = false; b.value = 0; requestAnimationFrame(() => requestAnimationFrame(done)); })); }), i);
+  requestAnimationFrame(() => { b.pressed = false; b.value = 0; requestAnimationFrame(() => requestAnimationFrame(done)); }); }), i);
 await tap(13); await page.waitForTimeout(200);
 const tapNoTorch = await G(page, () => !window.__gametool.torch.lit);
 await btn(13, true); await page.waitForTimeout(700);
@@ -129,6 +130,8 @@ const holds = await G(page, () => { let v = false; window.__gametool.player.body
 check('v0.04 reading: the avatar plays a read pose, head down, holding an open book', reads && holds);
 await page.keyboard.press('Escape');
 await until(page, () => window.__gametool.state !== 'book');
+// The desktop page is done; close it so its software-rendered frames don't starve the phone pages' boot.
+await page.close();
 
 for (const [w, h, name] of [[390, 844, 'portrait'], [844, 390, 'landscape']]) {
   const c = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });

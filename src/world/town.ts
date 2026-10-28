@@ -19,9 +19,9 @@ const ICONS: Record<TownId, string> = { library: '❦', smithy: '⚒', tailor: '
 // The green: an oval ring of lots round (C.x, C.z). Everything stays inside the flat middle (|x|, |z| < 42).
 const GREEN = { x: 4, z: 26.5, rx: 24, rz: 9.5 };
 // One plaster and three roof colours: each tint is its own merged mesh (draw call), so keep them few.
-const PLASTER = '#EFE2C6';
+const PLASTER = '#FFF6E6';
 const WALL = 3.0, PLINTH = 0.4, RISE = 2.1;
-const R1 = '#5A4A44', R2 = '#3E5A7A', R3 = '#7A3A3A';
+const R1 = '#86604E', R2 = '#4E7299', R3 = '#A84C40';
 // Clockwise round the ring from the lane (north, toward the glade). `off` pushes a lot out (+) or in (−) from
 // the ring and `turn` skews it off facing the green, so no two sit square to each other.
 type Slot = { id: TownId | 'lane' | 'cinema'; w: number; d: number; off: number; turn: number; roof?: string };
@@ -117,7 +117,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const signs: THREE.BufferGeometry[] = [];
   LOTS.forEach((L, li) => {
     const W = L.w, D = L.d, at = local(L);
-    const plaster = tint('stone', L.wall), roof = tint('planks', L.roof), wood = tex('wood');
+    const plaster = tint('plaster', L.wall), roof = tint('roofTiles', L.roof), wood = tex('wood');
     B.add(tex('stone'), new THREE.BoxGeometry(W + 0.3, PLINTH, D + 0.3), at(0, PLINTH / 2, 0), undefined, L.ry);
     B.add(plaster, new THREE.BoxGeometry(W, WALL, D), at(0, PLINTH + WALL / 2, 0), undefined, L.ry);
     // Gable ends: a triangle of plaster on the front and back walls.
