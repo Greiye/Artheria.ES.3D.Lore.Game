@@ -15,3 +15,10 @@
 .gallery-card .credit { font-size: 12px; color: var(--rune); letter-spacing: .08em; text-transform: uppercase; }
 .gallery-card p { color: var(--stone-l); line-height: 1.5; white-space: pre-wrap; }
 .gallery-card img { width: 100%; image-rendering: pixelated; border-radius: 6px; }
+/* v0.04 instruments */
+.cf-pads { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; }
+.cf-pad { flex: 1 1 0; min-width: 44px; min-height: 48px; display: grid; place-items: center; gap: 2px; border-radius: 8px; border: 1px solid #7a5a3a;
+  background: rgba(242,179,107,.12); color: var(--parchment); font: 600 13px var(--ui); cursor: pointer; }
+.cf-pad kbd { font-size: 10px; opacity: .6; }
+.cf-pad.hit { animation: cfHit .25s ease-out; }
+@keyframes cfHit { from { background: #F2B36B; box-shadow: 0 0 14px rgba(242,179,107,.8); } to { background: rgba(242,179,107,.12); box-shadow: none; } }

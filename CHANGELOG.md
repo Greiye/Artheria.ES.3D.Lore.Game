@@ -7,6 +7,16 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### v0.04 feedback, part 6: campfire
+
+- **Lore writing moved to the campfire:** the L hotkey and the in-game "Write lore" buttons (HUD, pause menu) are
+  gone. Sit by the fire and pick "Write lore with Natalie": she holds the quill and the lore editor opens. The
+  title screen keeps its button for writing before you play.
+- **Natalie the bard:** while you sit, she comes to the fire and strums a looping lute backing (C – Am – F – G).
+- **Playable instruments:** pick one and play along on six pads (keys 1–6): hum and clap & stomp are always
+  yours; the tin whistle, hand drum and lute come from the General Store. Melodic instruments play a pentatonic
+  scale so anything you play fits Natalie's chords.
+
 ### v0.04 feedback: Mike's follow-ups
 
 - **Heroine hair:** her back hair is shorter, now ending at the shoulders.

@@ -1,6 +1,6 @@
 import { SCALE, NOTE_NAMES, INSTRUMENTS, DEFAULT_TUNE, decodeTune, encodeTune, composeBallad, loadBallads, saveBallad, balladMarkdown, type Ballad, type Instrument, type Tune, type Telling } from './ballad';
 import { openSubmitSheet, escapeHtml } from '../submit';
-import { audio } from '../audio';
+import { audio, type PlayKind } from '../audio';
 import './campfire.css';
 
 // B8 campfire ending + B11 bard tunes. Sit by the fire, write an 8-step tune, then tell the adventure in
@@ -12,6 +12,14 @@ const PROMPTS: [keyof Telling, string, string][] = [
   ['end', 'How did it end?', 'And when the blue light faded…'],
 ];
 const TUNE_KEY = 'gametool.tune';
+// v0.04: playable instruments. Hum and clap are always yours; the whistle, drum and lute come from the General
+// Store. One instrument at a time; Natalie keeps a lute backing going while you sit at the fire.
+const PLAYABLE: { kind: PlayKind; label: string; item?: string; pads: number }[] = [
+  { kind: 'hum', label: 'Hum', pads: 6 }, { kind: 'clap', label: 'Clap & stomp', pads: 2 },
+  { kind: 'whistle', label: 'Tin whistle', item: 'whistle', pads: 6 }, { kind: 'drum', label: 'Hand drum', item: 'drum', pads: 2 },
+  { kind: 'lute', label: 'Lute', item: 'lute', pads: 6 },
+];
+const PENTA = [60, 62, 64, 67, 69, 72], PAD_NAMES = ['C', 'D', 'E', 'G', 'A', 'C′'];
 
 export class CampfirePanel {
   readonly el: HTMLDivElement;
@@ -20,8 +28,13 @@ export class CampfirePanel {
   private title = '';
   private chain = '';
   ballad: Ballad | null = null;
+  /** v0.04: items the player owns (for the instruments), and where "Write lore" goes. Set by main. */
+  owned: () => string[] = () => [];
+  onWriteLore: () => void = () => {};
+  instrument: PlayKind = 'hum';
+  private stopBacking: () => void = () => {};
 
-  constructor(private natalie: () => string[], private onShelf: (b: Ballad) => void, private onClose: () => void, private author: () => string) {
+  constructor(private natalie: () => string[], private onShelf: (b: Ballad) => void, public onClose: () => void, private author: () => string) {
     this.el = document.createElement('div');
     this.el.id = 'campfire';
     this.el.className = 'forge hidden';
@@ -34,10 +47,30 @@ export class CampfirePanel {
       else if (t.id === 'cfBpm') { this.tune.bpm = Number(t.value); this.saveTune(); const o = this.el.querySelector('#cfBpmOut'); if (o) o.textContent = String(this.tune.bpm); }
       else if (t.id === 'cfChain') this.chain = t.value;
     });
+    // Number keys 1–6 play the pads (not while typing).
+    window.addEventListener('keydown', (e) => {
+      if (!this.isOpen || e.repeat || (e.target as HTMLElement).closest?.('input, textarea, select')) return;
+      const n = Number(e.key);
+      if (n >= 1 && n <= this.pads) { this.pad(n - 1); e.preventDefault(); }
+    });
+  }
+  get playable() { const own = this.owned(); return PLAYABLE.filter((p) => !p.item || own.includes(p.item)); }
+  private get pads() { return PLAYABLE.find((p) => p.kind === this.instrument)?.pads ?? 6; }
+  /** Play pad i (0-based) on the chosen instrument. Exposed for tests. */
+  pad(i: number) {
+    const melodic = this.pads > 2;
+    audio.play(this.instrument, melodic ? PENTA[i] ?? 60 : i ? 64 : 55);
+    const b = this.el.querySelector(`[data-pad="${i}"]`);
+    if (b) { b.classList.remove('hit'); void (b as HTMLElement).offsetWidth; b.classList.add('hit'); }
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
-  open() { this.ballad = null; this.render(); this.el.classList.remove('hidden'); }
-  close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.onClose(); }
+  open() {
+    this.ballad = null;
+    if (!this.playable.some((p) => p.kind === this.instrument)) this.instrument = 'hum';
+    this.render(); this.el.classList.remove('hidden');
+    this.stopBacking = audio.backing();   // Natalie strums while you sit
+  }
+  close() { if (!this.isOpen) return; this.stopBacking(); this.el.classList.add('hidden'); this.onClose(); }
   private saveTune() { try { localStorage.setItem(TUNE_KEY, encodeTune(this.tune)); } catch { /* blocked */ } }
   play(t: Tune = this.tune) { return audio.tune(t.steps, SCALE, t.instrument, t.bpm, 2); }
 
@@ -49,6 +82,9 @@ export class CampfirePanel {
     if (!b) return;
     const d = b.dataset;
     if (d.step !== undefined) this.toggle(Number(d.step), Number(d.row));
+    else if (d.pad !== undefined) this.pad(Number(d.pad));
+    else if (d.play) { this.instrument = d.play as PlayKind; this.render(); }
+    else if (b.id === 'cfWriteLore') { this.close(); this.onWriteLore(); }
     else if (d.inst) { this.tune.instrument = d.inst as Instrument; this.saveTune(); this.render(); }
     else if (b.id === 'cfPlay') this.play();
     else if (b.id === 'cfClearTune') { this.tune.steps = Array(8).fill(0); this.saveTune(); this.renderGrid(); }
@@ -97,7 +133,14 @@ export class CampfirePanel {
       <div class="forge-panel campfire-panel">
         <div class="eyebrow">Campfire · the bard</div>
         <h2>Tell it by the fire</h2>
-        <p class="fine">Natalie is a bard. Tell her what happened, in your words; she'll sing it back to your tune.</p>
+        <p class="fine">Natalie is a bard. She strums her lute while you sit. Play along, tell her what happened and she'll sing it back, or give her a tale to write down for the library.</p>
+        <h4>Play along</h4>
+        <div class="chips">${this.playable.map((p) => `<button class="chip${p.kind === this.instrument ? ' on' : ''}" data-play="${p.kind}">${p.label}</button>`).join('')}</div>
+        <div class="cf-pads">${Array.from({ length: this.pads }, (_, i) => `<button class="cf-pad" data-pad="${i}"><kbd>${i + 1}</kbd>${this.pads > 2 ? PAD_NAMES[i] : i ? 'Accent' : 'Beat'}</button>`).join('')}</div>
+        ${this.playable.length < PLAYABLE.length ? '<p class="fine">More instruments at the General Store in town.</p>' : ''}
+        <h4>Write lore</h4>
+        <p class="fine">Tell Natalie a tale, a place or a person; she writes it down as a lore page for the library.</p>
+        <div class="forge-actions"><button class="secondary" id="cfWriteLore">✒ Write lore with Natalie</button></div>
         ${body}
         <div class="forge-actions"><button class="secondary" id="cfClose">Leave the fire</button></div>
       </div>`;

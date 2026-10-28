@@ -109,6 +109,23 @@ await until(page, () => window.__gametool.state !== 'book');
 await G(page, () => window.__gametool.refreshGallery());
 check('B9 reading Natalie\'s page in the library puts her portrait in the gallery', await G(page, () => window.__gametool.gallery.exhibits.find((e) => e.id === 'natalie-bourbon').discovered));
 
+// ---------- v0.04: playable instruments, Natalie's backing ----------
+await G(page, () => window.__gametool.openCampfire());
+await until(page, () => window.__gametool.campfire.isOpen);
+const inst0 = await G(page, () => ({ chips: [...document.querySelectorAll('#campfire [data-play]')].map((b) => b.dataset.play), backing: window.__gametool.audio.backingOn }));
+check('v0.04 campfire: Natalie strums while you sit; hum and clap are always yours', inst0.backing && inst0.chips.join(',') === 'hum,clap', JSON.stringify(inst0));
+await G(page, () => { const g = window.__gametool; g.campfire.close(); g.inventory.give('lute', 1); g.openCampfire(); });
+await until(page, () => window.__gametool.campfire.isOpen);
+await page.click('#campfire [data-play="lute"]');
+await page.keyboard.press('3');
+const played = await G(page, () => window.__gametool.audio.lastPlayed);
+await page.click('#campfire [data-pad="5"]');
+const padded = await G(page, () => window.__gametool.audio.lastPlayed);
+check('v0.04 campfire: a lute from the store joins the instruments; keys 1–6 and the pads play its notes', played?.kind === 'lute' && played.midi === 64 && padded?.midi === 72, JSON.stringify({ played, padded }));
+await page.click('#cfClose');
+await until(page, () => window.__gametool.state === 'play');
+check('v0.04 campfire: leaving the fire stops the backing', !(await G(page, () => window.__gametool.audio.backingOn)));
+
 check('Campfire: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 const failed = results.filter((r) => !r.ok).length;

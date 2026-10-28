@@ -162,7 +162,7 @@ ui.innerHTML = `
         <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
         <tr><td>F</td><td>Third / first person</td><td>Wheel</td><td>Camera distance (5 steps)</td></tr>
-        <tr><td>L</td><td>Write lore</td><td>T</td><td>Torch</td></tr>
+        <tr><td>E at the fire</td><td>Write lore</td><td>T</td><td>Torch</td></tr>
       </table>
       <p class="fine">Private project · all rights reserved.</p>
     </div>
@@ -177,7 +177,6 @@ ui.innerHTML = `
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
-    <button id="writeLoreHud"><kbd>L</kbd> — Write lore</button>
     <div id="status"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
@@ -228,7 +227,6 @@ ui.innerHTML = `
       <button id="openCasebook" class="secondary">Casebook (J)</button>
       <button id="openMap" class="secondary">Map (M)</button>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
-      <button id="writeLorePause" class="secondary">Write lore</button>
     </div>
   </div>
   <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>
@@ -514,7 +512,7 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   // Figures face +Z: turn the head toward the player when they come close.
   const rel = wrapAngle(Math.atan2(dx, dz) - npcE.y);
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
-  return { speed: id === 'natalie' ? companion.speed : 0, talking: (id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id, look: id === 'natalie' && companion.speed > 0.3 ? null : look };
+  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
   return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
@@ -765,7 +763,23 @@ const campfire = new CampfirePanel(() => {
     quest.stage === 'done' && quest.theory ? `And ${ending(quest.theory).friend} came home.` : "And the fire's still going, so it isn't over.",
   ];
 }, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); earn(5, 'for a ballad'); }, () => leaveForge(), forgeAuthor);
-function openCampfire() { enterForge(); frameForge('fire'); campfire.open(); }
+campfire.owned = () => [...inventory.counts.keys()].filter((id) => inventory.count(id) > 0);   // v0.04 instruments
+campfire.onWriteLore = () => openEditor(true);   // v0.04: lore is written at the fire, Natalie holds the quill
+// v0.04: Natalie the bard comes to the fire while you sit there (across the flames from you), then goes back.
+let natalieWas: { x: number; z: number; ry: number } | null = null;
+function openCampfire() {
+  enterForge(); frameForge('fire');
+  const n = natalieRoot(), f = world.stations.campfire.position;
+  natalieWas = { x: n.position.x, z: n.position.z, ry: n.rotation.y };
+  n.position.set(f.x - 0.7, 0, f.z - 2.3); n.rotation.y = Math.atan2(f.x - n.position.x, f.z - n.position.z);
+  campfire.open();
+}
+const campfireClosed = campfire.onClose;
+campfire.onClose = () => {
+  if (natalieWas && !companion.prefs.follow) { const n = natalieRoot(); n.position.set(natalieWas.x, 0, natalieWas.z); n.rotation.y = natalieWas.ry; }
+  natalieWas = null;
+  campfireClosed();
+};
 interactables.push({ obj: world.stations.campfire, verb: () => 'Sit by the fire', act: () => openCampfire() });
 // v0.04: sleep on the bedroll. The view fades out, the time of day moves on (day -> sunset -> night -> day),
 // and it fades back in.
@@ -1213,13 +1227,13 @@ const eTags = $<HTMLInputElement>('eTags'), eBody = $<HTMLTextAreaElement>('eBod
 const ghOwner = $<HTMLInputElement>('ghOwner'), ghRepo = $<HTMLInputElement>('ghRepo');
 const ghBranch = $<HTMLInputElement>('ghBranch'), ghToken = $<HTMLInputElement>('ghToken');
 
-function openEditor() {
+function openEditor(withNatalie = false) {
   editorFrom = state;
   if (state === 'play' && document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   const gh = loadGitHub();
   ghOwner.value = gh.owner; ghRepo.value = gh.repo; ghBranch.value = gh.branch; ghToken.value = gh.token;
   eAuthor.value = loadAuthor();
-  eMsg.textContent = '';
+  eMsg.textContent = withNatalie ? 'Natalie dips her quill: "Go on. Who, where, what happened. I\'ll write it down for the library."' : '';
   setState('editor');
   eTitle.focus();
 }
@@ -1228,8 +1242,6 @@ function closeEditor() {
   else setState(editorFrom);
 }
 $('writeLoreTitle').addEventListener('click', () => openEditor());
-$('writeLorePause').addEventListener('click', () => openEditor());
-$('writeLoreHud').addEventListener('click', () => { if (state === 'play') openEditor(); });
 $('eCancel').addEventListener('click', () => closeEditor());
 $('ghSave').addEventListener('click', () => {
   saveGitHub({ owner: ghOwner.value.trim(), repo: ghRepo.value.trim(), branch: ghBranch.value.trim() || 'main', token: ghToken.value.trim() });
@@ -1330,7 +1342,7 @@ window.addEventListener('keydown', (e) => {
   if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyT' && !e.repeat) { toggleTorch(); return; }   // v0.04
-  if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
+  // v0.04: no L hotkey; in the world, lore is written at the campfire with Natalie (the title screen keeps its button).
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
   if (actionFor(e.code, ['map']) && !e.repeat) { openMap(); return; }

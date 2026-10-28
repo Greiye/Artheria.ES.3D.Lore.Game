@@ -3,6 +3,7 @@
 // Browsers require a user gesture before an AudioContext makes sound, so resume() is called
 // from the title screen's "Click to begin" handler.
 export type Bus = 'master' | 'music' | 'sfx' | 'dialogue';
+export type PlayKind = 'hum' | 'clap' | 'whistle' | 'drum' | 'lute';
 const BUSES: Bus[] = ['master', 'music', 'sfx', 'dialogue'];
 
 class AudioEngine {
@@ -142,6 +143,67 @@ class AudioEngine {
     });
     return loops * steps.length * step;
   }
+
+  // v0.04 campfire instruments: one note (or hit) on the chosen instrument, on the Music bus. `lastPlayed` is for tests.
+  lastPlayed: { kind: PlayKind; midi: number } | null = null;
+  play(kind: PlayKind, midi = 67): boolean {
+    this.lastPlayed = { kind, midi };
+    if (!this.ensure() || !this.ctx || !this.bus) return false;
+    if (kind === 'drum') { this.noise('music', 0.22, 140 + (midi - 60) * 6, 2, 0.9, 0.6); return true; }
+    if (kind === 'clap') { this.noise('music', 0.08, 1800, 1.5, 0.6); this.noise('music', 0.12, 120, 1, 0.5, 0.5); return true; }
+    const shape: Record<string, { type: OscillatorType; attack: number; decay: number; gain: number; vib: number; oct: number }> = {
+      hum: { type: 'sine', attack: 0.08, decay: 0.7, gain: 0.22, vib: 4, oct: -12 },
+      whistle: { type: 'sine', attack: 0.03, decay: 0.45, gain: 0.16, vib: 6, oct: 12 },
+      lute: { type: 'triangle', attack: 0.004, decay: 0.7, gain: 0.24, vib: 0, oct: 0 },
+    };
+    const sh = shape[kind], t = this.ctx.currentTime + 0.01;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = sh.type;
+    o.frequency.value = 440 * Math.pow(2, (midi + sh.oct - 69) / 12);
+    if (sh.vib) {   // a little vibrato so a hum or whistle sounds breathed, not beeped
+      const lfo = this.ctx.createOscillator(), lg = this.ctx.createGain();
+      lfo.frequency.value = 5.5; lg.gain.value = sh.vib;
+      lfo.connect(lg).connect(o.frequency); lfo.start(t); lfo.stop(t + sh.attack + sh.decay + 0.05);
+    }
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(sh.gain, t + sh.attack);
+    g.gain.exponentialRampToValueAtTime(0.001, t + sh.attack + sh.decay);
+    o.connect(g).connect(this.bus.music);
+    o.start(t); o.stop(t + sh.attack + sh.decay + 0.05);
+    return true;
+  }
+
+  // Natalie's lute: a looping backing of strummed chords (C – Am – F – G) for as long as you sit at the fire.
+  // Returns a stop function. Each bar is scheduled just before it plays, so stopping is prompt.
+  backing(bpm = 84): () => void {
+    if (!this.ensure() || !this.ctx || !this.bus) return () => {};
+    const CHORDS = [[48, 55, 60, 64], [45, 52, 57, 60], [41, 48, 53, 57], [43, 50, 55, 59]];
+    const beat = 60 / bpm, bar = beat * 4;
+    let next = this.ctx.currentTime + 0.1, i = 0;
+    const strum = () => {
+      const ctx = this.ctx!;
+      while (next < ctx.currentTime + bar) {
+        const ch = CHORDS[i++ % CHORDS.length];
+        for (const b of [0, 2, 2.5, 3]) ch.forEach((midi, k) => {
+          const t = next + b * beat + k * 0.018;
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'triangle';
+          o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(b === 0 ? 0.09 : 0.06, t + 0.005);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+          o.connect(g).connect(this.bus!.music);
+          o.start(t); o.stop(t + 0.95);
+        });
+        next += bar;
+      }
+    };
+    strum();
+    const id = window.setInterval(strum, 400);
+    this.backingOn = true;
+    return () => { window.clearInterval(id); this.backingOn = false; };
+  }
+  backingOn = false;
 
   // PLACEHOLDER: not wired to a trigger yet (F4/F6 not built). Kept here so those versions
   // only need to call these, not build the synth — see docs/assumptions.md #30.
