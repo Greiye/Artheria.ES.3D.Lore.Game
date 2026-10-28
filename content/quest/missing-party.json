@@ -8,11 +8,11 @@
     { "id": "string", "name": "Bitten crossbow string", "at": [1.6, 0.05, -16.4], "prop": "string",
       "text": "A crossbow string, cut clean through. Not by a blade: the ends are chewed. Small teeth.",
       "supports": ["who:goblin", "where:library"],
-      "natalie": "That's from my scout's crossbow. It bit through it while he was aiming. I watched it happen." },
+      "natalie": "That's from the Archer's crossbow. It bit through it while he was aiming. I watched it happen." },
     { "id": "lantern", "name": "Dropped lantern", "at": [-2.8, 0.05, -0.6], "prop": "lantern",
       "text": "A hooded lantern on its side by the coach, oil still in it. Whoever dropped it left in a hurry, toward the road.",
       "supports": ["where:road", "who:own"],
-      "natalie": "Our tracker's lantern. She never puts it down. Never." },
+      "natalie": "The Mage's lantern. She never puts it down. Never." },
     { "id": "tracks", "name": "Bootprints into the trees", "at": [9.0, 0.02, -8.0], "prop": "tracks",
       "text": "A line of bootprints, long strides, running. They leave the path and go into the forest. One pair only.",
       "supports": ["where:forest", "who:own"],
@@ -53,12 +53,12 @@
     "why:fear": ["fear", "afraid", "scared", "panic", "fright"]
   },
   "leads": {
-    "library": { "at": [-9.0, 0.6, -39.0], "friend": "the scout",
-      "find": "Behind a fallen shelf in the back hall: the scout, asleep on a nest of red-book covers, a broken bolt in his fist. Alive." },
-    "forest": { "at": [16.0, 0.6, -14.0], "friend": "the tracker",
-      "find": "Under an old oak, a rope ladder and a hidden perch: the tracker, keeping watch on the library with no lantern. Alive, and cross with herself." },
-    "road": { "at": [-16.0, 0.6, -4.0], "friend": "the shieldbearer",
-      "find": "In the ditch by the coach road, half under his own shield: the shieldbearer, bruised and starving, but alive." }
+    "library": { "at": [-9.0, 0.6, -39.0], "friend": "the Archer",
+      "find": "Behind a fallen shelf in the back hall: the Archer, asleep on a nest of red-book covers, a broken bolt in his fist. Alive." },
+    "forest": { "at": [16.0, 0.6, -14.0], "friend": "the Mage",
+      "find": "Under an old oak, a rope ladder and a hidden perch: the Mage, keeping watch on the library with no lantern. Alive, and cross with herself." },
+    "road": { "at": [-16.0, 0.6, -4.0], "friend": "the Swordsman",
+      "find": "In the ditch by the coach road, half under his own shield: the Swordsman, bruised and starving, but alive." }
   },
   "whyLine": {
     "goblin": "It was the goblin all along, you said. %FRIEND% won't say otherwise.",

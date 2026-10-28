@@ -16,5 +16,5 @@ A human bard and the compiler of *Tales of Artheria*. She writes everything down
 believes tavern hearsay a little more than she should.
 
 - **Wants:** to finish the book, and to find the three friends she lost inside the Ruined Library.
-- **Carries:** a field journal, a charcoal stick, and the crossbow her scout left behind.
+- **Carries:** a field journal, a charcoal stick, and the crossbow the Archer left behind.
 - **Afraid of:** the day a story she wrote turns out to be the only thing left of someone.

@@ -1026,16 +1026,22 @@ const shop = new ShopPanel(inventory, () => leaveForge());
 function openShop() {
   enterForge();
   const k = world.town.shopkeeper.position, top = new THREE.Vector3(k.x, 1.3, k.z);
-  const pos = new THREE.Vector3(k.x + 2.6, 1.7, k.z - 3.0);   // from the side, past the player's shoulder
+  const ry = world.town.shopkeeper.rotation.y, c = Math.cos(ry), sn = Math.sin(ry);
+  const pos = new THREE.Vector3(k.x - 2.6 * c + 3.0 * sn, 1.7, k.z + 2.6 * sn + 3.0 * c);   // from the side, past the player's shoulder
   const d = top.clone().sub(pos).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
   rig.setShot({ pos, look: top.addScaledVector(right, -0.7), fov: 44 });
   shop.open();
 }
+/** A point `ahead` metres out of a town door, on the ground. */
+const outOfDoor = (id: TownId, ahead: number) => { const d = world.town.doors[id]; return new THREE.Vector3(d.position.x + Math.sin(d.rotation.y) * ahead, 0, d.position.z + Math.cos(d.rotation.y) * ahead); };
 const townAct: Record<TownId, () => void> = {
-  smithy: () => { if (inventory.count('crossbow') > 0) openWeaponForge(world.town.doors.smithy.position.clone().setY(0).add(new THREE.Vector3(0, 0, 1.4))); else toast('The smith works on crossbows. Natalie has one you could borrow.'); },
+  library: () => { const p = player.pos; void openBook(new THREE.Vector3(p.x - Math.sin(player.yaw) * 0.45, 1.25, p.z - Math.cos(player.yaw) * 0.45)); },
+  smithy: () => { if (inventory.count('crossbow') > 0) openWeaponForge(outOfDoor('smithy', 0.8)); else toast('The smith works on crossbows. Natalie has one you could borrow.'); },
   tailor: () => openCharacterForge(),
   scriptorium: () => openSketchbook('body'),
   cartographer: () => openMap(),
+  dojo: () => openDojo(),
+  gallery: () => { player.spawn(new THREE.Vector3(GALLERY.minX - 1.2, 0, GALLERY.z), -Math.PI / 2); toast('Through the back door and down the lane: the gallery hall.'); },
   shop: () => openShop(),
   inn: () => { if (!inDungeon) sleep(); },
 };
@@ -1043,21 +1049,24 @@ for (const id of Object.keys(townAct) as TownId[]) {
   interactables.push({ obj: world.town.doors[id], verb: () => id === 'inn' ? `Rent a bed until ${WAKE_AT[NEXT_TIME[world.time]]}` : `Enter the ${TOWN_NAMES[id]}`, act: () => townAct[id]() });
 }
 interactables.push({ obj: world.town.shopkeeperHit, verb: () => 'Trade with the Shopkeeper', act: () => openShop() });
-// v0.04 cinema: the Lanternist shows short reels by Mike and friends (assets/cinema/) on a screen at the street's end.
-const reelStand = buildScreen();
-reelStand.position.set(24.6, 0, 30); reelStand.rotation.y = -Math.PI / 2;   // faces back up the street
-world.scene.add(reelStand);
-world.colliders.push({ kind: 'box', minX: 24.4, maxX: 24.8, minZ: 28.6, maxZ: 31.4 });
-const lanternist = buildFigure({ skin: '#E0B890', hair: '#2A2A30', primary: '#2E3A5A', secondary: '#C9A36B', boots: '#2A221C', accent: '#F2C27A', hairStyle: 'cap', scarf: '#B8463A', build: 1.0 }, 1.75);
-lanternist.position.set(23.2, 0, 32.3); lanternist.rotation.y = -Math.PI / 2 - 0.4; lanternist.name = 'standee:lanternist';
-world.scene.add(lanternist);
-world.colliders.push({ kind: 'circle', x: 23.2, z: 32.3, r: 0.35 });
-const lanternHit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
-lanternHit.position.set(23.2, 0.9, 32.3); world.scene.add(lanternHit);
-const cinema = new CinemaPanel(reelStand.userData.screen as THREE.Mesh, () => leaveForge());
+// v0.04 cinema: the Projectionist (a placeholder, never in the lore) shows short reels by Mike and friends
+// (assets/cinema/) on a screen in a gap of the town ring.
+const cin = world.town.cinema, cc = Math.cos(cin.ry), cs = Math.sin(cin.ry);
+const cinAt = (lx: number, lz: number) => new THREE.Vector3(cin.x + lx * cc + lz * cs, 0, cin.z - lx * cs + lz * cc);
+const reelScreen = buildScreen();
+reelScreen.position.copy(cinAt(0, 0.02)).setY(1.95); reelScreen.rotation.y = cin.ry;
+world.scene.add(reelScreen);
+const projectionist = buildFigure({ skin: '#E0B890', hair: '#2A2A30', primary: '#2E3A5A', secondary: '#C9A36B', boots: '#2A221C', accent: '#F2C27A', hairStyle: 'cap', scarf: '#B8463A', build: 1.0 }, 1.75);
+const pj = cinAt(1.9, 1.0);
+projectionist.position.copy(pj); projectionist.rotation.y = cin.ry - 0.5; projectionist.name = 'standee:projectionist';
+world.scene.add(projectionist);
+world.colliders.push({ kind: 'circle', x: pj.x, z: pj.z, r: 0.35 });
+const projectionistHit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
+projectionistHit.position.copy(pj).setY(0.9); projectionistHit.name = 'projectionist'; world.scene.add(projectionistHit);
+const cinema = new CinemaPanel(reelScreen, () => leaveForge());
 function openCinema() { enterForge(); cinema.open(); }
-interactables.push({ obj: lanternHit, verb: () => 'Watch the Lanternist\'s reels', act: () => openCinema() });
-interactables.push({ obj: reelStand.userData.screen as THREE.Object3D, verb: () => 'Watch the reels', act: () => openCinema() });
+interactables.push({ obj: projectionistHit, verb: () => 'Watch the Projectionist\'s reels', act: () => openCinema() });
+interactables.push({ obj: reelScreen, verb: () => 'Watch the reels', act: () => openCinema() });
 function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; syncLock(); }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; if (player.thirdPerson) player.pitch = 0; syncLock(); }
@@ -1226,11 +1235,11 @@ reader.onLink = followLink;
 book.onLink = (slug) => { book.close(); void openReader(slug); };
 
 // ---------- book open / close (F3.2, F3.6) ----------
-async function openBook() {
+async function openBook(at?: THREE.Vector3) {
   setState('book');
-  const b = world.bookCenter;   // v0.04: face the lectern to read
+  const b = at ?? world.bookCenter;   // v0.04: face the lectern (or, in the town library, the book in hand) to read
   player.bodyYaw = Math.atan2(-(b.x - player.pos.x), -(b.z - player.pos.z));
-  rig.setShot(rig.readingShot(world.bookCenter));
+  rig.setShot(rig.readingShot(b));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   await book.open();
 }

@@ -102,7 +102,7 @@ const node = (page) => G(page, () => window.__gametool.dialogue.currentId);
   await page.keyboard.press('KeyI');
   await page.waitForFunction(() => window.__gametool.state === 'inventory', null, { timeout: 3000 });
   const cells = await G(page, () => [...document.querySelectorAll('#inventory .inv-cell')].map((c) => c.querySelector('.inv-name').textContent + ' ' + c.querySelector('.inv-count').textContent));
-  check('F3.4 I opens a grid with name + count', cells.includes("Scout's Crossbow × 1") && cells.includes('Crossbow Bolt × 10'), cells.join(' | '));
+  check('F3.4 I opens a grid with name + count', cells.includes("Archer's Crossbow × 1") && cells.includes('Crossbow Bolt × 10'), cells.join(' | '));
   await page.screenshot({ path: path.join(shots, 'v04-inventory.png') });
   await page.keyboard.press('KeyI');
   await page.waitForFunction(() => window.__gametool.state !== 'inventory', null, { timeout: 3000 });

@@ -212,13 +212,17 @@ async function open(opts, init) {
   check('v0.04 Gamepad: L3 sprints until the stick is let go', sprintOff && spr.v > 6.8 && spr.v < 8.8, spr.v.toFixed(2) + ' m/s');
   await restoreColliders(page);
   const y0 = await G(page, () => window.__gametool.player.yaw);
-  await axes([0, 0, 1, 0]); await page.waitForTimeout(400); await axes([0, 0, 0, 0]);
+  await axes([0, 0, 1, 0]); await frames(page, 12); await axes([0, 0, 0, 0]);   // frame-based: slow SwiftShader frames
   const y1 = await G(page, () => window.__gametool.player.yaw);
   check('Gamepad: right stick looks', y1 < y0 - 0.3, `yaw ${y0.toFixed(2)} → ${y1.toFixed(2)}`);
   await teleport(page, 0, 30);
-  await btn(3, 60);
+  await frames(page, 3);
+  // Watch for the apex while Y is held: under slow SwiftShader frames the whole jump can be over by release.
+  await G(page, () => { window.__pad.buttons[3].pressed = true; window.__pad.buttons[3].value = 1; });
   let peak = 0;
-  for (let i = 0; i < 12; i++) { peak = Math.max(peak, (await pos(page)).y); await page.waitForTimeout(40); }
+  for (let i = 0; i < 20; i++) { peak = Math.max(peak, (await pos(page)).y); await page.waitForTimeout(40); }
+  await G(page, () => { window.__pad.buttons[3].pressed = false; window.__pad.buttons[3].value = 0; });
+  await frames(page, 2);
   check('Gamepad: Y jumps', peak > 0.5, 'apex ' + peak.toFixed(2));
   await page.waitForTimeout(800);
   await btn(1);

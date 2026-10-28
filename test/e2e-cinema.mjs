@@ -1,4 +1,4 @@
-// v0.04 feedback checks, part 7: the cinema NPC (the Lanternist) plays short clips from assets/cinema/:
+// v0.04 feedback checks, part 7: the cinema NPC (the Projectionist, a placeholder) plays short clips from assets/cinema/:
 // WebM preferred, GIF fallback, sound optional (starts muted), and the screen in town shows the reel.
 // The built page has no clips of its own here, so the test hands it two (a WebM and a GIF-only reel)
 // from test/fixtures/cinema/ (an ffmpeg test pattern, never shipped).
@@ -30,10 +30,11 @@ await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play');
 await page.mouse.move(5, 5);
 
-// ---------- the Lanternist and his screen ----------
-await G(page, () => { const p = window.__gametool.player; p.pos.set(21.6, 0, 31.4); p.yaw = Math.atan2(-(23.2 - 21.6), -(32.3 - 31.4)); p.bodyYaw = p.yaw; p.pitch = -0.1; });
-const talk = await until(page, () => window.__gametool.lookingAtVerb === "Watch the Lanternist's reels", null, 8000);
-check('v0.04 cinema: the Lanternist stands by a screen at the end of the town street', talk && !!(await G(page, () => window.__gametool.world.scene.getObjectByName('cinema-screen'))));
+// ---------- the Projectionist and the screen ----------
+await G(page, () => { const g = window.__gametool, k = g.world.scene.getObjectByName('projectionist').position, c = g.world.town.cinema, p = g.player;
+  const fx = Math.sin(c.ry), fz = Math.cos(c.ry); p.pos.set(k.x + fx * 1.4, 0, k.z + fz * 1.4); p.yaw = Math.atan2(-(k.x - p.pos.x), -(k.z - p.pos.z)); p.bodyYaw = p.yaw; p.pitch = -0.1; });
+const talk = await until(page, () => window.__gametool.lookingAtVerb === "Watch the Projectionist's reels", null, 8000);
+check('v0.04 cinema: the Projectionist (placeholder) stands by a screen in a gap of the town ring', talk && !!(await G(page, () => window.__gametool.world.scene.getObjectByName('cinema-screen'))));
 await page.keyboard.press('KeyE');
 const empty = await until(page, () => window.__gametool.cinema.isOpen && /assets\/cinema/.test(document.querySelector('#cinema .cin-stage').textContent), null, 6000);
 check('v0.04 cinema: with no reels yet, it says where to put them', empty || (await G(page, () => window.__gametool.cinema.clips.length > 0)));

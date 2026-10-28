@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { escapeHtml } from './submit';
 import './cinema.css';
 
-// v0.04: the Lanternist's reels. Short clips by Mike and friends from assets/cinema/ (see its README): WebM is
+// v0.04: the Projectionist's reels (a placeholder NPC, never part of the lore). Short clips by Mike and friends from assets/cinema/ (see its README): WebM is
 // preferred, an MP4 next, a GIF as the fallback. Clips start muted (sound is optional); the viewer can turn it on.
-// While a video plays, the screen on the Lanternist's stand in town shows it too.
+// While a video plays, the screen on the Projectionist's stand in town shows it too.
 export interface Clip { id: string; title: string; credit: string; sound: boolean; webm?: string; mp4?: string; gif?: string }
 declare const __CINEMA__: Clip[];
 
@@ -102,7 +102,7 @@ export class CinemaPanel {
   private render() {
     const c = this.current;
     this.el.innerHTML = `<div class="card cinema-card">
-      <div class="eyebrow">The Lanternist's reels</div>
+      <div class="eyebrow">The Projectionist's reels</div>
       <div class="cin-body">
         <div class="cin-stage">${this.clips.length ? '' : '<p class="fine">No reels yet. Drop short .webm (or .gif) clips into <code>assets/cinema/</code>; see its README.</p>'}</div>
         <div class="cin-list">${this.clips.map((x) => `<button class="cin-row${x.id === c?.id ? ' on' : ''}" data-clip="${escapeHtml(x.id)}"><b>${escapeHtml(x.title)}</b>${x.credit ? `<span>by ${escapeHtml(x.credit)}</span>` : ''}</button>`).join('')}</div>
@@ -115,22 +115,16 @@ export class CinemaPanel {
   }
 }
 
-/** The Lanternist's stand: a framed screen on two posts, with a painted poster until a reel plays. */
-export function buildScreen(): THREE.Group {
-  const g = new THREE.Group();
-  const wood = new THREE.MeshLambertMaterial({ color: '#5A3A22' });
-  for (const x of [-1.25, 1.25]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.8, 0.12), wood); p.position.set(x, 1.4, 0); g.add(p); }
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.6, 0.08), wood); frame.position.set(0, 1.95, -0.03); g.add(frame);
+/** The projectionist's screen: a painted poster until a reel plays (the stand itself is part of the town batch). */
+export function buildScreen(): THREE.Mesh {
   const c = document.createElement('canvas'); c.width = 256; c.height = 144;
   const x = c.getContext('2d')!;
   const grd = x.createRadialGradient(128, 72, 10, 128, 72, 140); grd.addColorStop(0, '#3A2E40'); grd.addColorStop(1, '#14101A');
   x.fillStyle = grd; x.fillRect(0, 0, 256, 144);
   x.fillStyle = '#F2C27A'; x.textAlign = 'center'; x.font = '600 22px Georgia, serif'; x.fillText('✦ Reels tonight ✦', 128, 66);
-  x.font = 'italic 14px Georgia, serif'; x.fillStyle = '#C9B89A'; x.fillText('ask the Lanternist', 128, 92);
+  x.font = 'italic 14px Georgia, serif'; x.fillStyle = '#C9B89A'; x.fillText('ask the Projectionist', 128, 92);
   const poster = new THREE.CanvasTexture(c); poster.colorSpace = THREE.SRGBColorSpace;
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.35), new THREE.MeshBasicMaterial({ map: poster, toneMapped: false }));
-  screen.position.set(0, 1.95, 0.02); screen.name = 'cinema-screen';
-  g.add(screen);
-  g.userData.screen = screen;
-  return g;
+  screen.name = 'cinema-screen';
+  return screen;
 }

@@ -1,6 +1,6 @@
 # Cinema reels
 
-Short clips by Mike and friends, shown by the Lanternist in town (v0.04).
+Short clips by Mike and friends, shown by the Projectionist (a placeholder NPC) in town (v0.04).
 
 - Drop a clip here as `name.webm` (preferred: small, plays everywhere but older iPhones) and, if you like,
   `name.gif` with the same name as the fallback. `name.mp4` also works.

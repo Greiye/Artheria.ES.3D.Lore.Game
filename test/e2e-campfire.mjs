@@ -61,7 +61,7 @@ check('B11 Play schedules the tune on the music bus', secs > 1, `${secs} s`);
 // ---------- telling + ballad ----------
 await page.fill('#campfire [data-turn=start]', 'We came up the paved road at dusk, and Natalie would not go in.');
 await page.fill('#campfire [data-turn=middle]', 'Inside, a bitten string. A page with a tooth hole.');
-await page.fill('#campfire [data-turn=end]', 'The blue light led to the ditch, and the shieldbearer was alive.');
+await page.fill('#campfire [data-turn=end]', 'The blue light led to the ditch, and the Swordsman was alive.');
 check('B8 Natalie takes a turn between yours (solo play)', await G(page, () => document.querySelectorAll('#campfire .cf-natalie').length === 3));
 await page.fill('#cfTitle', 'The Ditch Song');
 await page.click('#cfBard');
@@ -81,7 +81,7 @@ await page.fill('#campfire [data-turn=start]', 'The next morning we went back.')
 await page.fill('#campfire [data-turn=middle]', 'Two were still missing.');
 await page.fill('#campfire [data-turn=end]', 'We kept walking.');
 await page.click('#cfBard');
-check('B8 a new ballad can pick up where another left off (chain)', await G(page, () => window.__gametool.campfire.ballad.verses[0][0] === 'Where The Ditch Song left off,' && /Shieldbearer was alive/i.test(window.__gametool.campfire.ballad.verses[0][1])));
+check('B8 a new ballad can pick up where another left off (chain)', await G(page, () => window.__gametool.campfire.ballad.verses[0][0] === 'Where The Ditch Song left off,' && /Swordsman was alive/i.test(window.__gametool.campfire.ballad.verses[0][1])));
 await page.click('#cfClose');
 await until(page, () => window.__gametool.state !== 'forge');
 await resume();
