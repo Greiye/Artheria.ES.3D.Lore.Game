@@ -101,6 +101,19 @@ check('v0.04 D-pad quick swap: left hand torch off, right hand crossbow on and b
 // ---------- part 3: time of day ----------
 const start = await G(page, () => ({ t: window.__gametool.world.time, el: window.__gametool.world.sunElevationDeg }));
 check('v0.04 the game starts at a dark sunset (sun under 15°)', start.t === 'sunset' && start.el < 15, JSON.stringify(start));
+await G(page, () => {
+  const g = window.__gametool, b = g.world.stations.bedroll.getWorldPosition(new g.Vector3()), p = g.player;
+  p.pos.set(b.x, 0, b.z + 1.5); p.yaw = Math.atan2(-(b.x - p.pos.x), -(b.z - p.pos.z)); p.bodyYaw = p.yaw; p.pitch = -0.6;
+});
+const locked = await until(page, () => document.getElementById('promptVerb').textContent === 'Bedroll (sit by the fire first)');
+await page.keyboard.press('KeyE');
+await page.waitForTimeout(1300);
+check('v0.05 §4.1 the bedroll stays locked until you sit by the fire', locked && (await G(page, () => window.__gametool.world.time)) === 'sunset');
+await G(page, () => window.__gametool.openCampfire());
+await until(page, () => window.__gametool.campfire.isOpen);
+await G(page, () => window.__gametool.campfire.close());
+await until(page, () => window.__gametool.state === 'play');
+check('v0.05 §4.1 sitting by the fire unlocks it', await G(page, () => window.__gametool.satAtFire));
 const order = [];
 for (let i = 0; i < 3; i++) {
   await G(page, () => {

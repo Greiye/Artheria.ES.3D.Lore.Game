@@ -1,0 +1,28 @@
+/* v0.05 §6: the Quick Dungeon roadmap. */
+#quickDungeon { position: fixed; inset: 0; z-index: 42; display: grid; place-items: center; background: rgba(8,6,4,.78); }
+#quickDungeon.hidden { display: none; }
+.qd-panel { position: relative; width: min(860px, calc(100vw - 24px)); max-height: calc(100vh - 24px); box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;
+  background: var(--shadow); border: 1px solid var(--stone-d); border-radius: 10px; padding: 16px; }
+.qd-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.qd-head h2 { margin: 2px 0 0; font-family: var(--serif); }
+.qd-stats { display: flex; gap: 14px; font: 600 14px var(--ui); color: var(--parchment); }
+.qd-map { overflow-x: auto; overflow-y: hidden; border-radius: 8px; background: radial-gradient(ellipse at center, rgba(242,179,107,.08), rgba(0,0,0,.25)); padding: 10px 0; }
+.qd-canvas { position: relative; margin: 0 auto; }
+.qd-canvas svg { position: absolute; inset: 0; }
+.qd-edge { stroke: rgba(239,227,196,.16); stroke-width: 2; stroke-dasharray: 4 5; }
+.qd-edge.open { stroke: #F2B36B; stroke-width: 3; stroke-dasharray: none; filter: drop-shadow(0 0 4px rgba(242,179,107,.7)); }
+.qd-edge.taken { stroke: var(--gold, #E2B567); stroke-width: 3; stroke-dasharray: none; opacity: .65; }
+.qd-node { position: absolute; width: 52px; height: 52px; border-radius: 50%; padding: 0; display: grid; place-items: center; align-content: center;
+  border: 2px solid var(--stone-d); background: #1d1610; color: var(--stone-l); font: 20px/1 var(--serif); cursor: default; opacity: .55; }
+.qd-node small { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); font: 600 10px var(--ui); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.qd-node.seen { opacity: .85; border-color: #7a5a3a; }
+.qd-node.here { opacity: 1; border-color: #FFD79A; color: #FFD79A; box-shadow: 0 0 14px rgba(242,179,107,.6); }
+.qd-node.open { opacity: 1; cursor: pointer; border-color: #F2B36B; color: var(--parchment); }
+.qd-node.open:hover, .qd-node.sel { background: #3a2817; transform: scale(1.12); box-shadow: 0 0 16px rgba(242,179,107,.8); }
+.qd-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.qd-result { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,6,4,.6); border-radius: 10px; }
+.qd-result .card-in { width: min(420px, calc(100% - 24px)); background: var(--shadow); border: 1px solid #7a5a3a; border-radius: 10px; padding: 16px; }
+.qd-result h3 { font-family: var(--serif); margin: 0 0 4px; }
+.qd-result .credit { font-size: 12px; color: var(--rune); letter-spacing: .08em; text-transform: uppercase; }
+.qd-result p { color: var(--stone-l); line-height: 1.5; white-space: pre-wrap; }
+.qd-result .qd-loot { color: #FFD79A; font-weight: 600; }

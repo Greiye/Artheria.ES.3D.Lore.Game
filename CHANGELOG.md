@@ -7,6 +7,23 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.05,
 Mike 2026-10-28). Spec doc v0.05.
 
+### v0.05 changelog, part 4: Quick Dungeon
+- The trapdoor now asks "Enter Normal Dungeon or Run Quick Dungeon?". Normal is the walkable dungeon as before.
+- The Quick Dungeon is menu-only: a left-to-right map of five layers (the stairs, three layers of 2–3 rooms, the goblin's nest). Every room leads to 2–3 rooms on the next layer, so you make exactly four picks.
+- Rooms resolve at once in a card: a fight (a short summary; it costs health and pays crowns), a carving (a line from the lore, credited), a cache (crowns, sometimes bolts) or a spring (heals). At the nest you win a trinket and 12 crowns if you have enough health left, or back up the stairs to try again.
+- The paths you can take light up; the map glides to keep your room in the middle (it scrolls sideways on a phone).
+- Tap a room, or use D-pad / arrows to move between the rooms ahead and A / Enter to pick; A carries on after a card; B / Esc backs up the stairs.
+- Same seed, same map and same outcomes. The result is saved with the seed's delve record.
+
+### v0.05 changelog, part 3: campfire band, Natalie's telling
+- The campfire song is split into seven stems: humming, hand drum, whistling, clapping and stomping, violin, lute and ocarina. You play one instrument; the camp plays every other stem, looping while you sit. "Hear your part" plays your stem softly so you can follow it.
+- Violin and ocarina are new, sold at the General Store with the other instruments.
+- The bedroll is part of the camp: it unlocks once you've sat by the fire and locks again when you leave camp.
+- Natalie tells lore pages by the fire ("Hear a tale"). Words appear one at a time, paced by the punctuation, and the page's markdown sets her delivery: `*whisper*` is smaller, lighter and slower; `**emphasis**` is bold and swells; `***dramatic beat***` is big, with a breath before it; `...` and `—` are lingering pauses. The fire flares on the emphasised words.
+- The camera frames Natalie and the fire beside the words (above them on a tall screen). On a phone held sideways, she asks you to turn it upright ("Carry on sideways" skips it).
+- Tap, A, Space or E hurries her to the end of the paragraph; when she's done the same goes back to the fire. Esc or B leaves at any time.
+- Natalie's Field Note is tagged as the first example.
+
 ### v0.05 changelog, part 2: three camera perspectives, shoulder swap, D-pad dialogue
 - The camera has three perspectives: first person, over the shoulder and overhead (the Dark Cloud 2 style view, now the default). F (or R3, or the touch eye button) cycles them; the wheel, a pinch, the right stick or LB / RB step in and out; the pause menu's Camera list picks one. A saved "follow" view becomes overhead.
 - Swap shoulder: Q (or D-pad up) moves the shoulder view to the other shoulder. In first person and overhead the same button switches weapon (hands ↔ crossbow). It's rebindable under Controls.

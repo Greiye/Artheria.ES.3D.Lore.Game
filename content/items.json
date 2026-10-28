@@ -35,6 +35,16 @@
       "name": "Lute",
       "icon": "♫",
       "note": "A travelling bard's lute, a little out of tune."
+    },
+    "ocarina": {
+      "name": "Ocarina",
+      "icon": "◒",
+      "note": "A clay egg with holes. Sustained, breathy notes."
+    },
+    "violin": {
+      "name": "Violin",
+      "icon": "♬",
+      "note": "Four strings and a bow. Carries the long notes at the fire."
     }
   }
 }
