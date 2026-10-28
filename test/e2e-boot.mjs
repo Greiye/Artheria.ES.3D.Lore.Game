@@ -91,13 +91,14 @@ const rebound = await G(page, () => window.__gametool.binds.jump[0] === 'KeyK' &
 await page.click('#resume');
 await until(page, () => window.__gametool.state === 'play' || window.__gametool.state === 'resume', null, 3000);
 if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn');
+await until(page, () => window.__gametool.state === 'play', null, 5000);
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8); });
 await page.waitForTimeout(300);
+// Frame-based, not wall-clock: CI software rendering can run at a few frames a second.
 await page.keyboard.down('KeyK');
-let peak = 0;
-for (let i = 0; i < 20; i++) { peak = Math.max(peak, await G(page, () => window.__gametool.player.pos.y)); await page.waitForTimeout(40); }
+const jumped = await until(page, () => window.__gametool.player.pos.y > 0.5, null, 8000);
 await page.keyboard.up('KeyK');
-check('v0.05 §3.1 Controls: rebind a key (Jump → K), saved, and it works in play', rebound && peak > 0.5, 'apex ' + peak.toFixed(2));
+check('v0.05 §3.1 Controls: rebind a key (Jump → K), saved, and it works in play', rebound && jumped, jumped ? 'jumped' : 'no jump');
 await G(page, () => { window.__gametool.binds.jump[0] = 'Space'; localStorage.removeItem('gametool.keys'); });
 
 // ---------- exit gate ----------
