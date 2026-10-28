@@ -738,6 +738,7 @@ questProps.sync(quest.clues);
 questProps.showLead(quest.stage === 'lead' ? quest.theory?.where ?? null : null);
 const natalieRoot = () => (world.standees.natalie.userData.replacedBy as THREE.Object3D | undefined) ?? world.standees.natalie;
 const companion = new Companion(natalieRoot, world.natalieTarget, world.colliders, world.bounds, loadCompanion());
+companion.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
 ($('companionQuiet') as HTMLInputElement).checked = companion.prefs.quiet;
 $('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
 const seen = (() => { try { return JSON.parse(localStorage.getItem('gametool.seen') ?? '[]') as string[]; } catch { return [] as string[]; } })();

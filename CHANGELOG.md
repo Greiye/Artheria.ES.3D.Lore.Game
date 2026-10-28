@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.05,
 Mike 2026-10-28). Spec doc v0.05.
 
+### Style pass 2: storybook town and land
+- Town: four houses (inn, scriptorium, cartographer, tailor) have a jettied upper floor with lit upstairs windows; crooked brick chimneys; window boxes of flowers; terracotta pots by every door; striped awnings over the shop counter and the tailor's and gallery's windows; barrels and crates against some side walls.
+- A well in the middle of the green, and bunting strung between the lamp posts.
+- Worn footpaths are painted into the ground with soft, ragged edges (spawn to the town, the camp, the gallery hall, the dojo, the rock climb, the coach road out to the gate, and two trails off the green). They replace the old flat dirt strips.
+- The meadow has gentle bumps (up to about 0.45 m). Everything built on flat ground stays flat, and trees, rocks, bushes, grass, Natalie and crossbow bolts follow the ground.
+- Seven mossy rock outcrops out in the meadow.
+- Still one draw call for the ground; the town dressing adds one (about 10k triangles).
+
 ### v0.05 changelog, part 4: Quick Dungeon
 - The trapdoor now asks "Enter Normal Dungeon or Run Quick Dungeon?". Normal is the walkable dungeon as before.
 - The Quick Dungeon is menu-only: a left-to-right map of five layers (the stairs, three layers of 2–3 rooms, the goblin's nest). Every room leads to 2–3 rooms on the next layer, so you make exactly four picks.

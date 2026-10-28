@@ -5,7 +5,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { buildFigure, buildCoach } from './figure';
-import { heightAt, shapeGround, buildMountains } from './terrain';
+import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
+import { groundMaterial, outcrop } from './land';
+import QUEST from '../../content/quest/missing-party.json';
 import { buildTown, townClear, type Town } from './town';
 
 // Rebuild R2 (docs/vision.md, docs/rebuild-plan.md): the start glade in the new look.
@@ -71,8 +73,8 @@ export function buildWorld(): World {
   const groundGeo = new THREE.PlaneGeometry(HALF * 2 + 60, HALF * 2 + 60, 80, 80).rotateX(-Math.PI / 2);
   const gUV = groundGeo.attributes.uv as THREE.BufferAttribute;
   for (let i = 0; i < gUV.count; i++) gUV.setXY(i, gUV.getX(i) * (HALF * 2 + 60), gUV.getY(i) * (HALF * 2 + 60));   // 1 tile per metre
-  shapeGround(groundGeo);   // v0.04: hills roll up toward the edge (src/world/terrain.ts)
-  const ground = new THREE.Mesh(groundGeo, tex('grass'));
+  // Shaped once the keep-out zones are known (below): v0.04 hills at the edge, style pass 2 bumps in the meadow.
+  const ground = new THREE.Mesh(groundGeo, groundMaterial());
   ground.name = 'ground';
   scene.add(ground);
   // Bare-earth patches: alpha-blended dirt decals around the dais and along the walk.
@@ -224,6 +226,14 @@ export function buildWorld(): World {
     || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad)   // Phase F dojo
     || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad)   // v0.04 rock climb
     || townClear(x, z, pad);   // v0.04 town
+  // Style pass 2: the meadow gets gentle bumps, except where something stands on flat ground.
+  const flatSpots: [number, number, number][] = [
+    ...QUEST.clues.map((c) => [c.at[0], c.at[2], 2.5] as [number, number, number]),
+    ...Object.values(QUEST.leads).map((l) => [l.at[0], l.at[2], 3] as [number, number, number]),
+    [3.8, 3.2, 1.5], [-6, -5, 4.5], [5.5, -6, 4.5], [-8, 2, 4.5], [8, 1, 4.5],   // the hero standee; the ruined walls (flat landings for vaults)
+  ];
+  setFlatMask((x, z) => clear(x, z, 0.5) || flatSpots.some(([fx, fz, r]) => Math.hypot(x - fx, z - fz) < r));
+  shapeGround(groundGeo);
 
   // ---------- trees: birch + oak, trunks batched, canopies as alpha-cut leaf blocks ----------
   const canopyDark = leafMaterial('leaves', true), canopyLight = leafMaterial('leavesLight', true);
@@ -281,6 +291,15 @@ export function buildWorld(): World {
     if (clear(x, z, 1.5)) continue;
     rock(x, z, 0.35 + R() * R() * 1.6, R() < 0.55 ? 'mossStone' : 'stone');
   }
+  // Style pass 2: a few rock outcrops with moss on top, out in the open meadow.
+  const OR = rng(5150);
+  for (let i = 0, made = 0; i < 60 && made < 7; i++) {
+    const x = (OR() * 2 - 1) * (HALF - 8), z = (OR() * 2 - 1) * (HALF - 8);
+    if (clear(x, z, 4) || trees.some(([a, b]) => Math.hypot(a - x, b - z) < 4)) continue;
+    outcrop(B, tex, colliders, x, z, heightAt(x, z), OR);
+    trees.push([x, z]);
+    made++;
+  }
   // Two rocks flanking the path near spawn so collision is easy to test (F1.3 Done-when).
   rock(-2.4, 6.5, 0.8, 'mossStone'); rock(2.6, 8.5, 0.95, 'stone');
   colliders.splice(-2, 2, { kind: 'circle', x: -2.4, z: 6.5, r: 0.88 }, { kind: 'circle', x: 2.6, z: 8.5, r: 1.05 });
@@ -322,7 +341,7 @@ export function buildWorld(): World {
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (Math.abs(x) > HALF + 8 || Math.abs(z) > HALF + 8) continue;
       if (clear(x, z, pad) && !(Math.hypot(x, z) > 2.5 && Math.hypot(x, z) < 4.2 && R() < 0.5)) continue;
-      out.push({ x, z, s: 0.7 + R() * 0.6, ry: R() * Math.PI });
+      out.push({ x, z, s: 0.7 + R() * 0.6, ry: R() * Math.PI, y: heightAt(x, z) });
     }
     return out;
   };

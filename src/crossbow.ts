@@ -154,7 +154,8 @@ export class Crossbow {
       const hit = this.ray.intersectObjects(this.solids, false)[0];
       if (hit) { b.mesh.position.copy(hit.point).addScaledVector(step.normalize(), -0.12); b.stuck = true; b.age = 0; continue; }
       const to = from.add(step);
-      if (to.y <= 0.02) { to.y = 0.02; b.mesh.position.copy(to); b.stuck = true; b.age = 0; continue; }
+      const gy = this.player.terrain(to.x, to.z);   // the ground, bumps and hills included
+      if (to.y <= gy + 0.02) { to.y = gy + 0.02; b.mesh.position.copy(to); b.stuck = true; b.age = 0; continue; }
       if (b.age > 6) { this.removeBolt(b); continue; }   // flew off the map
       b.mesh.position.copy(to);
       b.mesh.lookAt(to.clone().add(b.vel));

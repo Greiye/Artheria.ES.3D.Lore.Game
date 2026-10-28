@@ -29,6 +29,8 @@ export class Companion {
     document.body.appendChild(this.line);
   }
 
+  /** Ground height under her feet (main sets it: the meadow's bumps and the hills). */
+  terrain: (x: number, z: number) => number = () => 0;
   get pos() { return this.root().position; }
 
   // Follow: aim for a point behind-left of the player; walk, or run to catch up; never stand inside a collider.
@@ -43,7 +45,7 @@ export class Companion {
     if (glade && Math.abs(goal.z - DOOR_Z) < 1.5 && inside(player.z) !== inside(r.position.z) && Math.abs(r.position.x) < 1.2 && Math.hypot(goal.x - r.position.x, goal.z - r.position.z) < 0.6) goal.set(0, 0, inside(player.z) ? DOOR_Z - 1.2 : DOOR_Z + 1.2);
     const dx = goal.x - r.position.x, dz = goal.z - r.position.z, d = Math.hypot(dx, dz);
     const far = Math.hypot(player.x - r.position.x, player.z - r.position.z);
-    if (far > 30) { r.position.set(goal.x, 0, goal.z); this.speed = 0; this.syncTarget(); return; }   // left behind (teleport, respawn): catch up
+    if (far > 30) { r.position.set(goal.x, this.terrain(goal.x, goal.z), goal.z); this.speed = 0; this.syncTarget(); return; }   // left behind (teleport, respawn): catch up
     const want = d < 0.25 ? 0 : d > KEEP * 2 ? RUN : Math.min(WALK, d * 1.6);
     this.speed += (want - this.speed) * (1 - Math.exp(-8 * dt));
     if (d > 0.05 && this.speed > 0.05) {
@@ -57,6 +59,7 @@ export class Companion {
       this.yaw += Math.atan2(Math.sin(face - this.yaw), Math.cos(face - this.yaw)) * (1 - Math.exp(-4 * dt));
     }
     this.pushOut(r.position);
+    r.position.y = this.terrain(r.position.x, r.position.z);
     r.rotation.y = this.yaw;
     this.syncTarget();
   }
