@@ -33,6 +33,7 @@ export class TouchControls {
       <div class="t-cam">
         <button class="t-btn" data-act="camin" aria-label="Camera in">−</button>
         <button class="t-btn" data-act="camout" aria-label="Camera out">+</button>
+        <button class="t-btn" data-act="torch" aria-label="Torch">🔥</button>
       </div>
       <div class="t-cluster">
         <button class="t-btn" data-act="sprint">Sprint</button>
@@ -62,6 +63,7 @@ export class TouchControls {
         if (act === 'jump') p.jump();
         else if (act === 'camin') this.g.stepCamera(-1);
         else if (act === 'camout') this.g.stepCamera(1);
+        else if (act === 'torch') this.g.toggleTorch();
         else if (act === 'sneak') { p.toggleSneak(); b.classList.toggle('latched', p.sneaking); }
         else if (act === 'sprint') p.held.add('sprint');
         else if (act === 'pov') this.g.toggleView();   // F2.4

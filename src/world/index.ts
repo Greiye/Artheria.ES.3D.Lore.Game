@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { pixelTexture, rng, type TexName } from '../tex/pixel';
 import { Batch } from './batch';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { buildSky } from './sky';
+import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { buildFigure, buildCoach } from './figure';
 
@@ -11,8 +11,10 @@ import { buildFigure, buildCoach } from './figure';
 // (unlit, painted light) + golden-hour haze and light shafts. Layout, ids and the World contract are
 // unchanged from the legacy build (D7, F1.2–F1.4, F2.2–F2.3, D13), so gameplay and tests carry over.
 
-export interface CircleCollider { kind: 'circle'; x: number; z: number; r: number }
-export interface BoxCollider { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number }
+// `top` (v0.04): the collider is a solid that height you can stand on, step onto, vault or climb.
+// Without it a collider is a wall as tall as anything the player can reach.
+export interface CircleCollider { kind: 'circle'; x: number; z: number; r: number; top?: number }
+export interface BoxCollider { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number; top?: number }
 export type Collider = CircleCollider | BoxCollider;
 
 export interface World {
@@ -22,10 +24,12 @@ export interface World {
   bookCenter: THREE.Vector3;
   spawn: { pos: THREE.Vector3; yaw: number };
   bounds: number;               // half-size of the walkable square (F1.3)
-  sunElevationDeg: number;      // F2.2: < 15° for the sunset
+  readonly sunElevationDeg: number;      // F2.2: < 15° for the sunset
+  readonly time: TimeOfDay;              // v0.04: day / sunset / night
+  setTime(t: TimeOfDay): void;
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
-  stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D; campfire: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
+  stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D; campfire: THREE.Object3D; bedroll: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
   campfireFlame: THREE.Mesh;                                  // B8: flickers in main.ts
   bannerCloth: THREE.Mesh;                                    // B10: its map is the stamped sketch
   lecternPages: [THREE.Mesh, THREE.Mesh];                     // B3: margin notes are drawn onto these
@@ -48,6 +52,7 @@ export function buildWorld(): World {
   const R = rng(20261016);
   const SUN_ELEV = 13, SUN_AZ = 38;
   const sky = buildSky(scene, SUN_ELEV, SUN_AZ);
+  sky.setTime('sunset');   // v0.04: every visit starts at a dark sunset
 
   // One lit material per pixel texture (Lambert: cheap on phones, takes shadows).
   const mats = new Map<TexName, THREE.MeshLambertMaterial>();
@@ -212,7 +217,8 @@ export function buildWorld(): World {
     // Phases B–E: the camp, the gallery hall, the quest's forest tracks and its two outdoor leads.
     || (x > -11 - pad && x < -3 + pad && z > -7 - pad && z < 5 + pad) || (x > 9.5 - pad && x < 20.5 + pad && z > 2 - pad && z < 10 + pad)
     || Math.hypot(x - 9.5, z + 10) < 3.5 + pad || Math.hypot(x - 16, z + 14) < 2 + pad || Math.hypot(x + 16, z + 4) < 2 + pad
-    || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad);   // Phase F dojo
+    || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad)   // Phase F dojo
+    || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad);   // v0.04 rock climb
 
   // ---------- trees: birch + oak, trunks batched, canopies as alpha-cut leaf blocks ----------
   const canopyDark = leafMaterial('leaves', true), canopyLight = leafMaterial('leavesLight', true);
@@ -277,8 +283,26 @@ export function buildWorld(): World {
   walls.forEach(([x, z, w, d]) => {
     B.box(tex('bricks'), V(x, 0.45, z), w, 0.9, d);
     B.box(tex('mossStone'), V(x, 0.96, z), w + 0.15, 0.12, d + 0.15);
-    colliders.push({ kind: 'box', minX: x - w / 2 - 0.05, maxX: x + w / 2 + 0.05, minZ: z - d / 2 - 0.05, maxZ: z + d / 2 + 0.05 });
+    colliders.push({ kind: 'box', minX: x - w / 2 - 0.05, maxX: x + w / 2 + 0.05, minZ: z - d / 2 - 0.05, maxZ: z + d / 2 + 0.05, top: 1.02 });   // v0.04: vaultable
   });
+
+  // v0.04: a fall of rocks to climb (Mirror's Edge style: jump, vault and mantle up), with a lookout on top.
+  const ROCKS = { x: 24, z: -22 }, RR = rng(4404);   // own random stream: the glade's layout stays as it was
+  const slabs: [number, number, number, number, number][] = [   // x, z (from ROCKS), w, d, top
+    [0, 3.2, 2.4, 1.8, 0.7], [0.6, 1.4, 2.2, 2.0, 1.4], [0.2, -0.6, 2.6, 2.0, 2.1], [-1.8, -1.6, 2.0, 2.2, 2.8], [-0.4, -3.3, 3.0, 2.6, 3.5],
+    [2.6, -2.8, 1.6, 1.6, 1.2], [-3.4, 0.6, 1.8, 1.8, 1.0],
+  ];
+  for (const [dx, dz, w, d, top] of slabs) {
+    const x = ROCKS.x + dx, z = ROCKS.z + dz, ry = (dx * 7 + dz * 3) % 0.5 - 0.25;
+    B.box(tex(top > 2 ? 'stone' : 'mossStone'), V(x, top / 2 - 0.02, z), w, top, d, ry * 0.3);
+    B.box(tex('mossStone'), V(x - 0.05, top + 0.04, z + 0.05), w * 0.86, 0.1, d * 0.86, ry * 0.3);
+    colliders.push({ kind: 'box', minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, top });
+    // Broken chunks leaning on it (dressing, a little lower than the top so they never change the footing).
+    for (const [cx, cz, k] of [[-0.5, 0.5, 0.55], [0.5, -0.5, 0.45]] as const) {
+      const h = top * k + 0.2;
+      B.box(tex(RR() < 0.5 ? 'stone' : 'mossStone'), V(x + cx * w, h / 2 - 0.05, z + cz * d), w * 0.42, h, d * 0.42, 0.5 + RR());
+    }
+  }
 
   const statics = B.flush(scene, 'static');
   statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
@@ -358,6 +382,11 @@ export function buildWorld(): World {
   for (const a of [0.3, 1.35, 2.4]) campB.add(tex('bark'), new THREE.CylinderGeometry(0.06, 0.07, 0.75, 6), V(FX, 0.12, FZ), undefined, a, Math.PI / 2 - 0.25);
   for (const [dx, dz, ry] of [[1.5, 0.3, 1.4], [-0.6, 1.5, 0.2], [-1.3, -0.9, 2.3]] as const) campB.add(tex('bark'), new THREE.CylinderGeometry(0.2, 0.2, 1.2, 7), V(FX + dx, 0.2, FZ + dz), undefined, ry, Math.PI / 2);
   colliders.push({ kind: 'circle', x: FX, z: FZ, r: 0.65 });
+  // v0.04: a bedroll by the fire. Sleeping on it moves the time of day on.
+  const BRX = FX + 1.1, BRZ = FZ - 1.7;
+  campB.box(tex('cover'), V(BRX, 0.05, BRZ), 0.8, 0.08, 1.8, 0.35);
+  campB.box(tex('wood'), V(BRX + 0.05, 0.06, BRZ - 0.1), 0.86, 0.04, 1.7, 0.35);
+  campB.add(tex('cover'), new THREE.CylinderGeometry(0.16, 0.16, 0.8, 8), V(BRX + Math.sin(0.35) * 0.82, 0.16, BRZ + Math.cos(0.35) * 0.82), undefined, 0.35, Math.PI / 2, 0);
   const flame = new THREE.Mesh(mergeGeometries([
     new THREE.ConeGeometry(0.22, 0.6, 5).translate(0, 0.3, 0), new THREE.ConeGeometry(0.14, 0.42, 5).translate(0.09, 0.21, 0.05), new THREE.ConeGeometry(0.12, 0.36, 5).translate(-0.08, 0.18, -0.06),
   ].map((g, i) => { const n = g.toNonIndexed(); const c = new THREE.Color(['#F2783A', '#FFD25A', '#FFB347'][i]); n.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: n.attributes.position.count }, () => [c.r, c.g, c.b]).flat(), 3)); n.deleteAttribute('uv'); return n; })), new THREE.MeshBasicMaterial({ vertexColors: true }));
@@ -372,7 +401,7 @@ export function buildWorld(): World {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshBasicMaterial({ visible: false }));
     m.name = name; m.position.set(x, y, z); scene.add(m); return m;
   };
-  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2), banner: hitbox('banner', BX, 1.4, BZ, 1.0, 2.8), campfire: hitbox('campfire', FX, 0.4, FZ, 1.4, 0.8) };
+  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2), banner: hitbox('banner', BX, 1.4, BZ, 1.0, 2.8), campfire: hitbox('campfire', FX, 0.4, FZ, 1.4, 0.8), bedroll: hitbox('bedroll', BRX, 0.3, BRZ, 1.2, 0.6) };
 
   let doorOpen = false, doorAngle = 0;
   return {
@@ -386,7 +415,9 @@ export function buildWorld(): World {
     bookCenter: new THREE.Vector3(0, 1.12, 0),
     spawn: { pos: new THREE.Vector3(0, 0, 8.5), yaw: 0 },  // yaw 0 looks toward -Z: the lectern
     bounds: HALF,
-    sunElevationDeg: SUN_ELEV,
+    get sunElevationDeg() { return sky.elevationDeg; },
+    get time() { return sky.time; },
+    setTime(t: TimeOfDay) { sky.setTime(t); },
     libraryDoor,
     natalieTarget,
     standees,

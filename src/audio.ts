@@ -45,11 +45,12 @@ class AudioEngine {
     for (const b of BUSES) this.bus[b].gain.value = this.muted[b] ? 0 : this.levels[b] / 100;
   }
 
-  private noise(bus: Bus, dur: number, filterHz: number, q: number, peak: number): void {
+  private noise(bus: Bus, dur: number, filterHz: number, q: number, peak: number, rate = 1): void {
     if (!this.ensure() || !this.ctx || !this.bus || !this.noiseBuf) return;
     const src = this.ctx.createBufferSource();
     src.buffer = this.noiseBuf;
     src.loop = true;
+    src.playbackRate.value = rate;
     const filt = this.ctx.createBiquadFilter();
     filt.type = 'bandpass'; filt.frequency.value = filterHz; filt.Q.value = q;
     const env = this.ctx.createGain();
@@ -63,7 +64,12 @@ class AudioEngine {
   }
 
   // ---------- A7 named sounds ----------
-  footstep(): void { this.noise('sfx', 0.09, 900 + Math.random() * 300, 1.2, 0.35); }
+  // v0.04: every step a little different, pitched ±12% (the noise plays faster or slower, and the filter follows).
+  lastStepPitch = 1;
+  footstep(): void {
+    const k = this.lastStepPitch = 0.88 + Math.random() * 0.24;
+    this.noise('sfx', 0.09 / k, (900 + Math.random() * 300) * k, 1.2, 0.3 + Math.random() * 0.1, k);
+  }
   pageTurn(): void { this.noise('sfx', 0.22, 2200, 2, 0.22); }
 
   // Continuous ambient wind (F2.2). Idempotent: calling again while already running is a no-op.

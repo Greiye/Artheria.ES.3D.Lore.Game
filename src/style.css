@@ -274,3 +274,12 @@ body[data-pad="playstation"] .padmap .face { background: #22252B; }
 body[data-pad="playstation"] .padmap .face0 { color: #7FA8E8; } body[data-pad="playstation"] .padmap .face1 { color: #E86A6A; }
 body[data-pad="playstation"] .padmap .face2 { color: #D88AC8; } body[data-pad="playstation"] .padmap .face3 { color: #5ED0B0; }
 @media (max-width: 520px) { .padmap { grid-template-columns: 1fr; } }
+
+/* v0.04 quick swap: what each hand holds, shown briefly after a D-pad swap */
+#quick { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: flex; gap: 28px; padding: 8px 16px;
+  border-radius: 10px; background: rgba(20,24,22,.62); color: var(--parchment); font: 600 14px var(--ui); pointer-events: none; }
+#quick.hidden { display: none; }
+
+/* v0.04 sleeping on the bedroll: the view fades to black and back */
+#sleepFade { position: fixed; inset: 0; z-index: 30; background: #05060A; opacity: 0; pointer-events: none; transition: opacity .9s ease; }
+#sleepFade.on { opacity: 1; }

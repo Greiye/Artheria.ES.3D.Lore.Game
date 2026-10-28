@@ -7,6 +7,25 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### v0.04 feedback, part 3: time of day
+
+- **Starts at a dark sunset:** the sun sits low and orange, the sky dims and the first stars show. Bring a torch.
+- **Bedroll sleep:** a bedroll by the campfire. Use it to fade out and wake at the next time of day:
+  day → sunset → night → day. Night has a moon, stars and a cool, dark fill.
+
+### v0.04 feedback, part 2: player
+
+- **Vault and climb (Mirror's Edge):** jump at a ledge up to 1.6 m above your feet to vault it. A thin
+  obstacle, like the 1 m ruin walls, is vaulted clean over; a deep one is climbed onto. In mid-air, pushing into
+  a ledge within 1.2 m is caught and mantled. Rises up to 0.35 m are walked up.
+- **Fallen rocks:** a climbable rock fall east of the library (about x 24, z −22) with a 3.5 m lookout on top.
+- Solids can now have a standing height (`top` on a collider); the camera clears what it's above.
+- **Torch:** a hand torch with a warm, flickering light, carried in the figure's hand (in view in first person).
+  T, hold D-pad down (0.4 s), or the phone's 🔥 button.
+- **D-pad quick swap (Skyrim style):** D-pad left swaps the left hand (empty / torch), D-pad right the right
+  hand (hands / crossbow). A short line shows what each hand holds.
+- **Footsteps:** each step's pitch varies by ±12%.
+
 ### v0.04 feedback, part 1: mobile, controller, camera
 
 - **Camera, 5 distances:** the wheel (one step per notch), LB/RB, a pinch or vertical drag, the right stick and

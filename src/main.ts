@@ -48,6 +48,8 @@ import { Dungeon } from './dungeon/dungeon';
 import { dailySeed, seedFrom } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
+import { Torch } from './torch';
+import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
 
 // Private, all rights reserved (D8). Not open source.
@@ -109,6 +111,7 @@ const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => s
 player.zoomBy = (d) => stepView(rig.zoomBy(d));   // pinch / right stick: steps through the 5 distances
 rig.update(0);
 world.scene.add(player.body);
+const torch = new Torch(world.scene, camera, player);   // v0.04
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
 const modelSlots: ModelSlot[] = [
   ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number })),
@@ -154,17 +157,19 @@ ui.innerHTML = `
         <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
         <tr><td>F</td><td>Third / first person</td><td>Wheel</td><td>Camera distance (5 steps)</td></tr>
-        <tr><td>L</td><td>Write lore</td><td></td><td></td></tr>
+        <tr><td>L</td><td>Write lore</td><td>T</td><td>Torch</td></tr>
       </table>
       <p class="fine">Private project · all rights reserved.</p>
     </div>
   </div>
   <div id="vignette"></div>
+  <div id="sleepFade"></div>
   <div id="rotateHint">⟳ Turn your phone sideways to play</div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
     <div id="toast" class="hidden"></div>
+    <div id="quick" class="hidden"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
     <button id="writeLoreHud"><kbd>L</kbd> — Write lore</button>
     <div id="status"></div>
@@ -299,8 +304,8 @@ function setMode(m: InputMode) {
 // v0.04: the controller map, drawn from controls.gamepad with the pad's own button names.
 const PAD_MAP: [side: 'l' | 'r', button: number | string, what: string][] = [
   ['l', 6, 'Aim (crossbow)'], ['l', 4, 'Camera in · page back'], ['l', 'Left stick', 'Move · click: sprint'],
-  ['l', 12, 'Crossbow / hands'], ['l', 8, 'Bag'],
-  ['r', 7, 'Fire'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
+  ['l', 12, 'Crossbow / hands'], ['l', 14, 'Quick swap: left hand (torch)'], ['l', 13, 'Hold: torch'], ['l', 8, 'Bag'],
+  ['r', 7, 'Fire'], ['r', 15, 'Quick swap: right hand'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
   ['r', 0, 'Use · talk · read'], ['r', 'Right stick', 'Look · click: first person'], ['r', 9, 'Pause'],
 ];
 function renderPadMap(fam: PadFamily) {
@@ -514,15 +519,19 @@ let footSide = 1;
 const footAt = () => {
   footSide = -footSide;
   const s = Math.sin(player.bodyYaw), c = Math.cos(player.bodyYaw);
-  return new THREE.Vector3(player.pos.x + c * 0.12 * footSide + s * 0.15, 0, player.pos.z - s * 0.12 * footSide + c * 0.15);
+  return new THREE.Vector3(player.pos.x + c * 0.12 * footSide + s * 0.15, player.pos.y, player.pos.z - s * 0.12 * footSide + c * 0.15);
 };
 let bannerT = 0;
 let lastReload: string | null = null;
+let lastVaults = 0;
 function animate(dt: number) {
   player.faceView = crossbow.equipped || !player.thirdPerson;
   const landed = player.consumeLanded();
   if (landed && player.thirdPerson) dust.burst(player.pos, 6, 0.35);
   if (landed) haptics.play('land');
+  torch.update(dt, !player.thirdPerson);
+  if (quickTimer > 0 && (quickTimer -= dt) <= 0) $('quick').classList.add('hidden');
+  if (player.vaults !== lastVaults) { lastVaults = player.vaults; haptics.play('jump'); }
   const rm = crossbow.reload.active ? crossbow.reload.mode : null;   // v0.04: feel the reload start and a jam
   if (rm !== lastReload) { if (rm === 'jam') haptics.play('jam'); else if (rm === 'normal') haptics.play('reload'); lastReload = rm; }
   dust.update(dt, camera);
@@ -562,6 +571,7 @@ const forgeAuthor = () => loadAuthor() || character.name;
 let forgeFrom: State = 'play';
 function setPlayerLook(c: ForgeCharacter) {
   const fig = player.setLook(c.look, c.height);
+  torch.attach();
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
 }
@@ -730,6 +740,24 @@ const campfire = new CampfirePanel(() => {
 }, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); }, () => leaveForge(), forgeAuthor);
 function openCampfire() { enterForge(); frameForge('fire'); campfire.open(); }
 interactables.push({ obj: world.stations.campfire, verb: () => 'Sit by the fire', act: () => openCampfire() });
+// v0.04: sleep on the bedroll. The view fades out, the time of day moves on (day -> sunset -> night -> day),
+// and it fades back in.
+const WAKE_AT: Record<TimeOfDay, string> = { day: 'morning', sunset: 'sunset', night: 'nightfall' };
+let sleeping = false;
+function sleep() {
+  if (sleeping) return;
+  sleeping = true;
+  const fade = $('sleepFade');
+  fade.classList.add('on');
+  setTimeout(() => {
+    const next = NEXT_TIME[world.time];
+    world.setTime(next);
+    fade.classList.remove('on');
+    sleeping = false;
+    toast(next === 'night' ? 'You wake at nightfall. Light your torch (T).' : `You wake at ${WAKE_AT[next]}.`, 2600);
+  }, 1100);
+}
+interactables.push({ obj: world.stations.bedroll, verb: () => `Sleep until ${WAKE_AT[NEXT_TIME[world.time]]}`, act: () => sleep(), when: () => !inDungeon });
 async function openBallad(b: Ballad) {
   setState('book');
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
@@ -956,6 +984,29 @@ function syncCrossbowView() {
   document.body.dataset.view = player.thirdPerson ? 'follow' : 'first';
   if (rig.inShot) crossbow.viewmodel.visible = false;   // a framed dialogue/reading shot shows the player, not the held crossbow
 }
+// v0.04 Skyrim-style quick swap: the D-pad's left / right cycle what each hand holds (left: nothing or the
+// torch; right: hands or the crossbow), with a short HUD line saying what's in each hand.
+let quickTimer = 0;
+function showQuick() {
+  const el = $('quick');
+  el.innerHTML = `<span>◀ ${torch.lit ? 'Torch' : 'Empty'}</span><span>${crossbow.equipped ? 'Crossbow' : 'Hands'} ▶</span>`;
+  el.classList.remove('hidden');
+  quickTimer = 1.6;
+}
+function toggleTorch() {
+  if (state !== 'play') return;
+  torch.toggle();
+  haptics.play('tap');
+  showQuick();
+}
+function quickSwap(hand: 'left' | 'right') {
+  if (state !== 'play') return;
+  if (hand === 'left') { toggleTorch(); return; }
+  if (crossbow.equipped) crossbow.unequip();
+  else if (inventory.count('crossbow') > 0) crossbow.equip();
+  haptics.play('tap');
+  showQuick();
+}
 // One camera step out (+1) or in (-1): first person <-> shoulder <-> follow <-> high <-> overhead.
 function stepView(n: number) {
   if (!n || crossbow.equipped) return;
@@ -1181,6 +1232,8 @@ const hooks: GameHooks = {
   toggleRun: () => toggleRun(),
   toggleView: () => setView(player.thirdPerson ? 'first' : 'follow'),
   stepCamera: (n) => stepView(n),
+  toggleTorch: () => toggleTorch(),
+  quickSwap: (h) => quickSwap(h),
   setMode,
 };
 const touch: TouchControls | null = new TouchControls(hooks);
@@ -1223,6 +1276,7 @@ window.addEventListener('keydown', (e) => {
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
   if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
   if (state !== 'play') return;
+  if (e.code === 'KeyT' && !e.repeat) { toggleTorch(); return; }   // v0.04
   if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
@@ -1540,4 +1594,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
