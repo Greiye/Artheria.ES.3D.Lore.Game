@@ -12,7 +12,7 @@ import type { FigureLook } from '../world/figure';
 //   render target at a sprite frame rate (as in Ragnarok Online), under the same 2D head.
 // The 3D parts a billboard replaces live on SPRITE_LAYER, which the main camera doesn't render.
 
-export const SPRITE_LAYER = 3;
+const SPRITE_LAYER = 3;
 const BODY_PX = 52;           // pixels per metre: a 1.75 m figure is ~90 px tall
 const FPS = 12;               // sprite animation rate
 const DIRS = 8;

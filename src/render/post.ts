@@ -25,35 +25,46 @@ const GradeShader = {
 // Rebuild R1 (docs/vision.md, Sacrifire/HD-2D lighting): optional post effects behind the
 // "Post effects" graphics toggle. Off = one plain render (Low preset, phones). On = bloom on
 // the bright things only (sun, rune glow, lanterns, light shafts) at half resolution.
+// The composer and its bloom targets are only built the first time post effects are switched on, so Low and
+// Medium (and phones) never allocate them.
 export class Post {
-  private composer: EffectComposer;
-  private renderPass: RenderPass;
-  private bloom: UnrealBloomPass;
+  private composer: EffectComposer | null = null;
+  private renderPass: RenderPass | null = null;
+  private bloom: UnrealBloomPass | null = null;
+  private size = new THREE.Vector2();
   enabled = false;
 
-  constructor(private renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-    this.composer = new EffectComposer(renderer);
-    this.renderPass = new RenderPass(scene, camera);
-    const size = renderer.getSize(new THREE.Vector2());
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.5, 0.82);
+  constructor(private renderer: THREE.WebGLRenderer, private scene: THREE.Scene, private camera: THREE.Camera) {}
+
+  private build() {
+    this.composer = new EffectComposer(this.renderer);
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(this.size.x / 2, this.size.y / 2), 0.55, 0.5, 0.82);
     this.composer.addPass(this.renderPass);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new ShaderPass(GradeShader));
     this.composer.addPass(new OutputPass());
+    this.setSize(this.size.x, this.size.y);
+  }
+  get built() { return !!this.composer; }
+
+  setEnabled(on: boolean) {
+    this.enabled = on;
+    if (on && !this.composer) this.build();
   }
 
-  setEnabled(on: boolean) { this.enabled = on; }
-
   setSize(w: number, h: number) {
+    this.size.set(w, h);
+    if (!this.composer) return;
     this.composer.setPixelRatio(this.renderer.getPixelRatio());
     this.composer.setSize(w, h);
-    this.bloom.resolution.set(w / 2, h / 2);
+    this.bloom!.resolution.set(w / 2, h / 2);
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera) {
-    if (!this.enabled) { this.renderer.render(scene, camera); return; }
-    this.renderPass.scene = scene;
-    this.renderPass.camera = camera;
+    if (!this.enabled || !this.composer) { this.renderer.render(scene, camera); return; }
+    this.renderPass!.scene = scene;
+    this.renderPass!.camera = camera;
     this.composer.render();
   }
 }

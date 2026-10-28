@@ -79,7 +79,6 @@ function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: n
 // S2f (Tree of Savior pipeline): characters are unlit. All shading is baked into the vertex colours
 // (painted()), so they read the same in any light, as ToS bakes it into hand-painted diffuse maps.
 const bodyMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-export const figureMats = { flat: bodyMat };
 const atlasMats = new Map<THREE.Texture, THREE.MeshBasicMaterial>();
 function atlasMaterial(map: THREE.Texture): THREE.MeshBasicMaterial {
   let m = atlasMats.get(map);
@@ -88,7 +87,7 @@ function atlasMaterial(map: THREE.Texture): THREE.MeshBasicMaterial {
 }
 const noRaycast = () => {};
 
-export function blobShadow(radius: number): THREE.Mesh {
+function blobShadow(radius: number): THREE.Mesh {
   const m = new THREE.Mesh(new THREE.CircleGeometry(radius, 16).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: blobShadowTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   m.position.y = 0.015;
@@ -109,7 +108,7 @@ export const BONES = ['root', 'hips', 'spine', 'head', 'armN', 'foreN', 'armP', 
 export type BoneName = typeof BONES[number];
 // [parent, pivot] per bone, in metres for a 1.75 m figure. N = the figure's -X side, P = its +X side.
 // Chibi proportions (S2): short legs (hips at 0.72, knees at 0.4), a head about 0.6 m tall.
-export const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> = {
+const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> = {
   root: [null, [0, 0, 0]], hips: ['root', [0, 0.72, 0]], spine: ['hips', [0, 0.76, 0]], head: ['spine', [0, 1.13, 0]],
   armN: ['spine', [-0.24, 1.07, 0]], foreN: ['armN', [-0.28, 0.87, 0]], armP: ['spine', [0.24, 1.07, 0]], foreP: ['armP', [0.28, 0.87, 0]],
   thighN: ['hips', [-0.11, 0.7, 0]], shinN: ['thighN', [-0.11, 0.4, 0]], thighP: ['hips', [0.11, 0.7, 0]], shinP: ['thighP', [0.11, 0.4, 0]],

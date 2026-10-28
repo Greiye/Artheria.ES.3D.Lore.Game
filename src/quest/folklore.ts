@@ -8,18 +8,18 @@ import type { DialogueScript } from '../dialogue';
 // this device until submitted. Magister Greer (Aralon's wizard-trader, once the Curio Pedlar placeholder) by the coach road is where you tell them.
 export interface Folk { name: string; history: string; rumor: string }
 type Legend = { name: string; legendary: boolean; canon: string; source: string; credit_as: string; rumors: { text: string; credit_as: string }[] };
-export const LEGENDS = legendary.items as Record<string, Legend>;
-export const PEDLAR = legendary.pedlar;
+const LEGENDS = legendary.items as Record<string, Legend>;
+const PEDLAR = legendary.pedlar;
 const KEY = 'gametool.folklore';
 
-export function loadFolk(): Record<string, Folk> {
+function loadFolk(): Record<string, Folk> {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
 }
 function saveFolk(f: Record<string, Folk>) { try { localStorage.setItem(KEY, JSON.stringify(f)); } catch { /* blocked */ } }
 
 export interface FolkItem { id: string; name: string; canon?: Legend }
 
-export function folkMarkdown(it: FolkItem, f: Folk, author: string): string {
+function folkMarkdown(it: FolkItem, f: Folk, author: string): string {
   return entryMarkdown({
     title: f.name || it.name, author, type: 'folklore', tags: ['folklore', it.id],
     body: `*${it.name}*\n\n**History.** ${f.history || '(none yet)'}\n\n**Rumor.** ${f.rumor || '(none yet)'}`,

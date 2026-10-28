@@ -8,11 +8,11 @@ import type { Inventory } from './inventory';
 import type { Player } from './player';
 import { buildCrossbowModel, loadWeapon, type WeaponCosmetic } from './forge/weapon';
 
-export const BOLT_SPEED = 60;         // m/s (F4.2)
-export const STICK_SECONDS = 30;      // F4.2
-export const RELOAD_SECONDS = 2;      // F4.3 normal reload
-export const FAST_RELOAD_SECONDS = 0.5;
-export const JAM_SECONDS = 3;
+const BOLT_SPEED = 60;         // m/s (F4.2)
+const STICK_SECONDS = 30;      // F4.2
+const RELOAD_SECONDS = 2;      // F4.3 normal reload
+const FAST_RELOAD_SECONDS = 0.5;
+const JAM_SECONDS = 3;
 // F4.3 the 15% "perfect" window, as a fraction of the 2 s bar: 0.3–0.6 s in, so a perfect press finishes the
 // reload at 0.5 s (or at once, if pressed after 0.5 s). See docs/assumptions.md.
 export const ZONE = { start: 0.15, end: 0.30 };

@@ -2,7 +2,7 @@
 // Imported at build time (not fetched) so the game also works opened as a local file.
 import table from '../content/rolltables/creation-prompts.json';
 
-export const creationPrompts: string[] = [...table.lore, ...table.character, ...table.song_food_art];
+const creationPrompts: string[] = [...table.lore, ...table.character, ...table.song_food_art];
 
 // Same prompt all day for everyone (local calendar day), next one tomorrow.
 export function promptOfTheDay(now = new Date()): string {

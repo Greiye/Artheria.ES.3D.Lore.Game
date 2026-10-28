@@ -11,7 +11,7 @@ import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 // done by the character only (docs/backlog.md B14 safety framing). Reps are on the honour system.
 export const DOJO = { x: -14, z: 14, bar: new THREE.Vector3(-12, 0, 16.4) };
 export type Drill = typeof data.drills[number] & { characterOnly?: boolean };
-export const DRILLS = data.drills as Drill[];
+const DRILLS = data.drills as Drill[];
 const KEY = 'gametool.dojo';
 interface DojoState { ack: boolean; done: string[]; taught: { name: string; how: string; safe: string }[] }
 

@@ -73,7 +73,7 @@ without writing the index.
    the placeholder stays and nothing breaks.
 
 **Keep it phone-friendly:** under 1 MB per file, under ~3,000 triangles for a character, one texture of 512 px
-(1024 at most). Compress with Meshopt or Draco (e.g. `npx gltf-transform optimize in.glb out.glb --compress meshopt`).
+(1024 at most). Compress with Meshopt (e.g. `npx gltf-transform optimize in.glb out.glb --compress meshopt`); Draco is not supported.
 Style target: Mega Man Legends-like chunky low-poly parts with hand-painted textures (light painted in; textured models
 render unlit). Models load on the live site (and `npm run dev` after a restart); a double-clicked local `dist/index.html` shows placeholders instead.
 
@@ -232,7 +232,7 @@ test/e2e.mjs              automated Done-when checks (headless Chromium)
 | v0.02 — F1 Settings, A7 Audio, version label (spec §8) | `src/settings.ts`, `src/audio.ts`, `src/version.ts`, `src/world.ts`, `src/main.ts`, `src/style.css`; `content/` renamed from `campaign/` (D7); `sunset`/`dusk` palette tokens added (A5) | `test/e2e-v0.02.mjs`: presets/sliders apply live and persist, bus mute isolation, version label, Low vs. High relative frame cost (informational, #30), no audio-engine errors during play |
 | v0.03 — F2 world/camera, §5, §6.3 prompts | `index.html`, `src/world.ts`, `src/player.ts`, `src/prompts.ts`, `src/main.ts`, `src/controls.ts`, `src/input/touch.ts`, `content/rolltables/creation-prompts.json` | `test/e2e-v0.03.mjs`: fade-in, daily prompt, sun < 15°, 3.4 m door visible from spawn and locked, F toggles POV while moving, camera wall collision |
 | v0.04 — F3 dialogue + inventory | `src/dialogue.ts`, `src/inventory.ts`, `content/items.json`, `src/world.ts` (door, Natalie hitbox) | `test/e2e-v0.04.mjs`: typewriter rate, choices, frozen movement, give/unlock, inventory grid, walk through the open door, n5 prompt then crossbow |
-| .glb loader + animation clips | `src/models.ts`, `public/draco/`, `vite.config.ts` | `test/e2e-models.mjs`: model replaces placeholder at slot height; missing/broken files fall back; clips play by state with fallbacks |
+| .glb loader + animation clips | `src/models.ts`, `vite.config.ts` | `test/e2e-models.mjs`: model replaces placeholder at slot height; missing/broken files fall back; clips play by state with fallbacks |
 | v0.05 — F4 crossbow | `src/crossbow.ts`, `src/main.ts`, input layers | `test/e2e-v0.05.mjs`: equip, ADS FOV, 60 m/s + gravity, sticking, all three reload outcomes, 2× bonus, pickup, 30 s despawn |
 
 Run the checks with:

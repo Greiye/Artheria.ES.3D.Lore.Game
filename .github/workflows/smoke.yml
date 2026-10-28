@@ -1,0 +1,28 @@
+# Smoke test on every pull request (and on main): build, then two quick browser suites in headless Chromium
+# (software rendering). The full e2e set is long and timing-sensitive; run it locally with `npm run test:e2e`.
+name: Smoke test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright-core install --with-deps chromium
+      - run: node test/e2e-boot.mjs dist/index.html
+      - run: node test/e2e-town.mjs dist/index.html

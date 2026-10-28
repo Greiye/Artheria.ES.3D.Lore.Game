@@ -12,10 +12,10 @@ import type { FigureLook } from '../world/figure';
 // other look gets sheets in the same layout drawn here in code, in "head units" (1 u = one head diameter =
 // U_PX pixels) with 3-tone fills. The billboard shader adds the 1 px ink outline.
 
-export const U_PX = 40;
+const U_PX = 40;
 export const SHEET = { w: 2.4, h: 2.6, top: 1.0 };   // frame size in head units; head centre 1.0 u below the top
-export const FW = Math.round(SHEET.w * U_PX), FH = Math.round(SHEET.h * U_PX);   // 96 × 104 px
-export const EXPRESSIONS = ['neutral', 'blink', 'talk-a', 'talk-b'];   // face rows when a sheet has no JSON
+const FW = Math.round(SHEET.w * U_PX), FH = Math.round(SHEET.h * U_PX);   // 96 × 104 px
+const EXPRESSIONS = ['neutral', 'blink', 'talk-a', 'talk-b'];   // face rows when a sheet has no JSON
 
 /** A frame in UV space, ready for the billboard: uv * (sx, sy) + (ox, oy). */
 export type Frame = [number, number, number, number];
@@ -33,7 +33,7 @@ const PNG = import.meta.glob('../art/heads/*.png', { eager: true, query: '?url',
 const JSONS = import.meta.glob('../art/heads/*.json', { eager: true, import: 'default' }) as Record<string, AseSheet>;
 const fileOf = (name: string) => `../art/heads/${name}`;
 /** Ids that have a hand-drawn head sheet in src/art/heads/. */
-export const drawnHeads = Object.keys(PNG).map((k) => k.split('/').pop()!.slice(0, -4)).filter((n) => !n.endsWith('-face'));
+const drawnHeads = Object.keys(PNG).map((k) => k.split('/').pop()!.slice(0, -4)).filter((n) => !n.endsWith('-face'));
 
 const EYE: Record<string, string[]> = {
   round:  ['kkkkkk.', 'kkkkkkk', 'kwhhiik', 'kwhddik', 'kwiddik', 'kwiddik', 'kwlddik', 'kwllilk', '.kllll.', '..kkk..'],

@@ -2,7 +2,7 @@
 // content/rolltables/constraint-dice.json plus lore names (species, places) so rolls feel like Artheria.
 import table from '../../content/rolltables/constraint-dice.json';
 
-export const SPECIES_NAMES = ['Infernling', 'Drakari', 'Owlkin', 'Emberkin', 'Stonekin', 'Titankin', 'Corvani', 'Lumari'];
+const SPECIES_NAMES = ['Infernling', 'Drakari', 'Owlkin', 'Emberkin', 'Stonekin', 'Titankin', 'Corvani', 'Lumari'];
 export type DieKind = 'word' | 'mood' | 'rule';
 export interface Roll { word: string; mood: string; rule: string }
 

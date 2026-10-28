@@ -11,7 +11,7 @@ import { buildLibrary, type LibraryHit } from './library';
 import { setLinkResolver } from './markdown';
 import greyBooks from '../content/rolltables/grey-books.json';
 import { controls, actionFor, binds, REBINDABLE, bindKey, resetKeys, keyLabel, type Action } from './controls';
-import { loadSettings, saveSettings, PRESETS, type Preset, type FpsCap } from './settings';
+import { loadSettings, saveSettings, flushSettings, PRESETS, type Preset, type FpsCap } from './settings';
 import { audio } from './audio';
 import { VERSION, AUTHOR } from './version';
 import { TouchControls } from './input/touch';
@@ -69,7 +69,7 @@ const app = document.getElementById('app')!;
 // Belt-and-suspenders flush: saveSettings() already writes on every change, but re-save once more
 // right before the page is torn down (reload/navigate/close tab) in case a write landed just before
 // a change that didn't get a chance to persist yet.
-window.addEventListener('pagehide', () => saveSettings(settings));
+window.addEventListener('pagehide', () => flushSettings(settings));
 
 // F1.2: prime the audio engine's cached levels before the first user gesture creates the AudioContext.
 (['master', 'music', 'sfx', 'dialogue'] as const).forEach((b) => {
@@ -78,9 +78,10 @@ window.addEventListener('pagehide', () => saveSettings(settings));
 });
 
 // ---------- renderer / camera (D2, D4) ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace;
 const coarse = matchMedia('(pointer: coarse)').matches;
+// MSAA costs fill rate on phones and on Low; it is set once, when the canvas is made (a preset change applies next load).
+const renderer = new THREE.WebGLRenderer({ antialias: !coarse && settings.preset !== 'low', powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // F1.1: device pixel ratio capped (phones hold frame rate), then scaled by the render-scale setting.
 const basePixelRatio = Math.min(window.devicePixelRatio, coarse ? 1.5 : 2);
@@ -590,6 +591,8 @@ function animate(dt: number) {
   questProps.update(bannerT);
   barkTick(dt);
   gateCheck();
+  // The library's interior (shelves, books, furniture: ~18 draw calls) only draws once the camera is near its door.
+  library.group.visible = !inDungeon && camera.position.z < -4;
   dungeon.update(bannerT);
   dojo.tick(dt);
   mapClock += dt; if (mapClock > 0.5) { mapClock = 0; if (!inDungeon) livingMap.reveal(player.pos.x, player.pos.z); }
@@ -1785,25 +1788,26 @@ setState('title');
 let intro: Intro | null = null;   // starts once loading is done (below), so its 1 s splash isn't eaten by the build
 const wantIntro = (() => { try { return !navigator.webdriver || localStorage.getItem('gametool.intro') === 'on'; } catch { return !navigator.webdriver; } })();
 if (!wantIntro) versionNote();
-frame();
-// F2.1: everything is built and the first frame is drawn; fade in from black over 2 s (no pop-in).
-// Compile hidden things too (player body, held crossbow, dust), so they don't stutter the first time they show.
-{
+// F2.1: everything is built; compile every shader before the first frame (hidden things too: player body, held
+// crossbow, dust, so they don't stutter the first time they show), then fade in from black over 2 s (no pop-in).
+// compileAsync lets the browser compile in the background (KHR_parallel_shader_compile) while the loader bar shows.
+void (async () => {
   const hidden = [player.body, crossbow.viewmodel].filter((o) => !o.visible);
   hidden.forEach((o) => { o.visible = true; });
   dust.mesh.count = 1;
-  renderer.compile(world.scene, camera);
+  try { await renderer.compileAsync(world.scene, camera); } catch { renderer.compile(world.scene, camera); }
   hidden.forEach((o) => { o.visible = false; });
   dust.mesh.count = 0;
-}
-progress(100);
-requestAnimationFrame(() => requestAnimationFrame(() => {
-  if (wantIntro) intro = new Intro(() => { versionNote(); focusMenu(0); });
-  const loader = document.getElementById('loader');
-  if (!loader) return;
-  loader.classList.add('done');
-  setTimeout(() => loader.remove(), 2100);
-}));
+  frame();
+  progress(100);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (wantIntro) intro = new Intro(() => { versionNote(); focusMenu(0); });
+    const loader = document.getElementById('loader');
+    if (!loader) return;
+    loader.classList.add('done');
+    setTimeout(() => loader.remove(), 2100);
+  }));
+})();
 
 // Installed app / long-open tab: offer a reload when the live site has a newer build (vite.config.ts buildStamp).
 declare const __BUILD_ID__: string;

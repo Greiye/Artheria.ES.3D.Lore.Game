@@ -16,9 +16,9 @@ export interface Shot { pos: THREE.Vector3; look: THREE.Vector3; fov: number }
 const ease = (t: number) => t * t * (3 - 2 * t);
 const ZOOM_KEY = 'gametool.camZoom';
 // Follow camera shape at zoom 0 (close) and 1 (overview).
-export const FOLLOW = { distNear: 3.6, distFar: 17, elevNear: 0.32, elevFar: 0.95, fovFar: 32, lookNear: 1.45, lookFar: 0.9 };
+const FOLLOW = { distNear: 3.6, distFar: 17, elevNear: 0.32, elevFar: 0.95, fovFar: 32, lookNear: 1.45, lookFar: 0.9 };
 /** The 5 camera distances, near to far. Step 0 is first person; the others are follow-camera zooms. */
-export const STEPS = [
+const STEPS = [
   { name: 'first', zoom: 0 }, { name: 'shoulder', zoom: 0 }, { name: 'follow', zoom: 0.3 }, { name: 'high', zoom: 0.65 }, { name: 'overhead', zoom: 1 },
 ] as const;
 const SHOULDER = { side: 0.55, dist: 2.3, elev: 0.14, look: 1.5 };   // over the right shoulder
