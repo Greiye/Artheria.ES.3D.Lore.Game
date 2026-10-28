@@ -56,8 +56,12 @@ export class GamepadControls {
     if (now.some(Boolean) || lx || ly || rx || ry) this.g.setMode('pad');
 
     const st = this.g.state(), pl = this.g.player;
-    if (st === 'title') {
-      if (pressed(B.activate) || pressed(B.pause)) this.g.begin();
+    if (st === 'title' || this.g.menuActive()) {
+      // v0.05: the intro, main menu, Extras and the gate prompt: D-pad moves, A presses, B goes back.
+      if (pressed(B.dpadUp) || pressed(B.dpadDown) || pressed(B.dpadLeft) || pressed(B.dpadRight) || pressed(B.activate) || pressed(B.back) || pressed(B.pause)) {
+        const dir = pressed(B.dpadUp) ? 'up' : pressed(B.dpadDown) ? 'down' : pressed(B.dpadLeft) ? 'left' : pressed(B.dpadRight) ? 'right' : pressed(B.back) ? 'back' : 'ok';
+        if (!this.g.menu(dir) && dir === 'ok') this.g.begin();
+      }
     } else if (st === 'play') {
       pl.analog.x = lx; pl.analog.y = -ly;
       const ls = controls.gamepad.lookSpeed * this.sensitivity();

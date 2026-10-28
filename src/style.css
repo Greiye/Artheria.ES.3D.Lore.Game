@@ -296,3 +296,12 @@ body[data-pad="playstation"] .padmap .face2 { color: #D88AC8; } body[data-pad="p
 .scroll-page { position: relative; padding-bottom: 6px; margin-bottom: 14px; border-bottom: 1px dashed #c9b88f; }
 .scroll-page:last-child { border-bottom: 0; }
 .scroll-folio { text-align: center; font: 11px var(--serif); color: #8a7b5c; text-indent: 0 !important; }
+
+/* v0.05: keyboard rebinding (pause → Controls), the exit-gate prompt and menu focus for keys and pads. */
+#keyBinds { margin-top: 10px; display: grid; gap: 8px; }
+#keyBinds .binds { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+#keyBinds .bind { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px; background: rgba(255,255,255,.04); border: 1px solid var(--stone-d); color: var(--parchment); border-radius: 6px; }
+#keyBinds .bind.on { border-color: var(--rune); }
+#keyBinds kbd { min-width: 28px; text-align: center; }
+#gateConfirm { z-index: 46; }
+#title button:focus-visible, #extras button:focus-visible, #gateConfirm button:focus-visible { outline: 3px solid var(--rune); outline-offset: 2px; }

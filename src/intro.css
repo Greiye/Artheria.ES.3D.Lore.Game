@@ -1,0 +1,38 @@
+/* v0.05 boot: splash, carved-wall title, then the main menu underneath. */
+#intro { position: fixed; inset: 0; z-index: 101; background: #000; color: #F2E2B8; overflow: hidden; transition: opacity .6s ease; cursor: pointer; }
+#intro.leaving { opacity: 0; pointer-events: none; }
+#intro .splash { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; opacity: 0; transition: opacity .15s ease; }
+#intro .splash svg { width: min(28vmin, 150px); height: auto; }
+#intro .splash p { margin: 0; font: 600 clamp(16px, 2.6vmin, 24px) Georgia, 'Times New Roman', serif; letter-spacing: .08em; }
+#intro.splash-on .splash { opacity: 1; }
+#intro.splash-out .splash { opacity: 0; transition-duration: .2s; }
+
+#intro .titlewall { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s ease; }
+#intro.title-on .titlewall { opacity: 1; }
+#intro .wall {
+  position: absolute; inset: -12%; background-color: #3B3833; background-size: 512px 512px; image-rendering: pixelated;
+  animation: wallDrift 34s ease-in-out infinite alternate; filter: brightness(.82) contrast(1.05);
+}
+#intro .titlewall::after {   /* torchlit vignette */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, rgba(255,190,110,.18), rgba(0,0,0,0) 45%), radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,.78) 100%);
+}
+@keyframes wallDrift {
+  from { transform: scale(1) translate(0, 0); }
+  to { transform: scale(1.14) translate(-3%, -2%); }
+}
+#intro .logo { position: absolute; left: 0; right: 0; top: 30%; z-index: 1; text-align: center; display: grid; gap: 2px; font-family: Georgia, 'Times New Roman', serif; }
+#intro .logo .of { font-size: clamp(16px, 3vmin, 28px); letter-spacing: .5em; text-transform: uppercase; color: #E8D3A0; text-shadow: 0 2px 0 #000; }
+#intro .logo .name {
+  font-size: clamp(44px, 11vmin, 120px); font-weight: 700; letter-spacing: .06em; line-height: 1;
+  background: linear-gradient(#FFF1C8, #E2B567 55%, #9C6A2A); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 3px 0 #1A140C) drop-shadow(0 0 18px rgba(255,190,110,.35));
+}
+#intro .press { position: absolute; left: 0; right: 0; top: 64%; z-index: 1; text-align: center; font: 600 clamp(14px, 2.2vmin, 20px) Georgia, serif; letter-spacing: .2em; text-transform: uppercase; animation: pressPulse 2.2s ease-in-out infinite; }
+@keyframes pressPulse { 50% { opacity: .35; } }
+#intro .foot { position: absolute; left: 16px; right: 16px; bottom: 14px; z-index: 1; margin: 0; text-align: center; font-size: 12px; opacity: .45; }
+@media (prefers-reduced-motion: reduce) { #intro .wall, #intro .press { animation: none; } }
+
+/* v0.05 1.1: version notice on the main menu. */
+#versionNote { position: fixed; top: 14px; left: 50%; transform: translate(-50%, -8px); z-index: 60; padding: 8px 14px; border-radius: 8px; background: rgba(20,16,10,.88); color: #F2E2B8; font-size: 13px; border: 1px solid rgba(232,211,160,.35); opacity: 0; pointer-events: none; transition: opacity .4s, transform .4s; }
+#versionNote.on { opacity: 1; transform: translate(-50%, 0); }

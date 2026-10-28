@@ -10,7 +10,7 @@ import { lore, entryById } from './lore';
 import { buildLibrary, type LibraryHit } from './library';
 import { setLinkResolver } from './markdown';
 import greyBooks from '../content/rolltables/grey-books.json';
-import { controls, actionFor, type Action } from './controls';
+import { controls, actionFor, binds, REBINDABLE, bindKey, resetKeys, keyLabel, type Action } from './controls';
 import { loadSettings, saveSettings, PRESETS, type Preset, type FpsCap } from './settings';
 import { audio } from './audio';
 import { VERSION, AUTHOR } from './version';
@@ -53,7 +53,10 @@ import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel, buildScreen } from './cinema';
-import { TOWN_NAMES, type TownId } from './world/town';
+import { TOWN_NAMES, GATE, type TownId } from './world/town';
+import { Intro } from './intro';
+import { Extras } from './extras';
+import { loadGame, saveGame } from './save';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
 
@@ -149,7 +152,9 @@ ui.innerHTML = `
       <p class="daily"><span>Today's prompt</span><span id="dailyPrompt"></span></p>
       <button id="begin" class="primary">Click to begin</button>
       <button id="writeLoreTitle" class="secondary">Write lore</button>
-      <button id="openSettingsTitle" class="secondary">Settings</button>
+      <button id="openSettingsTitle" class="secondary">Options</button>
+      <button id="openExtras" class="secondary">Extras</button>
+      <p id="saveNote" class="fine hidden"></p>
       <table class="keys only-touch">
         <tr><td>Left thumb</td><td>Move (small push walks, full push runs)</td></tr>
         <tr><td>Right thumb</td><td>Drag to look</td></tr>
@@ -169,6 +174,16 @@ ui.innerHTML = `
       <p class="fine">Private project · all rights reserved.</p>
     </div>
   </div>
+  <div id="versionNote"></div>
+  <div id="gateConfirm" class="screen hidden">
+    <div class="card narrow">
+      <div class="eyebrow">Temporary Exit - Mind the dust</div>
+      <h1>Leave the area?</h1>
+      <p>This will retire you. Your bag and the hour are saved; next time you begin back at the glade.</p>
+      <button id="gateYes" class="primary">Yes, retire</button>
+      <button id="gateNo" class="secondary">No, stay</button>
+    </div>
+  </div>
   <div id="vignette"></div>
   <div id="sleepFade"></div>
   <div id="rotateHint">⟳ Turn your phone sideways to play</div>
@@ -186,6 +201,7 @@ ui.innerHTML = `
     <div class="card narrow">
       <h1>Paused</h1>
       <button id="resume" class="primary">Resume</button>
+      <button id="quitToMenu" class="secondary">Save and return to the menu</button>
       <label>Look sensitivity <output id="sensOut"></output><input id="sens" type="range" min="0.2" max="3" step="0.05"></label>
       <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
       <label>Camera <select id="viewSel"><option value="follow">Follow (Dark Cloud 2 style)</option><option value="first">First person</option></select></label>
@@ -209,6 +225,7 @@ ui.innerHTML = `
       <details id="controlsMap">
         <summary>Controls</summary>
         <div class="padmap" data-padmap></div>
+        <div id="keyBinds"></div>
       </details>
       <details id="audioSettings">
         <summary>Audio (F1.2)</summary>
@@ -381,7 +398,15 @@ document.addEventListener('pointerlockchange', () => {
 
 // F1.1: title -> pointer lock -> spawned in first person.
 async function begin() {
-  player.spawn(world.spawn.pos, world.spawn.yaw);
+  // v0.05: pick up where the last save left off (the spot only if you saved, not if you retired at the gate).
+  const save = loadGame();
+  if (save?.pos) player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
+  if (save && !begun) {
+    world.setTime(save.time);
+    for (const [id, n] of save.items) if (inventory.count(id) < n) inventory.give(id, n - inventory.count(id));
+  }
+  begun = true;
+  audio.water(false);
   player.thirdPerson = settings.view !== 'first';
   document.body.dataset.view = settings.view;
   setState('play');                             // in the world immediately, even before lock resolves
@@ -398,6 +423,7 @@ async function begin() {
   lockSupported = await requestLock();
   show('nolock', state === 'play' && !lockSupported && wantLock());
 }
+let begun = false;   // v0.05: a save's bag and hour are restored once per page load (later Begins keep the live ones)
 let character: Character = loadCharacter();
 let ccFrom: State = 'title';
 const ccName = $<HTMLInputElement>('ccName'), ccMotivation = $<HTMLTextAreaElement>('ccMotivation'), ccSecret = $<HTMLTextAreaElement>('ccSecret');
@@ -563,6 +589,7 @@ function animate(dt: number) {
   companion.update(dt, player.pos, player.bodyYaw, state !== 'play');
   questProps.update(bannerT);
   barkTick(dt);
+  gateCheck();
   dungeon.update(bannerT);
   dojo.tick(dt);
   mapClock += dt; if (mapClock > 0.5) { mapClock = 0; if (!inDungeon) livingMap.reveal(player.pos.x, player.pos.z); }
@@ -653,7 +680,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -1304,6 +1331,113 @@ $('ePublish').addEventListener('click', () => {
   });
 });
 
+// ---------- v0.05: save and return to the menu, the exit gate, Extras, rebinding ----------
+function snapshot(keepSpot: boolean) {
+  return saveGame({
+    pos: keepSpot && !inDungeon ? [player.pos.x, player.pos.y, player.pos.z] : null, yaw: player.yaw,
+    time: world.time, items: [...inventory.counts].filter(([, n]) => n > 0),
+  });
+}
+function toMenu(note: string) {
+  closeForges();
+  if (inDungeon) exitDungeon();
+  if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
+  rig.setShot(null);
+  setState('title');
+  audio.water(true);
+  const n = $('saveNote'); n.textContent = note; n.classList.remove('hidden');
+  focusMenu(0);
+}
+function quitToMenu() { const ok = snapshot(true); toMenu(ok ? 'Saved. Begin carries on where you left off.' : "Couldn't save on this device (storage is blocked)."); }
+$('quitToMenu').addEventListener('click', () => quitToMenu());
+// The exit gate: walking through asks whether to retire (save the bag and hour, then back to the menu).
+let gateOpen = false;
+function gateCheck() {
+  if (state !== 'play' || inDungeon || gateOpen) return;
+  if (player.pos.x < GATE.x - 0.1 && Math.abs(player.pos.z - GATE.z) < GATE.half) {
+    gateOpen = true;
+    enterForge();
+    $('gateConfirm').classList.remove('hidden');
+    focusMenu(0);
+  }
+}
+function gateNo() {
+  if (!gateOpen) return;
+  gateOpen = false;
+  $('gateConfirm').classList.add('hidden');
+  player.spawn(new THREE.Vector3(GATE.x + 1.6, 0, GATE.z), -Math.PI / 2);   // a step back inside, facing the camp
+  leaveForge();
+}
+function gateYes() {
+  if (!gateOpen) return;
+  gateOpen = false;
+  $('gateConfirm').classList.add('hidden');
+  snapshot(false);
+  toMenu('You retired at the gate. Your bag is saved; Begin starts you back at the glade.');
+}
+$('gateYes').addEventListener('click', () => gateYes());
+$('gateNo').addEventListener('click', () => gateNo());
+
+const extras = new Extras(() => { setState('title'); focusMenu(3); });
+$('openExtras').addEventListener('click', () => { show('title', false); extras.open(); focusMenu(0); });
+
+// Pause → Controls: rebind the keyboard. Click a key, then press the new one (Esc cancels).
+let rebinding: Action | null = null;
+function renderKeyBinds() {
+  $('keyBinds').innerHTML = `<p class="fine">Keyboard: click an action, then press its new key. Esc cancels.</p><div class="binds">${REBINDABLE.map(([a, label]) =>
+    `<button class="bind${rebinding === a ? ' on' : ''}" data-bind="${a}"><span>${label}</span><kbd>${rebinding === a ? '…' : keyLabel(binds[a][0])}</kbd></button>`).join('')}</div><button class="secondary" data-bind="reset">Reset keys</button>`;
+}
+$('keyBinds').addEventListener('click', (e) => {
+  const b = (e.target as HTMLElement).closest('button') as HTMLButtonElement | null;
+  if (!b) return;
+  if (b.dataset.bind === 'reset') { resetKeys(); rebinding = null; }
+  else rebinding = b.dataset.bind as Action;
+  renderKeyBinds();
+});
+window.addEventListener('keydown', (e) => {
+  if (!rebinding) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (e.code !== 'Escape') bindKey(rebinding, e.code);
+  rebinding = null;
+  renderKeyBinds();
+}, true);
+renderKeyBinds();
+
+// Menus without a mouse: arrow keys / D-pad move between buttons, Enter / A presses, Esc / B goes back.
+function menuButtons(): HTMLButtonElement[] {
+  const root = gateOpen ? $('gateConfirm') : extras.isOpen ? extras.el : state === 'title' ? $('title') : null;
+  return root ? [...root.querySelectorAll<HTMLButtonElement>('button')].filter((b) => b.offsetParent !== null && !b.disabled) : [];
+}
+function focusMenu(i: number) { const bs = menuButtons(); bs[Math.max(0, Math.min(bs.length - 1, i))]?.focus({ preventScroll: true }); }
+function menuInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boolean {
+  if (intro?.active) { intro.input(); return true; }
+  if (extras.isOpen && extras.tab === 'evolution' && (dir === 'left' || dir === 'right')) { extras.go(extras.index + (dir === 'right' ? 1 : -1)); return true; }
+  if (extras.isOpen && dir === 'back') { extras.back(); if (extras.isOpen) focusMenu(0); return true; }
+  if (gateOpen && dir === 'back') { gateNo(); return true; }
+  const bs = menuButtons();
+  if (!bs.length) return false;
+  const at = bs.indexOf(document.activeElement as HTMLButtonElement);
+  if (dir === 'up' || dir === 'down' || dir === 'left' || dir === 'right') { focusMenu(at < 0 ? 0 : (at + (dir === 'down' || dir === 'right' ? 1 : -1) + bs.length) % bs.length); return true; }
+  if (dir === 'ok') { (at < 0 ? bs[0] : bs[at]).click(); return true; }
+  return false;
+}
+window.addEventListener('keydown', (e) => {
+  if (e.repeat || !(state === 'title' || extras.isOpen || gateOpen) || (e.target as HTMLElement)?.closest?.('input, textarea')) return;
+  if (extras.isOpen && extras.handleKey(e.code)) { e.preventDefault(); if (extras.isOpen) focusMenu(0); return; }
+  const dir = ({ ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Escape: 'back' } as const)[e.code as 'ArrowUp'];
+  if (dir && menuInput(dir)) e.preventDefault();
+});
+
+// v0.05 §1.1: say which version this is when the menu first shows (and whether it's new since the last visit).
+function versionNote() {
+  let last: string | null = null;
+  try { last = localStorage.getItem('gametool.version'); localStorage.setItem('gametool.version', VERSION); } catch { /* blocked */ }
+  const el = $('versionNote');
+  el.textContent = last && last !== VERSION ? `Tales of Artheria v${VERSION} | Updated from v${last}` : `Tales of Artheria v${VERSION} | System up to date`;
+  el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 4500);
+}
+
 // ---------- touch + gamepad ----------
 const hooks: GameHooks = {
   state: () => state,
@@ -1325,6 +1459,8 @@ const hooks: GameHooks = {
   stepCamera: (n) => stepView(n),
   toggleTorch: () => toggleTorch(),
   quickSwap: (h) => quickSwap(h),
+  menuActive: () => !!intro?.active || extras.isOpen || gateOpen,
+  menu: (d) => menuInput(d),
   setMode,
 };
 const touch: TouchControls | null = new TouchControls(hooks);
@@ -1367,7 +1503,7 @@ window.addEventListener('keydown', (e) => {
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
   if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
   if (state !== 'play') return;
-  if (e.code === 'KeyT' && !e.repeat) { toggleTorch(); return; }   // v0.04
+  if (actionFor(e.code, ['torch']) && !e.repeat) { toggleTorch(); return; }   // v0.04
   // v0.04: no L hotkey; in the world, lore is written at the campfire with Natalie (the title screen keeps its button).
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
@@ -1644,6 +1780,11 @@ function frame() {
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
 }
 setState('title');
+// v0.05 boot: splash → title → main menu. Automated test browsers go straight to the menu unless a test asks
+// for the intro (localStorage gametool.intro = 'on').
+let intro: Intro | null = null;   // starts once loading is done (below), so its 1 s splash isn't eaten by the build
+const wantIntro = (() => { try { return !navigator.webdriver || localStorage.getItem('gametool.intro') === 'on'; } catch { return !navigator.webdriver; } })();
+if (!wantIntro) versionNote();
 frame();
 // F2.1: everything is built and the first frame is drawn; fade in from black over 2 s (no pop-in).
 // Compile hidden things too (player body, held crossbow, dust), so they don't stutter the first time they show.
@@ -1657,6 +1798,7 @@ frame();
 }
 progress(100);
 requestAnimationFrame(() => requestAnimationFrame(() => {
+  if (wantIntro) intro = new Intro(() => { versionNote(); focusMenu(0); });
   const loader = document.getElementById('loader');
   if (!loader) return;
   loader.classList.add('done');
@@ -1685,4 +1827,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

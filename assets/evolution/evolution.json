@@ -1,0 +1,62 @@
+{
+  "01-rebuild-r2-glade": {
+    "title": "Rebuild R2 · The glade",
+    "caption": "The first three.js rebuild: the dais, the lectern and Straphan Forest."
+  },
+  "02-rebuild-r2-natalie": {
+    "title": "Rebuild R2 · Natalie",
+    "caption": "A first look at Natalie Bourbon."
+  },
+  "03-rebuild-r4-library": {
+    "title": "Rebuild R4 · Into the library",
+    "caption": "The follow camera and the ruined library."
+  },
+  "04-restyle-s1-library": {
+    "title": "Restyle S1 · Dark Cloud 2 camera",
+    "caption": "A Dark Cloud 2 style camera, pulled back."
+  },
+  "05-restyle-s2-overview": {
+    "title": "Restyle S2 · Chibi bodies",
+    "caption": "3D chibi bodies arrive (Tree of Savior / Ragnarok look)."
+  },
+  "06-restyle-s2e-npcs": {
+    "title": "Restyle S2e · The cast",
+    "caption": "The cast, restyled."
+  },
+  "07-restyle-s2h-heads": {
+    "title": "Restyle S2h · Drawn heads",
+    "caption": "Flat, hand-drawn eight-direction heads on 3D bodies."
+  },
+  "08-phase-b-camp": {
+    "title": "Phase B · The travellers' camp",
+    "caption": "Mirror, anvil and dice: the forges."
+  },
+  "09-phase-c-lectern": {
+    "title": "Phase C · Writing on the world",
+    "caption": "Ink, paper and margin notes at the lectern."
+  },
+  "10-phase-d-companion": {
+    "title": "Phase D · Natalie follows",
+    "caption": "The companion and the missing-party quest."
+  },
+  "11-phase-e-campfire": {
+    "title": "Phase E · The campfire",
+    "caption": "Ballads, bard tunes and the gallery."
+  },
+  "12-phase-f-dojo": {
+    "title": "Phase F · The dojo",
+    "caption": "Your character demonstrates; you follow."
+  },
+  "13-v004-sunset-torch": {
+    "title": "v0.04 · Sunset and torchlight",
+    "caption": "Time moves when you sleep; a torch for the dark."
+  },
+  "14-v004-reading": {
+    "title": "v0.04 · Reading pose",
+    "caption": "Book in hand, head bowed over the page."
+  },
+  "15-v004-town": {
+    "title": "v0.04 · The town",
+    "caption": "Nine buildings scattered round a green."
+  }
+}

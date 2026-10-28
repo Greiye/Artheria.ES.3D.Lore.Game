@@ -4,8 +4,29 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 
 ## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label now shows the current build version (`VERSION` 0.04,
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.05,
 Mike 2026-10-28). Spec doc v0.05.
+
+### v0.05 changelog, part 1: boot, menus, saving, the exit gate
+
+- **Boot sequence.** A 1 s developer splash (a book-and-sword icon, "Michael P. Go Presents:", a short jingle)
+  fades to the **title**: a carved stone wall drifting slowly (pan and zoom), flowing water, the *Tales of
+  Artheria* logo and the prototype notice. Any key, click, tap or pad button opens the **main menu** with a blip.
+- **Main menu:** Begin, Write lore, Options and **Extras**. Extras has **Inspirations** (Jason Molina, Vanessa
+  Escalambre, Revlis Go, Little Miguel) and **Evolution of the game**: 15 titled screenshots from the R2 rebuild to
+  the v0.04 town. Scroll or swipe, use the arrow keys or the D-pad left / right. The images ship as separate files
+  in `dist/evolution/` (from `assets/evolution/`).
+- **Version notice:** the menu says "Tales of Artheria v0.05 | System up to date" (or "Updated from v0.04").
+- **Menus from the pad and keyboard:** the D-pad or arrow keys move between buttons, A or Enter presses, and B or Esc
+  goes back.
+- **Save and return to the menu** (pause menu) keeps where you stood, the hour and your bag; Begin carries on
+  from there.
+- **Rebind keys** in the pause menu's Controls (click an action, press its new key; Reset keys). Saved on this
+  device. The controller map is drawn beside it.
+- **The exit gate** stands at the west end of the coach road, under the sign **"Temporary Exit - Mind the
+  dust"**. Walking through asks "Leave the area? This will retire you." Yes saves your bag and the hour and
+  returns you to the menu; next time you begin back at the glade. No steps you back inside.
+- Automated test browsers skip the intro unless a test asks for it.
 
 ### v0.04 feedback, part 8: town layout, placeholder names, version label
 

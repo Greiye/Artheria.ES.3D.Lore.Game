@@ -62,9 +62,13 @@ function layout(): Map<Slot['id'], Spot> {
 }
 export const SPOTS = layout();
 const LOTS = RING.filter((s): s is Slot & { id: TownId } => s.id !== 'lane' && s.id !== 'cinema').map((s) => ({ ...s, ...SPOTS.get(s.id)!, wall: PLASTER, roof: s.roof! }));
-/** Keep-out for scattered props (trees, rocks, bushes, undergrowth): the ring and its lots, and the lane. */
+/** v0.05: the camp's exit gate, at the west end of the coach road. Walking through it asks whether to retire. */
+export const GATE = { x: -41, z: -4, half: 2.0 };
+export const GATE_LABEL = 'Temporary Exit - Mind the dust';
+/** Keep-out for scattered props (trees, rocks, bushes, undergrowth): the ring and its lots, the lane, the road west. */
 export const townClear = (x: number, z: number, pad: number) =>
-  ((x - GREEN.x) / (GREEN.rx + 6 + pad)) ** 2 + ((z - GREEN.z) / (GREEN.rz + 6 + pad)) ** 2 < 1 || (Math.abs(x) < 2 + pad && z > 11 && z < 24);
+  ((x - GREEN.x) / (GREEN.rx + 6 + pad)) ** 2 + ((z - GREEN.z) / (GREEN.rz + 6 + pad)) ** 2 < 1 || (Math.abs(x) < 2 + pad && z > 11 && z < 24)
+  || (x < -10 + pad && x > GATE.x - 4 - pad && Math.abs(z - GATE.z) < 3 + pad);
 /** Circles covering a rotated w × d footprint (the player only collides with circles and axis-aligned boxes). */
 function footprint(colliders: Collider[], x: number, z: number, ry: number, w: number, d: number) {
   const nx = Math.ceil(w / 2.2), nz = Math.ceil(d / 2.2), cw = w / nx, cd = d / nz, r = Math.hypot(cw, cd) / 2, c = Math.cos(ry), s = Math.sin(ry);
@@ -74,17 +78,17 @@ function footprint(colliders: Collider[], x: number, z: number, ry: number, w: n
   }
 }
 
-/** All the signs on one canvas (one row each), so the town's signs are a single draw call. */
-function signAtlas(ids: TownId[]): THREE.CanvasTexture {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64 * ids.length;
+/** All the signs on one canvas (one row each), so the town's signs (and the exit gate's) are a single draw call. */
+function signAtlas(rows: string[][]): THREE.CanvasTexture {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64 * rows.length;
   const g = c.getContext('2d')!;
-  ids.forEach((id, i) => {
+  rows.forEach((lines, i) => {
     const y = i * 64;
     g.fillStyle = '#4A3222'; g.fillRect(0, y, 256, 64);
     g.strokeStyle = '#C9A36B'; g.lineWidth = 4; g.strokeRect(4, y + 4, 248, 56);
     g.fillStyle = '#F2E2B8'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '600 26px Georgia, serif';
-    g.fillText(`${ICONS[id]}  ${TOWN_NAMES[id]}`, 128, y + 34);
+    g.font = lines.length > 1 ? '600 19px Georgia, serif' : '600 26px Georgia, serif';
+    lines.forEach((t, k) => g.fillText(t, 128, y + 34 + (k - (lines.length - 1) / 2) * 22));
   });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
@@ -153,7 +157,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
       for (const lx of [1.4, 2.6]) { const cp = at(lx, 0, D / 2 + 1.6); colliders.push({ kind: 'circle', x: cp.x, z: cp.z, r: 0.62, top: 0.9 }); }
     }
     // Hanging sign over the door: its row of the shared atlas.
-    const sg = new THREE.PlaneGeometry(2.4, 0.6), uv = sg.attributes.uv as THREE.BufferAttribute, n = LOTS.length;
+    const sg = new THREE.PlaneGeometry(2.4, 0.6), uv = sg.attributes.uv as THREE.BufferAttribute, n = LOTS.length + 1;
     for (let k = 0; k < uv.count; k++) uv.setY(k, 1 - (li + 1 - uv.getY(k)) / n);
     const sp = at(0, PLINTH + 2.75, D / 2 + 0.12);
     signs.push(sg.rotateY(L.ry).translate(sp.x, sp.y, sp.z));
@@ -163,7 +167,18 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     scene.add(door);
     doors[L.id] = door;
   });
-  const signMesh = new THREE.Mesh(mergeGeometries(signs), new THREE.MeshBasicMaterial({ map: signAtlas(LOTS.map((l) => l.id)) }));
+  // v0.05: the exit gate at the west end of the coach road: two posts, a beam, and its sign (the atlas's last row).
+  B.box(tex('dirt'), V((GATE.x - 10) / 2 - 2, 0.011, GATE.z), -GATE.x - 14, 0.02, 2.6);
+  for (const dz of [-GATE.half - 0.2, GATE.half + 0.2]) {
+    B.box(tex('wood'), V(GATE.x, 1.6, GATE.z + dz), 0.32, 3.2, 0.32);
+    colliders.push({ kind: 'circle', x: GATE.x, z: GATE.z + dz, r: 0.25 });
+  }
+  B.box(tex('wood'), V(GATE.x, 3.2, GATE.z), 0.34, 0.3, GATE.half * 2 + 1.4);
+  for (const dz of [-0.9, 0.9]) B.box(tex('wood'), V(GATE.x, 2.95, GATE.z + dz), 0.05, 0.4, 0.05);   // sign chains
+  const gs = new THREE.PlaneGeometry(2.8, 0.7), guv = gs.attributes.uv as THREE.BufferAttribute, rows = LOTS.length + 1;
+  for (let k = 0; k < guv.count; k++) guv.setY(k, guv.getY(k) / rows);   // the bottom row of the atlas
+  signs.push(gs.rotateY(Math.PI / 2).translate(GATE.x + 0.2, 2.45, GATE.z));
+  const signMesh = new THREE.Mesh(mergeGeometries(signs), new THREE.MeshBasicMaterial({ map: signAtlas([...LOTS.map((l) => [`${ICONS[l.id]}  ${TOWN_NAMES[l.id]}`]), ['Temporary Exit -', 'Mind the dust']]), side: THREE.DoubleSide }));
   signMesh.name = 'town-signs'; signMesh.raycast = () => {};
   scene.add(signMesh);
 

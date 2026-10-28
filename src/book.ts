@@ -1,6 +1,6 @@
 import { renderMarkdown } from './markdown';
 import { resolveImage, entryById, type LoreEntry } from './lore';
-import { controls } from './controls';
+import { binds } from './controls';
 import { saveSettings, type Settings } from './settings';
 import { audio } from './audio';
 
@@ -138,7 +138,7 @@ export class Book {
 
   // Returns true when the key was consumed by the book.
   handleKey(code: string): boolean {
-    const k = controls.keys;
+    const k = binds;
     if ((k.pagePrev as readonly string[]).includes(code)) { this.prev(); return true; }
     if ((k.pageNext as readonly string[]).includes(code)) { this.next(); return true; }
     if ([...k.close, ...k.pause, ...k.activate].includes(code as never)) { this.close(); return true; }

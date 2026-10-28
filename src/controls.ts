@@ -20,6 +20,7 @@ export const controls = {
     equipCrossbow: ['Digit1'],              // F4.1 (§5: 1/2 crossbow/hands)
     equipHands: ['Digit2'],
     reload: ['KeyR'],                       // F4.3 active reload
+    torch: ['KeyT'],                        // v0.04 torch
     close: ['Tab'],                         // close book / back
     pause: ['Escape'],
     pagePrev: ['KeyA', 'ArrowLeft'],        // F3.3 (book open only)
@@ -64,6 +65,7 @@ export const controls = {
       sprint: 10,    // L3: sprint until the stick is let go
       view: 11,      // R3: first person / follow
       equip: 12,     // D-pad up: crossbow / hands
+      dpadUp: 12,    // (menus: up)
       dpadDown: 13,
       dpadLeft: 14,
       dpadRight: 15,
@@ -82,7 +84,41 @@ export const controls = {
 
 export type Action = keyof typeof controls.keys;
 
+// v0.05: keyboard keys can be rebound from the pause menu (Controls). `binds` is what the game reads; it starts
+// from the defaults above and takes this device's saved changes on top.
+export const binds = Object.fromEntries(Object.entries(controls.keys).map(([a, k]) => [a, [...k]])) as Record<Action, string[]>;
+/** The actions the Controls page lets you rebind, in the order it lists them. */
+export const REBINDABLE: [Action, string][] = [
+  ['forward', 'Forward'], ['back', 'Back'], ['left', 'Left'], ['right', 'Right'], ['jump', 'Jump'], ['sneak', 'Sneak'],
+  ['walk', 'Walk (hold)'], ['sprint', 'Sprint (hold)'], ['activate', 'Use · talk · read'], ['pov', 'Camera view'],
+  ['torch', 'Torch'], ['inventory', 'Bag'], ['journal', 'Casebook'], ['map', 'Map'],
+  ['equipCrossbow', 'Crossbow'], ['equipHands', 'Hands'], ['reload', 'Reload'],
+];
+const BINDS_KEY = 'gametool.keys';
+try {
+  const saved = JSON.parse(localStorage.getItem(BINDS_KEY) ?? '{}') as Partial<Record<Action, string>>;
+  for (const [a, code] of Object.entries(saved)) if (a in binds && typeof code === 'string') binds[a as Action][0] = code;
+} catch { /* storage blocked: defaults */ }
+const saveBinds = () => {
+  const out: Partial<Record<Action, string>> = {};
+  for (const [a] of REBINDABLE) if (binds[a][0] !== controls.keys[a][0]) out[a] = binds[a][0];
+  try { localStorage.setItem(BINDS_KEY, JSON.stringify(out)); } catch { /* blocked */ }
+};
+/** Put `code` on `action` (its main key). A key already on another rebindable action swaps over to it. */
+export function bindKey(action: Action, code: string) {
+  const old = binds[action][0];
+  for (const [a] of REBINDABLE) if (a !== action && binds[a][0] === code) binds[a][0] = old;
+  binds[action][0] = code;
+  saveBinds();
+}
+export function resetKeys() {
+  for (const a of Object.keys(binds) as Action[]) binds[a] = [...controls.keys[a]];
+  saveBinds();
+}
+/** A key code as a short label: KeyW → W, Digit1 → 1, ShiftLeft → Shift. */
+export const keyLabel = (code: string) => code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Arrow(\w+)$/, (_, d: string) => ({ Up: '↑', Down: '↓', Left: '←', Right: '→' }[d] ?? d)).replace(/(Left|Right)$/, '').replace('Escape', 'Esc');
+
 export function actionFor(code: string, actions: Action[]): Action | null {
-  for (const a of actions) if ((controls.keys[a] as readonly string[]).includes(code)) return a;
+  for (const a of actions) if (binds[a].includes(code)) return a;
   return null;
 }
