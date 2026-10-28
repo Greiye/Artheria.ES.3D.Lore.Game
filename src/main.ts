@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { updateSprites, setSpriteCharacters } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';
+import { buildFigure } from './world/figure';
 import { Player } from './player';
 import { Book } from './book';
 import { lore, entryById } from './lore';
@@ -51,6 +52,7 @@ import { haptics } from './input/haptics';
 import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
+import { CinemaPanel, buildScreen } from './cinema';
 import { TOWN_NAMES, type TownId } from './world/town';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
@@ -162,7 +164,7 @@ ui.innerHTML = `
         <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
         <tr><td>F</td><td>Third / first person</td><td>Wheel</td><td>Camera distance (5 steps)</td></tr>
-        <tr><td>L</td><td>Write lore</td><td>T</td><td>Torch</td></tr>
+        <tr><td>E at the fire</td><td>Write lore</td><td>T</td><td>Torch</td></tr>
       </table>
       <p class="fine">Private project · all rights reserved.</p>
     </div>
@@ -177,7 +179,6 @@ ui.innerHTML = `
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
-    <button id="writeLoreHud"><kbd>L</kbd> — Write lore</button>
     <div id="status"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
@@ -228,7 +229,6 @@ ui.innerHTML = `
       <button id="openCasebook" class="secondary">Casebook (J)</button>
       <button id="openMap" class="secondary">Map (M)</button>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
-      <button id="writeLorePause" class="secondary">Write lore</button>
     </div>
   </div>
   <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>
@@ -514,7 +514,7 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   // Figures face +Z: turn the head toward the player when they come close.
   const rel = wrapAngle(Math.atan2(dx, dz) - npcE.y);
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
-  return { speed: id === 'natalie' ? companion.speed : 0, talking: (id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id, look: id === 'natalie' && companion.speed > 0.3 ? null : look };
+  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
   return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
@@ -653,7 +653,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -765,7 +765,23 @@ const campfire = new CampfirePanel(() => {
     quest.stage === 'done' && quest.theory ? `And ${ending(quest.theory).friend} came home.` : "And the fire's still going, so it isn't over.",
   ];
 }, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); earn(5, 'for a ballad'); }, () => leaveForge(), forgeAuthor);
-function openCampfire() { enterForge(); frameForge('fire'); campfire.open(); }
+campfire.owned = () => [...inventory.counts.keys()].filter((id) => inventory.count(id) > 0);   // v0.04 instruments
+campfire.onWriteLore = () => openEditor(true);   // v0.04: lore is written at the fire, Natalie holds the quill
+// v0.04: Natalie the bard comes to the fire while you sit there (across the flames from you), then goes back.
+let natalieWas: { x: number; z: number; ry: number } | null = null;
+function openCampfire() {
+  enterForge(); frameForge('fire');
+  const n = natalieRoot(), f = world.stations.campfire.position;
+  natalieWas = { x: n.position.x, z: n.position.z, ry: n.rotation.y };
+  n.position.set(f.x - 0.7, 0, f.z - 2.3); n.rotation.y = Math.atan2(f.x - n.position.x, f.z - n.position.z);
+  campfire.open();
+}
+const campfireClosed = campfire.onClose;
+campfire.onClose = () => {
+  if (natalieWas && !companion.prefs.follow) { const n = natalieRoot(); n.position.set(natalieWas.x, 0, natalieWas.z); n.rotation.y = natalieWas.ry; }
+  natalieWas = null;
+  campfireClosed();
+};
 interactables.push({ obj: world.stations.campfire, verb: () => 'Sit by the fire', act: () => openCampfire() });
 // v0.04: sleep on the bedroll. The view fades out, the time of day moves on (day -> sunset -> night -> day),
 // and it fades back in.
@@ -1010,16 +1026,22 @@ const shop = new ShopPanel(inventory, () => leaveForge());
 function openShop() {
   enterForge();
   const k = world.town.shopkeeper.position, top = new THREE.Vector3(k.x, 1.3, k.z);
-  const pos = new THREE.Vector3(k.x + 2.6, 1.7, k.z - 3.0);   // from the side, past the player's shoulder
+  const ry = world.town.shopkeeper.rotation.y, c = Math.cos(ry), sn = Math.sin(ry);
+  const pos = new THREE.Vector3(k.x - 2.6 * c + 3.0 * sn, 1.7, k.z + 2.6 * sn + 3.0 * c);   // from the side, past the player's shoulder
   const d = top.clone().sub(pos).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
   rig.setShot({ pos, look: top.addScaledVector(right, -0.7), fov: 44 });
   shop.open();
 }
+/** A point `ahead` metres out of a town door, on the ground. */
+const outOfDoor = (id: TownId, ahead: number) => { const d = world.town.doors[id]; return new THREE.Vector3(d.position.x + Math.sin(d.rotation.y) * ahead, 0, d.position.z + Math.cos(d.rotation.y) * ahead); };
 const townAct: Record<TownId, () => void> = {
-  smithy: () => { if (inventory.count('crossbow') > 0) openWeaponForge(world.town.doors.smithy.position.clone().setY(0).add(new THREE.Vector3(0, 0, 1.4))); else toast('The smith works on crossbows. Natalie has one you could borrow.'); },
+  library: () => { const p = player.pos; void openBook(new THREE.Vector3(p.x - Math.sin(player.yaw) * 0.45, 1.25, p.z - Math.cos(player.yaw) * 0.45)); },
+  smithy: () => { if (inventory.count('crossbow') > 0) openWeaponForge(outOfDoor('smithy', 0.8)); else toast('The smith works on crossbows. Natalie has one you could borrow.'); },
   tailor: () => openCharacterForge(),
   scriptorium: () => openSketchbook('body'),
   cartographer: () => openMap(),
+  dojo: () => openDojo(),
+  gallery: () => { player.spawn(new THREE.Vector3(GALLERY.minX - 1.2, 0, GALLERY.z), -Math.PI / 2); toast('Through the back door and down the lane: the gallery hall.'); },
   shop: () => openShop(),
   inn: () => { if (!inDungeon) sleep(); },
 };
@@ -1027,6 +1049,24 @@ for (const id of Object.keys(townAct) as TownId[]) {
   interactables.push({ obj: world.town.doors[id], verb: () => id === 'inn' ? `Rent a bed until ${WAKE_AT[NEXT_TIME[world.time]]}` : `Enter the ${TOWN_NAMES[id]}`, act: () => townAct[id]() });
 }
 interactables.push({ obj: world.town.shopkeeperHit, verb: () => 'Trade with the Shopkeeper', act: () => openShop() });
+// v0.04 cinema: the Projectionist (a placeholder, never in the lore) shows short reels by Mike and friends
+// (assets/cinema/) on a screen in a gap of the town ring.
+const cin = world.town.cinema, cc = Math.cos(cin.ry), cs = Math.sin(cin.ry);
+const cinAt = (lx: number, lz: number) => new THREE.Vector3(cin.x + lx * cc + lz * cs, 0, cin.z - lx * cs + lz * cc);
+const reelScreen = buildScreen();
+reelScreen.position.copy(cinAt(0, 0.02)).setY(1.95); reelScreen.rotation.y = cin.ry;
+world.scene.add(reelScreen);
+const projectionist = buildFigure({ skin: '#E0B890', hair: '#2A2A30', primary: '#2E3A5A', secondary: '#C9A36B', boots: '#2A221C', accent: '#F2C27A', hairStyle: 'cap', scarf: '#B8463A', build: 1.0 }, 1.75);
+const pj = cinAt(1.9, 1.0);
+projectionist.position.copy(pj); projectionist.rotation.y = cin.ry - 0.5; projectionist.name = 'standee:projectionist';
+world.scene.add(projectionist);
+world.colliders.push({ kind: 'circle', x: pj.x, z: pj.z, r: 0.35 });
+const projectionistHit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
+projectionistHit.position.copy(pj).setY(0.9); projectionistHit.name = 'projectionist'; world.scene.add(projectionistHit);
+const cinema = new CinemaPanel(reelScreen, () => leaveForge());
+function openCinema() { enterForge(); cinema.open(); }
+interactables.push({ obj: projectionistHit, verb: () => 'Watch the Projectionist\'s reels', act: () => openCinema() });
+interactables.push({ obj: reelScreen, verb: () => 'Watch the reels', act: () => openCinema() });
 function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; syncLock(); }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; if (player.thirdPerson) player.pitch = 0; syncLock(); }
@@ -1195,11 +1235,11 @@ reader.onLink = followLink;
 book.onLink = (slug) => { book.close(); void openReader(slug); };
 
 // ---------- book open / close (F3.2, F3.6) ----------
-async function openBook() {
+async function openBook(at?: THREE.Vector3) {
   setState('book');
-  const b = world.bookCenter;   // v0.04: face the lectern to read
+  const b = at ?? world.bookCenter;   // v0.04: face the lectern (or, in the town library, the book in hand) to read
   player.bodyYaw = Math.atan2(-(b.x - player.pos.x), -(b.z - player.pos.z));
-  rig.setShot(rig.readingShot(world.bookCenter));
+  rig.setShot(rig.readingShot(b));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   await book.open();
 }
@@ -1213,13 +1253,13 @@ const eTags = $<HTMLInputElement>('eTags'), eBody = $<HTMLTextAreaElement>('eBod
 const ghOwner = $<HTMLInputElement>('ghOwner'), ghRepo = $<HTMLInputElement>('ghRepo');
 const ghBranch = $<HTMLInputElement>('ghBranch'), ghToken = $<HTMLInputElement>('ghToken');
 
-function openEditor() {
+function openEditor(withNatalie = false) {
   editorFrom = state;
   if (state === 'play' && document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   const gh = loadGitHub();
   ghOwner.value = gh.owner; ghRepo.value = gh.repo; ghBranch.value = gh.branch; ghToken.value = gh.token;
   eAuthor.value = loadAuthor();
-  eMsg.textContent = '';
+  eMsg.textContent = withNatalie ? 'Natalie dips her quill: "Go on. Who, where, what happened. I\'ll write it down for the library."' : '';
   setState('editor');
   eTitle.focus();
 }
@@ -1228,8 +1268,6 @@ function closeEditor() {
   else setState(editorFrom);
 }
 $('writeLoreTitle').addEventListener('click', () => openEditor());
-$('writeLorePause').addEventListener('click', () => openEditor());
-$('writeLoreHud').addEventListener('click', () => { if (state === 'play') openEditor(); });
 $('eCancel').addEventListener('click', () => closeEditor());
 $('ghSave').addEventListener('click', () => {
   saveGitHub({ owner: ghOwner.value.trim(), repo: ghRepo.value.trim(), branch: ghBranch.value.trim() || 'main', token: ghToken.value.trim() });
@@ -1330,7 +1368,7 @@ window.addEventListener('keydown', (e) => {
   if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyT' && !e.repeat) { toggleTorch(); return; }   // v0.04
-  if (e.code === 'KeyL' && !e.repeat) { openEditor(); return; }
+  // v0.04: no L hotkey; in the world, lore is written at the campfire with Natalie (the title screen keeps its button).
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
   if (actionFor(e.code, ['map']) && !e.repeat) { openMap(); return; }
@@ -1647,4 +1685,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

@@ -45,7 +45,7 @@ async function newPage() {
   const { ctx, page, errors } = await newPage();
   await page.waitForTimeout(400);
 
-  check('Version label shown on title screen', (await page.textContent('#versionLabel'))?.trim() === 'v0.02');
+  check('Version label shown on title screen', /^v0\.\d\d$/.test((await page.textContent('#versionLabel'))?.trim() ?? ''));
 
   // ---------- F1.3: Settings opens from the title screen too ----------
   await page.click('#openSettingsTitle');

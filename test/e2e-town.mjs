@@ -1,4 +1,4 @@
-// v0.04 feedback checks, part 5 (world): hills, distant mountains, the town (one building per tool) and the
+// v0.04 feedback checks, part 5 (world): hills, distant mountains, the town (nine buildings scattered round a green) and the
 // shopkeeper (buy / sell for crowns, earned by finds and writing).
 // Usage: npm run build && node test/e2e-town.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
@@ -44,14 +44,18 @@ const face = (id) => G(page, (id) => {
   p.pos.set(d.x + fx * 1.6, 0, d.z + fz * 1.6);
   p.yaw = Math.atan2(-(d.x - p.pos.x), -(d.z - p.pos.z)); p.bodyYaw = p.yaw; p.pitch = -0.15;
 }, id);
-const doors = { smithy: 'Enter the Smithy', tailor: 'Enter the Tailor', scriptorium: 'Enter the Scriptorium', cartographer: 'Enter the Cartographer', shop: 'Enter the General Store', inn: 'Rent a bed' };
+const doors = { library: 'Enter the Library', smithy: 'Enter the Smithy', tailor: 'Enter the Tailor', scriptorium: 'Enter the Scriptorium', cartographer: 'Enter the Cartographer', dojo: 'Enter the Dojo', gallery: 'Enter the Gallery', shop: 'Enter the General Store', inn: 'Rent a bed' };
 const verbs = [];
 for (const [id, v] of Object.entries(doors)) {
   await face(id);
   await until(page, (v) => (window.__gametool.lookingAtVerb ?? '').startsWith(v), v, 6000);
   verbs.push(await G(page, () => window.__gametool.lookingAtVerb));
 }
-check('v0.04 town: six buildings, each door names its tool', Object.values(doors).every((v, i) => (verbs[i] ?? '').startsWith(v)), verbs.join(' | '));
+check('v0.04 town: nine buildings, each door names its tool', Object.values(doors).every((v, i) => (verbs[i] ?? '').startsWith(v)), verbs.join(' | '));
+const lay = await G(page, () => { const d = window.__gametool.world.town.doors; return Object.values(d).map((o) => ({ x: o.position.x, z: o.position.z, ry: o.rotation.y })); });
+const yaws = new Set(lay.map((l) => Math.round(((l.ry % (Math.PI / 2)) + Math.PI / 2) % (Math.PI / 2) * 20)));
+const apart = lay.every((a, i) => lay.every((b, j) => i === j || Math.hypot(a.x - b.x, a.z - b.z) > 5));
+check('v0.04 town (Mike: scatter them): doors face the green at varied angles, none square to each other, all well apart', yaws.size >= 7 && apart, JSON.stringify(lay.map((l) => +(l.ry * 57.3).toFixed(0))));
 await face('cartographer');
 await until(page, () => window.__gametool.lookingAtVerb === 'Enter the Cartographer', null, 6000);
 await page.keyboard.press('KeyE');
@@ -64,10 +68,26 @@ await page.keyboard.press('KeyE');
 const tailor = await until(page, () => window.__gametool.characterForge.isOpen, null, 6000);
 await page.keyboard.press('Escape');
 await until(page, () => window.__gametool.state === 'play');
-check('v0.04 town: the Cartographer opens the living map, the Tailor the character mirror', mapOpen && tailor);
+await face('library');
+await until(page, () => window.__gametool.lookingAtVerb === 'Enter the Library', null, 6000);
+await page.keyboard.press('KeyE');
+const lib = await until(page, () => window.__gametool.state === 'book', null, 8000);
+await page.keyboard.press('Escape');
+await until(page, () => window.__gametool.state === 'play', null, 8000);
+await face('dojo');
+await until(page, () => window.__gametool.lookingAtVerb === 'Enter the Dojo', null, 6000);
+await page.keyboard.press('KeyE');
+const dojo = await until(page, () => window.__gametool.dojo.isOpen, null, 6000);
+await page.keyboard.press('Escape');
+await until(page, () => window.__gametool.state === 'play', null, 8000);
+await face('gallery');
+await until(page, () => window.__gametool.lookingAtVerb === 'Enter the Gallery', null, 6000);
+await page.keyboard.press('KeyE');
+const gal = await until(page, () => window.__gametool.player.pos.x > 7 && window.__gametool.player.pos.x < 10 && window.__gametool.player.pos.z < 10, null, 6000);
+check('v0.04 town: the Cartographer opens the living map, the Tailor the mirror, the Library the book, the Dojo its drills, the Gallery leads to the hall', mapOpen && tailor && lib && dojo && gal, JSON.stringify({ mapOpen, tailor, lib, dojo, gal }));
 
 // ---------- shop ----------
-await G(page, () => { const g = window.__gametool, k = g.world.town.shopkeeperHit.position, p = g.player; p.pos.set(k.x, 0, k.z - 1.4); p.yaw = Math.PI; p.bodyYaw = Math.PI; p.pitch = -0.1; });
+await G(page, () => { const g = window.__gametool, h = g.world.town.shopkeeperHit, k = h.position, ry = h.rotation.y, p = g.player; p.pos.set(k.x + Math.sin(ry) * 1.4, 0, k.z + Math.cos(ry) * 1.4); p.yaw = ry; p.bodyYaw = ry; p.pitch = -0.1; });
 const talk = await until(page, () => window.__gametool.lookingAtVerb === 'Trade with the Shopkeeper', null, 8000);
 await page.keyboard.press('KeyE');
 const shopOpen = await until(page, () => window.__gametool.shop.isOpen && window.__gametool.state === 'forge', null, 6000);

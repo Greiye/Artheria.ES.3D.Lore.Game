@@ -4,8 +4,41 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 
 ## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
-Spec doc v0.05.
+One merged entry for the roadmap work. The corner label now shows the current build version (`VERSION` 0.04,
+Mike 2026-10-28). Spec doc v0.05.
+
+### v0.04 feedback, part 8: town layout, placeholder names, version label
+
+- **The town is a ring round a green.** All nine buildings sit on it: library (opens the lore book),
+  smithy, tailor, scriptorium, cartographer, dojo (opens the drills), gallery (leads to the hall), general store
+  and inn. Each lot is set at its own angle and distance from the green, and the buildings vary in size, so no
+  two stand square to each other. The lane from the glade and the projectionist's screen take two gaps in the ring.
+- **Placeholders get generic names and never enter the lore** (Mike's rule). The cinema NPC is now **the
+  Projectionist**. Natalie's missing party are **the Archer** (was "the scout"), **the Mage** (was "the
+  tracker") and **the Swordsman** (was "the shieldbearer"); the crossbow is now the **Archer's Crossbow**.
+- **Corner label** reads `v0.04 · Mike Go`.
+- Draw calls: the town signs share one texture atlas, the screen stand is part of the town batch, and the five
+  dirt patches round the spawn are one mesh (119 calls on the budget walk, under 120).
+
+### v0.04 feedback, part 7: cinema
+
+- **The Projectionist** (placeholder): stands by a framed screen on the town green. Talk to them
+  (or the screen) to watch short reels by Mike and friends.
+- **Reels** live in `assets/cinema/` (see its README): `name.webm` preferred, `name.gif` as the fallback (or
+  `.mp4`), optional `clips.json` for titles, credits and whether a clip has sound. They ship as separate files
+  in `dist/cinema/`, so the page stays small and phones only download a reel when it plays.
+- Clips start muted; sound is one button away. While a video plays, the screen in town shows it too.
+- No reels ship yet: until clips are added, the Projectionist says where to put them.
+
+### v0.04 feedback, part 6: campfire
+
+- **Lore writing moved to the campfire:** the L hotkey and the in-game "Write lore" buttons (HUD, pause menu) are
+  gone. Sit by the fire and pick "Write lore with Natalie": she holds the quill and the lore editor opens. The
+  title screen keeps its button for writing before you play.
+- **Natalie the bard:** while you sit, she comes to the fire and strums a looping lute backing (C – Am – F – G).
+- **Playable instruments:** pick one and play along on six pads (keys 1–6): hum and clap & stomp are always
+  yours; the tin whistle, hand drum and lute come from the General Store. Melodic instruments play a pentatonic
+  scale so anything you play fits Natalie's chords.
 
 ### v0.04 feedback: Mike's follow-ups
 

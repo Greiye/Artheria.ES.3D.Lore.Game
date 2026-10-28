@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "items": {
     "crossbow": {
-      "name": "Scout's Crossbow",
+      "name": "Archer's Crossbow",
       "icon": "⌖",
-      "note": "Natalie's scout won't be needing it tonight. Mind the reload."
+      "note": "Natalie's Archer won't be needing it tonight. Mind the reload."
     },
     "trinket": {
       "name": "Trinket from below",

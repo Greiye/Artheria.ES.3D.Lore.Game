@@ -1,0 +1,14 @@
+/* v0.04 cinema: the Projectionist's reels */
+#cinema { z-index: 42; background: rgba(8,8,12,.72); }
+.cinema-card { width: min(960px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.cin-body { display: grid; grid-template-columns: 1fr 240px; gap: 12px; min-height: 0; }
+.cin-stage { background: #000; border-radius: 8px; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden; padding: 8px; }
+.cin-stage video, .cin-stage img { width: 100%; height: 100%; object-fit: contain; image-rendering: auto; }
+.cin-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: min(52vh, 420px); }
+.cin-row { text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--stone-d); background: rgba(255,255,255,.04); color: var(--parchment); font: inherit; cursor: pointer; display: grid; gap: 2px; }
+.cin-row span { font-size: 12px; color: var(--stone-l); }
+.cin-row.on { border-color: var(--rune); background: rgba(63,224,232,.12); }
+@media (max-width: 700px), (max-height: 500px) {
+  .cin-body { grid-template-columns: 1fr; }
+  .cin-list { max-height: 28vh; }
+}

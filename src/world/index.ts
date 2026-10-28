@@ -80,22 +80,20 @@ export function buildWorld(): World {
   dirtMat.onBeforeCompile = (sh) => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       vec2 dc = vMapUv2 - 0.5; diffuseColor.a *= smoothstep(0.5, 0.3, length(dc));`).replace('void main() {', 'varying vec2 vMapUv2;\nvoid main() {');
-    sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying vec2 vMapUv2;\nvoid main() {\n  vMapUv2 = uv;').replace('#include <uv_vertex>', '#include <uv_vertex>');
+    sh.vertexShader = sh.vertexShader.replace('void main() {', 'attribute vec2 edge;\nvarying vec2 vMapUv2;\nvoid main() {\n  vMapUv2 = edge;').replace('#include <uv_vertex>', '#include <uv_vertex>');
   };
-  const decal = (x: number, z: number, r: number) => {
-    const g = new THREE.CircleGeometry(r, 20).rotateX(-Math.PI / 2);
-    const uv = g.attributes.uv as THREE.BufferAttribute, p = g.attributes.position as THREE.BufferAttribute;
-    // `uv` stays 0..1 for the soft edge; the map samples world metres via a second set baked into the transform.
-    const m = new THREE.Mesh(g, dirtMat.clone());
-    (m.material as THREE.MeshLambertMaterial).map = pixelTexture('dirt').clone();
-    const t = (m.material as THREE.MeshLambertMaterial).map!;
-    t.needsUpdate = true; t.repeat.set(r * 2, r * 2);
-    void uv; void p;
-    m.position.set(x, 0.006, z);
-    m.raycast = () => {};
-    scene.add(m);
-  };
-  decal(0, 0.5, 4.2); decal(0, 6, 2.2); decal(0, -10, 2.6); decal(0, -15.5, 3.4); decal(-4.2, -2.2, 2.2);
+  // Dirt patches, merged into one mesh (one draw call): `edge` keeps 0..1 across each patch for the soft rim,
+  // `uv` is scaled by the patch size so the dirt texture keeps the same pixel size on every patch.
+  const patches = ([[0, 0.5, 4.2], [0, 6, 2.2], [0, -10, 2.6], [0, -15.5, 3.4], [-4.2, -2.2, 2.2]] as const).map(([x, z, r]) => {
+    const g = new THREE.CircleGeometry(r, 20).rotateX(-Math.PI / 2).translate(x, 0.006, z);
+    const uv = g.attributes.uv as THREE.BufferAttribute;
+    g.setAttribute('edge', uv.clone());
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r * 2, uv.getY(i) * r * 2);
+    return g;
+  });
+  const decals = new THREE.Mesh(mergeGeometries(patches), dirtMat);
+  decals.name = 'dirt-patches'; decals.raycast = () => {};
+  scene.add(decals);
 
   // ---------- paved path spawn -> lectern -> library ----------
   const pave = (z0: number, z1: number, gap: number) => {

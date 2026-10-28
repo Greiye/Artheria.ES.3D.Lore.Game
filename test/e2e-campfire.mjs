@@ -61,7 +61,7 @@ check('B11 Play schedules the tune on the music bus', secs > 1, `${secs} s`);
 // ---------- telling + ballad ----------
 await page.fill('#campfire [data-turn=start]', 'We came up the paved road at dusk, and Natalie would not go in.');
 await page.fill('#campfire [data-turn=middle]', 'Inside, a bitten string. A page with a tooth hole.');
-await page.fill('#campfire [data-turn=end]', 'The blue light led to the ditch, and the shieldbearer was alive.');
+await page.fill('#campfire [data-turn=end]', 'The blue light led to the ditch, and the Swordsman was alive.');
 check('B8 Natalie takes a turn between yours (solo play)', await G(page, () => document.querySelectorAll('#campfire .cf-natalie').length === 3));
 await page.fill('#cfTitle', 'The Ditch Song');
 await page.click('#cfBard');
@@ -81,7 +81,7 @@ await page.fill('#campfire [data-turn=start]', 'The next morning we went back.')
 await page.fill('#campfire [data-turn=middle]', 'Two were still missing.');
 await page.fill('#campfire [data-turn=end]', 'We kept walking.');
 await page.click('#cfBard');
-check('B8 a new ballad can pick up where another left off (chain)', await G(page, () => window.__gametool.campfire.ballad.verses[0][0] === 'Where The Ditch Song left off,' && /Shieldbearer was alive/i.test(window.__gametool.campfire.ballad.verses[0][1])));
+check('B8 a new ballad can pick up where another left off (chain)', await G(page, () => window.__gametool.campfire.ballad.verses[0][0] === 'Where The Ditch Song left off,' && /Swordsman was alive/i.test(window.__gametool.campfire.ballad.verses[0][1])));
 await page.click('#cfClose');
 await until(page, () => window.__gametool.state !== 'forge');
 await resume();
@@ -108,6 +108,23 @@ await page.keyboard.press('Escape');
 await until(page, () => window.__gametool.state !== 'book');
 await G(page, () => window.__gametool.refreshGallery());
 check('B9 reading Natalie\'s page in the library puts her portrait in the gallery', await G(page, () => window.__gametool.gallery.exhibits.find((e) => e.id === 'natalie-bourbon').discovered));
+
+// ---------- v0.04: playable instruments, Natalie's backing ----------
+await G(page, () => window.__gametool.openCampfire());
+await until(page, () => window.__gametool.campfire.isOpen);
+const inst0 = await G(page, () => ({ chips: [...document.querySelectorAll('#campfire [data-play]')].map((b) => b.dataset.play), backing: window.__gametool.audio.backingOn }));
+check('v0.04 campfire: Natalie strums while you sit; hum and clap are always yours', inst0.backing && inst0.chips.join(',') === 'hum,clap', JSON.stringify(inst0));
+await G(page, () => { const g = window.__gametool; g.campfire.close(); g.inventory.give('lute', 1); g.openCampfire(); });
+await until(page, () => window.__gametool.campfire.isOpen);
+await page.click('#campfire [data-play="lute"]');
+await page.keyboard.press('3');
+const played = await G(page, () => window.__gametool.audio.lastPlayed);
+await page.click('#campfire [data-pad="5"]');
+const padded = await G(page, () => window.__gametool.audio.lastPlayed);
+check('v0.04 campfire: a lute from the store joins the instruments; keys 1–6 and the pads play its notes', played?.kind === 'lute' && played.midi === 64 && padded?.midi === 72, JSON.stringify({ played, padded }));
+await page.click('#cfClose');
+await until(page, () => window.__gametool.state === 'play');
+check('v0.04 campfire: leaving the fire stops the backing', !(await G(page, () => window.__gametool.audio.backingOn)));
 
 check('Campfire: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
