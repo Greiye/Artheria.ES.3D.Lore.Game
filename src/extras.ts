@@ -7,7 +7,7 @@ import './extras.css';
 export interface Shot { src: string; title: string; caption: string }
 declare const __EVOLUTION__: Shot[];
 
-export const INSPIRATIONS: { name: string; note: string }[] = [
+const INSPIRATIONS: { name: string; note: string }[] = [
   { name: 'Jason Molina', note: "For showing me what an inspired friend looks like. You're a creative rock to me, forever moved that I played in a part in your becoming an author." },
   { name: 'Vanessa Escalambre', note: "When you sing, I am reminded of a simple joy that you've always had to yourself since I met you in childhood." },
   { name: 'Revlis Go', note: 'Being there when I need you without judgement.' },

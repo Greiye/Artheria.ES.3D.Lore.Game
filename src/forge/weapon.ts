@@ -16,13 +16,13 @@ export interface WeaponCosmetic {
   engraving: string; name: string; legend: string; roll?: Roll | null;
 }
 const KEY = 'gametool.forge.weapon';
-export const defaultWeapon = (): WeaponCosmetic => ({
+const defaultWeapon = (): WeaponCosmetic => ({
   stock: 'hunter', limbs: 'straight', stockMat: 'oak', limbMat: 'dark', fittings: '#A4A7A6', string: '#D9D8CC', tint: '#FFFFFF', engraving: '', name: '', legend: '', roll: null,
 });
 export function loadWeapon(): WeaponCosmetic {
   try { const raw = localStorage.getItem(KEY); return raw ? { ...defaultWeapon(), ...JSON.parse(raw) } : defaultWeapon(); } catch { return defaultWeapon(); }
 }
-export function saveWeapon(c: WeaponCosmetic): void { try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* quota */ } }
+function saveWeapon(c: WeaponCosmetic): void { try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* quota */ } }
 
 const MAT_TEX: Record<Material, [TexName | null, string]> = {
   oak: ['wood', '#FFFFFF'], dark: ['planks', '#FFFFFF'], birch: ['birch', '#FFFFFF'], bone: ['parchment', '#F4ECD8'], iron: ['stone', '#B8BCC0'],

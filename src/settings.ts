@@ -39,10 +39,12 @@ export const PRESETS: Record<Preset, Pick<Settings, 'renderScale' | 'shadows' | 
 
 const KEY = 'gametool.settings';
 const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 90, muteMaster: false, muteMusic: false, muteSfx: false, muteDialogue: false };
-export const defaults: Settings = {
+// Phones and tablets start on Low; desktops on Medium. Either can be changed in the pause menu.
+const firstPreset: Preset = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'medium';
+const defaults: Settings = {
   schemaVersion: 1,
   sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'follow', chars: 'hybrid', lastPage: 0, haptics: true,
-  preset: 'medium', ...PRESETS.medium,
+  preset: firstPreset, ...PRESETS[firstPreset],
   audio: { ...defaultAudio },
 };
 
@@ -68,6 +70,7 @@ export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredCloneSettings(defaults);
+    lastWritten = raw;
     const s = JSON.parse(raw) as Partial<Settings>;
     const preset: Preset = s.preset === 'low' || s.preset === 'medium' || s.preset === 'high' ? s.preset : defaults.preset;
     return {
@@ -98,6 +101,11 @@ function structuredCloneSettings(s: Settings): Settings {
   return { ...s, audio: { ...s.audio } };
 }
 
+let lastWritten: string | null = null;   // what this page last read or wrote, so an unchanged page never overwrites
 export function saveSettings(s: Settings): void {
-  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode / quota: settings just won't persist */ }
+  try { lastWritten = JSON.stringify(s); localStorage.setItem(KEY, lastWritten); } catch { /* private mode / quota: settings just won't persist */ }
+}
+/** Page teardown: write only if this page changed something since its last write (another tab may have newer settings). */
+export function flushSettings(s: Settings): void {
+  if (JSON.stringify(s) !== lastWritten) saveSettings(s);
 }

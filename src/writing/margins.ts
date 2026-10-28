@@ -35,7 +35,7 @@ export function loadMargins(): MarginNote[] {
 }
 function saveMargins(list: MarginNote[]) { try { localStorage.setItem(MARGINS, JSON.stringify(list.slice(-300))); } catch { /* full */ } }
 
-export function marginsMarkdown(e: LoreEntry, notes: MarginNote[], author: string): string {
+function marginsMarkdown(e: LoreEntry, notes: MarginNote[], author: string): string {
   const body = notes.map((n) => `> ${n.text.replace(/\n/g, '\n> ')}\n\n— in ${n.ink} ink, page ${n.page + 1}${n.seal ? ', sealed' : ''}`).join('\n\n');
   return entryMarkdown({
     title: `Margins: ${e.title}`, author, type: 'margin', tags: ['margins'],

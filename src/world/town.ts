@@ -17,7 +17,7 @@ export const TOWN_NAMES: Record<TownId, string> = {
 };
 const ICONS: Record<TownId, string> = { library: '❦', smithy: '⚒', tailor: '✂', scriptorium: '✒', cartographer: '⌖', dojo: '☯', gallery: '▣', shop: '⚖', inn: '☾' };
 // The green: an oval ring of lots round (C.x, C.z). Everything stays inside the flat middle (|x|, |z| < 42).
-export const GREEN = { x: 4, z: 26.5, rx: 24, rz: 9.5 };
+const GREEN = { x: 4, z: 26.5, rx: 24, rz: 9.5 };
 // One plaster and three roof colours: each tint is its own merged mesh (draw call), so keep them few.
 const PLASTER = '#EFE2C6';
 const WALL = 3.0, PLINTH = 0.4, RISE = 2.1;
@@ -60,11 +60,10 @@ function layout(): Map<Slot['id'], Spot> {
   }
   return out;
 }
-export const SPOTS = layout();
+const SPOTS = layout();
 const LOTS = RING.filter((s): s is Slot & { id: TownId } => s.id !== 'lane' && s.id !== 'cinema').map((s) => ({ ...s, ...SPOTS.get(s.id)!, wall: PLASTER, roof: s.roof! }));
 /** v0.05: the camp's exit gate, at the west end of the coach road. Walking through it asks whether to retire. */
 export const GATE = { x: -41, z: -4, half: 2.0 };
-export const GATE_LABEL = 'Temporary Exit - Mind the dust';
 /** Keep-out for scattered props (trees, rocks, bushes, undergrowth): the ring and its lots, the lane, the road west. */
 export const townClear = (x: number, z: number, pad: number) =>
   ((x - GREEN.x) / (GREEN.rx + 6 + pad)) ** 2 + ((z - GREEN.z) / (GREEN.rz + 6 + pad)) ** 2 < 1 || (Math.abs(x) < 2 + pad && z > 11 && z < 24)

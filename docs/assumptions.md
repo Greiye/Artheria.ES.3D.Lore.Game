@@ -101,3 +101,5 @@ Places where the spec was ambiguous, where browsers forced a choice, or where th
 | 95 | v0.05 saving | "Save" means this device's localStorage: position, yaw, time of day and the bag. Retiring at the gate saves the same except the position. The bag used to be session-only (assumption #86); it now persists once you save. |
 | 96 | v0.05 rebinding | Keyboard keys are rebindable (one main key per action; a clash swaps the two). Controller buttons keep the fixed v0.04 layout, shown as a map. |
 | 97 | v0.05 exit gate | "Camp exit" = a gate at the west end of the coach road (x −41), past the travellers' camp, inside the flat play area. |
+| 98 | Phone default | "Phone" = a coarse pointer (touch). Those start on Low; desktops start on Medium. A saved choice always wins. |
+| 99 | CI scope | CI runs only the boot and town suites (the fast, stable ones). The full suite stays a local `npm run test:e2e`, because software rendering on CI makes the timing checks flaky. |

@@ -1,10 +1,9 @@
 // .glb model loader (owner request 2026-10-21). Drop `public/models/<slot>.glb` into the repo and the
 // game swaps that slot's placeholder for the model. Missing or broken file → the placeholder stays (§0 rule 1).
 // Models are served next to index.html (not inlined), so they only download when they exist and the
-// single-file build stays small. Draco and Meshopt compression are both supported.
+// single-file build stays small. Meshopt compression is supported (gltfpack / gltf-transform --compress meshopt).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 export interface ModelSlot {
@@ -19,9 +18,8 @@ const MODEL_DIR = './models/';
 let loader: GLTFLoader | null = null;
 function getLoader(): GLTFLoader {
   if (loader) return loader;
-  const draco = new DRACOLoader();
-  draco.setDecoderPath('./draco/');   // public/draco: fetched only when a Draco-compressed model needs it
-  loader = new GLTFLoader().setDRACOLoader(draco).setMeshoptDecoder(MeshoptDecoder);
+  // Meshopt (gltfpack) compression only; Draco was dropped (its decoder added 250 KB to dist and no model used it).
+  loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   return loader;
 }
 

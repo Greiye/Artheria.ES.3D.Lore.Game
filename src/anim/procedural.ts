@@ -19,7 +19,7 @@ export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'read';
 const WALK = 2.5, RUN = 5;
 // Restyle S2f (Tree of Savior): poses are stepped at a sprite frame rate, not interpolated every frame, for
 // the flipbook feel of 8-direction sprite cycles. Movement through the world stays smooth.
-export const ANIM_FPS = 12;
+const ANIM_FPS = 12;
 const smooth = (cur: number, target: number, rate: number, dt: number) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
 
 export class FigureAnim {

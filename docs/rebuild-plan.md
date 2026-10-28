@@ -15,7 +15,7 @@ Status 2026-10-22: R0 done (tag). R1 and R2 built, and Mike signed off on the lo
 | Settings / audio / version | `src/settings.ts` (new graphics keys added), `src/audio.ts`, `src/version.ts` |
 | UI shell | `src/style.css`, `index.html` overlays |
 | Model loader | `src/models.ts` (slot logic kept; fit/material rules change) |
-| Deploy / PWA | `.github/workflows/deploy.yml`, `public/` (icons, manifest, draco, models) |
+| Deploy / PWA | `.github/workflows/deploy.yml`, `public/` (icons, manifest, models) |
 
 ## Rebuild from scratch
 

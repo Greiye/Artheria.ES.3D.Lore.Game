@@ -6,13 +6,11 @@ import * as THREE from 'three';
 // 1 m (TEXELS_PER_M), so props, walls and ground share one texel density.
 // PLACEHOLDER: hand-painted texture atlas once one is designed.
 
-export const TILE = 32;
-export const TEXELS_PER_M = 32;
+const TILE = 32;
 
 type RGB = [number, number, number];
 const hex = (h: string): RGB => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const css = ([r, g, b]: RGB, a = 1) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
-const shade = (c: RGB, k: number): RGB => [Math.min(255, c[0] * k), Math.min(255, c[1] * k), Math.min(255, c[2] * k)];
 
 export function rng(seed: number) {
   let a = seed >>> 0;
@@ -314,4 +312,4 @@ export function shaftTexture(): THREE.CanvasTexture {
   return shaftTex;
 }
 
-export { shade, hex };
+

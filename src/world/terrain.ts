@@ -5,7 +5,7 @@ import { rng } from '../tex/pixel';
 // starts to roll up 42 m out from the centre into hills at the edge of the walkable square and beyond it,
 // and a ring of low-poly mountains stands far out past the fog (drawn without fog, so they always show).
 const sstep = (a: number, b: number, v: number) => { const t = THREE.MathUtils.clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-export const HILLS_FROM = 42;
+const HILLS_FROM = 42;
 
 /** Ground height at (x, z), in metres. 0 everywhere inside the play area's flat middle. */
 export function heightAt(x: number, z: number): number {

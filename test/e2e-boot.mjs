@@ -17,8 +17,8 @@ const until = (page, fn, arg, timeout = 15000) => page.waitForFunction(fn, arg, 
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 await ctx.addInitScript(() => {
   localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test', motivation: '', secret: '', created: true }));
-  if (!sessionStorage.getItem('booted')) { localStorage.setItem('gametool.intro', 'on'); localStorage.removeItem('gametool.save'); localStorage.removeItem('gametool.keys'); localStorage.setItem('gametool.version', '0.04'); }
-  sessionStorage.setItem('booted', '1');
+  if (!localStorage.getItem('e2e.booted')) { localStorage.setItem('gametool.intro', 'on'); localStorage.removeItem('gametool.save'); localStorage.removeItem('gametool.keys'); localStorage.setItem('gametool.version', '0.04'); }
+  localStorage.setItem('e2e.booted', '1');   // a fresh context starts empty; sessionStorage on file:// can drop across reloads
 });
 const page = await ctx.newPage();
 const errors = [];
@@ -75,10 +75,11 @@ const sv = await G(page, () => JSON.parse(localStorage.getItem('gametool.save'))
 check('v0.05 §3.1 pause → "Save and return to the menu" saves and shows the menu', saved && sv?.pos && Math.abs(sv.pos[0] - 10) < 0.5 && sv.time === 'night' && sv.items.some(([id]) => id === 'lute'), JSON.stringify(sv));
 await page.reload();
 await page.waitForFunction(() => window.__gametool);
+const before = await G(page, () => ({ save: !!localStorage.getItem('gametool.save'), state: window.__gametool.state, intro: !!document.querySelector('#intro'), loader: !!document.querySelector('#loader') }));
 await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play');
 const resumed = await G(page, () => { const g = window.__gametool; return { x: g.player.pos.x, z: g.player.pos.z, time: g.world.time, lute: g.inventory.count('lute') }; });
-check('v0.05 Begin carries on from the save: the spot, the hour and the bag', Math.abs(resumed.x - 10) < 0.5 && Math.abs(resumed.z - 9) < 0.5 && resumed.time === 'night' && resumed.lute === 1, JSON.stringify(resumed));
+check('v0.05 Begin carries on from the save: the spot, the hour and the bag', Math.abs(resumed.x - 10) < 0.5 && Math.abs(resumed.z - 9) < 0.5 && resumed.time === 'night' && resumed.lute === 1, JSON.stringify({ ...resumed, before }));
 
 // ---------- rebinding ----------
 await page.keyboard.press('Escape');

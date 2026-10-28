@@ -17,7 +17,7 @@ export function decodeTune(s: string | undefined): Tune {
   return { instrument: m[1] as Instrument, bpm: Math.max(60, Math.min(180, Number(m[2]))), steps: m[3].match(/../g)!.map((h) => parseInt(h, 16)) };
 }
 // A chord line for the music box (§6.1 arpeggio) from the tune's lowest note per half.
-export function tuneChords(t: Tune): string {
+function tuneChords(t: Tune): string {
   const CH = ['C', 'Dm', 'Em', 'G', 'Am', 'C', 'Dm', 'Em'];
   const low = (mask: number) => { for (let r = 0; r < 8; r++) if (mask & (1 << r)) return r; return 0; };
   return [0, 2, 4, 6].map((i) => CH[low(t.steps[i] || t.steps[i + 1])]).join(' ');
@@ -52,7 +52,7 @@ export function composeBallad(t: Telling, natalie: string[], title: string, tune
   return { id: 'bd' + Date.now().toString(36), title, tune: encodeTune(tune), verses, telling: t, chainOf: chainOf?.id, created: new Date().toISOString().slice(0, 10) };
 }
 
-export function balladBody(b: Ballad): string {
+function balladBody(b: Ballad): string {
   const t = decodeTune(b.tune);
   return `# ${b.title}\n\nchords: ${tuneChords(t)}\ntune: ${b.tune}\n\n${b.verses.map((v) => v.join('  \n')).join('\n\n')}\n`;
 }

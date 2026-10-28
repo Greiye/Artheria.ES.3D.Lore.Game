@@ -7,7 +7,7 @@ import { shaftTexture } from '../tex/pixel';
 
 // Storybook restyle S3: a bright storybook sky (deep blue overhead, pale toward a warm horizon) and
 // lighter, bluer haze, after the "Echoes of Avalon" boards; the sun stays low and warm (F2.2).
-export const SKY = {
+const SKY = {
   zenith: '#3A78C8',
   upper: '#78AEE0',
   horizon: '#E8E2C8',

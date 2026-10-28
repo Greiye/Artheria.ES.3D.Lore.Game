@@ -5,14 +5,14 @@ import { ITEMS, type Inventory } from './inventory';
 // pays (see `earn` in main.ts). Session-only, like the rest of the inventory for now.
 export const CROWN = 'crown';
 export interface Ware { id: string; n: number; price: number }
-export const STOCK: Ware[] = [
+const STOCK: Ware[] = [
   { id: 'bolt', n: 5, price: 6 },
   { id: 'whistle', n: 1, price: 12 },
   { id: 'drum', n: 1, price: 15 },
   { id: 'lute', n: 1, price: 30 },
 ];
 /** What the shopkeeper pays for one of each. */
-export const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };
+const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };
 
 export class ShopPanel {
   readonly el: HTMLDivElement;

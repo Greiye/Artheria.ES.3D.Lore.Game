@@ -46,7 +46,7 @@ const node = (page) => G(page, () => window.__gametool.dialogue.currentId);
 {
   const { page, errors } = await newPage();
   await faceNatalie(page);
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => document.getElementById('promptVerb').textContent === 'Talk to Natalie', null, { timeout: 8000 }).catch(() => undefined);
   const prompt = await G(page, () => ({ shown: !document.getElementById('prompt').classList.contains('hidden'), verb: document.getElementById('promptVerb').textContent }));
   check('F3: aiming at Natalie shows "E — Talk to Natalie"', prompt.shown && prompt.verb === 'Talk to Natalie', JSON.stringify(prompt));
   const before = await G(page, () => window.__gametool.player.pos.clone());
@@ -139,7 +139,8 @@ const node = (page) => G(page, () => window.__gametool.dialogue.currentId);
     d.start({ speaker: 'Test', start: 'a', nodes: { a: { text: 'x'.repeat(400), end: true } } });
     const t0 = performance.now();
     await new Promise((r) => setTimeout(r, 1500));
-    const out = { shown: document.querySelector('#dialogue .d-text').textContent.length, secs: (performance.now() - t0) / 1000 };
+    // The text updates once per frame: read it in a frame callback, timed at that frame (slow software frames).
+    const out = await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame((t) => r({ shown: document.querySelector('#dialogue .d-text').textContent.length, secs: (t - t0) / 1000 }))));
     d.advance(); d.advance();
     return out;
   });

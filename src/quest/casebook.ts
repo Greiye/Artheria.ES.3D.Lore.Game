@@ -5,7 +5,7 @@ import './quest.css';
 
 // B2 casebook (J): the clues you found, and the page where you write your theory. Committing the theory
 // sets the lead; after the lead, the casebook holds the ending (Natalie's finished field note).
-export function theoryMarkdown(th: Theory, author: string): string {
+function theoryMarkdown(th: Theory, author: string): string {
   const tags = AXES.map((a) => `- **${a[0].toUpperCase() + a.slice(1)}:** ${tagLabel(a, th[a])}`).join('\n');
   return entryMarkdown({
     title: `A theory: ${tagLabel('who', th.who)}`, author, type: 'theory', tags: ['theory', 'natalie', th.who, th.where],

@@ -3,12 +3,12 @@
 // GitHub issue to send it to the maintainer, who reviews and merges it (credit_as gives the credit).
 import { downloadMarkdown, slugify } from './editor';
 
-export const SUBMIT_REPO = 'Greiye/Artheria.ES.3D.Lore.Game';
+const SUBMIT_REPO = 'Greiye/Artheria.ES.3D.Lore.Game';
 const MAX_URL_BODY = 6000;   // GitHub's new-issue URL starts failing past ~8 KB
 
 export interface Submission { kind: string; title: string; markdown: string }
 
-export function issueUrl(s: Submission): string {
+function issueUrl(s: Submission): string {
   const body = s.markdown.length > MAX_URL_BODY
     ? `${s.markdown.slice(0, MAX_URL_BODY)}\n\n…(cut: attach the downloaded .md file for the rest)`
     : s.markdown;

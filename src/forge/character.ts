@@ -13,7 +13,7 @@ export interface ForgeCharacter { look: FigureLook; height: number; name: string
 const KEY = 'gametool.forge.character';
 
 interface SpeciesPreset { id: Species; label: string; blurb: string; skins: string[]; height: number; look?: Partial<FigureLook> }
-export const SPECIES: SpeciesPreset[] = [
+const SPECIES: SpeciesPreset[] = [
   { id: 'human', label: 'Human', blurb: 'Stubborn, short-lived, everywhere.', skins: ['#F0C8A0', '#E0A882', '#C08860', '#8A5A3A', '#5A3A28'], height: 1.75 },
   { id: 'elf', label: 'Elf', blurb: 'Long memories, longer grudges.', skins: ['#F2D6B8', '#E8C0A0', '#C9A080', '#9A7A68'], height: 1.82 },
   { id: 'infernling', label: 'Infernling', blurb: 'Horned heirs of the Patron\'s fire.', skins: ['#B0403A', '#8A3A5A', '#6A3A7A', '#C06048'], height: 1.75 },
@@ -33,7 +33,7 @@ const PALETTE = ['#26222C', '#3C3644', '#34406A', '#5A6A8A', '#A8523A', '#8A3A30
 const HAIR = ['#D2C6B6', '#5A3420', '#2A1A12', '#C9A050', '#E8E0D0', '#A83A2A', '#3A3A44', '#6A9A4A', '#4A6AA8'];
 const EYES = ['#C8463A', '#3E7A4A', '#3A5A9A', '#6A4A2A', '#5A3A7A', '#E0A020', '#A82A2A'];
 
-export function defaultForge(name = ''): ForgeCharacter {
+function defaultForge(name = ''): ForgeCharacter {
   return {
     name, backstory: '', height: 1.8, roll: null,
     look: { species: 'human', ...GOTHIC_LOOK, art: undefined, eyeStyle: 'round', marks: '' },   // forged looks draw their own head
@@ -49,12 +49,12 @@ export function loadForge(name = ''): ForgeCharacter {
     return { ...d, ...c, look: { ...d.look, ...(c.look ?? {}) }, height: typeof c.height === 'number' ? c.height : d.height };
   } catch { return defaultForge(name); }
 }
-export function saveForge(c: ForgeCharacter): void {
+function saveForge(c: ForgeCharacter): void {
   try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* private mode / quota */ }
 }
 
 // "key=value; key=value" so the lore file stays readable and the frontmatter parser needs no JSON.
-export function encodeLook(c: ForgeCharacter): string {
+function encodeLook(c: ForgeCharacter): string {
   const l = c.look;
   return [`species=${l.species}`, `height=${c.height.toFixed(2)}`, `build=${(l.build ?? 1).toFixed(2)}`, `skin=${l.skin}`, `hair=${l.hair}`, `hairStyle=${l.hairStyle}`,
     `eyes=${l.eyes}`, `eyeStyle=${l.eyeStyle}`, `primary=${l.primary}`, `secondary=${l.secondary}`, `boots=${l.boots}`, `accent=${l.accent}`,
@@ -72,7 +72,7 @@ export function decodeLook(s: string): { look: FigureLook; height: number } | nu
 }
 const THREE_clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
-export function forgeMarkdown(c: ForgeCharacter, author: string): string {
+function forgeMarkdown(c: ForgeCharacter, author: string): string {
   const sp = SPECIES.find((s) => s.id === c.look.species)?.label ?? 'Human';
   const body = `# ${c.name || 'Unnamed hero'}\n\n*${sp}.*\n\n${c.backstory.trim() || '(No backstory yet.)'}${c.roll ? `\n\n> Forged under the dice: ${rollText(c.roll)}.` : ''}\n`;
   return entryMarkdown({ title: c.name || 'Unnamed hero', author, type: 'character', tags: ['character', 'forge', c.look.species ?? 'human'], body, extra: { color: c.look.primary, look: encodeLook(c) } });

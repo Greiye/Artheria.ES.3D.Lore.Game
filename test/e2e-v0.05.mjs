@@ -85,8 +85,10 @@ const perfect = await G(page, async () => {
   const t0 = performance.now();
   await new Promise((r) => { const tick = () => (c.reload.active && c.reload.t >= 0.4 ? r() : requestAnimationFrame(tick)); tick(); });
   c.pressReload();   // 0.4 s into a 2 s bar = 20%: inside the 15–30% zone
-  await new Promise((r) => { const tick = () => (c.loaded ? r() : requestAnimationFrame(tick)); tick(); });
-  return { out: c.lastReloadOutcome, secs: (performance.now() - t0) / 1000, bonus: c.bonusNextShot };
+  // Game time (the reload's own clock): wall time stretches when software frames run slower than the dt cap.
+  let game = 0;
+  await new Promise((r) => { const tick = () => { if (c.reload.active) game = c.reload.total; c.loaded ? r() : requestAnimationFrame(tick); }; tick(); });
+  return { out: c.lastReloadOutcome, secs: game, wall: (performance.now() - t0) / 1000, bonus: c.bonusNextShot };
 });
 check('F4.3 R in the 15% zone = 0.5 s reload + 2× damage next shot', perfect.out === 'fast' && perfect.bonus && perfect.secs < 1.0, JSON.stringify(perfect));
 await page.mouse.down({ button: 'left' }); await page.mouse.up({ button: 'left' });
@@ -98,8 +100,9 @@ const jam = await G(page, async () => {
   const t0 = performance.now();
   await new Promise((r) => { const tick = () => (c.reload.t >= 1.2 ? r() : requestAnimationFrame(tick)); tick(); });
   c.pressReload();   // 60%: outside the zone
-  await new Promise((r) => { const tick = () => (c.loaded ? r() : requestAnimationFrame(tick)); tick(); });
-  return { out: c.lastReloadOutcome, secs: (performance.now() - t0) / 1000 };
+  let game = 0;
+  await new Promise((r) => { const tick = () => { if (c.reload.active) game = c.reload.total; c.loaded ? r() : requestAnimationFrame(tick); }; tick(); });
+  return { out: c.lastReloadOutcome, secs: game, wall: (performance.now() - t0) / 1000 };
 });
 check('F4.3 R outside the zone = 3 s jam', jam.out === 'jam' && jam.secs > 2.7 && jam.secs < 4.5, JSON.stringify(jam));
 await page.screenshot({ path: path.join(shots, 'v05-crossbow.png') });

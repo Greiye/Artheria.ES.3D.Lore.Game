@@ -6,7 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 // then merged into one mesh per material. A glade of hundreds of props stays a handful of draw calls.
 
 // Box-projected UVs from world-space positions: each face samples the plane it mostly faces.
-export function worldUV(geo: THREE.BufferGeometry, scale = 1): THREE.BufferGeometry {
+function worldUV(geo: THREE.BufferGeometry, scale = 1): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   g.computeVertexNormals();
   const p = g.attributes.position, n = g.attributes.normal, uv = new Float32Array(p.count * 2);

@@ -8,7 +8,7 @@ import { generate, isFloor, N, CELL, mulberry32, type Layout, type Room, type Th
 // camera's far plane, so the two never draw together). Painted light like the figures: tiles are unlit,
 // and each one's brightness comes from nearby torches plus a little wall occlusion, stored in instance
 // colours. Five draw calls: floor, walls, ceiling, torches, props.
-export const ORIGIN = new THREE.Vector3(400, 0, 0);
+const ORIGIN = new THREE.Vector3(400, 0, 0);
 const THEME: Record<Theme, { floor: string; wall: string; torch: string; liquid: string; fog: string }> = {
   Ancient: { floor: '#C9B48A', wall: '#B8A07A', torch: '#FFB347', liquid: '#3F7FB0', fog: '#1A1510' },
   Frost: { floor: '#AFC4D6', wall: '#9FB4C8', torch: '#9FE8FF', liquid: '#BFEFFF', fog: '#0E1620' },
@@ -16,7 +16,7 @@ const THEME: Record<Theme, { floor: string; wall: string; torch: string; liquid:
   Grim: { floor: '#8A9488', wall: '#6E786C', torch: '#8CFF7A', liquid: '#5AA05A', fog: '#0C120C' },
   Verdant: { floor: '#9AB07A', wall: '#7E9A66', torch: '#FFD27A', liquid: '#4FA0A0', fog: '#0E140C' },
 };
-export const cellToWorld = (x: number, y: number, out = new THREE.Vector3()) => out.set(ORIGIN.x + (x - N / 2) * CELL + CELL / 2, 0, ORIGIN.z + (y - N / 2) * CELL + CELL / 2);
+const cellToWorld = (x: number, y: number, out = new THREE.Vector3()) => out.set(ORIGIN.x + (x - N / 2) * CELL + CELL / 2, 0, ORIGIN.z + (y - N / 2) * CELL + CELL / 2);
 
 export interface DungeonSpot { kind: 'stairs' | 'chest' | 'shrine' | 'nest'; room: Room; hit: THREE.Mesh }
 

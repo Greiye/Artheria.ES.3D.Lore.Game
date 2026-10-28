@@ -6,7 +6,7 @@ import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 // enough for localStorage and for a lore file's front matter when it is submitted.
 export const SIZE = 32;
 // Legends-bright primaries + Vintage Story earths. Index 0 is transparent.
-export const PALETTE = ['', '#2B2A24', '#EFE3C4', '#C8423A', '#E8873A', '#F2C94C', '#7C9A45', '#3E6FA8',
+const PALETTE = ['', '#2B2A24', '#EFE3C4', '#C8423A', '#E8873A', '#F2C94C', '#7C9A45', '#3E6FA8',
   '#3FE0E8', '#7A3A5A', '#553823', '#B0693F', '#7A7D80', '#FFFFFF', '#F0C8A0', '#2E4A6E'];
 export interface Sketch { id: string; name: string; px: string }
 const KEY = 'gametool.sketches';
@@ -30,7 +30,7 @@ export function loadSketches(): Sketch[] {
     return Array.isArray(v) ? v.filter((s) => typeof s.px === 'string' && s.px.length === SIZE * SIZE) : [];
   } catch { return []; }
 }
-export function saveSketches(list: Sketch[]) {
+function saveSketches(list: Sketch[]) {
   try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX))); } catch { /* storage full or blocked */ }
 }
 export function sketchById(id: string | undefined): Sketch | undefined {
@@ -54,7 +54,7 @@ export function sketchDataUrl(s: Sketch, scale = 2): string {
   return c.toDataURL();
 }
 
-export function sketchMarkdown(s: Sketch, author: string): string {
+function sketchMarkdown(s: Sketch, author: string): string {
   return entryMarkdown({
     title: s.name || 'Untitled sketch', author, type: 'sketch', tags: ['sketch'],
     body: `A 32×32 sketch made in the game. \`pixels\` is one hex digit per pixel (palette index, row by row).\n`,
