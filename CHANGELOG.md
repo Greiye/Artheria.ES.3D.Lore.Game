@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.05,
 Mike 2026-10-28). Spec doc v0.05.
 
+### v0.05 changelog, part 2: three camera perspectives, shoulder swap, D-pad dialogue
+- The camera has three perspectives: first person, over the shoulder and overhead (the Dark Cloud 2 style view, now the default). F (or R3, or the touch eye button) cycles them; the wheel, a pinch, the right stick or LB / RB step in and out; the pause menu's Camera list picks one. A saved "follow" view becomes overhead.
+- Swap shoulder: Q (or D-pad up) moves the shoulder view to the other shoulder. In first person and overhead the same button switches weapon (hands ↔ crossbow). It's rebindable under Controls.
+- Dialogue choices are D-pad friendly: one choice is highlighted; D-pad / arrow keys / W-S (or a stick flick) move it, wrapping round; A, E or Enter picks it. Number keys and clicks still work, and Space still only advances (it never picks a choice by accident).
+- Fixed: town plaster showed small repeating marks that read as paw prints.
+
 ### Style pass 1: fully painted
 - Every texture is repainted at 64 px with soft washes and brush strokes instead of pixel noise: clumped grass with a few flowers, cobbles on dark grout, chiselled stone, bark furrows, plank grain, leaf clumps.
 - New lime-plaster walls (rain streaks) and slate roof tiles for the town; brighter roof colours.

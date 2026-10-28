@@ -224,6 +224,7 @@ button.secondary:hover { border-color: var(--rune); color: var(--parchment); }
 #dialogue .d-choice { text-align: left; display: flex; gap: 10px; align-items: center; background: rgba(239,227,196,.06);
   border: 1px solid var(--stone-d); color: var(--parchment); border-radius: 8px; padding: 9px 12px; font: inherit; cursor: pointer; }
 #dialogue .d-choice:hover, #dialogue .d-choice:focus-visible { border-color: var(--rune); }
+#dialogue .d-choice.on { border-color: var(--rune); background: rgba(226,181,103,.16); box-shadow: inset 3px 0 0 var(--rune); }   /* v0.05: highlighted (D-pad / arrows) */
 #dialogue .d-hint { margin-top: 8px; text-align: right; font-size: 11px; color: var(--stone-l); letter-spacing: .1em; text-transform: uppercase; }
 #dialogue .d-hint.hidden { display: none; }
 /* F3.4 inventory grid */

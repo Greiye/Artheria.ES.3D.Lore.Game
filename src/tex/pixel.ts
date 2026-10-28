@@ -143,11 +143,10 @@ const PAINTERS = {
     scatter(16, W, H * 0.6, R, (x, y) => dab(g, W, H, x, y, 1.6, '#A0CC62', 0.7));
   },
   plaster(g, W, H, R) {
-    // Lime plaster: pale wash, rain streaks running down, a patch or two of bare stone showing through.
+    // Lime plaster: pale wash and rain streaks running down. (A bare-stone patch read as paw prints when tiled.)
     wash(g, W, H, ['#CDBFA4', '#D8CBB0', '#E2D6BC', '#EAE0C8'], R, { cells: 3 });
     scatter(6, W, H, R, (x, y) => dab(g, W, H, x, y, 6 + R() * 10, R() < 0.6 ? '#B8A88A' : '#F2EAD6', 0.3));
     scatter(10, W, H, R, (x, y) => stroke(g, W, H, x, y, Math.PI / 2 + (R() - 0.5) * 0.1, 10 + R() * 18, 1.6 + R() * 1.4, '#A8987C', 0.18));
-    if (R() < 0.8) { const x = R() * W, y = R() * H; for (let k = 0; k < 3; k++) blob(g, W, H, x + (k - 1) * 5, y + (k % 2) * 3, 3, 2, R, '#A49480', '#C0B29C', '#7E705E'); }
   },
   roofTiles(g, W, H, R) {
     // Two-tone slate shingles: overlapping rounded tiles with a shadowed lower lip (tinted by the lot colour).

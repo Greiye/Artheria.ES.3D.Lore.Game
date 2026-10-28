@@ -1,5 +1,6 @@
 // F3.1–F3.3: Ren'Py-style dialogue box. Bottom panel, name tag, typewriter at 40 ch/s.
 // LMB / Space / E skip the typewriter, then advance. Choices are buttons (or keys 1–9).
+// v0.05: choices are also D-pad / arrow / W-S friendly: one is highlighted, up/down move it, A / E / Enter pick it.
 // Scripts are content/dialogue/*.json (§6.7); actions are handed back to the game (F3.4).
 import { randomPrompt } from './prompts';
 
@@ -20,6 +21,8 @@ export class DialogueBox {
   private shown = 0;
   private startedAt = 0;
   private timer = 0;
+  /** The highlighted choice. */
+  sel = 0;
   onAction: (action: string) => void = () => undefined;
   onEnd: () => void = () => undefined;
   onLine: () => void = () => undefined;   // A7 blip hook (Dialogue bus)
@@ -84,8 +87,11 @@ export class DialogueBox {
         b.querySelector('kbd')!.textContent = String(i + 1);
         b.querySelector('span')!.textContent = c.text;
         b.addEventListener('click', () => this.choose(i));
+        b.addEventListener('pointerenter', () => { this.sel = i; this.mark(); });
         this.choicesEl.appendChild(b);
       });
+      this.sel = 0;
+      this.mark();
     } else this.hintEl.classList.remove('hidden');
   }
 
@@ -98,6 +104,20 @@ export class DialogueBox {
     else this.goto(this.node.next);
   }
 
+  private mark() { [...this.choicesEl.children].forEach((b, i) => b.classList.toggle('on', i === this.sel)); }
+  /** v0.05: move the highlight up (-1) or down (+1), wrapping round. */
+  move(d: number) {
+    const n = this.node?.choices?.length ?? 0;
+    if (!n || this.typing) return;
+    this.sel = (this.sel + d + n) % n;
+    this.mark();
+  }
+  /** Confirm (pad A, E, Enter): pick the highlighted choice, or advance. Space and clicks on the box only advance (F3.2). */
+  press() {
+    if (this.node?.choices?.length && !this.typing) this.choose(this.sel);
+    else this.advance();
+  }
+
   // F3.2: a choice picks the next node.
   choose(i: number) {
     const c = this.node?.choices?.[i];
@@ -106,7 +126,10 @@ export class DialogueBox {
   }
 
   handleKey(code: string) {
-    if (code === 'Space' || code === 'KeyE' || code === 'Enter') this.advance();
+    if (code === 'Space') this.advance();
+    else if (code === 'KeyE' || code === 'Enter') this.press();
+    else if (code === 'ArrowUp' || code === 'KeyW') this.move(-1);
+    else if (code === 'ArrowDown' || code === 'KeyS') this.move(1);
     const m = /^(Digit|Numpad)([1-9])$/.exec(code);
     if (m) this.choose(Number(m[2]) - 1);
   }

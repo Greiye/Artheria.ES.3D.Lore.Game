@@ -94,7 +94,7 @@ await page.keyboard.down('KeyW'); await page.waitForTimeout(500);
 const tp = await G(page, () => { const g = window.__gametool; return { third: g.player.thirdPerson, body: g.player.body.visible, cam: g.player.eyePos.distanceTo(g.camera.position) }; });
 await page.keyboard.up('KeyW');
 await page.screenshot({ path: path.join(shots, 'v03-third-person.png') });
-check('F2.4 default view is the follow camera (body shown, camera behind and above, S1) while moving', tp.third && tp.body && tp.cam > 3 && tp.cam < 11, `camera ${tp.cam.toFixed(2)} m from eyes`);
+check('F2.4 default view is the overhead camera (v0.05; body shown, camera behind and above, S1) while moving', tp.third && tp.body && tp.cam > 3 && tp.cam < 15, `camera ${tp.cam.toFixed(2)} m from eyes`);
 // Wall collision: back the player up against the library, looking away from it.
 await G(page, () => { const p = window.__gametool.player; p.pos.set(6, 0, -16.4); p.yaw = Math.PI; p.pitch = 0; });
 await page.waitForTimeout(300);

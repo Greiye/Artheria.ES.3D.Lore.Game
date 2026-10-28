@@ -22,7 +22,9 @@ export interface GameHooks {
   closeInventory(): void;
   openInventory(): void;
   toggleRun(): void;
-  toggleView(): void;            // first person <-> follow
+  toggleView(): void;            // v0.05: cycle first person / shoulder / overhead
+  shoulderSwap(): void;          // v0.05: swap shoulder, or the weapon outside the shoulder view
+  dialogueMove(d: number): void; // v0.05: move the highlighted dialogue choice
   stepCamera(n: number): void;  // v0.04: one camera distance out (+1) or in (-1)
   toggleTorch(): void;          // v0.04
   quickSwap(hand: 'left' | 'right'): void;   // v0.04 D-pad quick swap

@@ -29,38 +29,58 @@ await page.waitForFunction(() => window.__gametool.state === 'play');
 const cam = () => G(page, () => { const g = window.__gametool, c = g.camera.position, e = g.player.eyePos; return { d: c.distanceTo(e), up: c.y - e.y, y: c.y, fov: g.camera.fov, third: g.player.thirdPerson, zoom: g.rig.zoom, view: g.settings.view }; });
 const place = (x, z, yaw = 0) => G(page, ([x, z, yaw]) => { const p = window.__gametool.player; p.pos.set(x, 0, z); p.yaw = yaw; p.bodyYaw = yaw; p.pitch = 0; }, [x, z, yaw]);
 
-// ---------- follow camera ----------
+// ---------- v0.05: three perspectives (first person, over the shoulder, overhead) ----------
 await place(0, 9);
-await G(page, () => { window.__gametool.rig.zoom = 0.35; });
 await page.waitForTimeout(1500);
 const c0 = await cam();
-check('S1 starts in the follow view, above and behind the player', c0.third && c0.view === 'follow' && c0.up > 1 && c0.d > 4 && c0.d < 11, JSON.stringify(c0));
-check('S1 the follow view frees the cursor (no pointer lock, no crosshair)', await G(page, () => !document.pointerLockElement && getComputedStyle(document.getElementById('crosshair')).display === 'none'));
+check('v0.05 starts in the overhead view, above and behind the player', c0.third && c0.view === 'overhead' && c0.up > 3 && c0.d > 6 && await G(page, () => window.__gametool.rig.step === 2), JSON.stringify(c0));
+check('S1 the overhead view frees the cursor (no pointer lock, no crosshair)', await G(page, () => !document.pointerLockElement && getComputedStyle(document.getElementById('crosshair')).display === 'none'));
 await page.mouse.move(640, 300);
 const wheel = async (n, dy) => { for (let i = 0; i < n; i++) { await page.mouse.wheel(0, dy); await page.waitForTimeout(150); } };
-await wheel(2, 300);
-await page.waitForTimeout(1500);
-const c1 = await cam();
-check('v0.04 two notches out step follow -> high -> overhead (narrower field of view)', c1.zoom === 1 && c1.y > 12 && c1.fov < 40 && await G(page, () => window.__gametool.rig.step === 4), JSON.stringify(c1));
-await wheel(3, -300);
-await page.waitForTimeout(1500);
-const c2 = await cam();
-const side = await G(page, () => { const g = window.__gametool, p = g.player.pos, c = g.camera.position; return (c.x - p.x) * -Math.cos(g.player.yaw) + (c.z - p.z) * Math.sin(g.player.yaw); });
-check('v0.04 three notches in step back to the over-the-shoulder view (close, right of the player)', c2.third && c2.zoom === 0 && c2.d < 3 && side > 0.3 && await G(page, () => window.__gametool.rig.step === 1), JSON.stringify({ ...c2, side }));
+const side = () => G(page, () => { const g = window.__gametool, p = g.player.pos, c = g.camera.position; return (c.x - p.x) * -Math.cos(g.player.yaw) + (c.z - p.z) * Math.sin(g.player.yaw); });
+await wheel(1, 300);
+await page.waitForTimeout(800);
+check('v0.05 scrolling out past overhead stays overhead (3 perspectives only)', await G(page, () => window.__gametool.rig.step === 2 && window.__gametool.player.thirdPerson));
 await wheel(1, -300);
-check('v0.04 one more notch in goes first person, gliding into the eyes', await until(page, () => !window.__gametool.player.thirdPerson && window.__gametool.rig.switching, null, 3000));
+await page.waitForTimeout(1500);
+const c2 = await cam(), s2 = await side();
+check('v0.05 one notch in: over the shoulder (close, right of the player)', c2.third && c2.view === 'shoulder' && c2.d < 3 && s2 > 0.3 && await G(page, () => window.__gametool.rig.step === 1), JSON.stringify({ ...c2, side: s2 }));
+await page.keyboard.press('KeyQ');
+await page.waitForTimeout(1500);
+const s3 = await side();
+check('v0.05 Q swaps the shoulder view to the left shoulder', s3 < -0.3 && await G(page, () => window.__gametool.rig.shoulderSide === -1), s3.toFixed(2));
+await page.keyboard.press('KeyQ');
+await page.waitForTimeout(1500);
+check('v0.05 ... and back to the right', (await side()) > 0.3);
+await wheel(1, -300);
+check('v0.05 one more notch in goes first person, gliding into the eyes', await until(page, () => !window.__gametool.player.thirdPerson && window.__gametool.rig.switching, null, 3000));
 check('S1 the glide ends at the eyes with the body hidden', await until(page, () => { const g = window.__gametool; return !g.rig.switching && g.camera.position.distanceTo(g.player.eyePos) < 0.05 && !g.player.body.visible; }, null, 5000));
 check('S1 first person is remembered as the camera setting', (await cam()).view === 'first');
 await page.mouse.wheel(0, 300);
-check('S1 scrolling out of first person returns to the follow view', await until(page, () => window.__gametool.player.thirdPerson && window.__gametool.settings.view === 'follow', null, 3000));
+check('v0.05 scrolling out of first person returns to the shoulder view', await until(page, () => window.__gametool.player.thirdPerson && window.__gametool.settings.view === 'shoulder', null, 3000));
+// F cycles: shoulder -> overhead -> first person -> shoulder.
+const views = [];
+for (let i = 0; i < 3; i++) { await page.keyboard.press('KeyF'); await page.waitForTimeout(200); views.push(await G(page, () => window.__gametool.settings.view)); }
+check('v0.05 F cycles the three perspectives', views.join(',') === 'overhead,first,shoulder', views.join(','));
+await page.keyboard.press('KeyF');
+await page.waitForTimeout(600);
+// Outside the shoulder view, the same button switches weapon (hands <-> crossbow).
+await G(page, () => window.__gametool.inventory.give('crossbow', 1));
+await page.keyboard.press('KeyQ');
+const armed = await until(page, () => window.__gametool.crossbow.equipped, null, 2000);
+await page.keyboard.press('KeyQ');
+const unarmed = await until(page, () => !window.__gametool.crossbow.equipped, null, 2000);
+check('v0.05 in the overhead view Q doubles as the weapon switch (crossbow on, then off)', armed && unarmed);
+await until(page, () => window.__gametool.player.thirdPerson && !window.__gametool.rig.switching, null, 3000);
 
-// ---------- Camera list (how phones pick first person) ----------
+// ---------- Camera list (how phones pick a perspective) ----------
 await page.keyboard.press('Escape');
 await until(page, () => window.__gametool.state === 'pause');
+const opts = await G(page, () => [...document.querySelectorAll('#viewSel option')].map((o) => o.value).join(','));
 await page.selectOption('#viewSel', 'first');
-check('S1 the pause menu Camera list switches to first person and saves it', await G(page, () => !window.__gametool.player.thirdPerson && JSON.parse(localStorage.getItem('gametool.settings')).view === 'first'));
-await page.selectOption('#viewSel', 'follow');
-check('S1 ... and back to the follow camera', await G(page, () => window.__gametool.player.thirdPerson && window.__gametool.settings.view === 'follow'));
+check('v0.05 the pause menu Camera list has the three perspectives; first person saves', opts === 'overhead,shoulder,first' && await G(page, () => !window.__gametool.player.thirdPerson && JSON.parse(localStorage.getItem('gametool.settings')).view === 'first'), opts);
+await page.selectOption('#viewSel', 'overhead');
+check('S1 ... and back to the overhead camera', await G(page, () => window.__gametool.player.thirdPerson && window.__gametool.settings.view === 'overhead' && window.__gametool.rig.step === 2));
 await page.click('#resume');
 await until(page, () => window.__gametool.state === 'play');
 
@@ -82,7 +102,7 @@ const cw = await G(page, () => { const g = window.__gametool; return { third: g.
 check('v0.04 backed against a wall the camera stays third person, cranes up and keeps the body in view', cw.third && cw.body && cw.eye > 1 && cw.up > 2, JSON.stringify({ wall, ...cw }));
 
 // ---------- hover + click, and E on the nearest thing ----------
-await G(page, () => { window.__gametool.rig.zoom = 0.2; });
+await G(page, () => { window.__gametool.rig.zoom = 0.4; });
 const fire = await G(page, () => window.__gametool.world.stations.campfire.position.clone());
 await place(fire.x + 1.6, fire.z + 1.0, Math.atan2(1.6, 1.0));
 await page.waitForTimeout(1500);
