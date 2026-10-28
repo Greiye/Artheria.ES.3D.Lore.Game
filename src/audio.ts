@@ -205,6 +205,55 @@ class AudioEngine {
   }
   backingOn = false;
 
+  // v0.05 boot: the splash jingle (a rising open fifth and a bell on top), the title's flowing water and a menu blip.
+  // Browsers keep audio locked until the first input, so on a cold load the jingle and water may stay silent
+  // until then; `water()` starts as soon as it can and the title restarts it on that first input.
+  jingle(): boolean {
+    if (!this.ensure() || !this.ctx || !this.bus || this.ctx.state !== 'running') return false;
+    const t0 = this.ctx.currentTime + 0.02;
+    [[55, 0], [62, 0.12], [67, 0.24], [74, 0.36], [79, 0.5]].forEach(([midi, at], i) => {
+      const o = this.ctx!.createOscillator(), g = this.ctx!.createGain(), t = t0 + at;
+      o.type = i === 4 ? 'sine' : 'triangle';
+      o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(i === 4 ? 0.16 : 0.12, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t + (i === 4 ? 1.1 : 0.5));
+      o.connect(g).connect(this.bus!.music);
+      o.start(t); o.stop(t + 1.2);
+    });
+    return true;
+  }
+  private waterStop: (() => void) | null = null;
+  water(on: boolean): void {
+    if (!on) { this.waterStop?.(); this.waterStop = null; return; }
+    if (this.waterStop || !this.ensure() || !this.ctx || !this.bus || !this.noiseBuf) return;
+    const ctx = this.ctx, src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf; src.loop = true;
+    const lo = ctx.createBiquadFilter(); lo.type = 'lowpass'; lo.frequency.value = 900;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 0.8;
+    // Two slow, out-of-step wobbles make the burble of a stream rather than a steady hiss.
+    const l1 = ctx.createOscillator(), g1 = ctx.createGain(); l1.frequency.value = 0.31; g1.gain.value = 260;
+    const l2 = ctx.createOscillator(), g2 = ctx.createGain(); l2.frequency.value = 1.7; g2.gain.value = 120;
+    l1.connect(g1).connect(bp.frequency); l2.connect(g2).connect(bp.frequency);
+    const gain = ctx.createGain(); gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 2);
+    src.connect(lo).connect(bp).connect(gain).connect(this.bus.sfx);
+    src.start(); l1.start(); l2.start();
+    this.waterStop = () => {
+      const t = ctx.currentTime;
+      gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.linearRampToValueAtTime(0, t + 0.8);
+      src.stop(t + 0.85); l1.stop(t + 0.85); l2.stop(t + 0.85);
+    };
+  }
+  get waterOn() { return !!this.waterStop; }
+  blip(): void {
+    if (!this.ensure() || !this.ctx || !this.bus) return;
+    const t = this.ctx.currentTime + 0.01, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(990, t + 0.08);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.14, t + 0.005); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    o.connect(g).connect(this.bus.sfx); o.start(t); o.stop(t + 0.2);
+  }
+
   // PLACEHOLDER: not wired to a trigger yet (F4/F6 not built). Kept here so those versions
   // only need to call these, not build the synth — see docs/assumptions.md #30.
   crossbowTwang(): void { this.noise('sfx', 0.18, 1600, 4, 0.4); }
