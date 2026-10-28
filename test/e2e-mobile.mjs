@@ -144,7 +144,7 @@ async function open(opts, init) {
   await ctx.close();
 }
 
-// ---------------- Touch: phone in portrait — one page at a time ----------------
+// ---------------- Touch: phone in portrait — the book scrolls (v0.04) ----------------
 {
   const { ctx, page, errors } = await open({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 });
   await page.screenshot({ path: path.join(shots, 'm3-phone-portrait-title.png') });
@@ -155,16 +155,17 @@ async function open(opts, init) {
   await page.waitForFunction(() => window.__gametool.state === 'book');
   await page.waitForTimeout(500);
   await G(page, () => window.__gametool.book.goto(window.__gametool.book.entryStart.get('the-stagecoach'))); await page.waitForTimeout(350);
-  const single = await G(page, () => document.getElementById('book').classList.contains('single') && getComputedStyle(document.querySelector('#book .page.right')).display === 'none');
+  // v0.04: a phone held upright reads the book as one vertical scroll (see test/e2e-player.mjs for scrolling).
+  const scroll = await G(page, () => document.getElementById('book').classList.contains('scroll') && getComputedStyle(document.querySelector('#book .page.right')).display === 'none');
   const pageBox = await G(page, () => { const r = document.querySelector('#book .page.left').getBoundingClientRect(); return { w: r.width, h: r.height, left: r.left, right: r.right }; });
-  check('Touch portrait: one page at a time, fits the screen', single && pageBox.left >= 0 && pageBox.right <= 390, `page ${Math.round(pageBox.w)}×${Math.round(pageBox.h)} px`);
+  check('Touch portrait: the book is one scrolling column that fits the screen', scroll && pageBox.left >= 0 && pageBox.right <= 390, `page ${Math.round(pageBox.w)}×${Math.round(pageBox.h)} px`);
   const c0 = await G(page, () => window.__gametool.book.currentPage);
-  await page.tap('#book .edge.next');
-  await page.waitForTimeout(350);
+  await G(page, () => window.__gametool.book.next());
+  const c1ok = await page.waitForFunction((c0) => window.__gametool.book.currentPage === c0 + 1, c0, { timeout: 5000 }).then(() => true, () => false);
   const c1 = await G(page, () => window.__gametool.book.currentPage);
-  check('Touch portrait: page-edge tap advances one page', c1 === c0 + 1, `${c0} → ${c1}`);
-  const clipped = await G(page, () => { const el = document.querySelector('#book .page.left .page-inner'); return el.scrollHeight > el.clientHeight + 1; });
-  check('Touch portrait: no clipped text', !clipped);
+  check('Touch portrait: next page scrolls down one page', c1ok, `${c0} → ${c1}`);
+  const sections = await G(page, () => document.querySelectorAll('#book .scroll-page').length === window.__gametool.book.pageCount);
+  check('Touch portrait: every page is in the scroll', sections);
   await page.screenshot({ path: path.join(shots, 'm4-phone-portrait-book.png') });
   check('Touch portrait: no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();

@@ -163,6 +163,12 @@ body:not([data-input="touch"]) .t-btn { display: none; }
   justify-content: center; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 14px;
   background: rgba(20,24,22,.6); color: var(--parchment); font: 600 15px var(--ui); text-align: center; }
 @media (orientation: portrait) { body[data-input="touch"][data-state="play"] #rotateHint { display: flex; } }
+/* v0.04: reading on a phone in landscape suggests portrait, where the book scrolls; it fades after a few seconds. */
+#readHint { display: none; position: fixed; left: 50%; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 31;
+  pointer-events: none; padding: 6px 14px; border-radius: 16px; background: rgba(20,24,21,.55); color: var(--parchment); font-size: 13px;
+  opacity: 0; animation: readHint 4.5s ease forwards; }
+@keyframes readHint { 0%, 100% { opacity: 0; } 10%, 75% { opacity: .85; } }
+@media (orientation: landscape) { body[data-input="touch"][data-state="book"] #readHint { display: block; } }
 .t-menu { top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); width: 48px; height: 48px; font-size: 20px; border-radius: 10px; }
 .t-read { left: 50%; bottom: calc(26px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: auto; height: 52px; padding: 0 26px;
   border-radius: 26px; background: var(--rune); color: var(--shadow); border-color: var(--parchment); font-size: 16px; }
@@ -283,3 +289,14 @@ body[data-pad="playstation"] .padmap .face2 { color: #D88AC8; } body[data-pad="p
 /* v0.04 sleeping on the bedroll: the view fades to black and back */
 #sleepFade { position: fixed; inset: 0; z-index: 30; background: #05060A; opacity: 0; pointer-events: none; transition: opacity .9s ease; }
 #sleepFade.on { opacity: 1; }
+
+/* v0.04: phones in portrait read the book as one scrolling column (pages run on, numbered). */
+.book.scroll { padding: 8px; gap: 4px; }
+.book.scroll .spread { --pw: calc(100vw - 16px); padding: 6px; }
+.book.scroll .page { height: calc(100dvh - 48px); padding: 16px 18px 12px; border-radius: 6px; box-shadow: none; }
+.book.scroll .page.left .page-inner { overflow-y: auto; position: relative; touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.book.scroll .edge, .book.scroll .flip, .book.scroll .folio, .book.scroll .book-hint { display: none; }
+.book.scroll .book-close { top: -4px; right: -4px; }
+.scroll-page { position: relative; padding-bottom: 6px; margin-bottom: 14px; border-bottom: 1px dashed #c9b88f; }
+.scroll-page:last-child { border-bottom: 0; }
+.scroll-folio { text-align: center; font: 11px var(--serif); color: #8a7b5c; text-indent: 0 !important; }

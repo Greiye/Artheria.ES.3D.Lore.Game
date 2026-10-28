@@ -1,5 +1,6 @@
 // v0.04 feedback checks, part 2 (player): vault a low wall, climb the fallen rocks, torch, D-pad quick swap,
 // footstep pitch variation. Part 3 (time): sunset start, bedroll sleep cycle.
+// Part 4 (reading): read pose and held book, portrait scroll, landscape hint.
 // Usage: npm run build && node test/e2e-player.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import path from 'node:path';
@@ -118,6 +119,43 @@ check('v0.04 sleeping on the bedroll moves time on: sunset -> night -> day -> su
 const pitches = await G(page, () => { const a = window.__gametool.audio, r = []; for (let i = 0; i < 12; i++) { a.footstep(); r.push(a.lastStepPitch); } return r; });
 const spread = Math.max(...pitches) - Math.min(...pitches);
 check('v0.04 footsteps vary in pitch (±12%)', spread > 0.05 && pitches.every((p) => p >= 0.88 && p <= 1.12), pitches.map((p) => p.toFixed(2)).join(' '));
+
+// ---------- part 4: reading ----------
+await place(2, 6);
+await G(page, () => { const g = window.__gametool; void g.openReader(g.book.entryIds[0]); });
+await until(page, () => window.__gametool.state === 'book' && window.__gametool.reader.isOpen);
+const reads = await until(page, () => { const b = window.__gametool.player.body.children[0].userData.rig.bones; return b.foreN.rotation.x < -0.8 && b.head.rotation.x > 0.2; }, null, 5000);
+const holds = await G(page, () => { let v = false; window.__gametool.player.body.traverse((o) => { if (o.isMesh && o.geometry.type === 'BoxGeometry' && o.parent?.parent?.visible && o.parent.parent.parent?.isBone) v = true; }); return v; });
+check('v0.04 reading: the avatar plays a read pose, head down, holding an open book', reads && holds);
+await page.keyboard.press('Escape');
+await until(page, () => window.__gametool.state !== 'book');
+
+for (const [w, h, name] of [[390, 844, 'portrait'], [844, 390, 'landscape']]) {
+  const c = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+  await c.addInitScript(() => localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test', motivation: '', secret: '', created: true })));
+  const pg = await c.newPage();
+  pg.on('pageerror', (e) => errors.push(name + ': ' + e.message));
+  await pg.goto('file://' + file, { timeout: 120000 });
+  await pg.waitForFunction(() => window.__gametool);
+  await pg.tap('#begin');
+  await pg.waitForFunction(() => window.__gametool.state === 'play');
+  await pg.evaluate(() => { const g = window.__gametool; void g.openReader(g.book.entryIds[0]); });
+  await pg.waitForFunction(() => window.__gametool.reader.isOpen);
+  if (name === 'portrait') {
+    const info = await pg.evaluate(async () => {
+      const r = window.__gametool.reader, el = r.root.querySelector('.page.left .page-inner');
+      const secs = el.querySelectorAll('.scroll-page').length, before = r.currentPage;
+      el.scrollTop = el.scrollHeight;
+      await new Promise((ok) => setTimeout(ok, 300));
+      return { scroll: r.root.classList.contains('scroll'), secs, before, after: r.currentPage, pages: r.pageCount, overflow: getComputedStyle(el).overflowY };
+    });
+    check('v0.04 phone upright: the book is one vertical scroll; scrolling moves the current page', info.scroll && info.overflow === 'auto' && info.secs === info.pages && (info.pages < 2 || info.after > info.before), JSON.stringify(info));
+  } else {
+    const hint = await pg.evaluate(() => ({ shown: getComputedStyle(document.getElementById('readHint')).display !== 'none', scroll: window.__gametool.reader.root.classList.contains('scroll') }));
+    check('v0.04 phone sideways: reading shows a "turn upright" hint and keeps page turning', hint.shown && !hint.scroll, JSON.stringify(hint));
+  }
+  await c.close();
+}
 
 check('v0.04: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

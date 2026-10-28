@@ -71,6 +71,7 @@ export class Book {
     let sx = 0, sy = 0, st = 0;
     this.spread.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; st = performance.now(); }, { passive: true });
     this.spread.addEventListener('touchend', (e) => {
+      if (this.scroll) return;   // portrait scroll mode: a swipe scrolls instead
       const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
       if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3 && performance.now() - st < 2000) (dx < 0 ? this.next() : this.prev());
     }, { passive: true });
@@ -82,15 +83,25 @@ export class Book {
       if (a) { e.preventDefault(); this.goto(this.entryStart.get(a.dataset.entry!) ?? 0); }
     });
     window.addEventListener('resize', () => { if (this.isOpen) { this.applyMode(); void this.layout(true); } });
+    // v0.04 portrait scroll: the page at the top of the column is the current page (remembered, F3.7).
+    let queued = false;
+    this.left.addEventListener('scroll', () => {
+      if (!this.scroll || queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; this.syncScroll(); });
+    }, { passive: true });
   }
 
   get pageCount() { return this.pages.length; }
   get currentPage() { return this.first; }
   // Phones in portrait (or any narrow window) show one page at a time.
-  get perView(): 1 | 2 { return window.innerWidth < 760 || window.innerWidth < window.innerHeight * 0.9 || window.innerHeight < 500 ? 1 : 2; }
+  get perView(): 1 | 2 { return this.scroll || window.innerWidth < 760 || window.innerWidth < window.innerHeight * 0.9 || window.innerHeight < 500 ? 1 : 2; }
+  // v0.04: a phone held upright reads the book as one vertical scroll instead of turning pages.
+  get scroll(): boolean { return matchMedia('(pointer: coarse)').matches && window.innerHeight > window.innerWidth; }
   private align(page: number) { return this.perView === 2 ? Math.floor(page / 2) * 2 : page; }
   private applyMode() {
     this.root.classList.toggle('single', this.perView === 1);
+    this.root.classList.toggle('scroll', this.scroll);
     const touch = matchMedia('(pointer: coarse)').matches;
     this.root.querySelector('.book-hint')!.textContent = touch
       ? 'Swipe or tap a page edge to turn · ✕ to close'
@@ -143,6 +154,7 @@ export class Book {
 
   private turnTo(s: number, dir: 'next' | 'prev') {
     this.first = s;
+    if (this.scroll) { this.scrollToFirst(true); return; }
     this.render();
     audio.pageTurn(); // A7
     // Visual-only flip; input is never blocked by it, so fast readers can keep turning.
@@ -155,6 +167,7 @@ export class Book {
   }
 
   private render() {
+    if (this.scroll) { this.renderScroll(); return; }
     const show = (el: HTMLDivElement, folio: HTMLDivElement, i: number) => {
       const pg = i >= 0 ? this.pages[i] : undefined;
       el.replaceChildren(...(pg?.blocks.map((b) => b.cloneNode(true)) ?? []));
@@ -175,6 +188,45 @@ export class Book {
     view(this.left, this.first);
     if (this.perView === 2) view(this.right, this.first + 1);
     this.onRender(views);
+  }
+
+  // ---------- portrait scroll (v0.04) ----------
+  private sections: HTMLElement[] = [];
+  private renderScroll() {
+    this.sections = this.pages.map((pg, i) => {
+      const sec = document.createElement('section');
+      sec.className = 'scroll-page';
+      sec.append(...pg.blocks.map((b) => b.cloneNode(true)));
+      const f = document.createElement('div');
+      f.className = 'scroll-folio';
+      f.textContent = String(i + 1);
+      sec.append(f);
+      return sec;
+    });
+    this.left.replaceChildren(...this.sections);
+    this.folioL.textContent = this.folioR.textContent = '';
+    this.right.replaceChildren();
+    this.scrollToFirst(false);
+    this.emitScroll();
+  }
+  private scrollToFirst(smooth: boolean) {
+    const sec = this.sections[this.first];
+    if (sec) this.left.scrollTo({ top: sec.offsetTop, behavior: smooth ? 'smooth' : 'auto' });
+  }
+  private syncScroll() {
+    const top = this.left.scrollTop + 8;
+    let i = 0;
+    while (i + 1 < this.sections.length && this.sections[i + 1].offsetTop <= top) i++;
+    if (i === this.first) return;
+    this.first = i;
+    this.emitScroll();
+  }
+  private emitScroll() {
+    if (this.persist) { this.settings.lastPage = this.first; saveSettings(this.settings); }
+    const pg = this.pages[this.first], sec = this.sections[this.first];
+    if (!pg || !sec) { this.onRender([]); return; }
+    const start = pg.entryId ? this.entryStart.get(pg.entryId) ?? this.first : this.first;
+    this.onRender([{ page: sec as HTMLDivElement, index: this.first, entryId: pg.entryId, rel: this.first - start }]);
   }
 
   // ---------- pagination ----------

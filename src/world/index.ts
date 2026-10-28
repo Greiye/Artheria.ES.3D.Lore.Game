@@ -5,6 +5,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { buildFigure, buildCoach } from './figure';
+import { heightAt, shapeGround, buildMountains } from './terrain';
+import { buildTown, townClear, type Town } from './town';
 
 // Rebuild R2 (docs/vision.md, docs/rebuild-plan.md): the start glade in the new look.
 // Vintage Story environment (pixel-textured, lit, dense undergrowth) + Mega Man Legends figures
@@ -29,6 +31,8 @@ export interface World {
   setTime(t: TimeOfDay): void;
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
+  town: Town;                    // v0.04: the storybook town (src/world/town.ts)
+  heightAt(x: number, z: number): number;   // v0.04 hills: ground height
   stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D; campfire: THREE.Object3D; bedroll: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
   campfireFlame: THREE.Mesh;                                  // B8: flickers in main.ts
   bannerCloth: THREE.Mesh;                                    // B10: its map is the stamped sketch
@@ -53,6 +57,7 @@ export function buildWorld(): World {
   const SUN_ELEV = 13, SUN_AZ = 38;
   const sky = buildSky(scene, SUN_ELEV, SUN_AZ);
   sky.setTime('sunset');   // v0.04: every visit starts at a dark sunset
+  buildMountains(scene);
 
   // One lit material per pixel texture (Lambert: cheap on phones, takes shadows).
   const mats = new Map<TexName, THREE.MeshLambertMaterial>();
@@ -63,9 +68,10 @@ export function buildWorld(): World {
   const shadowCasters: THREE.Object3D[] = [];
 
   // ---------- ground ----------
-  const groundGeo = new THREE.PlaneGeometry(HALF * 2 + 60, HALF * 2 + 60, 1, 1).rotateX(-Math.PI / 2);
+  const groundGeo = new THREE.PlaneGeometry(HALF * 2 + 60, HALF * 2 + 60, 80, 80).rotateX(-Math.PI / 2);
   const gUV = groundGeo.attributes.uv as THREE.BufferAttribute;
   for (let i = 0; i < gUV.count; i++) gUV.setXY(i, gUV.getX(i) * (HALF * 2 + 60), gUV.getY(i) * (HALF * 2 + 60));   // 1 tile per metre
+  shapeGround(groundGeo);   // v0.04: hills roll up toward the edge (src/world/terrain.ts)
   const ground = new THREE.Mesh(groundGeo, tex('grass'));
   ground.name = 'ground';
   scene.add(ground);
@@ -218,17 +224,18 @@ export function buildWorld(): World {
     || (x > -11 - pad && x < -3 + pad && z > -7 - pad && z < 5 + pad) || (x > 9.5 - pad && x < 20.5 + pad && z > 2 - pad && z < 10 + pad)
     || Math.hypot(x - 9.5, z + 10) < 3.5 + pad || Math.hypot(x - 16, z + 14) < 2 + pad || Math.hypot(x + 16, z + 4) < 2 + pad
     || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad)   // Phase F dojo
-    || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad);   // v0.04 rock climb
+    || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad)   // v0.04 rock climb
+    || townClear(x, z, pad);   // v0.04 town
 
   // ---------- trees: birch + oak, trunks batched, canopies as alpha-cut leaf blocks ----------
   const canopyDark = leafMaterial('leaves', true), canopyLight = leafMaterial('leavesLight', true);
   const leafB = new Batch();
   const trees: [number, number][] = [];
   const tree = (x: number, z: number) => {
-    const birch = R() < 0.45, h = birch ? 4.5 + R() * 3 : 3.2 + R() * 2, r = birch ? 0.16 : 0.28 + R() * 0.1;
-    B.add(tex(birch ? 'birch' : 'bark'), new THREE.CylinderGeometry(r * 0.8, r, h, 6), V(x, h / 2, z), undefined, R() * 6);
+    const birch = R() < 0.45, h = birch ? 4.5 + R() * 3 : 3.2 + R() * 2, r = birch ? 0.16 : 0.28 + R() * 0.1, gy = heightAt(x, z);
+    B.add(tex(birch ? 'birch' : 'bark'), new THREE.CylinderGeometry(r * 0.8, r, h, 6), V(x, gy + h / 2, z), undefined, R() * 6);
     if (!birch) {   // root flare + a low branch stub
-      B.add(tex('bark'), new THREE.CylinderGeometry(r, r * 1.6, 0.5, 6), V(x, 0.25, z), undefined, R() * 6);
+      B.add(tex('bark'), new THREE.CylinderGeometry(r, r * 1.6, 0.5, 6), V(x, gy + 0.25, z), undefined, R() * 6);
     }
     // Canopy: overlapping leaf blocks around the crown, a few hanging lower; birches are narrow and tall.
     const blocks = birch ? 5 : 8, cr = birch ? 1.1 : 1.9;
@@ -237,11 +244,11 @@ export function buildWorld(): World {
       const a = R() * Math.PI * 2, d = R() * cr * 0.8, y = h - (birch ? 1.6 : 0.6) + R() * cr * (birch ? 2.0 : 1.1);
       // S3: rounded low-poly leaf clumps (storybook canopies) instead of Vintage Story leaf cubes.
       leafB.add(R() < 0.5 ? canopyDark : canopyLight, new THREE.IcosahedronGeometry(0.66, 1),
-        V(x + Math.cos(a) * d, y, z + Math.sin(a) * d), V(s, s * (birch ? 1.1 : 0.8), s), R() * 1.5);
+        V(x + Math.cos(a) * d, gy + y, z + Math.sin(a) * d), V(s, s * (birch ? 1.1 : 0.8), s), R() * 1.5);
     }
     if (!birch) for (let i = 0; i < 2; i++) {   // stubby branches out to the crown
       const a = R() * Math.PI * 2;
-      B.add(tex('bark'), new THREE.BoxGeometry(0.14, 0.14, 1.2), V(x + Math.cos(a) * 0.5, h - 0.8 - i * 0.5, z + Math.sin(a) * 0.5), undefined, -a + Math.PI / 2, 0.5);
+      B.add(tex('bark'), new THREE.BoxGeometry(0.14, 0.14, 1.2), V(x + Math.cos(a) * 0.5, gy + h - 0.8 - i * 0.5, z + Math.sin(a) * 0.5), undefined, -a + Math.PI / 2, 0.5);
     }
     colliders.push({ kind: 'circle', x, z, r: r + 0.12 });
   };
@@ -253,22 +260,22 @@ export function buildWorld(): World {
   }
   // A ring of tall trees past the boundary so the horizon is forest, not a hard edge (fog swallows it).
   for (let a = 0; a < Math.PI * 2; a += 0.09) {
-    const r = HALF + 4 + R() * 12, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 7 + R() * 5;
-    B.add(tex(R() < 0.4 ? 'birch' : 'bark'), new THREE.CylinderGeometry(0.3, 0.4, h, 5), V(x, h / 2, z));
-    leafB.add(canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, h, z), V(4 + R() * 2, 3.5 + R() * 2, 4 + R() * 2), R());
+    const r = HALF + 4 + R() * 12, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 7 + R() * 5, gy = heightAt(x, z) - 0.3;
+    B.add(tex(R() < 0.4 ? 'birch' : 'bark'), new THREE.CylinderGeometry(0.3, 0.4, h, 5), V(x, gy + h / 2, z));
+    leafB.add(canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, gy + h, z), V(4 + R() * 2, 3.5 + R() * 2, 4 + R() * 2), R());
   }
   // Bushes: low leaf blocks, walk-through (soft foliage, see assumptions).
   for (let i = 0; i < 110; i++) {
     const x = (R() * 2 - 1) * (HALF - 1), z = (R() * 2 - 1) * (HALF - 1);
     if (clear(x, z, 1)) continue;
     const s = 0.6 + R() * 0.7;
-    leafB.add(R() < 0.5 ? canopyLight : canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, s * 0.4, z), V(s * 1.3, s * 0.85, s * 1.2), R() * 3);
+    leafB.add(R() < 0.5 ? canopyLight : canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, heightAt(x, z) + s * 0.4, z), V(s * 1.3, s * 0.85, s * 1.2), R() * 3);
   }
   leafB.flush(scene, 'canopy').forEach((m) => { m.raycast = () => {}; shadowCasters.push(m); });
 
   // ---------- rocks + ruined walls ----------
   const rock = (x: number, z: number, s: number, t: TexName) => {
-    B.add(tex(t), new THREE.DodecahedronGeometry(1, 0), V(x, s * 0.4, z), V(s * (1 + R() * 0.4), s * 0.8, s), R() * 6);
+    B.add(tex(t), new THREE.DodecahedronGeometry(1, 0), V(x, heightAt(x, z) + s * 0.4, z), V(s * (1 + R() * 0.4), s * 0.8, s), R() * 6);
     colliders.push({ kind: 'circle', x, z, r: s * 1.05 });
   };
   for (let i = 0; i < 70; i++) {
@@ -304,6 +311,7 @@ export function buildWorld(): World {
     }
   }
 
+  const town = buildTown(scene, B, tex, colliders);   // v0.04
   const statics = B.flush(scene, 'static');
   statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
 
@@ -341,8 +349,8 @@ export function buildWorld(): World {
   // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
   const NAT = { x: -2.8, z: LIB.front + 1.8 };
   place('natalie', buildFigure({ art: 'natalie', skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
-  // Phase D (B12): the Curio Pedlar, an Owlkin trader by the coach road (placeholder NPC, docs/assumptions.md #56).
-  place('pedlar', buildFigure({ art: 'pedlar', skin: '#C9A27A', hair: '#7A5A3A', primary: '#5A6B3A', secondary: '#B08A4A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'owl', build: 1.15 }, 1.6), -7.8, -5.4, 0.9, 0.4);
+  // Phase D (B12): Magister Greer, Aralon's wizard-trader (half the time a rooster), by the coach road (Mike's pick for the Curio Pedlar).
+  place('pedlar', buildFigure({ art: 'pedlar', skin: '#F2EEE6', hair: '#F2EEE6', primary: '#4A3A7A', secondary: '#5A4A8A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'round', feature: '#E0A020', marks: '#C8423A', build: 1.1 }, 1.6), -7.8, -5.4, 0.9, 0.4);
   const natalieTarget = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
   natalieTarget.name = 'natalie';
   natalieTarget.position.set(NAT.x, 0.9, NAT.z);
@@ -406,6 +414,8 @@ export function buildWorld(): World {
   let doorOpen = false, doorAngle = 0;
   return {
     stations,
+    town,
+    heightAt,
     bannerCloth,
     campfireFlame: flame,
     lecternPages: [pageL, pageR],

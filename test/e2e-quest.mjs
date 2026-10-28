@@ -125,7 +125,7 @@ await resume();
 
 // ---------- B12 pedlar + folklore ----------
 await aimAt('g.pedlarHit', 1.7, [1, 0.4]);
-check('B12 the Curio Pedlar stands by the coach road', await verbIs('Talk to the Curio Pedlar'));
+check('B12 Magister Greer (the curio trader) stands by the coach road', await verbIs('Talk to Magister Greer'));
 await page.keyboard.press('KeyE');
 await until(page, () => window.__gametool.state === 'dialogue');
 for (let i = 0; i < 6 && await G(page, () => document.querySelectorAll('#dialogue .d-choice').length === 0); i++) { await page.keyboard.press('Space'); await page.waitForTimeout(150); }

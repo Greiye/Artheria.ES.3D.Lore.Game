@@ -7,6 +7,35 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### v0.04 feedback: Mike's follow-ups
+
+- **Heroine hair:** her back hair is shorter, now ending at the shoulders.
+- **Magister Greer:** the Curio Pedlar is now Magister Greer, Aralon's wizard-trader who is half the time a rooster
+  (from the public lore, Mike's pick). White feathers, a purple wizard's robe, a red comb mark, new lines.
+
+### v0.04 feedback, part 5: world
+
+- **Hills:** the middle of the glade stays flat; from 42 m out the land rolls up into hills at the edge of the
+  walkable square and on past it. Trees, rocks and the forest ring sit on the slopes; you can walk up them.
+- **Distant mountains:** a ring of craggy, snow-capped low-poly peaks on the horizon, drawn past the fog.
+- **Town:** down the lane south of the spawn point, a street of six storybook buildings, one per tool: Smithy
+  (weapon forge), Tailor (character mirror), Scriptorium (sketchbook), Cartographer (living map), General
+  Store (shopkeeper) and Inn (sleep). Each has a sign, lit windows and a door; E at the door opens the tool.
+  The library, dojo and gallery keep their own places; the camp stations still work too.
+- **Shopkeeper:** trades at a counter outside the General Store. Buys curios and bolts; sells bolts, a tin
+  whistle, a hand drum and a lute (the instruments are played at the campfire, coming next).
+- **Crowns (◎):** the new currency. Earned by finds (each clue, a purse on the rock lookout, selling curios) and
+  by writing (margin note +2, banner sketch +3, ballad +5, lore page +10). Session-only, like the bag.
+
+### v0.04 feedback, part 4: reading
+
+- **Read pose:** while a book is open the avatar reads: head down, an open book held at the chest (shelf books),
+  a page turned now and then. At the lectern the avatar turns to face the stand.
+- **Phones held upright:** the book becomes one vertical scroll; pages run on with small page numbers, and the
+  page at the top is remembered as the last page read. Margin notes follow the page in view.
+- **Phones held sideways:** opening a book shows a faint "turn your phone upright" hint for a few seconds;
+  pages still turn by swipe.
+
 ### v0.04 feedback, part 3: time of day
 
 - **Starts at a dark sunset:** the sun sits low and orange, the sky dims and the first stars show. Bring a torch.
