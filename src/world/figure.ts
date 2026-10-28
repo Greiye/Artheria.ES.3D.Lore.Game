@@ -17,6 +17,7 @@ export interface FigureLook {
   eyes?: string;
   hairStyle?: 'spiky' | 'long' | 'hood' | 'short' | 'bald' | 'topknot' | 'cap' | 'flowing';
   skirt?: boolean;      // coat tails / dress below the belt
+  art?: string;         // hand-drawn head sheets in src/art/heads/<art>.png (+ -face.png); drawn in code if missing
   // Restyle S2 trims (all optional; derived from the colours above when missing):
   gloves?: string;      // leather gloves
   scarf?: string;       // neckerchief
@@ -37,6 +38,7 @@ export interface FigureLook {
 
 // Restyle S2d: the default hero, after Mike's Tree of Savior reference (gothic chibi, platinum hair, wings).
 export const GOTHIC_LOOK: FigureLook = {
+  art: 'heroine',
   skin: '#F8E2D2', hair: '#D2C6B6', primary: '#26222C', secondary: '#3C3644', boots: '#1C1820', accent: '#B8935A',
   gloves: '#26222C', scarf: '#7A2A3A', legs: '#2A2630', eyes: '#C8463A', hairStyle: 'flowing',
   dress: true, wings: '#1E1A24', headpiece: '#2A2430', platform: true, pack: false, build: 0.9,

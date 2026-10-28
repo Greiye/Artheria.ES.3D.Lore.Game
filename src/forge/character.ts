@@ -36,7 +36,7 @@ const EYES = ['#C8463A', '#3E7A4A', '#3A5A9A', '#6A4A2A', '#5A3A7A', '#E0A020', 
 export function defaultForge(name = ''): ForgeCharacter {
   return {
     name, backstory: '', height: 1.8, roll: null,
-    look: { species: 'human', ...GOTHIC_LOOK, eyeStyle: 'round', marks: '' },
+    look: { species: 'human', ...GOTHIC_LOOK, art: undefined, eyeStyle: 'round', marks: '' },   // forged looks draw their own head
   };
 }
 

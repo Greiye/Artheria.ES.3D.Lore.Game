@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { headSheet, SHEET } from './headArt';
+import { headArt, SHEET, type Frame, type HeadArt } from './headArt';
 import type { FigureLook } from '../world/figure';
 
 // Pixel-art billboards, shown facing the camera with a 1 px ink outline and snapped to 8 directions (45°).
 //
-// - Heads (S2h, as in Tree of Savior): every head is flat 2D pixel art, drawn per look by src/render/headArt.ts
-//   as an 8-frame sheet. There is no 3D head at all; the billboard picks the frame for the side it's seen from.
+// - Heads (S2h, as in Tree of Savior): every head is flat 2D pixel art (src/render/headArt.ts): a head sheet
+//   plus a face sheet layered on top. There is no 3D head at all; the billboard picks the frames for the side
+//   it's seen from and the face's expression (blinking, talking), so an expression change costs nothing.
 // - Hybrid (default): the body is an unlit 3D mesh with baked shading, under the 2D head.
 // - Sprites (S2b, Graphics > Characters): the body is a billboard too, drawn live from the rig into a small
 //   render target at a sprite frame rate (as in Ragnarok Online), under the same 2D head.
@@ -25,24 +26,31 @@ interface Board {
   anchor: THREE.Object3D;     // its world position is the frame's reference point
   w: number; h: number; cy: number;   // frame size and centre height above the anchor, metres (unscaled)
   t: number; dir: number;
+  art?: HeadArt; blink?: number; talk?: number;   // heads: their sheets, the next-blink timer, the mouth timer
 }
 
 const vert = /* glsl */`
-uniform vec4 frame;   // xy scale, zw offset: which frame of a sheet
+uniform vec4 frame;       // xy scale, zw offset: which frame of a sheet
+uniform vec4 faceFrame;   // the same for the face layer
 varying vec2 vUv;
+varying vec2 vFaceUv;
 #include <common>
 #include <fog_pars_vertex>
 void main() {
   vUv = uv * frame.xy + frame.zw;
+  vFaceUv = uv * faceFrame.xy + faceFrame.zw;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
 }`;
 const frag = /* glsl */`
 uniform sampler2D map;
+uniform sampler2D faceMap;
+uniform float faceOn;
 uniform vec2 texel;
 uniform vec3 ink;
 varying vec2 vUv;
+varying vec2 vFaceUv;
 #include <common>
 #include <fog_pars_fragment>
 void main() {
@@ -53,6 +61,7 @@ void main() {
     if (n < 0.5) discard;
     c = vec4(ink, 1.0);
   }
+  if (faceOn > 0.5) { vec4 f = texture2D(faceMap, vFaceUv); c.rgb = mix(c.rgb, f.rgb, f.a); }
   gl_FragColor = vec4(c.rgb, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -80,6 +89,7 @@ function makeBoard(root: THREE.Object3D, anchor: THREE.Object3D, w: number, h: n
   const mat = new THREE.ShaderMaterial({
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
       map: { value: null }, texel: { value: new THREE.Vector2() }, ink: { value: INK.clone() }, frame: { value: new THREE.Vector4(1, 1, 0, 0) },
+      faceMap: { value: null }, faceOn: { value: 0 }, faceFrame: { value: new THREE.Vector4(1, 1, 0, 0) },
     }]),
     vertexShader: vert, fragmentShader: frag, fog: true,
   });
@@ -118,18 +128,47 @@ function bodyBoard(root: THREE.Object3D): Board {
   return b;
 }
 
-// The 2D head: one frame of the look's sheet. Head units scale by the figure's head size.
+// The 2D head: frames of the look's head and face sheets. Head units scale by the figure's head size.
 function headBoard(root: THREE.Object3D): Board | null {
   let b = heads.get(root);
   const hd = root.userData.head as { anchor: THREE.Object3D; size: number } | undefined;
   const look = root.userData.look as FigureLook | undefined;
   if (!b && hd && look) {
-    const s = hd.size;
-    b = makeBoard(root, hd.anchor, SHEET.w * s, SHEET.h * s, (SHEET.top - SHEET.h / 2) * s, headSheet(look), HEAD_LIFT, 'head-sprite');
-    (b.mesh.material as THREE.ShaderMaterial).uniforms.frame.value.set(1 / DIRS, 1, 0, 0);
+    const s = hd.size, art = headArt(look);
+    b = makeBoard(root, hd.anchor, SHEET.w * s, SHEET.h * s, (SHEET.top - SHEET.h / 2) * s, art.head, HEAD_LIFT, 'head-sprite');
+    b.art = art; b.blink = 1 + Math.random() * 3; b.talk = 0;
     heads.set(root, b);
   }
   return b ?? null;
+}
+
+const BLINK = 0.12, TALK_FPS = 8;
+// Which face to show: root.userData.expression if set (any row of the face sheet), else talking / blinking / neutral.
+function expression(b: Board, root: THREE.Object3D, dt: number): string {
+  b.blink! -= dt;
+  if (b.blink! < -BLINK) b.blink = 2 + Math.random() * 3;
+  const set = root.userData.expression as string | undefined;
+  if (set && b.art!.faces.has(set)) return set;
+  if (root.userData.talking) { b.talk! += dt; return Math.floor(b.talk! * TALK_FPS) % 2 ? 'talk-b' : 'talk-a'; }
+  b.talk = 0;
+  return b.blink! < 0 ? 'blink' : 'neutral';
+}
+
+const setFrame = (v: THREE.Vector4, f: Frame) => v.set(f[0], f[1], f[2], f[3]);
+
+function showHead(b: Board, root: THREE.Object3D, camera: THREE.Camera, dt: number) {
+  const art = b.art!, u = (b.mesh.material as THREE.ShaderMaterial).uniforms;
+  const dir = direction(b, camera);
+  // Re-read every frame: hand-drawn sheets replace the drawn ones once their images load.
+  u.map.value = art.head;
+  const img = art.head.image as { width: number; height: number };
+  u.texel.value.set(1 / img.width, 1 / img.height);
+  setFrame(u.frame.value, art.headFrames[dir]);
+  const faces = art.faces.get(expression(b, root, dt)) ?? art.faces.get('neutral');
+  const f = faces?.[dir];
+  u.faceOn.value = art.face && f ? 1 : 0;
+  if (art.face && f) { u.faceMap.value = art.face; setFrame(u.faceFrame.value, f); }
+  b.dir = dir;
 }
 
 let spriteMode = false;
@@ -193,11 +232,7 @@ export function updateSprites(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
     if (!shown(root)) continue;
     root.updateWorldMatrix(true, true);   // this frame's pose; cheaper than updating the whole scene
     const h = headBoard(root);
-    if (h) {
-      h.mesh.visible = true;
-      const dir = direction(h, camera);
-      if (dir !== h.dir) { h.dir = dir; (h.mesh.material as THREE.ShaderMaterial).uniforms.frame.value.z = dir / DIRS; }
-    }
+    if (h) { h.mesh.visible = true; showHead(h, root, camera, dt); }
     if (!spriteMode) continue;
     const b = bodyBoard(root);
     b.mesh.visible = true;

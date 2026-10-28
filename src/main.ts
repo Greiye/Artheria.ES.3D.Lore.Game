@@ -500,6 +500,7 @@ function animate(dt: number) {
   for (const [id, p] of puppets) {
     const input = id === 'player' ? (player.body.visible ? mine : null) : npcInput(id, p.root);
     if (!input) continue;
+    p.root.userData.talking = !!input.talking;   // the 2D head's face moves its mouth (src/render/sprites.ts)
     const clips = animators.get(id);
     if (clips) clips.set(clipState(input));
     else if (p.body) p.body.update(dt, input);
