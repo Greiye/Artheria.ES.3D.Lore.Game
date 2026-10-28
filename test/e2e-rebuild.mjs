@@ -56,10 +56,10 @@ await page.keyboard.press('Tab');
 const back = await until(page, () => { const g = window.__gametool; return g.state !== 'book' && !g.rig.inShot && Math.abs(g.camera.fov - g.settings.fov) < 0.5; });
 check('R3 closing the book blends back to the play camera', back);
 
-// ---------- R4: follow camera against a wall hides the body (no camera inside the player's head) ----------
+// ---------- R4 / v0.04: follow camera against a wall cranes up over the player (never inside the head) ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(4, 0, -16.3); p.yaw = Math.PI; p.pitch = 0; });   // just outside the library front wall, back to it
-const hidden = await until(page, () => { const g = window.__gametool; return g.player.thirdPerson && !g.player.body.visible; });
-check('R4 back to a wall: the follow camera hides the player body instead of sitting in it', hidden);
+const hidden = await until(page, () => { const g = window.__gametool; return g.player.thirdPerson && g.player.body.visible && g.camera.position.distanceTo(g.player.eyePos) > 1 && g.camera.position.y > g.player.eyePos.y + 0.8; });
+check('v0.04 back to a wall: the follow camera cranes up and keeps the player in view, never inside the head', hidden);
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; });
 check('R4 away from walls the body shows again', await until(page, () => window.__gametool.player.body.visible));
 

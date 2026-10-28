@@ -47,6 +47,8 @@ import { drawSketch, loadSketches } from './writing/sketch';
 import { Dungeon } from './dungeon/dungeon';
 import { dailySeed, seedFrom } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
+import { haptics } from './input/haptics';
+import { glyph, type PadFamily } from './input/glyphs';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -104,7 +106,7 @@ const player = new Player(settings, world.colliders, world.bounds);
 player.spawn(world.spawn.pos, world.spawn.yaw);
 // R3: the camera rig places the camera (follow / first person / framed shots); the player only moves.
 const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => settings.fov);
-player.zoomBy = (d) => rig.zoomBy(d);
+player.zoomBy = (d) => stepView(rig.zoomBy(d));   // pinch / right stick: steps through the 5 distances
 rig.update(0);
 world.scene.add(player.body);
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
@@ -141,28 +143,24 @@ ui.innerHTML = `
       <table class="keys only-touch">
         <tr><td>Left thumb</td><td>Move (small push walks, full push runs)</td></tr>
         <tr><td>Right thumb</td><td>Drag to look</td></tr>
-        <tr><td>Buttons</td><td>Jump · Sneak · Sprint (hold) · Read · ☰ menu</td></tr>
+        <tr><td>Buttons</td><td>Jump · Sneak · Sprint (hold) · View · Use · − / + camera · ☰ menu</td></tr>
         <tr><td>Book</td><td>Swipe or tap a page edge · ✕ to close</td></tr>
       </table>
-      <table class="keys only-pad">
-        <tr><td>Left stick</td><td>Move</td><td>Right stick</td><td>Look</td></tr>
-        <tr><td>A</td><td>Read / confirm</td><td>B</td><td>Close book</td></tr>
-        <tr><td>Y</td><td>Jump</td><td>LB (hold)</td><td>Sprint</td></tr>
-        <tr><td>L3</td><td>Sneak</td><td>R3</td><td>Toggle always-run</td></tr>
-        <tr><td>LB / RB</td><td>Turn pages</td><td>Start</td><td>Pause</td></tr>
-      </table>
+      <div class="padmap only-pad" data-padmap></div>
       <table class="keys only-mouse">
         <tr><td>W A S D</td><td>Move (runs by default)</td><td>Mouse</td><td>Look</td></tr>
         <tr><td>Shift</td><td>Walk (hold)</td><td>Caps Lock</td><td>Toggle always-run</td></tr>
         <tr><td>Alt</td><td>Sprint (hold)</td><td>Space</td><td>Jump</td></tr>
         <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
-        <tr><td>F</td><td>Third / first person</td><td>L</td><td>Write lore</td></tr>
+        <tr><td>F</td><td>Third / first person</td><td>Wheel</td><td>Camera distance (5 steps)</td></tr>
+        <tr><td>L</td><td>Write lore</td><td></td><td></td></tr>
       </table>
       <p class="fine">Private project · all rights reserved.</p>
     </div>
   </div>
   <div id="vignette"></div>
+  <div id="rotateHint">⟳ Turn your phone sideways to play</div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
@@ -194,6 +192,11 @@ ui.innerHTML = `
         <label class="field">FPS cap
           <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>
         </label>
+      </details>
+      <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
+      <details id="controlsMap">
+        <summary>Controls</summary>
+        <div class="padmap" data-padmap></div>
       </details>
       <details id="audioSettings">
         <summary>Audio (F1.2)</summary>
@@ -288,9 +291,32 @@ function setMode(m: InputMode) {
   if (m === inputMode) return;
   inputMode = m;
   document.body.dataset.input = m;
-  $('begin').textContent = m === 'touch' ? 'Tap to begin' : m === 'pad' ? 'Press A to begin' : 'Click to begin';
-  $('prompt').querySelector('kbd')!.textContent = m === 'pad' ? 'A' : 'E';
+  haptics.setMode(m);
+  syncGlyphs();
   show('nolock', state === 'play' && !lockSupported && m === 'mouse' && !player.thirdPerson);
+}
+
+// v0.04: the controller map, drawn from controls.gamepad with the pad's own button names.
+const PAD_MAP: [side: 'l' | 'r', button: number | string, what: string][] = [
+  ['l', 6, 'Aim (crossbow)'], ['l', 4, 'Camera in · page back'], ['l', 'Left stick', 'Move · click: sprint'],
+  ['l', 12, 'Crossbow / hands'], ['l', 8, 'Bag'],
+  ['r', 7, 'Fire'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
+  ['r', 0, 'Use · talk · read'], ['r', 'Right stick', 'Look · click: first person'], ['r', 9, 'Pause'],
+];
+function renderPadMap(fam: PadFamily) {
+  const row = ([, b, what]: (typeof PAD_MAP)[number]) =>
+    `<li><kbd class="${typeof b === 'number' && b <= 3 ? 'face face' + b : ''}">${typeof b === 'number' ? glyph(fam, b) : b}</kbd><span>${what}</span></li>`;
+  const html = `<ul class="l">${PAD_MAP.filter((r) => r[0] === 'l').map(row).join('')}</ul><ul class="r">${PAD_MAP.filter((r) => r[0] === 'r').map(row).join('')}</ul>`;
+  document.querySelectorAll('[data-padmap]').forEach((el) => { el.innerHTML = html; });
+}
+
+// v0.04: button names follow the input in use (and the pad's family: Xbox, PlayStation, Nintendo).
+function syncGlyphs() {
+  const fam = gamepad?.family ?? 'xbox', A = glyph(fam, controls.gamepad.buttons.activate);
+  $('begin').textContent = inputMode === 'touch' ? 'Tap to begin' : inputMode === 'pad' ? `Press ${A} to begin` : 'Click to begin';
+  $('prompt').querySelector('kbd')!.textContent = inputMode === 'pad' ? A : 'E';
+  document.body.dataset.pad = fam;
+  renderPadMap(fam);
 }
 
 function setState(s: State) {
@@ -351,7 +377,10 @@ async function begin() {
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
     // Android: go fullscreen. iPhone Safari has no element fullscreen; Add to Home Screen does it.
-    document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => undefined);
+    // v0.04: landscape first. Orientation lock only works in fullscreen (Android); elsewhere a hint asks.
+    document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })
+      .then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape'))
+      .catch(() => undefined);
     return;
   }
   if (!wantLock()) return;                       // follow view / gamepad: no pointer lock needed
@@ -439,7 +468,8 @@ function updateAmmoHud() {
 }
 function fire() {
   if (state !== 'play' || !crossbow.equipped) return;
-  if (!crossbow.fire() && !crossbow.loaded && !crossbow.reloading) toast(inventory.count('bolt') ? 'Empty: press R to reload' : 'No bolts left. Pick spent ones up with E.', 1800);
+  if (crossbow.fire()) { haptics.play('fire'); return; }
+  if (!crossbow.loaded && !crossbow.reloading) toast(inventory.count('bolt') ? 'Empty: press R to reload' : 'No bolts left. Pick spent ones up with E.', 1800);
 }
 function equip(on: boolean) {
   if (on && !crossbow.equip()) { toast('You have no crossbow yet.', 1800); return; }
@@ -487,10 +517,14 @@ const footAt = () => {
   return new THREE.Vector3(player.pos.x + c * 0.12 * footSide + s * 0.15, 0, player.pos.z - s * 0.12 * footSide + c * 0.15);
 };
 let bannerT = 0;
+let lastReload: string | null = null;
 function animate(dt: number) {
   player.faceView = crossbow.equipped || !player.thirdPerson;
   const landed = player.consumeLanded();
   if (landed && player.thirdPerson) dust.burst(player.pos, 6, 0.35);
+  if (landed) haptics.play('land');
+  const rm = crossbow.reload.active ? crossbow.reload.mode : null;   // v0.04: feel the reload start and a jam
+  if (rm !== lastReload) { if (rm === 'jam') haptics.play('jam'); else if (rm === 'normal') haptics.play('reload'); lastReload = rm; }
   dust.update(dt, camera);
   const mine: AnimInput = {
     speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
@@ -922,8 +956,15 @@ function syncCrossbowView() {
   document.body.dataset.view = player.thirdPerson ? 'follow' : 'first';
   if (rig.inShot) crossbow.viewmodel.visible = false;   // a framed dialogue/reading shot shows the player, not the held crossbow
 }
-// S1: follow (default) or first person. Scrolling in past the closest follow zoom goes first person;
-// scrolling out leaves it. The pause menu's Camera list sets the same thing (and is how phones pick it).
+// One camera step out (+1) or in (-1): first person <-> shoulder <-> follow <-> high <-> overhead.
+function stepView(n: number) {
+  if (!n || crossbow.equipped) return;
+  if (!player.thirdPerson) { if (n > 0) { rig.setStep(1); setView('follow'); } return; }
+  if (n < 0 && rig.step <= 1) { setView('first'); return; }
+  rig.setStep(rig.step + n);
+}
+// S1: follow (default) or first person. Stepping in past the shoulder view goes first person;
+// stepping out leaves it. The pause menu's Camera list sets the same thing (and is how phones pick it).
 function setView(v: 'follow' | 'first', save = true) {
   if (crossbow.equipped) { viewBeforeCrossbow = v === 'follow'; return; }   // applies when the crossbow is put away
   player.thirdPerson = v === 'follow';
@@ -1138,10 +1179,13 @@ const hooks: GameHooks = {
   fire,
   hasCrossbow: () => inventory.count('crossbow') > 0,
   toggleRun: () => toggleRun(),
+  toggleView: () => setView(player.thirdPerson ? 'first' : 'follow'),
+  stepCamera: (n) => stepView(n),
   setMode,
 };
 const touch: TouchControls | null = new TouchControls(hooks);
 const gamepad = new GamepadControls(hooks, () => settings.sensitivity);
+gamepad.onFamily = () => syncGlyphs();
 document.body.dataset.input = inputMode;
 $('begin').textContent = inputMode === 'touch' ? 'Tap to begin' : 'Click to begin';
 
@@ -1233,16 +1277,15 @@ canvas.addEventListener('click', () => { if (state === 'dialogue') dialogue.adva
 // Only a real move counts: browsers also send zero-movement moves when a panel vanishes under a still cursor.
 canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && (e.movementX || e.movementY)) { cursor.x = e.clientX; cursor.y = e.clientY; cursor.on = true; } });
 canvas.addEventListener('pointerleave', () => { cursor.on = false; });
-// S1: the wheel zooms the follow camera between the close view and the overview.
-let pushIn = 0;
+// v0.04: the wheel steps through the 5 camera distances (first person, shoulder, follow, high, overhead).
+// One step per notch; a trackpad's burst of small events counts once per 100 ms.
+let lastStep = 0;
 canvas.addEventListener('wheel', (e) => {
   if (state !== 'play' || crossbow.equipped) return;
   e.preventDefault();
-  if (!player.thirdPerson) { if (e.deltaY > 0) { rig.zoom = 0; setView('follow'); } return; }
-  const d = Math.sign(e.deltaY) * Math.min(0.12, Math.abs(e.deltaY) * 0.0012);
-  if (d < 0 && rig.zoom <= 0) { pushIn -= d; if (pushIn >= 0.2) { pushIn = 0; setView('first'); } return; }   // two more notches in
-  pushIn = 0;
-  rig.zoomBy(d);
+  if (!e.deltaY || performance.now() - lastStep < 100) return;
+  lastStep = performance.now();
+  stepView(Math.sign(e.deltaY));
 }, { passive: false });
 window.addEventListener('mousemove', (e) => {
   if (state !== 'play') return;
@@ -1279,6 +1322,7 @@ function syncMenu() {
   sens.value = String(settings.sensitivity); $('sensOut').textContent = settings.sensitivity.toFixed(2);
   fov.value = String(settings.fov); $('fovOut').textContent = settings.fov + '°';
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
+  $<HTMLInputElement>('haptics').checked = settings.haptics;
   $<HTMLSelectElement>('viewSel').value = settings.view;
   $<HTMLSelectElement>('charsSel').value = settings.chars;
   presetSel.value = settings.preset;
@@ -1303,6 +1347,15 @@ fov.addEventListener('input', () => {
 inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSettings(settings); });
 const viewSel = $<HTMLSelectElement>('viewSel');
 viewSel.addEventListener('change', () => setView(viewSel.value === 'first' ? 'first' : 'follow'));
+$<HTMLInputElement>('haptics').addEventListener('change', (e) => {
+  settings.haptics = (e.target as HTMLInputElement).checked; saveSettings(settings);
+  haptics.setEnabled(settings.haptics);
+  haptics.play('tap');
+});
+haptics.setEnabled(settings.haptics);
+haptics.setMode(inputMode);
+document.body.dataset.pad = 'xbox';
+renderPadMap('xbox');
 const charsSel = $<HTMLSelectElement>('charsSel');
 charsSel.addEventListener('change', () => {
   settings.chars = charsSel.value === 'sprite' ? 'sprite' : 'hybrid'; saveSettings(settings);
@@ -1487,4 +1540,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, lockSupported: () => lockSupported } });

@@ -1,9 +1,11 @@
 import { controls } from '../controls';
 import type { GameHooks } from './hooks';
+import { haptics } from './haptics';
 
 // Touch controls for phones / tablets (owner promoted B7 touch on 2026-10-16).
 // Left side: floating joystick (small push = walk, full push = run).
-// Right side: drag to look. Buttons: Jump, Sneak, Sprint (hold), Read (when aimed at the book), Menu.
+// Right side: drag to look. Buttons: Jump, Sneak, Sprint (hold), View, camera −/+, Read (when aimed at the
+// book), Menu. v0.04: landscape first, face buttons in a controller's diamond, a buzz on each press.
 export class TouchControls {
   readonly root: HTMLDivElement;
   private base: HTMLDivElement;
@@ -27,6 +29,10 @@ export class TouchControls {
         <button class="t-btn" data-act="reload">Reload</button>
         <button class="t-btn" data-act="aim">Aim</button>
         <button class="t-btn t-fire" data-act="fire">Fire</button>
+      </div>
+      <div class="t-cam">
+        <button class="t-btn" data-act="camin" aria-label="Camera in">−</button>
+        <button class="t-btn" data-act="camout" aria-label="Camera out">+</button>
       </div>
       <div class="t-cluster">
         <button class="t-btn" data-act="sprint">Sprint</button>
@@ -52,10 +58,13 @@ export class TouchControls {
         this.g.setMode('touch');
         b.classList.add('on');
         const p = this.g.player;
+        haptics.play(act === 'jump' ? 'jump' : 'tap');
         if (act === 'jump') p.jump();
+        else if (act === 'camin') this.g.stepCamera(-1);
+        else if (act === 'camout') this.g.stepCamera(1);
         else if (act === 'sneak') { p.toggleSneak(); b.classList.toggle('latched', p.sneaking); }
         else if (act === 'sprint') p.held.add('sprint');
-        else if (act === 'pov') p.togglePOV();   // F2.4
+        else if (act === 'pov') this.g.toggleView();   // F2.4
         else if (act === 'read') this.g.activate();
         else if (act === 'menu') this.g.pause();
         else if (act === 'inventory') this.g.openInventory();

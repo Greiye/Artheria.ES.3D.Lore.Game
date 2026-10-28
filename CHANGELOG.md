@@ -7,6 +7,23 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### v0.04 feedback, part 1: mobile, controller, camera
+
+- **Camera, 5 distances:** the wheel (one step per notch), LB/RB, a pinch or vertical drag, the right stick and
+  the phone's −/+ buttons step through first person, over the shoulder, follow, high and overhead. The camera
+  eases between them.
+- **Fix:** backing into a wall no longer pushes the camera into the head, which looked like first person. When
+  the follow spot is blocked close up, the camera cranes up over the player instead.
+- **Controller layout:** A use, B sneak/back, X reload, Y jump, LB/RB camera in/out (pages in the book),
+  LT aim and RT fire (analog, past halfway), View bag, Menu pause, L3 sprint until the stick is let go,
+  R3 first person, D-pad up crossbow. The pause menu's **Controls** map (and the title, in pad mode) shows
+  it with the pad's own button names: Xbox, PlayStation (✕ ○ □ △, L2/R2) or Nintendo.
+- **Haptics:** controller rumble and phone vibration on jump, landing, firing, reloading and jams, and on
+  each touch button. Settings > Vibration turns it off.
+- **Phone, landscape first:** the app asks for landscape (manifest, plus an orientation lock in fullscreen on
+  Android); in portrait a translucent "turn your phone sideways" hint shows while playing. Touch buttons sit in a
+  controller's face-button diamond (Jump, Sneak, Sprint, View), with camera −/+ at the top.
+
 ### Hand-drawn head and face sheets
 
 - **Your own head art:** drop `<id>.png` (head) and `<id>-face.png` (face) into `src/art/heads/` and rebuild.

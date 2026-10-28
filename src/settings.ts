@@ -17,6 +17,7 @@ export interface Settings {
   view: 'follow' | 'first';   // storybook restyle S1: starting camera, follow (Dark Cloud 2 style) by default
   chars: 'hybrid' | 'sprite';   // restyle S2c: 3D bodies with pixel faces (default) or RO-style pixel sprites
   lastPage: number;
+  haptics: boolean;    // v0.04: controller rumble / phone vibration
   // F1.1 graphics
   preset: Preset;
   renderScale: number; // 50-100 (%)
@@ -40,7 +41,7 @@ const KEY = 'gametool.settings';
 const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 90, muteMaster: false, muteMusic: false, muteSfx: false, muteDialogue: false };
 export const defaults: Settings = {
   schemaVersion: 1,
-  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'follow', chars: 'hybrid', lastPage: 0,
+  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'follow', chars: 'hybrid', lastPage: 0, haptics: true,
   preset: 'medium', ...PRESETS.medium,
   audio: { ...defaultAudio },
 };
@@ -77,6 +78,7 @@ export function loadSettings(): Settings {
       alwaysRun: bool(s.alwaysRun, defaults.alwaysRun),
       view: s.view === 'first' ? 'first' : 'follow',
       chars: s.chars === 'sprite' ? 'sprite' : 'hybrid',
+      haptics: bool(s.haptics, true),
       lastPage: Number.isInteger(s.lastPage) && (s.lastPage as number) >= 0 ? (s.lastPage as number) : 0,
       preset,
       renderScale: clamp(s.renderScale, 50, 100, PRESETS[preset].renderScale),

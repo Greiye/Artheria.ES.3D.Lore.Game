@@ -37,16 +37,18 @@ const c0 = await cam();
 check('S1 starts in the follow view, above and behind the player', c0.third && c0.view === 'follow' && c0.up > 1 && c0.d > 4 && c0.d < 11, JSON.stringify(c0));
 check('S1 the follow view frees the cursor (no pointer lock, no crosshair)', await G(page, () => !document.pointerLockElement && getComputedStyle(document.getElementById('crosshair')).display === 'none'));
 await page.mouse.move(640, 300);
-for (let i = 0; i < 12; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(40); }
+const wheel = async (n, dy) => { for (let i = 0; i < n; i++) { await page.mouse.wheel(0, dy); await page.waitForTimeout(150); } };
+await wheel(2, 300);
 await page.waitForTimeout(1500);
 const c1 = await cam();
-check('S1 the wheel zooms out to a high overview with a narrower field of view', c1.zoom === 1 && c1.y > 12 && c1.fov < 40, JSON.stringify(c1));
-for (let i = 0; i < 9; i++) { await page.mouse.wheel(0, -300); await page.waitForTimeout(40); }
-await page.waitForTimeout(800);
+check('v0.04 two notches out step follow -> high -> overhead (narrower field of view)', c1.zoom === 1 && c1.y > 12 && c1.fov < 40 && await G(page, () => window.__gametool.rig.step === 4), JSON.stringify(c1));
+await wheel(3, -300);
+await page.waitForTimeout(1500);
 const c2 = await cam();
-check('S1 zooming all the way in keeps the follow view at its closest', c2.third && c2.zoom === 0 && c2.d < 4.5, JSON.stringify(c2));
-for (let i = 0; i < 2; i++) { await page.mouse.wheel(0, -300); await page.waitForTimeout(60); }
-check('S1 scrolling in past the closest zoom goes first person, gliding into the eyes', await until(page, () => !window.__gametool.player.thirdPerson && window.__gametool.rig.switching, null, 3000));
+const side = await G(page, () => { const g = window.__gametool, p = g.player.pos, c = g.camera.position; return (c.x - p.x) * -Math.cos(g.player.yaw) + (c.z - p.z) * Math.sin(g.player.yaw); });
+check('v0.04 three notches in step back to the over-the-shoulder view (close, right of the player)', c2.third && c2.zoom === 0 && c2.d < 3 && side > 0.3 && await G(page, () => window.__gametool.rig.step === 1), JSON.stringify({ ...c2, side }));
+await wheel(1, -300);
+check('v0.04 one more notch in goes first person, gliding into the eyes', await until(page, () => !window.__gametool.player.thirdPerson && window.__gametool.rig.switching, null, 3000));
 check('S1 the glide ends at the eyes with the body hidden', await until(page, () => { const g = window.__gametool; return !g.rig.switching && g.camera.position.distanceTo(g.player.eyePos) < 0.05 && !g.player.body.visible; }, null, 5000));
 check('S1 first person is remembered as the camera setting', (await cam()).view === 'first');
 await page.mouse.wheel(0, 300);
@@ -70,6 +72,14 @@ await page.mouse.move(500, 400); await page.mouse.down({ button: 'right' });
 for (let i = 1; i <= 8; i++) await page.mouse.move(500 + i * 25, 400);
 await page.mouse.up({ button: 'right' });
 check('S1 dragging turns the camera around the player', Math.abs((await G(page, () => window.__gametool.player.yaw)) - y0) > 0.2);
+
+// ---------- v0.04: a wall behind the player cranes the camera up, never into first person ----------
+const wall = await G(page, () => { const c = window.__gametool.world.colliders.find((c) => c.kind !== 'circle' && c.maxX - c.minX > 3 && c.minX > -40 && c.maxX < 40); return c && { x: (c.minX + c.maxX) / 2, z: c.maxZ }; });
+await G(page, () => window.__gametool.rig.setStep(2));
+await place(wall.x, wall.z + 0.7, Math.PI);   // facing away from the wall: the follow camera's spot is inside it
+await page.waitForTimeout(1500);
+const cw = await G(page, () => { const g = window.__gametool; return { third: g.player.thirdPerson, body: g.player.body.visible, eye: g.camera.position.distanceTo(g.player.eyePos), up: g.camera.position.y - g.player.pos.y }; });
+check('v0.04 backed against a wall the camera stays third person, cranes up and keeps the body in view', cw.third && cw.body && cw.eye > 1 && cw.up > 2, JSON.stringify({ wall, ...cw }));
 
 // ---------- hover + click, and E on the nearest thing ----------
 await G(page, () => { window.__gametool.rig.zoom = 0.2; });

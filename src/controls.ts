@@ -45,23 +45,30 @@ export const controls = {
   // Gamepad (standard mapping, Xbox names; PlayStation: A=Cross, B=Circle, X=Square, Y=Triangle).
   // Skyrim controller defaults where they exist.
   gamepad: {
+    // v0.04 layout (controller-first, action-RPG style). Standard Gamepad API indices; the pause menu's
+    // Controls page draws this map with the pad's own button names (src/input/glyphs.ts).
     buttons: {
-      activate: 0,   // A: read book / begin / confirm
-      back: 1,       // B: close book / back out of menus
+      activate: 0,   // A: use / talk / read / confirm
+      back: 1,       // B: back out of menus, close the book
+      sneak: 1,      // B (in play): sneak toggle
+      reload: 2,     // X (F4.3)
       jump: 3,       // Y
-      sprint: 4,     // LB (hold)
-      pageNext: 5,   // RB (book)
+      zoomIn: 4,     // LB: camera one step in (toward first person)
+      zoomOut: 5,    // RB: camera one step out (toward overhead)
       pagePrev: 4,   // LB (book)
-      sneak: 10,     // L3 (left stick click), toggle
-      toggleRun: 11, // R3 (right stick click), toggle always-run
-      pause: 9,      // Start / Options
+      pageNext: 5,   // RB (book)
+      aim: 6,        // LT (analog, past halfway): aim
+      fire: 7,       // RT (analog, past halfway): fire
+      inventory: 8,  // View / Create: bag
+      pause: 9,      // Menu / Options
+      sprint: 10,    // L3: sprint until the stick is let go
+      view: 11,      // R3: first person / follow
+      equip: 12,     // D-pad up: crossbow / hands
+      dpadDown: 13,
       dpadLeft: 14,
       dpadRight: 15,
-      fire: 7,       // RT (F4.1)
-      aim: 6,        // LT (hold, F4.1)
-      reload: 2,     // X (F4.3)
-      equip: 12,     // D-pad up: crossbow / hands toggle
     },
+    trigger: 0.5,    // analog trigger threshold
     deadzone: 0.18,
     lookSpeed: 2.6,  // rad/s at full deflection, multiplied by mouse sensitivity setting
   },
