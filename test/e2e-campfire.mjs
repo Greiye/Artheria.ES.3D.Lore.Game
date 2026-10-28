@@ -41,8 +41,8 @@ const resume = async () => { if (await G(page, () => window.__gametool.state ===
 await aimAt('g.world.stations.campfire', 2.2, [1, 0.6]);
 check('B8 the campfire offers "Sit by the fire"', await verbIs('Sit by the fire'));
 const f0 = await G(page, () => window.__gametool.world.campfireFlame.scale.y);
-await page.waitForTimeout(200);
-check('B8 the flame flickers', Math.abs(f0 - await G(page, () => window.__gametool.world.campfireFlame.scale.y)) > 1e-3);
+// Wait on frames, not wall time: SwiftShader can stall a frame for longer than a fixed wait.
+check('B8 the flame flickers', await until(page, (f0) => Math.abs(f0 - window.__gametool.world.campfireFlame.scale.y) > 1e-3, f0, 5000));
 await page.keyboard.press('KeyE');
 check('B8 E opens the campfire panel, framed on the fire', await until(page, () => window.__gametool.state === 'forge' && window.__gametool.campfire.isOpen && window.__gametool.rig.inShot));
 

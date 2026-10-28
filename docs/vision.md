@@ -8,8 +8,8 @@
 ## Storybook style (current, S2c+S3)
 
 - **Characters (hybrid, default):** Tree of Savior style. A 3D chibi body (about 2.7 heads tall, soft rounded
-  parts, toon-lit) built in layers (base, outfit, hair, headgear), under a pixel-art head billboard with
-  8 directions, drawn live from a 3D head with a 24 px pixel face. Default hero: a gothic chibi with platinum
+  parts, unlit with baked shading on a procedurally hand-painted 512 px atlas, poses stepped at 12 fps) built in layers (base, outfit, hair, headgear), under a flat 2D pixel-art head
+  drawn in 8 directions (no 3D head at all). Default hero: a gothic chibi with platinum
   hair, red eyes, a black bell dress, small wings and platform boots. Option: whole-figure RO-style sprites
   (Graphics > Characters).
 - **Palette:** navy, rust, leather, cream, moss; bright greens and warm stone in the world.

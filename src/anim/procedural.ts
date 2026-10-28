@@ -17,6 +17,9 @@ export interface AnimInput {
 export type Pose = 'stance' | 'punch' | 'hang' | 'plank';
 
 const WALK = 2.5, RUN = 5;
+// Restyle S2f (Tree of Savior): poses are stepped at a sprite frame rate, not interpolated every frame, for
+// the flipbook feel of 8-direction sprite cycles. Movement through the world stays smooth.
+export const ANIM_FPS = 12;
 const smooth = (cur: number, target: number, rate: number, dt: number) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
 
 export class FigureAnim {
@@ -29,10 +32,23 @@ export class FigureAnim {
   private B: Record<BoneName, THREE.Bone>;
   private rest: Record<BoneName, THREE.Vector3>;
 
+  private acc = 0;
+  private landed = false;
+
   constructor(rig: FigureRig) { this.B = rig.bones; this.rest = rig.rest; }
 
   update(dt: number, i: AnimInput) {
     if (dt <= 0) return;
+    this.acc += dt;
+    this.landed ||= !!i.landed;   // a one-frame event must survive the skipped frames
+    if (this.acc < 1 / ANIM_FPS) return;
+    const step = this.acc;
+    this.acc = 0;
+    this.pose_(step, this.landed ? { ...i, landed: true } : i);
+    this.landed = false;
+  }
+
+  private pose_(dt: number, i: AnimInput) {
     this.t += dt;
     const w = this.w, B = this.B, t = this.t;
     w.walk = smooth(w.walk, THREE.MathUtils.clamp(i.speed / WALK, 0, 1), 10, dt);

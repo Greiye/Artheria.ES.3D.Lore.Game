@@ -1,21 +1,18 @@
 import * as THREE from 'three';
-import { figureMats } from '../world/figure';
+import { headSheet, SHEET } from './headArt';
+import type { FigureLook } from '../world/figure';
 
-// Pixel-art billboards drawn live from the 3D figures. Each billboard has its own small render target: the
-// part is drawn into it from one of 8 directions around it (snapped to 45° from where the camera sees it),
-// at a low pixel density and a sprite frame rate, then shown facing the camera with a 1 px ink outline.
-// Rigs, poses, the forge and species all keep working, because the source is the live rig.
+// Pixel-art billboards, shown facing the camera with a 1 px ink outline and snapped to 8 directions (45°).
 //
-// - Hybrid (default, S2d, as in Tree of Savior): the body is a 3D toon-lit mesh; only the head is a
-//   pixel-art billboard. The body is drawn into the head's frame as a depth-only mask first, so hair
-//   that hangs behind the body is hidden from the front and shows from the back.
-// - Sprites (S2b, Graphics > Characters): the whole figure is one billboard, as in Ragnarok Online.
-// The 3D parts the billboards replace live on SPRITE_LAYER, which the main camera doesn't render.
+// - Heads (S2h, as in Tree of Savior): every head is flat 2D pixel art, drawn per look by src/render/headArt.ts
+//   as an 8-frame sheet. There is no 3D head at all; the billboard picks the frame for the side it's seen from.
+// - Hybrid (default): the body is an unlit 3D mesh with baked shading, under the 2D head.
+// - Sprites (S2b, Graphics > Characters): the body is a billboard too, drawn live from the rig into a small
+//   render target at a sprite frame rate (as in Ragnarok Online), under the same 2D head.
+// The 3D parts a billboard replaces live on SPRITE_LAYER, which the main camera doesn't render.
 
 export const SPRITE_LAYER = 3;
-const MASK_LAYER = 4;          // hybrid bodies, for the depth-only pass behind each head
 const BODY_PX = 52;           // pixels per metre: a 1.75 m figure is ~90 px tall
-const HEAD_PX = 84;           // the head gets more pixels, like ToS's detailed heads
 const FPS = 12;               // sprite animation rate
 const DIRS = 8;
 const ELEV = 0.26;            // radians: the sprite artist's viewing angle, a little above eye level
@@ -23,7 +20,7 @@ const HEAD_LIFT = 0.18;       // metres the head billboard sits toward the camer
 const INK = new THREE.Color('#2A2026');
 
 interface Board {
-  rt: THREE.WebGLRenderTarget;
+  rt: THREE.WebGLRenderTarget | null;   // null: a drawn sheet (heads)
   mesh: THREE.Mesh;
   anchor: THREE.Object3D;     // its world position is the frame's reference point
   w: number; h: number; cy: number;   // frame size and centre height above the anchor, metres (unscaled)
@@ -31,11 +28,12 @@ interface Board {
 }
 
 const vert = /* glsl */`
+uniform vec4 frame;   // xy scale, zw offset: which frame of a sheet
 varying vec2 vUv;
 #include <common>
 #include <fog_pars_vertex>
 void main() {
-  vUv = uv;
+  vUv = uv * frame.xy + frame.zw;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
@@ -63,7 +61,6 @@ void main() {
 
 const noRaycast = () => {};
 const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.05, 20);
-const mask = new THREE.MeshBasicMaterial({ colorWrite: false });
 const tmpV = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpS = new THREE.Vector3(), tmpE = new THREE.Euler(0, 0, 0, 'YXZ');
 const toCam = new THREE.Vector3();
 const clear = new THREE.Color();
@@ -75,18 +72,20 @@ function shown(o: THREE.Object3D | null): boolean {
   return true;
 }
 
-function makeBoard(root: THREE.Object3D, anchor: THREE.Object3D, w: number, h: number, cy: number, px: number, lift: number, name: string): Board {
-  const rt = new THREE.WebGLRenderTarget(Math.ceil(w * px), Math.ceil(h * px), {
+function makeBoard(root: THREE.Object3D, anchor: THREE.Object3D, w: number, h: number, cy: number, src: number | THREE.Texture, lift: number, name: string): Board {
+  const rt = typeof src === 'number' ? new THREE.WebGLRenderTarget(Math.ceil(w * src), Math.ceil(h * src), {
     minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false, depthBuffer: true,
-  });
+  }) : null;
+  const map = rt ? rt.texture : src as THREE.Texture;
   const mat = new THREE.ShaderMaterial({
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
-      map: { value: null }, texel: { value: new THREE.Vector2() }, ink: { value: INK.clone() },
+      map: { value: null }, texel: { value: new THREE.Vector2() }, ink: { value: INK.clone() }, frame: { value: new THREE.Vector4(1, 1, 0, 0) },
     }]),
     vertexShader: vert, fragmentShader: frag, fog: true,
   });
-  mat.uniforms.map.value = rt.texture;
-  mat.uniforms.texel.value.set(1 / rt.width, 1 / rt.height);
+  mat.uniforms.map.value = map;
+  const img = map.image as { width: number; height: number };
+  mat.uniforms.texel.value.set(1 / img.width, 1 / img.height);
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h).translate(0, cy, 0), mat);
   mesh.name = name;
   mesh.raycast = noRaycast;
@@ -119,61 +118,64 @@ function bodyBoard(root: THREE.Object3D): Board {
   return b;
 }
 
+// The 2D head: one frame of the look's sheet. Head units scale by the figure's head size.
 function headBoard(root: THREE.Object3D): Board | null {
   let b = heads.get(root);
-  const hd = root.userData.head as { anchor: THREE.Object3D; w: number; h: number; cy: number } | undefined;
-  if (!b && hd) {
-    b = makeBoard(root, hd.anchor, hd.w, hd.h, hd.cy, HEAD_PX, HEAD_LIFT, 'head-sprite');
+  const hd = root.userData.head as { anchor: THREE.Object3D; size: number } | undefined;
+  const look = root.userData.look as FigureLook | undefined;
+  if (!b && hd && look) {
+    const s = hd.size;
+    b = makeBoard(root, hd.anchor, SHEET.w * s, SHEET.h * s, (SHEET.top - SHEET.h / 2) * s, headSheet(look), HEAD_LIFT, 'head-sprite');
+    (b.mesh.material as THREE.ShaderMaterial).uniforms.frame.value.set(1 / DIRS, 1, 0, 0);
     heads.set(root, b);
   }
   return b ?? null;
 }
 
 let spriteMode = false;
-/** true = whole-figure pixel sprites, false = hybrid 3D bodies with pixel-art heads (default). */
+/** true = pixel-sprite bodies, false = hybrid 3D bodies (default); heads are 2D either way. */
 export function setSpriteCharacters(on: boolean) { spriteMode = on; }
 
-// Hybrid: the body on the main camera (toon-lit), the head on the sprite layer. Sprites: all on the sprite
-// layer, flat (light painted into the vertex colours; the sprite pass has no lights).
+// Hybrid: the body on the main camera. Sprites: the body on the sprite layer. Bodies are unlit (light
+// painted into the vertex colours), so the sprite pass needs no lights.
 function applyMode(root: THREE.Object3D) {
   root.userData.spriteMode = spriteMode;
   root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh || m.name === 'sprite' || m.name === 'head-sprite' || m.name === 'blob-shadow') return;
-    if (m.name === 'figure-body') {
-      m.layers.set(spriteMode ? SPRITE_LAYER : 0);
-      if (!spriteMode) m.layers.enable(MASK_LAYER);
-      m.material = spriteMode ? figureMats.flat : figureMats.toon;
-    }
-    else if (m.name === 'figure-head' || m.name === 'face' || m.parent?.name === 'head-group') m.layers.set(SPRITE_LAYER);
-    else m.layers.set(spriteMode ? SPRITE_LAYER : 0);
+    m.layers.set(spriteMode ? SPRITE_LAYER : 0);
   });
-  const b = bodies.get(root), h = heads.get(root);
+  const b = bodies.get(root);
   if (b) b.mesh.visible = spriteMode;
-  if (h) h.mesh.visible = !spriteMode;
 }
 
 /** Mark a figure root for the billboard pass (buildFigure calls this). */
 export function spriteFigure(root: THREE.Object3D) { root.userData.sprite = true; }
 
-// Snap the view to one of 8 directions around `b.anchor` and aim the sprite camera; false = frame still current.
-function aim(b: Board, camera: THREE.Camera, dt: number, scaleFrom: THREE.Object3D): boolean {
+// The direction (0..7, 0 = seen from the front, 2 = its left side) `b.anchor` is seen from.
+function direction(b: Board, camera: THREE.Camera): number {
   b.anchor.matrixWorld.decompose(tmpV, tmpQ, tmpS);
   tmpE.setFromQuaternion(tmpQ, 'YXZ');
-  const facing = tmpE.y;
   const seen = Math.atan2(camera.position.x - tmpV.x, camera.position.z - tmpV.z);
   const step = (Math.PI * 2) / DIRS;
-  const dir = ((Math.round((seen - facing) / step) % DIRS) + DIRS) % DIRS;
+  return ((Math.round((seen - tmpE.y) / step) % DIRS) + DIRS) % DIRS;
+}
+
+// Snap the view to one of 8 directions around `b.anchor` and aim the sprite camera; false = frame still current.
+function aim(b: Board, camera: THREE.Camera, dt: number, scaleFrom: THREE.Object3D): boolean {
+  const dir = direction(b, camera);
   b.t += dt;
   if (b.t < 1 / FPS && dir === b.dir) return false;
   b.t = 0; b.dir = dir;
+  const facing = tmpE.y;   // direction() left the anchor's pose in tmpV / tmpE
+  const pos = tmpV.clone();
   scaleFrom.matrixWorld.decompose(toCam, tmpQ, tmpS);
-  const a = facing + dir * step, k = tmpS.x, cy = tmpV.y + b.cy * k;
+  const a = facing + dir * ((Math.PI * 2) / DIRS), k = tmpS.x, cy = pos.y + b.cy * k;
   cam.left = -b.w / 2 * k; cam.right = b.w / 2 * k; cam.top = b.h / 2 * k; cam.bottom = -b.h / 2 * k;
   cam.updateProjectionMatrix();
   const d = 6;
-  cam.position.set(tmpV.x + Math.sin(a) * Math.cos(ELEV) * d, cy + Math.sin(ELEV) * d, tmpV.z + Math.cos(a) * Math.cos(ELEV) * d);
-  cam.lookAt(tmpV.x, cy, tmpV.z);
+  cam.position.set(pos.x + Math.sin(a) * Math.cos(ELEV) * d, cy + Math.sin(ELEV) * d, pos.z + Math.cos(a) * Math.cos(ELEV) * d);
+  cam.lookAt(pos.x, cy, pos.z);
   cam.updateMatrixWorld();
   return true;
 }
@@ -184,44 +186,27 @@ export function updateSprites(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   scene.traverse((o) => { if (o.userData.sprite) roots.push(o); });
   if (!roots.length) return;
   for (const root of roots) if (root.userData.spriteMode !== spriteMode) applyMode(root);
-  scene.updateMatrixWorld();
-  const prevTarget = renderer.getRenderTarget(), prevAlpha = renderer.getClearAlpha(), prevAuto = renderer.autoClear;
+  const prevTarget = renderer.getRenderTarget(), prevAlpha = renderer.getClearAlpha();
   renderer.getClearColor(clear);
   renderer.setClearColor(0x000000, 0);
   for (const root of roots) {
     if (!shown(root)) continue;
-    if (spriteMode) {
-      const b = bodyBoard(root);
-      b.mesh.visible = true;
-      if (!aim(b, camera, dt, root)) continue;
-      cam.layers.set(SPRITE_LAYER);
-      renderer.setRenderTarget(b.rt);
-      renderer.clear();
-      renderer.render(root, cam);
-      continue;
+    root.updateWorldMatrix(true, true);   // this frame's pose; cheaper than updating the whole scene
+    const h = headBoard(root);
+    if (h) {
+      h.mesh.visible = true;
+      const dir = direction(h, camera);
+      if (dir !== h.dir) { h.dir = dir; (h.mesh.material as THREE.ShaderMaterial).uniforms.frame.value.z = dir / DIRS; }
     }
-    const b = headBoard(root);
-    const rig = root.userData.rig as { mesh: THREE.SkinnedMesh } | undefined;
-    const group = (root.userData.head as { group: THREE.Object3D } | undefined)?.group;
-    if (!b || !rig || !group) continue;
+    if (!spriteMode) continue;
+    const b = bodyBoard(root);
     b.mesh.visible = true;
     if (!aim(b, camera, dt, root)) continue;
+    cam.layers.set(SPRITE_LAYER);
     renderer.setRenderTarget(b.rt);
     renderer.clear();
-    // Depth-only body first (its mask layer), so the head's hair hides behind it where it should.
-    const was = rig.mesh.material;
-    rig.mesh.material = mask;
-    b.mesh.visible = false;
-    cam.layers.set(MASK_LAYER);
-    renderer.autoClear = false;
-    renderer.render(rig.mesh, cam);
-    rig.mesh.material = was;
-    cam.layers.set(SPRITE_LAYER);
-    renderer.render(group, cam);
-    renderer.autoClear = prevAuto;
-    b.mesh.visible = true;
+    renderer.render(root, cam);
   }
   renderer.setRenderTarget(prevTarget);
   renderer.setClearColor(clear, prevAlpha);
-  renderer.autoClear = prevAuto;
 }

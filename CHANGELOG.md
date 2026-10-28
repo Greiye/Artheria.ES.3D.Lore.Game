@@ -7,13 +7,43 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### Storybook restyle S2h: 2D drawn heads, no 3D head
+
+- **Heads are flat 2D pixel art** (`src/render/headArt.ts`), as in Tree of Savior. Each look gets one drawn
+  8-frame sheet (45° apart; the three turns to the right are the left ones mirrored): skin, ears, big pixel eyes,
+  brows, blush and mouth, then a crown with pointed fringe locks, side locks, long hair as a sheet of pointed
+  strands from the side and back, caps, headpieces and species features (horns, ear tufts, beaks, halo, flame).
+- **There is no 3D head.** The skull, hair and face meshes are gone; the head bone only carries an anchor that the
+  billboard follows. The billboard just picks the frame for the side it's seen from, with no render pass per head.
+- Pixel-sprite mode (Graphics > Characters) uses the same drawn heads over the sprite body.
+- Graphics > Characters now reads "3D bodies, drawn heads" / "Pixel sprites".
+
+### Storybook restyle S2g: hand-painted character textures
+
+- **Painted atlas:** every character gets a 512 px hand-painted diffuse atlas, generated at load (`src/tex/paintedAtlas.ts`).
+  There's one tile per colour, painted by material: cloth gets brush strokes and fold lines with lit edges,
+  hair gets strands and a shine band, leather gets scuffs and stitching, metal gets a sheen, and skin stays
+  soft. Every tile darkens toward its edges, so each face of a part reads as painted occlusion. The baked light
+  rides on top in the vertex colours.
+- Figures with the same colours share one atlas and material.
+
+### Storybook restyle S2f: Tree of Savior pipeline pass
+
+- **Unlit characters:** bodies drop the toon lighting and, as ToS does, carry all their shading baked in. Each
+  part is also shaded down its own height (occlusion underneath, light on top), so bodies match the head sprites.
+- **Stepped animation:** skeletal poses update at 12 fps instead of every frame, for the flipbook feel of 8-direction
+  sprite cycles. Walking through the world stays smooth.
+- **Billboard pass:** updates only the figures it draws, not the whole scene graph, each frame.
+- **Tests:** B7, B8 and the leg-swing check now wait on frames rather than a fixed wall-clock sample.
+
 ### Storybook restyle S2d: Tree of Savior heads and the gothic heroine
 
 - **Pixel-art heads:** as in Tree of Savior, the body stays a 3D toon-lit mesh, but the head is a pixel-art
   billboard that turns through 8 directions. It is drawn live from the 3D head (skull, hair, hats, species
   features and the pixel face), with a 1 px ink outline. The body masks it, so long hair hangs behind the
   body from the front and over it from the back.
-- **New default hero:** a gothic chibi after Mike's Tree of Savior reference: long wavy platinum hair, red eyes,
+- **New default hero:** a gothic chibi after Mike's Tree of Savior reference: long wavy platinum hair (separate
+  swaying strands down the back, alternately shaded, with curled tips), red eyes,
   a flowered headband, a black bell dress with a pale frill and puffed sleeves, small black wings, and platform
   boots with strapped stockings.
 - **Forge:** adds the Flowing hair style, Bell dress and Platform boots toggles, Wings and Headpiece choices, and

@@ -67,10 +67,12 @@ check('R4 away from walls the body shows again', await until(page, () => window.
 await G(page, () => { const p = window.__gametool.player; p.pos.set(2, 0, 6); p.yaw = 0; p.pitch = 0; });
 await page.keyboard.down('KeyD');
 const turned = await until(page, () => { const p = window.__gametool.player; return Math.abs(Math.atan2(Math.sin(p.bodyYaw + Math.PI / 2), Math.cos(p.bodyYaw + Math.PI / 2))) < 0.25; });
+// Poses step at 12 fps (S2f), so one sample can land near the swing's zero crossing: watch for a swing.
+const swung = await until(page, () => Math.abs(window.__gametool.player.body.children[0].userData.rig.bones.thighN.rotation.x) > 0.1, null, 3000);
 const swing = await G(page, () => Math.abs(window.__gametool.player.body.children[0].userData.rig.bones.thighN.rotation.x));
 await page.keyboard.up('KeyD');
 check('A strafing right turns the body to face right (third person)', turned);
-check('A running swings the legs', swing > 0.1, swing.toFixed(2));
+check('A running swings the legs', swung, swing.toFixed(2));
 await G(page, () => { const p = window.__gametool.player, h = window.__gametool.world.standees.hero.position; p.pos.set(h.x - 2.2, 0, h.z + 0.6); });
 const looked = await until(page, () => Math.abs(window.__gametool.world.standees.hero.userData.rig.bones.head.rotation.y) > 0.3);
 check('A the hero turns his head toward a player standing near', looked);
