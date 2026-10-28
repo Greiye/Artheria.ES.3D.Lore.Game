@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pixelTexture, type TexName } from '../tex/pixel';
+import { pixelTexture, rng, type TexName } from '../tex/pixel';
 import { Batch } from './batch';
 import { buildFigure } from './figure';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -22,6 +22,9 @@ const GREEN = { x: 4, z: 26.5, rx: 24, rz: 9.5 };
 const PLASTER = '#FFF6E6';
 const WALL = 3.0, PLINTH = 0.4, RISE = 2.1;
 const R1 = '#86604E', R2 = '#4E7299', R3 = '#A84C40';
+// Style pass 2: houses with a jettied upper floor (UPPER metres tall, overhanging front and back).
+const JETTY = new Set<string>(['inn', 'scriptorium', 'cartographer', 'tailor']);
+const UPPER = 1.9;
 // Clockwise round the ring from the lane (north, toward the glade). `off` pushes a lot out (+) or in (−) from
 // the ring and `turn` skews it off facing the green, so no two sit square to each other.
 type Slot = { id: TownId | 'lane' | 'cinema'; w: number; d: number; off: number; turn: number; roof?: string };
@@ -109,10 +112,9 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const doors = {} as Record<TownId, THREE.Object3D>;
   const local = (L: Spot) => { const c = Math.cos(L.ry), s = Math.sin(L.ry); return (lx: number, y: number, lz: number) => V(L.x + lx * c + lz * s, y, L.z - lx * s + lz * c); };
 
-  // The green: a paved oval inside the ring, and the dirt lane up from the glade.
+  // The green: a paved oval inside the ring (the lane up from the glade is a worn path in the ground, land.ts).
   const G = GREEN, oval = new THREE.CircleGeometry(1, 40).rotateX(-Math.PI / 2);
   B.add(tex('paving'), oval, V(G.x, 0.02, G.z), V(G.rx - 3.6, 1, G.rz - 3.4));
-  B.box(tex('dirt'), V(0, 0.012, 17.5), 2.2, 0.02, 13);
 
   const signs: THREE.BufferGeometry[] = [];
   LOTS.forEach((L, li) => {
@@ -120,15 +122,38 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     const plaster = tint('plaster', L.wall), roof = tint('roofTiles', L.roof), wood = tex('wood');
     B.add(tex('stone'), new THREE.BoxGeometry(W + 0.3, PLINTH, D + 0.3), at(0, PLINTH / 2, 0), undefined, L.ry);
     B.add(plaster, new THREE.BoxGeometry(W, WALL, D), at(0, PLINTH + WALL / 2, 0), undefined, L.ry);
-    // Gable ends: a triangle of plaster on the front and back walls.
-    const gable = new THREE.Shape([new THREE.Vector2(-W / 2, 0), new THREE.Vector2(W / 2, 0), new THREE.Vector2(0, RISE)]);
-    // The ridge runs front to back, so the gables face the green.
-    for (const z of [D / 2 - 0.1, -D / 2 - 0.1]) B.add(plaster, new THREE.ExtrudeGeometry(gable, { depth: 0.2, bevelEnabled: false }), at(0, PLINTH + WALL, z), undefined, L.ry);
-    const half = W / 2 + 0.45, slope = Math.hypot(half, RISE), tilt = Math.atan2(RISE, half);
-    for (const side of [-1, 1]) {
-      B.add(roof, new THREE.BoxGeometry(slope + 0.1, 0.2, D + 0.8), at(side * half / 2, PLINTH + WALL + RISE / 2 + 0.1, 0), undefined, L.ry, 0, -side * tilt);
+    // Style pass 2: some houses have a jettied upper floor, overhanging the street front and back.
+    const jetty = JETTY.has(L.id), Wt = jetty ? W + 0.3 : W, Dt = jetty ? D + 0.7 : D, top = PLINTH + WALL + (jetty ? UPPER : 0);
+    if (jetty) {
+      B.add(plaster, new THREE.BoxGeometry(Wt, UPPER, Dt), at(0, PLINTH + WALL + UPPER / 2, 0), undefined, L.ry);
+      for (const z of [Dt / 2 + 0.02, -Dt / 2 - 0.02]) {
+        B.add(wood, new THREE.BoxGeometry(Wt + 0.1, 0.22, 0.16), at(0, PLINTH + WALL + 0.08, z), undefined, L.ry);   // jetty beam
+        B.add(wood, new THREE.BoxGeometry(Wt, 0.14, 0.1), at(0, top - 0.08, z), undefined, L.ry);
+        for (const x of [-Wt / 2, -Wt / 6, Wt / 6, Wt / 2]) B.add(wood, new THREE.BoxGeometry(0.16, UPPER, 0.1), at(x * 0.97, PLINTH + WALL + UPPER / 2, z), undefined, L.ry);
+      }
+      // Brackets under the overhang.
+      for (const x of [-W / 2 + 0.2, W / 2 - 0.2]) for (const sd of [1, -1]) B.add(wood, new THREE.BoxGeometry(0.14, 0.14, 0.6), at(x, PLINTH + WALL - 0.18, sd * (D / 2 + 0.16)), undefined, L.ry, sd * 0.7);
+      // Two lit windows upstairs on the front.
+      for (const x of [-Wt * 0.28, Wt * 0.28]) {
+        B.add(glow, new THREE.BoxGeometry(0.8, 0.8, 0.06), at(x, PLINTH + WALL + UPPER * 0.52, Dt / 2 + 0.03), undefined, L.ry);
+        B.add(wood, new THREE.BoxGeometry(0.08, 0.8, 0.1), at(x, PLINTH + WALL + UPPER * 0.52, Dt / 2 + 0.06), undefined, L.ry);
+      }
     }
-    B.add(wood, new THREE.BoxGeometry(0.24, 0.24, D + 0.9), at(0, PLINTH + WALL + RISE + 0.12, 0), undefined, L.ry);   // ridge beam
+    // Gable ends: a triangle of plaster on the front and back walls.
+    const gable = new THREE.Shape([new THREE.Vector2(-Wt / 2, 0), new THREE.Vector2(Wt / 2, 0), new THREE.Vector2(0, RISE)]);
+    // The ridge runs front to back, so the gables face the green.
+    for (const z of [Dt / 2 - 0.1, -Dt / 2 - 0.1]) B.add(plaster, new THREE.ExtrudeGeometry(gable, { depth: 0.2, bevelEnabled: false }), at(0, top, z), undefined, L.ry);
+    const half = Wt / 2 + 0.45, slope = Math.hypot(half, RISE), tilt = Math.atan2(RISE, half);
+    for (const side of [-1, 1]) {
+      B.add(roof, new THREE.BoxGeometry(slope + 0.1, 0.2, Dt + 0.8), at(side * half / 2, top + RISE / 2 + 0.1, 0), undefined, L.ry, 0, -side * tilt);
+    }
+    B.add(wood, new THREE.BoxGeometry(0.24, 0.24, Dt + 0.9), at(0, top + RISE + 0.12, 0), undefined, L.ry);   // ridge beam
+    // Style pass 2: a crooked brick chimney through the roof (the smithy has its forge stack instead).
+    if (L.id !== 'smithy' && L.id !== 'library') {
+      const cx = (li % 2 ? 1 : -1) * half * 0.42, roofY = top + RISE * (1 - Math.abs(cx) / half), lean = (li % 3 - 1) * 0.07;
+      B.add(tex('bricks'), new THREE.BoxGeometry(0.7, 1.7, 0.7), at(cx, roofY + 0.45, -Dt * 0.18), undefined, L.ry, 0, lean);
+      B.add(tex('stone'), new THREE.BoxGeometry(0.9, 0.16, 0.9), at(cx - Math.sin(lean) * 0.85, roofY + 1.32, -Dt * 0.18), undefined, L.ry, 0, lean);
+    }
     // Timber frame: corner posts, a mid rail and a top rail on the front.
     for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) B.add(wood, new THREE.BoxGeometry(0.24, WALL, 0.24), at(x, PLINTH + WALL / 2, z), undefined, L.ry);
     for (const y of [PLINTH + 1.55, PLINTH + WALL - 0.1]) B.add(wood, new THREE.BoxGeometry(W, 0.18, 0.12), at(0, y, D / 2 + 0.04), undefined, L.ry);
@@ -158,7 +183,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     // Hanging sign over the door: its row of the shared atlas.
     const sg = new THREE.PlaneGeometry(2.4, 0.6), uv = sg.attributes.uv as THREE.BufferAttribute, n = LOTS.length + 1;
     for (let k = 0; k < uv.count; k++) uv.setY(k, 1 - (li + 1 - uv.getY(k)) / n);
-    const sp = at(0, PLINTH + 2.75, D / 2 + 0.12);
+    const sp = at(0, PLINTH + (jetty ? 2.55 : 2.75), D / 2 + 0.12);
     signs.push(sg.rotateY(L.ry).translate(sp.x, sp.y, sp.z));
     footprint(colliders, L.x, L.z, L.ry, W + 0.4, D + 0.4);
     const door = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
@@ -166,8 +191,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     scene.add(door);
     doors[L.id] = door;
   });
-  // v0.05: the exit gate at the west end of the coach road: two posts, a beam, and its sign (the atlas's last row).
-  B.box(tex('dirt'), V((GATE.x - 10) / 2 - 2, 0.011, GATE.z), -GATE.x - 14, 0.02, 2.6);
+  // v0.05: the exit gate at the west end of the coach road (a worn path): two posts, a beam, and its sign (the atlas's last row).
   for (const dz of [-GATE.half - 0.2, GATE.half + 0.2]) {
     B.box(tex('wood'), V(GATE.x, 1.6, GATE.z + dz), 0.32, 3.2, 0.32);
     colliders.push({ kind: 'circle', x: GATE.x, z: GATE.z + dz, r: 0.25 });
@@ -197,6 +221,8 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     colliders.push({ kind: 'circle', x, z, r: 0.15 });
   });
 
+  dressTown(scene, B, tex, colliders, local, ring);
+
   // The shopkeeper stands behind the counter, facing the green.
   const shop = LOTS.find((l) => l.id === 'shop')!, sa = local(shop);
   const sk = sa(2.0, 0, shop.d / 2 + 0.95);
@@ -208,4 +234,107 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   shopkeeperHit.position.copy(sa(2.0, 0.9, shop.d / 2 + 2.55)); shopkeeperHit.rotation.y = shop.ry; shopkeeperHit.name = 'shopkeeper';
   scene.add(shopkeeperHit);
   return { doors, shopkeeper, shopkeeperHit, cinema: cin };
+}
+
+// ---------- Style pass 2: storybook dressing (window boxes, pots, awnings, barrels, a well, bunting) ----------
+// The painted bits are one merged mesh with vertex colours (one draw call); wood and stone go in the batch.
+const FLOWERS = ['#E86A8A', '#F2C94C', '#F2F0E6', '#B07AD8', '#E8603A'];
+const AWNING = ['#B8423A', '#F2E8D0'];
+const BUNTING = ['#C8423A', '#F2C94C', '#4E7299', '#5E9A4A', '#F2E8D0'];
+function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[], local: (L: Spot) => (lx: number, y: number, lz: number) => THREE.Vector3, ring: Spot[]) {
+  const R = rng(6262), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const painted: THREE.BufferGeometry[] = [];
+  const paint = (g: THREE.BufferGeometry, hex: string, pos: THREE.Vector3, ry = 0, rx = 0, rz = 0) => {
+    const ng = g.index ? g.toNonIndexed() : g;
+    ng.deleteAttribute('uv');
+    ng.rotateZ(rz).rotateX(rx).rotateY(ry).translate(pos.x, pos.y, pos.z);
+    const c = new THREE.Color(hex), n = ng.attributes.position.count, col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { const k = 0.92 + R() * 0.16; col[i * 3] = c.r * k; col[i * 3 + 1] = c.g * k; col[i * 3 + 2] = c.b * k; }
+    ng.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    painted.push(ng);
+  };
+  const flowers = (at: (lx: number, y: number, lz: number) => THREE.Vector3, lx: number, y: number, lz: number, spread: number, n: number) => {
+    for (let i = 0; i < n; i++) {
+      const p = at(lx + (R() - 0.5) * spread, y + R() * 0.06, lz + (R() - 0.5) * 0.12);
+      paint(new THREE.IcosahedronGeometry(0.07 + R() * 0.03, 0), '#4E8A3A', p.clone().add(V(0, -0.04, 0)));
+      paint(new THREE.IcosahedronGeometry(0.07, 0), FLOWERS[Math.floor(R() * FLOWERS.length)], p.clone().add(V(0, 0.05, 0)));
+    }
+  };
+  LOTS.forEach((L, li) => {
+    const at = local(L), W = L.w, D = L.d, planks = tex('planks');
+    // Window boxes under the two front windows.
+    for (const x of [-W * 0.36, W * 0.36]) {
+      B.add(planks, new THREE.BoxGeometry(1.0, 0.2, 0.26), at(x, PLINTH + 1.04, D / 2 + 0.2), undefined, L.ry);
+      flowers(at, x, PLINTH + 1.2, D / 2 + 0.2, 0.85, 4);
+    }
+    // Terracotta pots either side of the door.
+    for (const x of [-0.98, 0.98]) {
+      const p = at(x, 0, D / 2 + 0.4);
+      paint(new THREE.CylinderGeometry(0.2, 0.15, 0.34, 7), '#B8643A', p.clone().setY(0.17));
+      paint(new THREE.CylinderGeometry(0.22, 0.22, 0.05, 7), '#9A4E2E', p.clone().setY(0.34));
+      flowers(at, x, 0.42, D / 2 + 0.4, 0.2, 2);
+      colliders.push({ kind: 'circle', x: p.x, z: p.z, r: 0.22 });
+    }
+    // Striped awnings over the shop counter, the tailor's and the gallery's front windows.
+    const awn = L.id === 'shop' ? [[2.0, 2.9]] : L.id === 'tailor' || L.id === 'gallery' ? [[-W * 0.36, 1.4], [W * 0.36, 1.4]] : [];
+    for (const [cx, w] of awn) {
+      const n = Math.round(w / 0.35), sw = w / n, dep = L.id === 'shop' ? 1.9 : 0.9, y = PLINTH + (L.id === 'shop' ? 2.3 : 2.35);
+      for (let i = 0; i < n; i++) {
+        const lx = cx - w / 2 + sw * (i + 0.5);
+        paint(new THREE.BoxGeometry(sw, 0.05, dep), AWNING[i % 2], at(lx, y - dep * 0.18, D / 2 + dep / 2), L.ry, 0.36);
+        paint(new THREE.ConeGeometry(sw / 2, 0.16, 3), AWNING[i % 2], at(lx, y - dep * 0.37 - 0.1, D / 2 + dep * 0.94), L.ry, Math.PI);   // scalloped edge
+      }
+      if (L.id === 'shop') for (const x of [cx - w / 2 + 0.05, cx + w / 2 - 0.05]) B.add(tex('wood'), new THREE.BoxGeometry(0.1, 1.95, 0.1), at(x, 0.97, D / 2 + dep - 0.05), undefined, L.ry);
+    }
+    // Barrels and a crate stacked against a side wall on some houses.
+    if (li % 2 === 0 && L.id !== 'shop') {
+      const side = li % 4 ? 1 : -1;
+      for (const [k, dz] of [[0, -0.2], [1, -1.15]] as const) {
+        const p = at(side * (W / 2 + 0.55), 0, D / 2 + dz);
+        if (k === 0) {
+          B.add(planks, new THREE.CylinderGeometry(0.36, 0.32, 0.9, 9), p.clone().setY(0.45), undefined, R() * 3);
+          for (const y of [0.18, 0.72]) paint(new THREE.CylinderGeometry(0.375, 0.375, 0.05, 9), '#3A3A3E', p.clone().setY(y));
+          colliders.push({ kind: 'circle', x: p.x, z: p.z, r: 0.4, top: 0.9 });
+        } else {
+          B.add(planks, new THREE.BoxGeometry(0.7, 0.7, 0.7), p.clone().setY(0.35), undefined, L.ry + 0.2);
+          colliders.push({ kind: 'circle', x: p.x, z: p.z, r: 0.45, top: 0.7 });
+        }
+      }
+    }
+  });
+
+  // A well on the green: a stone ring, posts, a little tiled roof, the winch and its bucket.
+  const wx = GREEN.x, wz = GREEN.z + 0.5;
+  B.add(tex('stone'), new THREE.CylinderGeometry(1.0, 1.08, 0.8, 10, 1, true), V(wx, 0.4, wz));
+  B.add(tex('stone'), new THREE.TorusGeometry(0.98, 0.12, 4, 10).rotateX(Math.PI / 2), V(wx, 0.82, wz));
+  paint(new THREE.CircleGeometry(0.92, 10).rotateX(-Math.PI / 2), '#2A3A4A', V(wx, 0.35, wz));   // water, down in the dark
+  for (const dx of [-0.95, 0.95]) B.add(tex('wood'), new THREE.BoxGeometry(0.16, 1.9, 0.16), V(wx + dx, 1.25, wz));
+  B.add(tex('wood'), new THREE.CylinderGeometry(0.07, 0.07, 1.9, 6).rotateZ(Math.PI / 2), V(wx, 1.75, wz));   // winch
+  paint(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 4), '#C9B48A', V(wx, 1.38, wz));   // rope
+  paint(new THREE.CylinderGeometry(0.15, 0.12, 0.22, 7), '#6A4A2A', V(wx, 0.98, wz));   // bucket
+  for (const sd of [-1, 1]) B.add(tex('roofTiles'), new THREE.BoxGeometry(1.0, 0.08, 1.5), V(wx + sd * 0.45, 2.35, wz), undefined, 0, 0, -sd * 0.6);
+  colliders.push({ kind: 'circle', x: wx, z: wz, r: 1.15, top: 0.85 });
+
+  // Bunting strung between the lamp posts, sagging a little, flags in turn.
+  ring.forEach((_, i) => {
+    const lamp = (k: number) => { const a = ring[k % ring.length], b = ring[(k + 1) % ring.length]; return V(GREEN.x + ((a.x + b.x) / 2 - GREEN.x) * 0.8, 2.75, GREEN.z + ((a.z + b.z) / 2 - GREEN.z) * 0.72); };
+    const a = lamp(i), b = lamp(i + 1), len = a.distanceTo(b), n = Math.floor(len / 0.55);
+    const ry = Math.atan2(b.x - a.x, b.z - a.z);
+    for (let k = 0; k <= n; k++) {
+      const t = k / n, sag = Math.sin(t * Math.PI) * 0.45, p = a.clone().lerp(b, t).add(V(0, -sag, 0));
+      if (k < n) {   // the string, one short piece per flag
+        const q = a.clone().lerp(b, (k + 1) / n).add(V(0, -Math.sin(((k + 1) / n) * Math.PI) * 0.45, 0)), d = q.distanceTo(p);
+        paint(new THREE.BoxGeometry(0.02, 0.02, d), '#3A2E22', p.clone().lerp(q, 0.5), ry, Math.atan2(p.y - q.y, Math.hypot(q.x - p.x, q.z - p.z)));
+      }
+      if (k > 0 && k < n) {
+        const flag = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, -0.14, 0, 0, 0.14, 0, -0.3, 0]), 3));
+        flag.computeVertexNormals();
+        paint(flag, BUNTING[(k + i) % BUNTING.length], p.clone().add(V(0, -0.01, 0)), ry);
+      }
+    }
+  });
+
+  const mesh = new THREE.Mesh(mergeGeometries(painted), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  mesh.name = 'town-dressing'; mesh.raycast = () => {};
+  scene.add(mesh);
 }

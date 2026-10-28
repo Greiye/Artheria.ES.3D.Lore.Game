@@ -7,10 +7,47 @@ import { rng } from '../tex/pixel';
 const sstep = (a: number, b: number, v: number) => { const t = THREE.MathUtils.clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const HILLS_FROM = 42;
 
-/** Ground height at (x, z), in metres. 0 everywhere inside the play area's flat middle. */
+// Style pass 2: gentle bumps across the open meadow, up to ~0.45 m. Everything built at y = 0 (the dais, paths,
+// the camp, the town, the library, walls) stays on flat ground: a mask, 1 m per cell, is 0 wherever a keep-out
+// test says so and blurred so the land eases up from it. Trees, rocks and bushes sit on heightAt().
+const MASK_HALF = 44, MASK_N = MASK_HALF * 2 + 1;
+let mask: Float32Array | null = null;
+/** Build the flat mask from a keep-out test (true = keep this spot flat). Call before shaping the ground. */
+export function setFlatMask(keepFlat: (x: number, z: number) => boolean) {
+  let m = new Float32Array(MASK_N * MASK_N);
+  for (let j = 0; j < MASK_N; j++) for (let i = 0; i < MASK_N; i++) m[j * MASK_N + i] = keepFlat(i - MASK_HALF, j - MASK_HALF) ? 0 : 1;
+  // Erode once (a flat apron round every keep-out), then blur twice for a soft rise.
+  const pass = (src: Float32Array, f: (vals: number[]) => number) => {
+    const out = new Float32Array(src.length);
+    for (let j = 0; j < MASK_N; j++) for (let i = 0; i < MASK_N; i++) {
+      const vals: number[] = [];
+      for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+        const ii = Math.min(MASK_N - 1, Math.max(0, i + di)), jj = Math.min(MASK_N - 1, Math.max(0, j + dj));
+        vals.push(src[jj * MASK_N + ii]);
+      }
+      out[j * MASK_N + i] = f(vals);
+    }
+    return out;
+  };
+  m = pass(m, (v) => Math.min(...v));
+  const avg = (v: number[]) => v.reduce((a, b) => a + b, 0) / v.length;
+  m = pass(pass(m, avg), avg);
+  mask = m;
+}
+function maskAt(x: number, z: number): number {
+  if (!mask) return 0;
+  const fx = x + MASK_HALF, fz = z + MASK_HALF;
+  if (fx < 0 || fz < 0 || fx >= MASK_N - 1 || fz >= MASK_N - 1) return 0;
+  const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j, at = (a: number, b: number) => mask![b * MASK_N + a];
+  return (at(i, j) * (1 - tx) + at(i + 1, j) * tx) * (1 - tz) + (at(i, j + 1) * (1 - tx) + at(i + 1, j + 1) * tx) * tz;
+}
+const bump = (x: number, z: number) => 0.24 + 0.16 * Math.sin(x * 0.23 + 0.7) * Math.cos(z * 0.19 - 1.1) + 0.08 * Math.sin(x * 0.51 - z * 0.43);
+
+/** Ground height at (x, z), in metres. 0 on everything built flat; gentle bumps in the meadow; hills at the edge. */
 export function heightAt(x: number, z: number): number {
   const m = Math.max(Math.abs(x), Math.abs(z));
-  if (m <= HILLS_FROM) return 0;
+  const meadow = bump(x, z) * maskAt(x, z) * (1 - sstep(HILLS_FROM - 4, HILLS_FROM, m));
+  if (m <= HILLS_FROM) return meadow;
   const roll = 0.65 + 0.35 * Math.sin(x * 0.13 + 1.3) * Math.cos(z * 0.11 - 0.4) + 0.15 * Math.sin(x * 0.31 + z * 0.27);
   return sstep(HILLS_FROM, 62, m) * 9 * roll;
 }

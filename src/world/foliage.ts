@@ -51,7 +51,7 @@ const crossed = (() => {
   return g;
 })();
 
-export interface Tuft { x: number; z: number; s: number; ry: number }
+export interface Tuft { x: number; z: number; s: number; ry: number; y?: number }
 
 export function tufts(scene: THREE.Scene, tex: TexName, items: Tuft[], size: [number, number], strength = 0.08): THREE.InstancedMesh {
   const mat = new THREE.MeshLambertMaterial({ map: pixelTexture(tex), alphaTest: 0.5, side: THREE.DoubleSide });
@@ -59,7 +59,7 @@ export function tufts(scene: THREE.Scene, tex: TexName, items: Tuft[], size: [nu
   const mesh = new THREE.InstancedMesh(crossed, mat, items.length);
   const d = new THREE.Object3D();
   items.forEach((it, i) => {
-    d.position.set(it.x, 0, it.z); d.rotation.set(0, it.ry, 0); d.scale.set(size[0] * it.s, size[1] * it.s, size[0] * it.s);
+    d.position.set(it.x, it.y ?? 0, it.z); d.rotation.set(0, it.ry, 0); d.scale.set(size[0] * it.s, size[1] * it.s, size[0] * it.s);
     d.updateMatrix(); mesh.setMatrixAt(i, d.matrix);
   });
   mesh.computeBoundingSphere();
