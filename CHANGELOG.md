@@ -7,6 +7,16 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry until the site launches on GitHub Pages; the owner sets `VERSION` then (still 0.02).
 Spec doc v0.05.
 
+### v0.04 feedback, part 7: cinema
+
+- **The Lanternist:** a showman at the east end of the town street with a framed screen on a stand. Talk to him
+  (or the screen) to watch short reels by Mike and friends.
+- **Reels** live in `assets/cinema/` (see its README): `name.webm` preferred, `name.gif` as the fallback (or
+  `.mp4`), optional `clips.json` for titles, credits and whether a clip has sound. They ship as separate files
+  in `dist/cinema/`, so the page stays small and phones only download a reel when it plays.
+- Clips start muted; sound is one button away. While a video plays, the screen in town shows it too.
+- No reels ship yet: until clips are added, the Lanternist says where to put them.
+
 ### v0.04 feedback, part 6: campfire
 
 - **Lore writing moved to the campfire:** the L hotkey and the in-game "Write lore" buttons (HUD, pause menu) are

@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { updateSprites, setSpriteCharacters } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';
+import { buildFigure } from './world/figure';
 import { Player } from './player';
 import { Book } from './book';
 import { lore, entryById } from './lore';
@@ -51,6 +52,7 @@ import { haptics } from './input/haptics';
 import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
+import { CinemaPanel, buildScreen } from './cinema';
 import { TOWN_NAMES, type TownId } from './world/town';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
@@ -651,7 +653,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -1041,6 +1043,21 @@ for (const id of Object.keys(townAct) as TownId[]) {
   interactables.push({ obj: world.town.doors[id], verb: () => id === 'inn' ? `Rent a bed until ${WAKE_AT[NEXT_TIME[world.time]]}` : `Enter the ${TOWN_NAMES[id]}`, act: () => townAct[id]() });
 }
 interactables.push({ obj: world.town.shopkeeperHit, verb: () => 'Trade with the Shopkeeper', act: () => openShop() });
+// v0.04 cinema: the Lanternist shows short reels by Mike and friends (assets/cinema/) on a screen at the street's end.
+const reelStand = buildScreen();
+reelStand.position.set(24.6, 0, 30); reelStand.rotation.y = -Math.PI / 2;   // faces back up the street
+world.scene.add(reelStand);
+world.colliders.push({ kind: 'box', minX: 24.4, maxX: 24.8, minZ: 28.6, maxZ: 31.4 });
+const lanternist = buildFigure({ skin: '#E0B890', hair: '#2A2A30', primary: '#2E3A5A', secondary: '#C9A36B', boots: '#2A221C', accent: '#F2C27A', hairStyle: 'cap', scarf: '#B8463A', build: 1.0 }, 1.75);
+lanternist.position.set(23.2, 0, 32.3); lanternist.rotation.y = -Math.PI / 2 - 0.4; lanternist.name = 'standee:lanternist';
+world.scene.add(lanternist);
+world.colliders.push({ kind: 'circle', x: 23.2, z: 32.3, r: 0.35 });
+const lanternHit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
+lanternHit.position.set(23.2, 0.9, 32.3); world.scene.add(lanternHit);
+const cinema = new CinemaPanel(reelStand.userData.screen as THREE.Mesh, () => leaveForge());
+function openCinema() { enterForge(); cinema.open(); }
+interactables.push({ obj: lanternHit, verb: () => 'Watch the Lanternist\'s reels', act: () => openCinema() });
+interactables.push({ obj: reelStand.userData.screen as THREE.Object3D, verb: () => 'Watch the reels', act: () => openCinema() });
 function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; syncLock(); }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; if (player.thirdPerson) player.pitch = 0; syncLock(); }
@@ -1659,4 +1676,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
