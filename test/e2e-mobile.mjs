@@ -140,6 +140,16 @@ async function open(opts, init) {
   check('Touch: ☰ opens the pause menu', (await state(page)) === 'pause');
   await page.tap('#resume');
   check('Touch: Resume returns to play (no pointer-lock prompt)', (await state(page)) === 'play');
+  // v0.05 §5: Natalie's telling asks for portrait on a phone held sideways.
+  await G(page, () => window.__gametool.openCampfire());
+  await page.waitForFunction(() => window.__gametool.campfire.isOpen);
+  await G(page, () => window.__gametool.campfire.onTell('natalies-field-note'));
+  const ask = await G(page, () => { const el = document.querySelector('#telling .kt-portrait'); return el && getComputedStyle(el).display !== 'none'; });
+  await page.tap('#ktPortraitOk');
+  const gone = await G(page, () => getComputedStyle(document.querySelector('#telling .kt-portrait')).display === 'none');
+  check('Touch landscape: the telling asks for portrait, and "Carry on sideways" dismisses it', ask && gone);
+  await G(page, () => { const g = window.__gametool; g.telling.close(); g.campfire.close(); });
+  await page.waitForFunction(() => window.__gametool.state === 'play');
   check('Touch landscape: no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
@@ -167,6 +177,15 @@ async function open(opts, init) {
   const sections = await G(page, () => document.querySelectorAll('#book .scroll-page').length === window.__gametool.book.pageCount);
   check('Touch portrait: every page is in the scroll', sections);
   await page.screenshot({ path: path.join(shots, 'm4-phone-portrait-book.png') });
+  await G(page, () => window.__gametool.book.close());
+  await page.waitForFunction(() => window.__gametool.state === 'play');
+  await G(page, () => window.__gametool.openCampfire());
+  await page.waitForFunction(() => window.__gametool.campfire.isOpen);
+  await G(page, () => window.__gametool.campfire.onTell('natalies-field-note'));
+  await page.waitForFunction(() => window.__gametool.telling.shown >= 12, null, { timeout: 15000 }).catch(() => {});
+  const tall = await G(page, () => { const k = document.querySelector('#telling .kt-portrait'), st = document.querySelector('#telling .kt-stage').getBoundingClientRect(); return { ask: getComputedStyle(k).display !== 'none', top: st.top, w: st.width }; });
+  check('Touch portrait: the telling fills the lower part of the screen, no prompt', !tall.ask && tall.top > 844 * 0.3 && tall.w >= 380, JSON.stringify(tall));
+  await page.screenshot({ path: path.join(shots, 'm5-phone-portrait-telling.png') });
   check('Touch portrait: no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }

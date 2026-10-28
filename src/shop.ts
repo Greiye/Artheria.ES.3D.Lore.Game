@@ -10,6 +10,8 @@ const STOCK: Ware[] = [
   { id: 'whistle', n: 1, price: 12 },
   { id: 'drum', n: 1, price: 15 },
   { id: 'lute', n: 1, price: 30 },
+  { id: 'ocarina', n: 1, price: 18 },
+  { id: 'violin', n: 1, price: 40 },
 ];
 /** What the shopkeeper pays for one of each. */
 const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };

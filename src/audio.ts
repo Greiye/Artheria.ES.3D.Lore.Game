@@ -3,7 +3,9 @@
 // Browsers require a user gesture before an AudioContext makes sound, so resume() is called
 // from the title screen's "Click to begin" handler.
 export type Bus = 'master' | 'music' | 'sfx' | 'dialogue';
-export type PlayKind = 'hum' | 'clap' | 'whistle' | 'drum' | 'lute';
+export type PlayKind = 'hum' | 'clap' | 'whistle' | 'drum' | 'lute' | 'violin' | 'ocarina';
+/** v0.05 band: one note of a stem, at `beat` (0–15) of the 4-bar loop, `len` beats long. */
+export interface BandNote { beat: number; midi: number; len: number; vel?: number }
 const BUSES: Bus[] = ['master', 'music', 'sfx', 'dialogue'];
 
 class AudioEngine {
@@ -148,62 +150,77 @@ class AudioEngine {
   lastPlayed: { kind: PlayKind; midi: number } | null = null;
   play(kind: PlayKind, midi = 67): boolean {
     this.lastPlayed = { kind, midi };
-    if (!this.ensure() || !this.ctx || !this.bus) return false;
-    if (kind === 'drum') { this.noise('music', 0.22, 140 + (midi - 60) * 6, 2, 0.9, 0.6); return true; }
-    if (kind === 'clap') { this.noise('music', 0.08, 1800, 1.5, 0.6); this.noise('music', 0.12, 120, 1, 0.5, 0.5); return true; }
-    const shape: Record<string, { type: OscillatorType; attack: number; decay: number; gain: number; vib: number; oct: number }> = {
+    if (!this.ensure() || !this.ctx) return false;
+    this.voice(kind, midi, this.ctx.currentTime + 0.01, 0, 1);
+    return true;
+  }
+  // One note at time `t`. `len` (seconds) holds the sustained voices (violin, ocarina, hum); 0 = their natural length.
+  private voice(kind: PlayKind, midi: number, t: number, len: number, vel: number): void {
+    const ctx = this.ctx!, out = this.bus!.music;
+    if (kind === 'drum' || kind === 'clap') {
+      const hit = (dur: number, hz: number, q: number, peak: number, rate = 1) => {
+        const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        src.buffer = this.noiseBuf; src.loop = true; src.playbackRate.value = rate;
+        f.type = 'bandpass'; f.frequency.value = hz; f.Q.value = q;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak * vel, t + dur * 0.15); g.gain.linearRampToValueAtTime(0, t + dur);
+        src.connect(f).connect(g).connect(out); src.start(t); src.stop(t + dur + 0.02);
+      };
+      if (kind === 'drum') hit(0.22, 140 + (midi - 60) * 6, 2, 0.9, 0.6);
+      else { hit(0.08, 1800, 1.5, 0.6); hit(0.12, 120, 1, 0.5, 0.5); }   // a clap and a stomp
+      return;
+    }
+    const shape: Record<string, { type: OscillatorType; attack: number; decay: number; gain: number; vib: number; oct: number; lp?: number }> = {
       hum: { type: 'sine', attack: 0.08, decay: 0.7, gain: 0.22, vib: 4, oct: -12 },
       whistle: { type: 'sine', attack: 0.03, decay: 0.45, gain: 0.16, vib: 6, oct: 12 },
       lute: { type: 'triangle', attack: 0.004, decay: 0.7, gain: 0.24, vib: 0, oct: 0 },
+      violin: { type: 'sawtooth', attack: 0.12, decay: 0.9, gain: 0.1, vib: 5, oct: 0, lp: 2200 },   // bowed: slow attack, a lowpass takes the buzz off
+      ocarina: { type: 'sine', attack: 0.06, decay: 0.6, gain: 0.2, vib: 3, oct: 12, lp: 3000 },
     };
-    const sh = shape[kind], t = this.ctx.currentTime + 0.01;
-    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    const sh = shape[kind], hold = Math.max(0, len - sh.attack), end = t + sh.attack + hold + sh.decay;
+    const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = sh.type;
     o.frequency.value = 440 * Math.pow(2, (midi + sh.oct - 69) / 12);
-    if (sh.vib) {   // a little vibrato so a hum or whistle sounds breathed, not beeped
-      const lfo = this.ctx.createOscillator(), lg = this.ctx.createGain();
+    if (sh.vib) {   // a little vibrato so a hum, a whistle or a bow sounds breathed, not beeped
+      const lfo = ctx.createOscillator(), lg = ctx.createGain();
       lfo.frequency.value = 5.5; lg.gain.value = sh.vib;
-      lfo.connect(lg).connect(o.frequency); lfo.start(t); lfo.stop(t + sh.attack + sh.decay + 0.05);
+      lfo.connect(lg).connect(o.frequency); lfo.start(t); lfo.stop(end + 0.05);
     }
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(sh.gain, t + sh.attack);
-    g.gain.exponentialRampToValueAtTime(0.001, t + sh.attack + sh.decay);
-    o.connect(g).connect(this.bus.music);
-    o.start(t); o.stop(t + sh.attack + sh.decay + 0.05);
-    return true;
+    g.gain.linearRampToValueAtTime(sh.gain * vel, t + sh.attack);
+    if (hold) g.gain.setValueAtTime(sh.gain * vel, t + sh.attack + hold);
+    g.gain.exponentialRampToValueAtTime(0.001, end);
+    let last: AudioNode = o;
+    if (sh.lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = sh.lp; o.connect(f); last = f; }
+    last.connect(g).connect(out);
+    o.start(t); o.stop(end + 0.05);
   }
 
-  // Natalie's lute: a looping backing of strummed chords (C – Am – F – G) for as long as you sit at the fire.
-  // Returns a stop function. Each bar is scheduled just before it plays, so stopping is prompt.
-  backing(bpm = 84): () => void {
-    if (!this.ensure() || !this.ctx || !this.bus) return () => {};
-    const CHORDS = [[48, 55, 60, 64], [45, 52, 57, 60], [41, 48, 53, 57], [43, 50, 55, 59]];
+  // v0.05 campfire band: the camp plays every stem of the song except yours, looping bar by bar while you sit.
+  // `stems` maps each instrument to its notes over the 4-bar loop. `band.muted` is your stem (the camp leaves it
+  // to you); `band.guide` plays it quietly anyway so a solo player hears the whole song. Returns a stop function.
+  band = { on: false, muted: null as PlayKind | null, guide: false, kinds: [] as PlayKind[], get playing() { return this.on ? this.kinds.filter((k) => k !== this.muted) : []; } };
+  playBand(stems: Partial<Record<PlayKind, BandNote[]>>, bpm = 84): () => void {
+    const kinds = this.band.kinds = Object.keys(stems) as PlayKind[];
+    this.band.on = true;
+    if (!this.ensure() || !this.ctx || !this.bus) return () => { this.band.on = false; };
     const beat = 60 / bpm, bar = beat * 4;
     let next = this.ctx.currentTime + 0.1, i = 0;
-    const strum = () => {
+    const schedule = () => {
       const ctx = this.ctx!;
       while (next < ctx.currentTime + bar) {
-        const ch = CHORDS[i++ % CHORDS.length];
-        for (const b of [0, 2, 2.5, 3]) ch.forEach((midi, k) => {
-          const t = next + b * beat + k * 0.018;
-          const o = ctx.createOscillator(), g = ctx.createGain();
-          o.type = 'triangle';
-          o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
-          g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(b === 0 ? 0.09 : 0.06, t + 0.005);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
-          o.connect(g).connect(this.bus!.music);
-          o.start(t); o.stop(t + 0.95);
-        });
+        const b = i++ % 4;
+        for (const k of kinds) {
+          const mine = k === this.band.muted;
+          if (mine && !this.band.guide) continue;
+          for (const n of stems[k]!) if (n.beat >= b * 4 && n.beat < b * 4 + 4) this.voice(k, n.midi, next + (n.beat - b * 4) * beat, n.len * beat, (n.vel ?? 1) * (mine ? 0.35 : 0.55));
+        }
         next += bar;
       }
     };
-    strum();
-    const id = window.setInterval(strum, 400);
-    this.backingOn = true;
-    return () => { window.clearInterval(id); this.backingOn = false; };
+    schedule();
+    const id = window.setInterval(schedule, 400);
+    return () => { window.clearInterval(id); this.band.on = false; };
   }
-  backingOn = false;
 
   // v0.05 boot: the splash jingle (a rising open fifth and a bell on top), the title's flowing water and a menu blip.
   // Browsers keep audio locked until the first input, so on a cold load the jingle and water may stay silent

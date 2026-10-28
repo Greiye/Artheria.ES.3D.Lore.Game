@@ -67,6 +67,53 @@ check('B15 "Climb back up" returns you to the glade with its colliders restored'
   && await G(page, (n) => { const g = window.__gametool; return !g.inDungeon && !g.dungeon.group.visible && g.world.colliders.length === n && Math.abs(g.player.pos.x) < 60; }, nCol));
 check('B15 delves are saved on this device', await G(page, () => Object.keys(JSON.parse(localStorage.getItem('gametool.delves'))).length >= 1));
 
+// ---------- v0.05 §6 Quick Dungeon ----------
+const qg = await G(page, () => {
+  const out = [];
+  for (const seed of [1, 2, 3, 42, 4242, 20261028, 777, 99]) out.push(window.__gametool.buildQuick(seed).nodes);
+  return out;
+});
+const okGraph = qg.every((nodes) => {
+  const by = (l) => nodes.filter((n) => n.layer === l);
+  const shape = by(0).length === 1 && by(4).length === 1 && by(4)[0].kind === 'boss' && [1, 2, 3].every((l) => by(l).length >= 2 && by(l).length <= 3);
+  const fwd = nodes.every((n) => n.next.every((id) => nodes.find((m) => m.id === id).layer === n.layer + 1));
+  const branch = nodes.filter((n) => n.layer < 3).every((n) => n.next.length >= 2 && n.next.length <= 3);
+  const reach = nodes.filter((n) => n.layer > 0).every((n) => nodes.some((m) => m.next.includes(n.id)));
+  return shape && fwd && branch && reach;
+});
+check('v0.05 §6 the graph: start, three layers of 2–3 rooms, the boss; left to right; 2–3 paths ahead of every room; none unreachable', okGraph, JSON.stringify(qg[0]));
+await G(page, () => window.__gametool.openDescend());
+check('v0.05 §6 the trapdoor asks "Enter Normal Dungeon or Run Quick Dungeon?"', await until(page, () => /Enter Normal Dungeon or Run Quick Dungeon\?/.test(document.querySelector('#descend h3').textContent) && !!document.querySelector('#descend [data-act=quick]')));
+await page.fill('#dgSeed', '4242');
+await page.click('#descend [data-act=quick]');
+check('v0.05 §6 Quick Dungeon opens the roadmap (no walking), at the stairs, with the first rooms lit', await until(page, () => { const q = window.__gametool.quick; return q.isOpen && window.__gametool.state === 'forge' && q.at === 'L0' && document.querySelectorAll('#quickDungeon .qd-node.open').length === q.options.length && document.querySelectorAll('#quickDungeon .qd-edge.open').length === q.options.length; }));
+const same = await G(page, () => { const q = window.__gametool.quick; return JSON.stringify(q.graph.nodes); });
+const c0 = await G(page, () => window.__gametool.inventory.count('crown'));
+// Pick with the D-pad route (menuInput) for the first two, then clicks.
+await G(page, () => { const g = window.__gametool; g.menuInput('down'); });
+const selId = await G(page, () => { const q = window.__gametool.quick; return q.options[q.sel]; });
+await G(page, () => window.__gametool.menuInput('ok'));
+check('v0.05 §6 D-pad moves between the rooms ahead and A picks one; its card resolves at once', await G(page, (id) => { const q = window.__gametool.quick; return q.at === id && q.decisions === 1 && !!document.querySelector('#quickDungeon .qd-result h3'); }, selId));
+await G(page, () => window.__gametool.menuInput('ok'));
+let steps = 1;
+while (steps < 4) {
+  const next = await G(page, () => { const q = window.__gametool.quick; return q.result ? null : q.options[q.options.length - 1]; });
+  if (!next) break;
+  await page.click(`#quickDungeon [data-node="${next}"]`);
+  steps++;
+  if (steps < 4) await page.click('#qdOk');
+}
+const fin = await G(page, () => { const q = window.__gametool.quick; return { at: q.at, n: q.decisions, end: q.result?.end, path: q.path, kinds: q.path.map((id) => q.graph.nodes.find((n) => n.id === id).kind) }; });
+check('v0.05 §6 exactly four picks reach the nest, and the nest ends the run', fin.n === 4 && fin.at === 'L4' && !!fin.end, JSON.stringify(fin));
+check('v0.05 §6 the view re-centres on the room you are in', await G(page, () => { const m = document.querySelector('#quickDungeon .qd-map'), n = document.querySelector('#quickDungeon .qd-node.here'); return m.scrollWidth <= m.clientWidth + 2 || Math.abs((n.offsetLeft + 26 - m.scrollLeft) - m.clientWidth / 2) < m.clientWidth / 2; }));
+await page.click('#qdOk');
+check('v0.05 §6 the run ends back at the trapdoor, with its result saved for the seed and the crowns paid', await until(page, () => { const g = window.__gametool; return !g.quick.isOpen && g.state === 'play'; }) && await G(page, (c0) => { const g = window.__gametool; return !!g.delves[4242]?.quick && g.inventory.count('crown') > c0; }, c0));
+const again = await G(page, () => JSON.stringify(window.__gametool.buildQuick(4242).nodes));
+check('v0.05 §6 the same seed gives the same map', again === same);
+await G(page, () => window.__gametool.openQuick(7));
+await page.keyboard.press('Escape');
+check('v0.05 §6 Esc / B backs up the stairs', await until(page, () => !window.__gametool.quick.isOpen && window.__gametool.state === 'play'));
+
 // ---------- B7 living map ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(-30, 0, 30); });
 check('B7 walking reveals the map around you', await until(page, () => window.__gametool.livingMap.isSeen(-30, 30) && !window.__gametool.livingMap.isSeen(40, 40), null, 5000));

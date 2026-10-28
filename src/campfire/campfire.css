@@ -22,3 +22,4 @@
 .cf-pad kbd { font-size: 10px; opacity: .6; }
 .cf-pad.hit { animation: cfHit .25s ease-out; }
 @keyframes cfHit { from { background: #F2B36B; box-shadow: 0 0 14px rgba(242,179,107,.8); } to { background: rgba(242,179,107,.12); box-shadow: none; } }
+#campfire.telling-on { display: none; }

@@ -1,0 +1,31 @@
+/* v0.05 §5: Natalie's telling. Laid out tall: the fire shows through the top, the words fill the lower part. */
+#telling { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: flex-end; pointer-events: auto;
+  background: linear-gradient(90deg, transparent 30%, rgba(14,9,5,.82) 55%); }
+#telling.hidden { display: none; }
+.kt-stage { width: min(560px, 100%); height: 100%; box-sizing: border-box; padding: 28px 22px 18px; display: flex; flex-direction: column; gap: 10px; }
+.kt-head h2 { font-family: var(--serif); margin: 2px 0; color: var(--parchment); }
+.kt-credit { font-size: 12px; color: var(--rune); letter-spacing: .08em; text-transform: uppercase; }
+.kt-text { flex: 1; overflow-y: auto; font: 19px/1.6 var(--serif); color: var(--parchment); padding-right: 6px; }
+.kt-text p { margin: 0 0 1em; }
+.kt-w { opacity: 0; display: inline-block; transform: translateY(6px); transition: opacity .35s ease, transform .35s ease; }
+.kt-w.on { opacity: 1; transform: none; }
+.kt-whisper { font-size: .82em; font-style: italic; font-weight: 300; color: #d8c8a8; }
+.kt-whisper.on { opacity: .78; }
+.kt-em { font-weight: 700; }
+.kt-em.on { animation: ktSwell .5s ease-out; }
+.kt-drama { font-size: 1.5em; font-weight: 700; letter-spacing: .02em; color: #FFD79A; text-shadow: 0 0 14px rgba(242,179,107,.55); }
+.kt-drama.on { animation: ktDrama .9s ease-out; }
+@keyframes ktSwell { 0% { transform: scale(1.35); } 100% { transform: none; } }
+@keyframes ktDrama { 0% { transform: scale(1.8); opacity: 0; filter: blur(3px); } 60% { opacity: 1; filter: none; } 100% { transform: none; } }
+.kt-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+#telling.kt-done .kt-foot .fine { visibility: hidden; }
+.kt-portrait { display: none; }
+#telling.ask-portrait .kt-portrait { display: grid; place-items: center; align-content: center; gap: 14px; position: absolute; inset: 0; z-index: 2;
+  background: rgba(10,7,4,.92); color: var(--parchment); font: 20px/1.4 var(--serif); text-align: center; }
+.kt-portrait span { font-size: 15px; color: var(--stone-l); }
+/* Portrait: the fire and Natalie above, the words in the lower 60%. */
+@media (orientation: portrait) {
+  #telling { align-items: flex-end; background: linear-gradient(180deg, transparent 25%, rgba(14,9,5,.86) 45%); }
+  .kt-stage { width: 100%; height: 62%; padding: 16px; }
+  .kt-text { font-size: 18px; }
+}

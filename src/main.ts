@@ -41,6 +41,8 @@ import { QuestProps } from './quest/props';
 import { Companion, loadCompanion, saveCompanion } from './quest/companion';
 import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
 import { CampfirePanel } from './campfire/campfire';
+import { QuickDungeon, buildQuick } from './dungeon/quick';
+import { TellingView } from './campfire/telling';
 import { loadBallads, balladEntry, decodeTune, SCALE, type Ballad } from './campfire/ballad';
 import { Gallery, GALLERY, type Exhibit } from './campfire/gallery';
 import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
@@ -597,8 +599,10 @@ function animate(dt: number) {
   dungeon.update(bannerT);
   dojo.tick(dt);
   mapClock += dt; if (mapClock > 0.5) { mapClock = 0; if (!inDungeon) livingMap.reveal(player.pos.x, player.pos.z); }
-  const fl = world.campfireFlame;
-  fl.scale.set(1 + Math.sin(bannerT * 13) * 0.06, 1 + Math.sin(bannerT * 9.3) * 0.14 + Math.sin(bannerT * 21) * 0.06, 1 + Math.cos(bannerT * 11) * 0.06);
+  const fl = world.campfireFlame, flare = 1 + fireFlare;
+  fireFlare *= Math.exp(-dt * 2.5);
+  fl.scale.set((1 + Math.sin(bannerT * 13) * 0.06) * flare, (1 + Math.sin(bannerT * 9.3) * 0.14 + Math.sin(bannerT * 21) * 0.06) * flare * flare, (1 + Math.cos(bannerT * 11) * 0.06) * flare);
+  if (satAtFire && player.pos.distanceTo(world.stations.campfire.position) > 25) satAtFire = false;   // left camp: the bedroll waits for the next sit
   fl.rotation.y = bannerT * 0.8;
   const inside = player.pos.x > GALLERY.minX - 3 && player.pos.x < GALLERY.maxX && player.pos.z > GALLERY.minZ && player.pos.z < GALLERY.maxZ;
   if (inside && !inGallery) refreshGallery();
@@ -684,7 +688,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -798,9 +802,37 @@ const campfire = new CampfirePanel(() => {
 }, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); earn(5, 'for a ballad'); }, () => leaveForge(), forgeAuthor);
 campfire.owned = () => [...inventory.counts.keys()].filter((id) => inventory.count(id) > 0);   // v0.04 instruments
 campfire.onWriteLore = () => openEditor(true);   // v0.04: lore is written at the fire, Natalie holds the quill
+// v0.05 §5: Natalie tells a lore page with kinetic type; the fire flares on the emphasised words and the dramatic beats.
+const telling = new TellingView();
+let fireFlare = 0;
+campfire.tales = () => lore.entries.filter((e) => e.type === 'lore' || e.type === 'character' || e.type === 'song').map((e) => ({ id: e.id, title: e.title }));
+campfire.onTell = (id) => {
+  const e = entryById.get(id);
+  if (!e) return;
+  campfire.el.classList.add('telling-on');
+  telling.open(e.title, `Written by ${e.credit_as}`, e.body);
+  frameTelling();
+};
+// Natalie and the fire in the open part of the screen: the left half on a wide screen, the top on a tall one.
+function frameTelling() {
+  const f = world.stations.campfire.position, n = natalieRoot().position, pos = new THREE.Vector3(f.x + 2.4, 1.5, f.z + 1.2);
+  const mid = new THREE.Vector3((f.x + n.x) / 2, 0.6, (f.z + n.z) / 2);
+  const d = mid.clone().sub(pos).setY(0).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0));
+  const tall = innerHeight > innerWidth;
+  if (tall) {   // straight down Natalie's line of sight, so she faces the camera across the flames
+    const dn = new THREE.Vector3(f.x - n.x, 0, f.z - n.z).normalize();
+    pos.copy(mid).addScaledVector(dn, 6).addScaledVector(right, 1.2).setY(2.8); mid.y -= 1.2;
+  } else mid.addScaledVector(right, 1.1);
+  rig.setShot({ pos, look: mid, fov: tall ? 62 : 46 });
+}
+telling.onBeat = (b) => { if (b.tone === 'drama') fireFlare = Math.max(fireFlare, 0.7); else if (b.tone === 'em') fireFlare = Math.max(fireFlare, 0.25); };
+telling.onClose = () => { campfire.el.classList.remove('telling-on'); if (campfire.isOpen) frameForge('fire'); };
 // v0.04: Natalie the bard comes to the fire while you sit there (across the flames from you), then goes back.
 let natalieWas: { x: number; z: number; ry: number } | null = null;
+// v0.05 §4.1: the bedroll is part of the camp. It unlocks once you've sat by the fire, and locks again when you leave camp.
+let satAtFire = false;
 function openCampfire() {
+  satAtFire = true;
   enterForge(); frameForge('fire');
   const n = natalieRoot(), f = world.stations.campfire.position;
   natalieWas = { x: n.position.x, z: n.position.z, ry: n.rotation.y };
@@ -831,7 +863,8 @@ function sleep() {
     toast(next === 'night' ? 'You wake at nightfall. Light your torch (T).' : `You wake at ${WAKE_AT[next]}.`, 2600);
   }, 1100);
 }
-interactables.push({ obj: world.stations.bedroll, verb: () => `Sleep until ${WAKE_AT[NEXT_TIME[world.time]]}`, act: () => sleep(), when: () => !inDungeon });
+interactables.push({ obj: world.stations.bedroll, verb: () => satAtFire ? `Sleep until ${WAKE_AT[NEXT_TIME[world.time]]}` : 'Bedroll (sit by the fire first)',
+  act: () => { if (satAtFire) sleep(); else toast('Sit by the fire first. Rest comes after the camp has settled.', 2600); }, when: () => !inDungeon });
 async function openBallad(b: Ballad) {
   setState('book');
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
@@ -905,7 +938,7 @@ const trapHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), new THREE.M
 trapHit.position.copy(TRAPDOOR).setY(0.3); world.scene.add(trapHit);
 let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
 rig.ceiling = () => (inDungeon ? 2.9 : Infinity);   // the follow camera stays under the dungeon ceiling
-const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; at: string }>; } catch { return {}; } })();
+const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; quick?: 'won' | 'lost'; at: string }>; } catch { return {}; } })();
 const saveDelves = () => { try { localStorage.setItem('gametool.delves', JSON.stringify(delves)); } catch { /* blocked */ } };
 function enterDungeon(seed: number) {
   const L = dungeon.build(seed);
@@ -941,21 +974,34 @@ function openDescend() {
   const el = document.createElement('div');
   el.className = 'gallery-card';
   el.id = 'descend';
-  el.innerHTML = `<div class="card-in"><div class="credit">Under the Ruined Library</div><h3>A trapdoor, and stairs going down</h3>
-    <p>Every seed makes a different dungeon, and the same seed always makes the same one, so you can send a seed to a friend. Today's seed is ${dailySeed()}.</p>
+  el.innerHTML = `<div class="card-in"><div class="credit">Under the Ruined Library</div><h3>Enter Normal Dungeon or Run Quick Dungeon?</h3>
+    <p>The normal dungeon is a place to walk. The quick dungeon is a map you pick through: four choices, then the goblin's nest. Every seed makes a different one, and the same seed always makes the same one, so you can send a seed to a friend. Today's seed is ${dailySeed()}.</p>
     <label class="field">Seed<input id="dgSeed" type="text" maxlength="24" value="${dailySeed()}"></label>
-    <div class="forge-actions"><button class="primary" data-act="go">Descend</button><button class="secondary" data-act="close">Not yet</button></div></div>`;
+    <div class="forge-actions"><button class="primary" data-act="go">Normal Dungeon</button><button class="primary" data-act="quick">Quick Dungeon</button></div>
+    <div class="forge-actions"><button class="secondary" data-act="close">Not yet</button></div></div>`;
   el.addEventListener('click', (ev) => {
     const a = (ev.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
     if (!a) return;
     const seed = seedFrom((el.querySelector('#dgSeed') as HTMLInputElement).value || String(dailySeed()));
     el.remove(); descendSheet = null;
+    if (a.dataset.act === 'quick') { openQuick(seed); return; }   // stays in the forge state until the run ends
     leaveForge();
     if (a.dataset.act === 'go') enterDungeon(seed);
   });
   document.body.appendChild(el);
   descendSheet = el;
 }
+// v0.05 §6: the Quick Dungeon, a menu-only run picked from the trapdoor.
+const quick = new QuickDungeon();
+quick.carvings = () => shrineLines.map((e) => ({ line: e.body.replace(/^#.*$/gm, '').replace(/[*_>[\]]/g, '').trim().split(/(?<=[.!?])\s+/)[0], title: e.title, credit: e.credit_as }));
+quick.onReward = (r) => { if (r.crowns) inventory.give(CROWN, r.crowns); for (const [id, n] of r.items) inventory.give(id, n); };
+quick.onFinish = (seed, end) => {
+  const d = delves[seed] ?? (delves[seed] = { theme: quick.graph!.theme, at: new Date().toISOString().slice(0, 10) });
+  if (end !== 'fled' && d.quick !== 'won') { d.quick = end; saveDelves(); }
+  toast(end === 'won' ? 'The nest is cleared. Quick Dungeon done.' : end === 'lost' ? 'Back at the trapdoor. Rest up and try again.' : 'Back at the trapdoor.', 3200);
+};
+quick.onClose = () => leaveForge();
+function openQuick(seed: number) { if (state !== 'forge') enterForge(); quick.open(seed); }
 // ---------- Phase F: B7 living map ----------
 const livingMap = new LivingMap(() => {
   const m: Mark[] = [];
@@ -1425,6 +1471,8 @@ function menuButtons(): HTMLButtonElement[] {
 function focusMenu(i: number) { const bs = menuButtons(); bs[Math.max(0, Math.min(bs.length - 1, i))]?.focus({ preventScroll: true }); }
 function menuInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boolean {
   if (intro?.active) { intro.input(); return true; }
+  if (telling.isOpen) { if (dir === 'ok') telling.press(); else if (dir === 'back') telling.close(); return true; }
+  if (quick.isOpen) { quick.input(dir); return true; }
   if (extras.isOpen && extras.tab === 'evolution' && (dir === 'left' || dir === 'right')) { extras.go(extras.index + (dir === 'right' ? 1 : -1)); return true; }
   if (extras.isOpen && dir === 'back') { extras.back(); if (extras.isOpen) focusMenu(0); return true; }
   if (gateOpen && dir === 'back') { gateNo(); return true; }
@@ -1475,7 +1523,7 @@ const hooks: GameHooks = {
   stepCamera: (n) => stepView(n),
   toggleTorch: () => toggleTorch(),
   quickSwap: (h) => quickSwap(h),
-  menuActive: () => !!intro?.active || extras.isOpen || gateOpen,
+  menuActive: () => !!intro?.active || extras.isOpen || gateOpen || telling.isOpen || quick.isOpen,
   menu: (d) => menuInput(d),
   setMode,
 };
@@ -1845,4 +1893,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

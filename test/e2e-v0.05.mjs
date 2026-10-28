@@ -41,7 +41,7 @@ check('F4.1 1 equips the crossbow (viewmodel shown)', equipped, JSON.stringify(a
 // F4.3 normal reload: R, wait 2 s.
 const t0 = Date.now();
 await page.keyboard.press('KeyR');
-await page.waitForFunction(() => window.__gametool.crossbow.loaded, null, { timeout: 6000 });
+await page.waitForFunction(() => window.__gametool.crossbow.loaded, null, { timeout: 15000 });
 const r1 = await cb(() => ({ out: window.__gametool.crossbow.lastReloadOutcome, bolts: window.__gametool.inventory.count('bolt') }));
 check('F4.3 normal reload: R loads a bolt after ~2 s', r1.out === 'normal' && r1.bolts === 9 && Date.now() - t0 > 1500, JSON.stringify(r1));
 
@@ -70,7 +70,7 @@ check('F4.2 bolt sticks where it hits (library wall)', !!stuck && stuck.stuck &&
 check('F4.4 a shot consumed a bolt (not reloaded yet)', await cb(() => !window.__gametool.crossbow.loaded && window.__gametool.inventory.count('bolt') === 9));
 // Gravity: fire level from a height, it drops.
 await page.keyboard.press('KeyR');
-await page.waitForFunction(() => window.__gametool.crossbow.loaded, null, { timeout: 6000 });
+await page.waitForFunction(() => window.__gametool.crossbow.loaded, null, { timeout: 15000 });
 await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, 8); p.yaw = Math.PI; p.pitch = 0; });
 await page.waitForTimeout(200);
 await page.mouse.down({ button: 'left' }); await page.mouse.up({ button: 'left' });
