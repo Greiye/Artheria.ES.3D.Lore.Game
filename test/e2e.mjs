@@ -122,7 +122,8 @@ if (!longOnly) {
   check('F2 Alt (hold) sprints (~8 m/s)', sprint > 6.8 && sprint < 8.8, sprint.toFixed(2) + ' m/s');
   for (const [k, sign, axis] of [['KeyS', 1, 'x'], ['KeyA', 1, 'z'], ['KeyD', -1, 'z']]) {
     await teleport(page, 0, 30, Math.PI / 2);
-    const a = await pos(page); await hold(page, k, 300); const b = await pos(page);
+    // Held for frames, not wall-clock ms: a slow software frame (the town street is in view here) can outlast 300 ms.
+    const a = await pos(page); await page.keyboard.down(k); await frames(page, 4); await page.keyboard.up(k); const b = await pos(page);
     check(`F2 ${k.slice(3)} moves the right way`, Math.sign(b[axis] - a[axis]) === sign, `${axis} ${a[axis].toFixed(2)} → ${b[axis].toFixed(2)}`);
   }
   await page.keyboard.press('CapsLock');

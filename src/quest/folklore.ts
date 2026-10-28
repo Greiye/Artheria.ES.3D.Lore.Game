@@ -5,7 +5,7 @@ import type { DialogueScript } from '../dialogue';
 
 // B12 item folklore: name a thing you carry or found, give it a history and a rumor. Legendary items
 // carry fixed canon lore (credited) with curated player rumors stacked under it; your own words stay on
-// this device until submitted. The Curio Pedlar (a placeholder NPC by the coach road) is where you tell them.
+// this device until submitted. Magister Greer (Aralon's wizard-trader, once the Curio Pedlar placeholder) by the coach road is where you tell them.
 export interface Folk { name: string; history: string; rumor: string }
 type Legend = { name: string; legendary: boolean; canon: string; source: string; credit_as: string; rumors: { text: string; credit_as: string }[] };
 export const LEGENDS = legendary.items as Record<string, Legend>;
@@ -37,7 +37,7 @@ export function pedlarScript(seen: string[]): DialogueScript {
       { text: 'Just looking.', next: 'bye' },
     ] },
     tell: { text: "Go on, then. Give it a name, a past, and one good lie.", actions: ['folklore:open'], end: true },
-    bye: { text: "Looking is free. Lies cost extra.", end: true },
+    bye: { text: "Looking is free. Lies cost extra. Everything else costs triple.", end: true },
   };
   for (const id of known) nodes['l_' + id] = { text: LEGENDS[id].canon, next: 'p1' };
   return { speaker: PEDLAR.name, start: 'p1', nodes };

@@ -36,3 +36,11 @@
 .submit-actions .btn:first-child { background: var(--rune); color: var(--shadow); border: 0; }
 .submit-actions .ghost { background: transparent; color: var(--stone-l); }
 @media (max-width: 600px) { .forge-panel { top: 40vh; width: 100vw; border-right: 0; border-top: 1px solid var(--stone-d); } }
+
+/* v0.04 general store */
+.shop-line { font-family: var(--serif); font-style: italic; color: var(--parchment); margin: 0 0 10px; }
+.shop-purse { font-size: 18px; color: #F2C94C; margin-bottom: 4px; }
+.shop-row { display: flex; justify-content: space-between; gap: 10px; width: 100%; margin: 4px 0; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--stone-d); background: rgba(255,255,255,.04); color: var(--parchment); font: inherit; cursor: pointer; text-align: left; }
+.shop-row:disabled { opacity: .45; cursor: default; }
+@media (hover: hover) { .shop-row:not(:disabled):hover { background: rgba(63,224,232,.14); } }

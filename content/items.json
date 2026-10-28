@@ -1,8 +1,40 @@
 {
   "schemaVersion": 1,
   "items": {
-    "crossbow": { "name": "Scout's Crossbow", "icon": "⌖", "note": "Natalie's scout won't be needing it tonight. Mind the reload." },
-    "trinket": { "name": "Trinket from below", "icon": "◈", "note": "Found in a chest under the library. The Curio Pedlar would love to hear its story." },
-    "bolt": { "name": "Crossbow Bolt", "icon": "➶", "note": "Pick spent bolts back up with E." }
+    "crossbow": {
+      "name": "Scout's Crossbow",
+      "icon": "⌖",
+      "note": "Natalie's scout won't be needing it tonight. Mind the reload."
+    },
+    "trinket": {
+      "name": "Trinket from below",
+      "icon": "◈",
+      "note": "Found in a chest under the library. Magister Greer would love to hear its story."
+    },
+    "bolt": {
+      "name": "Crossbow Bolt",
+      "icon": "➶",
+      "note": "Pick spent bolts back up with E."
+    },
+    "crown": {
+      "name": "Crown",
+      "icon": "◎",
+      "note": "Town coin. Earned by finding things and by writing; spent at the General Store."
+    },
+    "whistle": {
+      "name": "Tin Whistle",
+      "icon": "♪",
+      "note": "Six holes and a bright voice. Play it by the campfire."
+    },
+    "drum": {
+      "name": "Hand Drum",
+      "icon": "◍",
+      "note": "Goatskin over a hoop. Keeps a bard's time."
+    },
+    "lute": {
+      "name": "Lute",
+      "icon": "♫",
+      "note": "A travelling bard's lute, a little out of tune."
+    }
   }
 }

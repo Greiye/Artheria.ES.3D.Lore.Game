@@ -166,7 +166,7 @@ function drawFrame(g: CanvasRenderingContext2D, x0: number, y0: number, L: Figur
   const turnX = (lx: number) => cx + lx * ca - sa * r * 0.0;   // a head-local x on screen (centre stays put)
   const faceX = cx - sa * r * 0.55;                            // where the face centre sits as it turns
   const long = style === 'flowing' || style === 'long';
-  const hairLen = style === 'flowing' ? 1.9 * r : style === 'long' ? 1.6 * r : 0;
+  const hairLen = style === 'flowing' ? 1.1 * r : style === 'long' ? 1.6 * r : 0;   // Mike 2026-10-28: the heroine's back hair shorter (was 1.9)
 
   if (part === 'head') {
   // 1. Hair behind the head (seen around it) and long hair falling down the back.

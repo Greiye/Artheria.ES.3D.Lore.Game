@@ -50,6 +50,8 @@ import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
 import { Torch } from './torch';
 import { HeldBook } from './heldBook';
+import { ShopPanel, CROWN } from './shop';
+import { TOWN_NAMES, type TownId } from './world/town';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
 
@@ -106,6 +108,7 @@ post = new Post(renderer, world.scene, camera);
 post.setSize(window.innerWidth, window.innerHeight);
 post.setEnabled(settings.postFx);
 const player = new Player(settings, world.colliders, world.bounds);
+player.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));   // v0.04 hills (the dungeon floor is flat)
 player.spawn(world.spawn.pos, world.spawn.yaw);
 // R3: the camera rig places the camera (follow / first person / framed shots); the player only moves.
 const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => settings.fov);
@@ -534,6 +537,7 @@ function animate(dt: number) {
   if (landed) haptics.play('land');
   torch.update(dt, !player.thirdPerson);
   heldBook.set(state === 'book' && reader.isOpen);
+  if (player.pos.y > 3.3 && !player.airborne) earn(5, 'a purse left on the lookout', 'lookout');
   if (quickTimer > 0 && (quickTimer -= dt) <= 0) $('quick').classList.add('hidden');
   if (player.vaults !== lastVaults) { lastVaults = player.vaults; haptics.play('jump'); }
   const rm = crossbow.reload.active ? crossbow.reload.mode : null;   // v0.04: feel the reload start and a jam
@@ -599,7 +603,7 @@ function frameForge(target: 'body' | 'crossbow' | 'banner' | 'fire') {
   }
   if (target === 'crossbow') {
     // Close on the anvil, the crossbow in the right half of the screen (the panel takes the left).
-    const a = world.stations.anvil.position, top = new THREE.Vector3(a.x, 1.3, a.z);
+    const a = anvilSpot, top = new THREE.Vector3(a.x, 1.3, a.z);
     const pos = new THREE.Vector3(a.x + 2.1, 1.65, a.z + 0.5);
     const d = top.clone().sub(pos).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
     rig.setShot({ pos, look: top.addScaledVector(right, -0.32), fov: 42 });
@@ -639,14 +643,26 @@ const weaponForge = new WeaponForge(
   (c: WeaponCosmetic) => { weaponDisplay.clear(); weaponDisplay.add(buildCrossbowModel(c)); },
   (c: WeaponCosmetic) => { crossbow.applyCosmetic(c); weaponDisplay.visible = false; leaveForge(); },
   loreWords, forgeAuthor);
-function openWeaponForge() {
+// v0.04: the weapon forge opens at the camp anvil or at the town smithy, wherever you asked for it.
+const anvilSpot = world.stations.anvil.position.clone();
+function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
+  anvilSpot.copy(at);
+  weaponDisplay.position.set(at.x, 1.3, at.z);
   enterForge();
   frameForge('crossbow');
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); campfire.close(); livingMap.close(); dojo.close(); shop.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
+// v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
+const paidFor = new Set<string>();
+function earn(n: number, why: string, once?: string) {
+  if (once) { if (paidFor.has(once)) return; paidFor.add(once); }
+  inventory.give(CROWN, n);
+  toast(`+${n} ◎ ${why}`, 2400);
+}
+let marginCount = loadMargins().length;
 let stationery: Stationery = loadStationery();
 const setStationery = (s: Stationery) => { stationery = s; saveStationery(s); applyStationery(s); refreshMarginsInWorld(); };
 applyStationery(stationery);
@@ -660,19 +676,24 @@ function refreshMarginsInWorld() {
 }
 const deskFor = (b: Book) => {
   const d = new MarginDesk(b, () => stationery, setStationery, (id) => entryById.get(id), forgeAuthor);
-  d.onChange = () => { otherDesks(d); refreshMarginsInWorld(); };
+  d.onChange = () => {
+    const n = loadMargins().length;
+    if (n > marginCount) earn(2, 'for a margin note');
+    marginCount = n;
+    otherDesks(d); refreshMarginsInWorld();
+  };
   return d;
 };
 const lecternDesk = deskFor(book), readerDesk = deskFor(reader);
 const otherDesks = (d: MarginDesk) => { (d === lecternDesk ? readerDesk : lecternDesk).reload(); };
 refreshMarginsInWorld();
 const sketchPad = new SketchPad(
-  (s: Sketch) => { stampBanner(world.bannerCloth, s); try { localStorage.setItem('gametool.banner', s.id); } catch { /* blocked */ } toast(`"${s.name}" hangs on the banner.`); },
+  (s: Sketch) => { stampBanner(world.bannerCloth, s); try { localStorage.setItem('gametool.banner', s.id); } catch { /* blocked */ } toast(`"${s.name}" hangs on the banner.`); earn(3, 'for a banner sketch', 'sketch:' + s.id); },
   () => leaveForge(), forgeAuthor);
 stampBanner(world.bannerCloth, (() => { try { return sketchById(localStorage.getItem('gametool.banner') ?? '') ?? DEFAULT_SKETCH; } catch { return DEFAULT_SKETCH; } })());
-function openSketchbook() {
+function openSketchbook(frame: 'banner' | 'body' = 'banner') {
   enterForge();
-  frameForge('banner');
+  frameForge(frame);
   sketchPad.open(sketchById(world.bannerCloth.userData.sketch));
 }
 // ---------- Phase D: B2 companion + detective quest, B12 item folklore; saved on this device ----------
@@ -709,6 +730,7 @@ function findClue(id: string) {
   questProps.sync(quest.clues);
   audio.pageTurn();
   toast(`Clue: ${c.name}. ${c.text} (J: casebook)`, 6000);
+  setTimeout(() => earn(2, 'found'), 6200);
   if (companion.prefs.follow) setTimeout(() => companion.say(c.natalie, { key: 'clue:' + id, force: true }), 1800);
   if (quest.clues.length === QUEST.minClues && quest.stage === 'clues') setTimeout(() => companion.say(QUEST.natalie.hintReady, { key: 'ready', force: true }), 7000);
 }
@@ -726,11 +748,11 @@ interactables.push({ obj: questProps.leadHit, verb: () => 'Follow the blue light
     f3: { text: end.note, end: true },
   } });
 } });
-// B12: the Curio Pedlar by the coach road.
+// B12: Magister Greer (the Curio Pedlar, Mike's pick 2026-10-28) by the coach road.
 const pedlarHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.7, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
 pedlarHit.position.copy(world.standees.pedlar.position).setY(0.85);
 world.scene.add(pedlarHit);
-interactables.push({ obj: pedlarHit, verb: () => 'Talk to the Curio Pedlar', act: () => {
+interactables.push({ obj: pedlarHit, verb: () => 'Talk to Magister Greer', act: () => {
   if (inventory.count('crossbow') > 0) markSeen('crossbow');
   talkTo('pedlar', pedlarHit.position, pedlarScript(seen));
 } });
@@ -742,7 +764,7 @@ const campfire = new CampfirePanel(() => {
     quest.theory ? `You said it was ${tagLabel('who', quest.theory.who).toLowerCase()}. I wrote it down.` : 'I was behind you the whole way. Mostly.',
     quest.stage === 'done' && quest.theory ? `And ${ending(quest.theory).friend} came home.` : "And the fire's still going, so it isn't over.",
   ];
-}, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); }, () => leaveForge(), forgeAuthor);
+}, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); earn(5, 'for a ballad'); }, () => leaveForge(), forgeAuthor);
 function openCampfire() { enterForge(); frameForge('fire'); campfire.open(); }
 interactables.push({ obj: world.stations.campfire, verb: () => 'Sit by the fire', act: () => openCampfire() });
 // v0.04: sleep on the bedroll. The view fades out, the time of day moves on (day -> sunset -> night -> day),
@@ -940,7 +962,7 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
       if (d.chest) { toast('Empty. You already took what was here.'); return; }
       d.chest = true; saveDelves();
       inventory.give('trinket', 1);
-      toast(`A trinket from below (I: inventory). The Curio Pedlar would love to hear its story.`, 4500);
+      toast(`A trinket from below (I: inventory). Magister Greer would love to hear its story.`, 4500);
       return;
     }
     if (s.kind === 'shrine') {
@@ -983,6 +1005,28 @@ interactables.push(
   { obj: world.stations.banner, verb: () => 'Paint the banner', act: () => openSketchbook() },
   { obj: world.stations.anvil, verb: () => inventory.count('crossbow') > 0 ? 'Forge your crossbow' : 'Anvil (bring a crossbow)', act: () => { if (inventory.count('crossbow') > 0) openWeaponForge(); else toast('Natalie has a crossbow you could borrow.'); } },
 );
+// v0.04 town: one building per tool. E at a door opens it; the shopkeeper trades at the counter.
+const shop = new ShopPanel(inventory, () => leaveForge());
+function openShop() {
+  enterForge();
+  const k = world.town.shopkeeper.position, top = new THREE.Vector3(k.x, 1.3, k.z);
+  const pos = new THREE.Vector3(k.x + 2.6, 1.7, k.z - 3.0);   // from the side, past the player's shoulder
+  const d = top.clone().sub(pos).normalize(), right = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0, 1, 0)).normalize();
+  rig.setShot({ pos, look: top.addScaledVector(right, -0.7), fov: 44 });
+  shop.open();
+}
+const townAct: Record<TownId, () => void> = {
+  smithy: () => { if (inventory.count('crossbow') > 0) openWeaponForge(world.town.doors.smithy.position.clone().setY(0).add(new THREE.Vector3(0, 0, 1.4))); else toast('The smith works on crossbows. Natalie has one you could borrow.'); },
+  tailor: () => openCharacterForge(),
+  scriptorium: () => openSketchbook('body'),
+  cartographer: () => openMap(),
+  shop: () => openShop(),
+  inn: () => { if (!inDungeon) sleep(); },
+};
+for (const id of Object.keys(townAct) as TownId[]) {
+  interactables.push({ obj: world.town.doors[id], verb: () => id === 'inn' ? `Rent a bed until ${WAKE_AT[NEXT_TIME[world.time]]}` : `Enter the ${TOWN_NAMES[id]}`, act: () => townAct[id]() });
+}
+interactables.push({ obj: world.town.shopkeeperHit, verb: () => 'Trade with the Shopkeeper', act: () => openShop() });
 function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; syncLock(); }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; if (player.thirdPerson) player.pitch = 0; syncLock(); }
@@ -1125,7 +1169,7 @@ function activate() {
 
 // ---------- F5 shelves: grey books (roll table), red books + artifacts (reader) ----------
 function useLibrary(h: LibraryHit) {
-  if (h.kind === 'relic') { markSeen('noctavel_shard'); toast('A shard of the Noctavel Portal hums in its cradle. The fire never reached it. (The Curio Pedlar might know more.)', 4500); return; }
+  if (h.kind === 'relic') { markSeen('noctavel_shard'); toast('A shard of the Noctavel Portal hums in its cradle. The fire never reached it. (Magister Greer might know more.)', 4500); return; }
   if (h.kind === 'grey') { toast(greyBooks.lines[Math.floor(Math.random() * greyBooks.lines.length)], 3000); audio.pageTurn(); return; }   // F5.3
   const e = entryById.get(h.slug);
   if (!e) return;
@@ -1203,6 +1247,7 @@ $('eDownload').addEventListener('click', () => {
   const e = entryFromForm();
   if (!e) return;
   downloadMarkdown(e.slug, e.markdown);
+  earn(10, 'for a lore page', 'lore:' + e.slug);
   eMsg.textContent = `Downloaded ${e.slug}.md — upload it into content/lore/ on github.com (Add file → Upload files), then commit.`;
 });
 $('ePublish').addEventListener('click', () => {
@@ -1212,6 +1257,7 @@ $('ePublish').addEventListener('click', () => {
   eMsg.textContent = 'Publishing…';
   void publishToGitHub(loadGitHub(), e.slug, e.markdown, e.title).then((r) => {
     if (r.ok) {
+      earn(10, 'for a lore page', 'lore:' + e.slug);
       eMsg.textContent = `Published. The site rebuilds in ~1–2 min — check ${r.actionsUrl}`;
       eTitle.value = ''; eTags.value = ''; eBody.value = '';
     } else {
@@ -1601,4 +1647,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

@@ -34,8 +34,9 @@ check('F4.1 1 does nothing before Natalie hands over the crossbow', await cb(() 
 // What Natalie's n4 gives (F3.4).
 await cb(() => { const i = window.__gametool.inventory; i.give('crossbow', 1); i.give('bolt', 10); });
 await page.keyboard.press('Digit1');
-await page.waitForTimeout(200);
-check('F4.1 1 equips the crossbow (viewmodel shown)', await cb(() => window.__gametool.crossbow.equipped && window.__gametool.crossbow.viewmodel.visible));
+// Wait on game state, not 200 ms of wall clock: the viewmodel shows on the next rendered frame, and software frames are slow.
+const equipped = await page.waitForFunction(() => window.__gametool.crossbow.equipped && window.__gametool.crossbow.viewmodel.visible, null, { timeout: 5000, polling: 100 }).then(() => true, () => false);
+check('F4.1 1 equips the crossbow (viewmodel shown)', equipped, JSON.stringify(await cb(() => ({ eq: window.__gametool.crossbow.equipped, vis: window.__gametool.crossbow.viewmodel.visible, state: window.__gametool.state }))));
 
 // F4.3 normal reload: R, wait 2 s.
 const t0 = Date.now();

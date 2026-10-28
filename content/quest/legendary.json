@@ -1,9 +1,8 @@
 {
   "schemaVersion": 1,
   "pedlar": {
-    "name": "The Curio Pedlar",
-    "placeholder": true,
-    "greeting": "Curios, stories, and lies. Mostly lies. Show me what you carry, and I'll tell you what it's worth in words."
+    "name": "Magister Greer",
+    "greeting": "Magister Greer, wizard, collector of curios, and only occasionally a rooster. Show me what you carry and I'll tell you what it's worth in words. Words are cheap. My prices are not."
   },
   "items": {
     "noctavel_shard": {
