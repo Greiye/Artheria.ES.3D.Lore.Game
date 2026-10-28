@@ -305,3 +305,37 @@ body[data-pad="playstation"] .padmap .face2 { color: #D88AC8; } body[data-pad="p
 #keyBinds kbd { min-width: 28px; text-align: center; }
 #gateConfirm { z-index: 46; }
 #title button:focus-visible, #extras button:focus-visible, #gateConfirm button:focus-visible { outline: 3px solid var(--rune); outline-offset: 2px; }
+
+/* ---------- Style pass 1: parchment-and-leather UI skin ----------
+   Matches the carved-wall title: tooled-leather panels with a gold stitched border, gold serif headings,
+   carved-wood primary buttons and parchment outlines. Accent cyan becomes antique gold (the 3D rune glow keeps
+   its own colour in src/palette.ts). CSS only: no GPU cost. */
+:root { --rune: #E2B567; --gold: #E2B567; --gold-d: #9C6A2A; --leather: #3A2A1E; --leather-d: #24190F; }
+.screen { background: radial-gradient(ellipse at center, rgba(36,25,15,.5), rgba(20,14,8,.86)); }
+.card {
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(255,214,150,.10), rgba(0,0,0,0) 60%),
+    linear-gradient(160deg, #46321F, var(--leather) 45%, var(--leather-d));
+  border: 2px solid #1A1209;
+  box-shadow: inset 0 0 0 5px rgba(26,18,9,.55), inset 0 0 0 6px rgba(226,181,103,.55), inset 0 0 40px rgba(0,0,0,.45), 0 18px 50px rgba(0,0,0,.55);
+  border-radius: 12px;
+}
+.card h1 { font-family: Georgia, var(--serif); color: transparent; background: linear-gradient(#FFF1C8, #E2B567 60%, #B88440); -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 2px 0 #1A140C); letter-spacing: .02em; }
+.eyebrow { color: var(--gold); font-family: Georgia, var(--serif); }
+.lead, label, .keys td { color: #D8C8A4; }
+.fine { color: #B4A27C; }
+button.primary {
+  background: linear-gradient(#A0703E, #7A5030 55%, #5E3A20); color: #FFF1C8; border: 1px solid #2A1A0C;
+  box-shadow: inset 0 1px 0 rgba(255,230,180,.45), inset 0 -2px 0 rgba(0,0,0,.35), 0 0 0 2px rgba(226,181,103,.45), 0 3px 8px rgba(0,0,0,.4);
+  text-shadow: 0 1px 0 #2A1A0C; font-family: Georgia, var(--serif); font-size: 15px; letter-spacing: .03em;
+}
+button.primary:hover { filter: brightness(1.12); }
+button.secondary { color: #E8D8B4; border: 1px solid rgba(226,181,103,.45); background: rgba(239,227,196,.05); font-family: Georgia, var(--serif); }
+button.secondary:hover { border-color: var(--gold); color: #FFF1C8; background: rgba(239,227,196,.10); }
+button:focus-visible { outline: 3px solid #FFE2A0; }
+kbd { background: linear-gradient(#F2E2B8, #D8C090); color: #2A1A0C; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25); }
+#prompt { background: rgba(36,25,15,.88); border-color: rgba(226,181,103,.7); font-family: Georgia, var(--serif); }
+.daily { background: rgba(226,181,103,.08); }
+.cin-row.on { background: rgba(226,181,103,.14); }
+select { background: #EFE3C4; color: #2A1A0C; border: 1px solid var(--gold-d); border-radius: 5px; padding: 2px 4px; font: 13px var(--ui); }

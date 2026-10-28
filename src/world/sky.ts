@@ -20,6 +20,7 @@ const SKY = {
 
 // v0.04 time of day. The game starts at a dark sunset (bring a torch); sleeping on the bedroll moves it on:
 // day -> sunset -> night -> day. Each phase sets the sun (or moon), sky gradient, haze, fill light and shafts.
+// Style pass 1: warm key light, cool (teal / slate) fill from below.
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 export const NEXT_TIME: Record<TimeOfDay, TimeOfDay> = { day: 'sunset', sunset: 'night', night: 'day' };
 interface Phase {
@@ -27,10 +28,10 @@ interface Phase {
   zenith: string; upper: string; horizon: string; glow: string; fog: string; shafts: number; disc: string; stars: number;
 }
 const PHASES: Record<TimeOfDay, Phase> = {
-  day: { elev: 38, az: 38, sun: '#FFF0D8', sunI: 2.6, hemiSky: '#D8EAF4', hemiGround: '#6A7A3A', hemiI: 1.35,
+  day: { elev: 38, az: 38, sun: '#FFEACA', sunI: 2.6, hemiSky: '#D4E8F6', hemiGround: '#5A7458', hemiI: 1.35,
     zenith: SKY.zenith, upper: SKY.upper, horizon: '#E8EEEC', glow: '#FFF2D0', fog: SKY.fog, shafts: 0.12, disc: '#FFF4DC', stars: 0 },
   // Darker than the old golden hour: the sun is nearly down, the fill is dim and violet.
-  sunset: { elev: 6, az: 38, sun: '#FF9A50', sunI: 1.5, hemiSky: '#9AA6C8', hemiGround: '#4A4034', hemiI: 0.62,
+  sunset: { elev: 6, az: 38, sun: '#FF9A50', sunI: 1.55, hemiSky: '#9AA8CC', hemiGround: '#3E4652', hemiI: 0.66,
     zenith: '#22346E', upper: '#5E64A0', horizon: '#F0A070', glow: '#FFB060', fog: '#8E8098', shafts: 0.16, disc: '#FFC890', stars: 0.25 },
   night: { elev: 32, az: 218, sun: '#8AA4E0', sunI: 0.32, hemiSky: '#3A4C74', hemiGround: '#16161E', hemiI: 0.34,
     zenith: '#050918', upper: '#0E1834', horizon: '#26304C', glow: '#3A4668', fog: '#141A2C', shafts: 0, disc: '#DCE6FF', stars: 1 },

@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 
-// Painted textures, made at load time from a few colours plus soft clustered noise. No image files ship.
-// Rebuild R1 started these as Vintage Story-style pixel textures; storybook restyle S3 brightened the ramps
-// toward the "Echoes of Avalon" palette and filters them smoothly, so they read hand-painted. Every tile is TILE px and covers
-// 1 m (TEXELS_PER_M), so props, walls and ground share one texel density.
-// PLACEHOLDER: hand-painted texture atlas once one is designed.
+// Painted textures, made at load time from a few colours with soft washes and brush strokes. No image files ship.
+// Rebuild R1 started these as Vintage Story-style pixel textures; style pass 1 repaints them fully painted
+// (Mega Man Legends-style flat colour with a hand-painted feel). Every tile is TILE px and covers 1 m, so props,
+// walls and ground share one texel density.
 
-const TILE = 32;
+const TILE = 64;
 
 type RGB = [number, number, number];
 const hex = (h: string): RGB => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -39,160 +38,240 @@ function valueNoise(W: number, H: number, cells: number, R: () => number): Float
   return out;
 }
 
-// Mottled fill: two noise octaves + per-texel jitter pick from a dark→light ramp (the Vintage Story look).
-function mottle(g: CanvasRenderingContext2D, W: number, H: number, ramp: string[], R: () => number, opts: { cells?: number; jitter?: number; alpha?: (x: number, y: number) => number } = {}) {
-  const n1 = valueNoise(W, H, opts.cells ?? 4, R), n2 = valueNoise(W, H, (opts.cells ?? 4) * 2, R);
-  const cols = ramp.map(hex), img = g.getImageData(0, 0, W, H), d = img.data, j = opts.jitter ?? 0.22;
+// Style pass 1 ("fully painted", Mike 2026-10-28): every tile is painted with soft washes and brush strokes,
+// MML-style flat colour with a hand-painted feel. No per-texel speckle. Tiles are 64 px per metre.
+
+const lerpRGB = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+// Smooth wash: two soft noise octaves blend smoothly along a dark → light ramp (no banding, no speckle).
+function wash(g: CanvasRenderingContext2D, W: number, H: number, ramp: string[], R: () => number, opts: { cells?: number; alpha?: (x: number, y: number) => number } = {}) {
+  const n1 = valueNoise(W, H, opts.cells ?? 3, R), n2 = valueNoise(W, H, (opts.cells ?? 3) * 3, R);
+  const cols = ramp.map(hex), img = g.getImageData(0, 0, W, H), d = img.data;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x;
-    const t = Math.min(0.999, Math.max(0, n1[i] * 0.6 + n2[i] * 0.4 + (R() - 0.5) * j * 0.4));   // S3: soft, little per-texel speckle
-    const c = cols[Math.floor(t * cols.length)];
-    const a = opts.alpha ? opts.alpha(x, y) : 1;
-    d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; d[i * 4 + 3] = a * 255;
+    const t = Math.min(0.999, Math.max(0, n1[i] * 0.75 + n2[i] * 0.25)) * (cols.length - 1);
+    const k = Math.floor(t), c = lerpRGB(cols[k], cols[Math.min(cols.length - 1, k + 1)], t - k);
+    d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; d[i * 4 + 3] = (opts.alpha ? opts.alpha(x, y) : 1) * 255;
   }
   g.putImageData(img, 0, 0);
 }
 
-const px = (g: CanvasRenderingContext2D, x: number, y: number, c: RGB | string, a = 1) => {
-  g.fillStyle = typeof c === 'string' ? c : css(c, a); g.fillRect(x, y, 1, 1);
-};
+// Draw `fn` at (x, y) and at its wrapped copies, so strokes that cross an edge tile seamlessly.
+function wrapped(W: number, H: number, x: number, y: number, r: number, fn: (x: number, y: number) => void) {
+  for (const ox of [0, -W, W]) for (const oy of [0, -H, H]) {
+    if (x + ox + r < 0 || x + ox - r > W || y + oy + r < 0 || y + oy - r > H) continue;
+    fn(x + ox, y + oy);
+  }
+}
+// A soft round dab (radial falloff): the basic painted blot.
+function dab(g: CanvasRenderingContext2D, W: number, H: number, x: number, y: number, r: number, col: string, a: number) {
+  const c = hex(col);
+  wrapped(W, H, x, y, r, (cx, cy) => {
+    const grd = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grd.addColorStop(0, css(c, a)); grd.addColorStop(0.6, css(c, a * 0.6)); grd.addColorStop(1, css(c, 0));
+    g.fillStyle = grd; g.fillRect(cx - r, cy - r, r * 2, r * 2);
+  });
+}
+// A tapered brush stroke from (x, y) along angle `ang`, `len` long and `w` wide at its base.
+function stroke(g: CanvasRenderingContext2D, W: number, H: number, x: number, y: number, ang: number, len: number, w: number, col: string, a = 1, bend = 0) {
+  const c = hex(col), dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx;
+  wrapped(W, H, x, y, len + w, (sx, sy) => {
+    const ex = sx + dx * len + nx * bend, ey = sy + dy * len + ny * bend, mx = sx + dx * len * 0.5 + nx * bend * 0.6, my = sy + dy * len * 0.5 + ny * bend * 0.6;
+    g.fillStyle = css(c, a);
+    g.beginPath();
+    g.moveTo(sx + nx * w / 2, sy + ny * w / 2);
+    g.quadraticCurveTo(mx + nx * w * 0.3, my + ny * w * 0.3, ex, ey);
+    g.quadraticCurveTo(mx - nx * w * 0.3, my - ny * w * 0.3, sx - nx * w / 2, sy - ny * w / 2);
+    g.closePath(); g.fill();
+  });
+}
+// An irregular rounded blob (stones, cobbles, leaf clumps), lit from the top left.
+function blob(g: CanvasRenderingContext2D, W: number, H: number, x: number, y: number, rx: number, ry: number, R: () => number, base: string, light: string, dark: string) {
+  const pts = Array.from({ length: 9 }, (_, i) => { const t = i / 9 * Math.PI * 2, k = 0.82 + R() * 0.3; return [Math.cos(t) * rx * k, Math.sin(t) * ry * k]; });
+  const path = (cx: number, cy: number) => {
+    g.beginPath();
+    pts.forEach(([px0, py0], i) => { const [qx, qy] = pts[(i + 1) % pts.length]; const mx = (px0 + qx) / 2, my = (py0 + qy) / 2; if (!i) g.moveTo(cx + (pts[8][0] + px0) / 2, cy + (pts[8][1] + py0) / 2); g.quadraticCurveTo(cx + px0, cy + py0, cx + mx, cy + my); });
+    g.closePath();
+  };
+  const r = Math.max(rx, ry);
+  wrapped(W, H, x, y, r, (cx, cy) => {
+    const grd = g.createLinearGradient(cx - rx * 0.7, cy - ry * 0.8, cx + rx * 0.6, cy + ry * 0.9);
+    grd.addColorStop(0, light); grd.addColorStop(0.45, base); grd.addColorStop(1, dark);
+    path(cx, cy); g.fillStyle = grd; g.fill();
+  });
+}
+const scatter = (n: number, W: number, H: number, R: () => number, fn: (x: number, y: number, i: number) => void) => { for (let i = 0; i < n; i++) fn(R() * W, R() * H, i); };
 
-// Each painter draws one tile. Colour ramps run dark → light.
+// Each painter paints one tile. Colour ramps run dark → light.
 const PAINTERS = {
   grass(g, W, H, R) {
-    mottle(g, W, H, ['#5C8A36', '#689A3C', '#74A742', '#82B44A', '#92C055'], R, { cells: 4 });
-    for (let i = 0; i < 8; i++) px(g, Math.floor(R() * W), Math.floor(R() * H), '#A8CC66');
+    wash(g, W, H, ['#4E8434', '#5E9638', '#6EA63E', '#80B448'], R, { cells: 3 });
+    // Clumps: darker pools at the roots, lighter tips catching the sun.
+    scatter(10, W, H, R, (x, y) => dab(g, W, H, x, y, 6 + R() * 7, '#3E6E2A', 0.35));
+    const greens = ['#5A9234', '#6AA23C', '#7CB446', '#90C454', '#A6D264'];
+    scatter(150, W, H, R, (x, y) => stroke(g, W, H, x, y, -Math.PI / 2 + (R() - 0.5) * 0.9, 3 + R() * 5, 1.4 + R(), greens[Math.floor(R() * greens.length)], 0.85, (R() - 0.5) * 2));
+    // A few flowers: little painted dots with a warm centre.
+    scatter(3, W, H, R, (x, y) => { const c = R() < 0.5 ? '#F6F0DA' : '#F4CE52'; for (let k = 0; k < 4; k++) dab(g, W, H, x + Math.cos(k * 1.57) * 1.3, y + Math.sin(k * 1.57) * 1.3, 1.3, c, 1); dab(g, W, H, x, y, 1, '#E4962E', 1); });
   },
   dirt(g, W, H, R) {
-    mottle(g, W, H, ['#8A6A44', '#987650', '#A6845C', '#B49268', '#C2A076'], R, { cells: 5 });
-    for (let i = 0; i < 6; i++) px(g, Math.floor(R() * W), Math.floor(R() * H), '#D2BC98');
+    wash(g, W, H, ['#88653F', '#97734B', '#A68258', '#B49166'], R, { cells: 4 });
+    scatter(8, W, H, R, (x, y) => dab(g, W, H, x, y, 5 + R() * 8, R() < 0.5 ? '#7E5C3A' : '#BC9C72', 0.28));
+    scatter(5, W, H, R, (x, y) => { const s = 1 + R() * 1.4; blob(g, W, H, x, y, s * 1.2, s, R, '#A08A6C', '#BCA684', '#7A6448'); });
   },
   paving(g, W, H, R) {
-    mottle(g, W, H, ['#A89C88', '#B4A894', '#C0B4A0', '#CCC0AC', '#D8CCB8'], R, { cells: 6 });
-    g.fillStyle = '#7A6E5E';
-    // Four irregular slabs per tile with dark grout lines and moss in the cracks.
-    const mx = 14 + Math.floor(R() * 5), my = 13 + Math.floor(R() * 6);
-    g.fillRect(0, my, W, 1); g.fillRect(mx, 0, 1, my); g.fillRect((mx + 16) % W, my, 1, H - my);
-    g.fillRect(0, 0, W, 1); g.fillRect(0, 0, 1, H);
-    for (let i = 0; i < 14; i++) px(g, Math.floor(R() * W), R() < 0.5 ? my + (R() < 0.5 ? 1 : -1) : Math.floor(R() * H), R() < 0.6 ? '#74A742' : '#689A3C');
+    // Cobbles: irregular rounded stones of mixed sizes on a grout bed, a few moss tufts in the joints.
+    wash(g, W, H, ['#6A6254', '#766E60', '#82796A'], R, { cells: 3 });
+    const tones = [['#ADA18C', '#C8BEA8', '#8A7F6C'], ['#A39884', '#BEB4A0', '#81776A'], ['#B4A892', '#CEC4AE', '#90856F'], ['#9E9684', '#B8B09E', '#7E7666']];
+    const n = 5;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      const cw = W / n, ch = H / n, x = (c + 0.5 + (r % 2) * 0.5) * cw + (R() - 0.5) * cw * 0.3, y = (r + 0.5) * ch + (R() - 0.5) * ch * 0.3;
+      const t = tones[Math.floor(R() * tones.length)], k = 0.4 + R() * 0.1;
+      blob(g, W, H, x, y, cw * k * (0.9 + R() * 0.25), ch * k * (0.85 + R() * 0.2), R, t[0], t[1], t[2]);
+    }
+    scatter(6, W, H, R, (x, y) => dab(g, W, H, x, y, 1.4 + R() * 1.4, '#6EA040', 0.7));
   },
   stone(g, W, H, R) {
-    mottle(g, W, H, ['#968C7E', '#A49A8A', '#B2A896', '#C0B6A2', '#CEC4B0'], R, { cells: 4 });
-    for (let i = 0; i < 4; i++) { const x = Math.floor(R() * W), y = Math.floor(R() * H); px(g, x, y, '#7E7466'); px(g, x + 1, y, '#7E7466'); }
+    wash(g, W, H, ['#8E8476', '#9E9484', '#AEA492', '#BEB4A0'], R, { cells: 3 });
+    scatter(9, W, H, R, (x, y) => dab(g, W, H, x, y, 5 + R() * 9, R() < 0.5 ? '#80766A' : '#CEC4B0', 0.35));
+    // Chisel facets: short light/dark strokes, and a couple of hairline cracks.
+    scatter(18, W, H, R, (x, y) => stroke(g, W, H, x, y, R() * Math.PI, 3 + R() * 5, 1.4, R() < 0.5 ? '#C8BEAA' : '#857B6C', 0.45));
+    scatter(2, W, H, R, (x, y) => stroke(g, W, H, x, y, 0.4 + R() * 2.2, 10 + R() * 12, 0.9, '#5E564A', 0.6, (R() - 0.5) * 6));
   },
   mossStone(g, W, H, R) {
     PAINTERS.stone(g, W, H, R);
-    const n = valueNoise(W, H, 3, R);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const m = n[y * W + x] + (1 - y / H) * 0.35;   // moss gathers on top
-      if (m > 0.8) px(g, x, y, R() < 0.5 ? '#74A742' : '#82B44A');
+    // Moss gathers on top, in soft painted cushions.
+    scatter(26, W, H, R, (x, y) => { if (R() > 1.15 - y / H * 0.9) return; dab(g, W, H, x, y * 0.6, 4 + R() * 6, R() < 0.5 ? '#5E9638' : '#78AE44', 0.75); });
+    scatter(16, W, H * 0.6, R, (x, y) => dab(g, W, H, x, y, 1.6, '#A0CC62', 0.7));
+  },
+  plaster(g, W, H, R) {
+    // Lime plaster: pale wash, rain streaks running down, a patch or two of bare stone showing through.
+    wash(g, W, H, ['#CDBFA4', '#D8CBB0', '#E2D6BC', '#EAE0C8'], R, { cells: 3 });
+    scatter(6, W, H, R, (x, y) => dab(g, W, H, x, y, 6 + R() * 10, R() < 0.6 ? '#B8A88A' : '#F2EAD6', 0.3));
+    scatter(10, W, H, R, (x, y) => stroke(g, W, H, x, y, Math.PI / 2 + (R() - 0.5) * 0.1, 10 + R() * 18, 1.6 + R() * 1.4, '#A8987C', 0.18));
+    if (R() < 0.8) { const x = R() * W, y = R() * H; for (let k = 0; k < 3; k++) blob(g, W, H, x + (k - 1) * 5, y + (k % 2) * 3, 3, 2, R, '#A49480', '#C0B29C', '#7E705E'); }
+  },
+  roofTiles(g, W, H, R) {
+    // Two-tone slate shingles: overlapping rounded tiles with a shadowed lower lip (tinted by the lot colour).
+    g.fillStyle = '#6E6458'; g.fillRect(0, 0, W, H);
+    const rows = 6, per = 5;
+    for (let r = rows - 1; r >= 0; r--) for (let c = 0; c < per; c++) {
+      const cw = W / per, ch = H / rows, x = (c + 0.5 + (r % 2) * 0.5) * cw + (R() - 0.5) * 1.5, y = (r + 0.6) * ch;
+      const light = R() < 0.5;
+      blob(g, W, H, x, y, cw * 0.52, ch * 0.62, R, light ? '#D8D0C4' : '#C6BCB0', light ? '#F2ECE2' : '#E2DACE', '#8C8276');
     }
+    scatter(5, W, H, R, (x, y) => dab(g, W, H, x, y, 2 + R() * 2, '#7EA850', 0.45));
   },
   bricks(g, W, H, R) {
-    // Ashlar blocks, then scorched: soot climbs from the bottom and the fire's heat browns the stone.
-    mottle(g, W, H, ['#A0907A', '#AE9E86', '#BCAC94', '#C8B8A0', '#D4C4AC'], R, { cells: 6 });
-    g.fillStyle = '#6E604E';
-    for (let row = 0; row < H; row += 8) {
-      g.fillRect(0, row, W, 1);
-      const off = (row / 8) % 2 ? 8 : 0;
-      for (let x = off; x < W; x += 16) g.fillRect(x, row, 1, 8);
+    // Ashlar blocks with soft bevels, then a light, patchy soot from the fire's heat.
+    g.fillStyle = '#6A5E4E'; g.fillRect(0, 0, W, H);
+    const rows = 4, bw = W / 2;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < 2; c++) {
+      const bh = H / rows, x = c * bw + (r % 2) * bw / 2 + bw / 2, y = r * bh + bh / 2;
+      const tone = ['#B4A48C', '#C2B29A', '#AA9A82', '#CCBCA4'][Math.floor(R() * 4)];
+      wrapped(W, H, x, y, bw, (cx, cy) => {
+        const grd = g.createLinearGradient(cx, cy - bh / 2, cx, cy + bh / 2);
+        grd.addColorStop(0, '#DCCCB4'); grd.addColorStop(0.2, tone); grd.addColorStop(1, '#8E7E68');
+        g.fillStyle = grd; g.beginPath(); g.roundRect(cx - bw / 2 + 1, cy - bh / 2 + 1, bw - 2, bh - 2, 2.5); g.fill();
+      });
     }
-    // Soot: a light, patchy darkening (texel noise, not stencilled blobs).
-    const n = valueNoise(W, H, 6, R);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (n[y * W + x] + (R() - 0.5) * 0.25 > 0.78) px(g, x, y, '#4E4236', 0.12);
+    scatter(6, W, H, R, (x, y) => dab(g, W, H, x, y, 6 + R() * 8, '#4E4236', 0.16));
   },
   bark(g, W, H, R) {
-    mottle(g, W, H, ['#5A4030', '#6A4C38', '#7A5A42', '#8A684C'], R, { cells: 3, jitter: 0.3 });
-    // Vertical furrows.
-    for (let x = 0; x < W; x += 3 + Math.floor(R() * 3)) for (let y = 0; y < H; y++) if (R() < 0.8) px(g, x, y, '#4A3426');
-    for (let i = 0; i < 12; i++) px(g, Math.floor(R() * W), Math.floor(R() * H), '#5E7A2E');
+    wash(g, W, H, ['#4E382A', '#5E4432', '#6E523C', '#7E6046'], R, { cells: 3 });
+    // Long vertical furrows with lit ridges between them, and a little moss.
+    for (let x = 0; x < W; x += 5 + R() * 4) {
+      stroke(g, W, H, x, H + 4, -Math.PI / 2 + (R() - 0.5) * 0.08, H + 8, 2.2, '#3A281E', 0.75, (R() - 0.5) * 3);
+      stroke(g, W, H, x + 2.4, R() * H, -Math.PI / 2, 8 + R() * 14, 1.4, '#8E6C50', 0.55);
+    }
+    scatter(5, W, H, R, (x, y) => dab(g, W, H, x, y, 2 + R() * 3, '#5E7A2E', 0.6));
   },
   birch(g, W, H, R) {
-    mottle(g, W, H, ['#BDBAAE', '#CCC9BD', '#D9D8CC', '#E6E4DA'], R, { cells: 3 });
-    // Horizontal black lenticels, the birch tell.
-    for (let i = 0; i < 16; i++) {
-      const y = Math.floor(R() * H), x = Math.floor(R() * W), w = 2 + Math.floor(R() * 5);
-      g.fillStyle = R() < 0.7 ? '#2B2A24' : '#55544C'; g.fillRect(x, y, w, 1);
-    }
+    wash(g, W, H, ['#BDB9AC', '#CCC8BC', '#DAD7CC', '#E8E6DC'], R, { cells: 3 });
+    scatter(14, W, H, R, (x, y) => stroke(g, W, H, x, y, (R() - 0.5) * 0.15, 3 + R() * 9, 1.6 + R() * 1.4, R() < 0.7 ? '#2E2C26' : '#5A584E', 0.85));
   },
   leaves(g, W, H, R) {
-    // Alpha-cut leaf mass: ~30% holes so canopies read as blocks of foliage, not solid cubes.
-    const holes = valueNoise(W, H, 8, R);
-    mottle(g, W, H, ['#3E6E2C', '#4C7E32', '#5A8E3A', '#6A9E42', '#7EB04E'], R, { cells: 5, jitter: 0.35, alpha: (x, y) => (holes[y * W + x] + (R() - 0.5) * 0.3 < 0.3 ? 0 : 1) });
-    for (let i = 0; i < 8; i++) px(g, Math.floor(R() * W), Math.floor(R() * H), '#C08A2E');   // a few autumn leaves
+    // Leaf clumps with a cut-out edge: overlapping painted blobs, darker underneath, catching light on top.
+    g.clearRect(0, 0, W, H);
+    scatter(22, W, H, R, (x, y) => { const s = 5 + R() * 6; blob(g, W, H, x, y, s, s * 0.85, R, '#4C7E32', '#7EB04E', '#2E5422'); });
+    scatter(30, W, H, R, (x, y) => stroke(g, W, H, x, y, -0.8 + R() * 0.5, 2 + R() * 3, 1.6, R() < 0.8 ? '#8CC058' : '#C08A2E', 0.8));
   },
   leavesLight(g, W, H, R) {
-    const holes = valueNoise(W, H, 8, R);
-    mottle(g, W, H, ['#5E8E34', '#6E9E3C', '#80AE46', '#94C052', '#A8CE60'], R, { cells: 5, jitter: 0.35, alpha: (x, y) => (holes[y * W + x] + (R() - 0.5) * 0.3 < 0.3 ? 0 : 1) });
+    g.clearRect(0, 0, W, H);
+    scatter(22, W, H, R, (x, y) => { const s = 5 + R() * 6; blob(g, W, H, x, y, s, s * 0.85, R, '#6E9E3C', '#A4CC5E', '#46702A'); });
+    scatter(30, W, H, R, (x, y) => stroke(g, W, H, x, y, -0.8 + R() * 0.5, 2 + R() * 3, 1.6, '#B4D872', 0.8));
   },
   grassBlades(g, W, H, R) {
+    // Tapered blades, dark at the root and sunlit at the tip.
     g.clearRect(0, 0, W, H);
-    const cols = ['#64923A', '#70A040', '#7CAC46', '#88B84E', '#96C258', '#AED06A'];
-    for (let b = 0; b < 14; b++) {
-      let x = 2 + R() * (W - 4);
-      const h = H * (0.45 + R() * 0.55), lean = (R() - 0.5) * 0.5;
-      for (let y = 0; y < h; y++) {
-        const c = cols[Math.min(cols.length - 1, Math.floor(y / h * cols.length + R() * 1.2))];
-        px(g, Math.floor(x), H - 1 - y, c);
-        x += lean * (y / h);
-      }
+    const tips = ['#9CCC5C', '#AED86A', '#BCE07A', '#8EC452'];
+    for (let b = 0; b < 16; b++) {
+      const x = 4 + R() * (W - 8), h = H * (0.45 + R() * 0.5), ang = -Math.PI / 2 + (R() - 0.5) * 0.5, bend = (R() - 0.5) * 8, w = 3 + R() * 2;
+      const grd = g.createLinearGradient(0, H, 0, H - h);
+      grd.addColorStop(0, '#4E8030'); grd.addColorStop(0.55, '#74AA42'); grd.addColorStop(1, tips[Math.floor(R() * tips.length)]);
+      const dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx, ex = x + dx * h + nx * bend, ey = H + dy * h + ny * bend;
+      g.fillStyle = grd; g.beginPath();
+      g.moveTo(x + nx * w / 2, H + ny * w / 2);
+      g.quadraticCurveTo(x + dx * h * 0.5 + nx * (bend * 0.6 + w * 0.3), H + dy * h * 0.5 + ny * (bend * 0.6 + w * 0.3), ex, ey);
+      g.quadraticCurveTo(x + dx * h * 0.5 + nx * (bend * 0.6 - w * 0.3), H + dy * h * 0.5 + ny * (bend * 0.6 - w * 0.3), x - nx * w / 2, H - ny * w / 2);
+      g.closePath(); g.fill();
     }
   },
   fern(g, W, H, R) {
     g.clearRect(0, 0, W, H);
     for (let f = 0; f < 3; f++) {
-      const base = W / 2 + (f - 1) * 6, lean = (f - 1) * 0.35;
-      for (let y = 0; y < H - 2; y++) {
-        const x = base + lean * y, spread = Math.max(0, (1 - Math.abs(y / H - 0.45) * 1.8)) * 7;
-        px(g, Math.floor(x), H - 1 - y, '#3C5C24');
-        for (let s = 1; s <= spread; s++) {
-          if ((y + s) % 2) continue;
-          px(g, Math.floor(x - s), H - 1 - y - Math.floor(s / 3), s % 3 ? '#5E8232' : '#4B6E2A');
-          px(g, Math.floor(x + s), H - 1 - y - Math.floor(s / 3), s % 3 ? '#749A3C' : '#5E8232');
-        }
+      const bx = W / 2 + (f - 1) * 12, ang = -Math.PI / 2 + (f - 1) * 0.4, len = H * (0.8 + R() * 0.15);
+      stroke(g, W * 10, H * 10, bx, H, ang, len, 2, '#3C5C24', 1);
+      for (let k = 1; k < 9; k++) {
+        const t = k / 9, px0 = bx + Math.cos(ang) * len * t, py0 = H + Math.sin(ang) * len * t, l = (1 - Math.abs(t - 0.4) * 1.4) * 12;
+        for (const side of [-1, 1]) stroke(g, W * 10, H * 10, px0, py0, ang + side * 1.15, Math.max(2, l), 3, side < 0 ? '#567C2E' : '#6E9838', 1);
       }
     }
   },
   flowers(g, W, H, R) {
     PAINTERS.grassBlades(g, W, H, R);
-    for (let i = 0; i < 4; i++) {
-      const x = 4 + Math.floor(R() * (W - 8)), y = 4 + Math.floor(R() * (H * 0.4)), c = R() < 0.5 ? '#F1EEDC' : '#F2C94C';
-      px(g, x, y, c); px(g, x + 1, y, c); px(g, x - 1, y, c); px(g, x, y - 1, c); px(g, x, y + 1, c); px(g, x, y, '#E39A2E');
-    }
+    scatter(4, W - 16, H * 0.4, R, (x0, y0) => {
+      const x = x0 + 8, y = y0 + 6, c = R() < 0.5 ? '#F6F0DA' : '#F4CE52';
+      for (let k = 0; k < 5; k++) dab(g, W * 10, H * 10, x + Math.cos(k * 1.26) * 2.4, y + Math.sin(k * 1.26) * 2.4, 2.2, c, 1);
+      dab(g, W * 10, H * 10, x, y, 1.6, '#E4962E', 1);
+    });
   },
   planks(g, W, H, R) {
-    mottle(g, W, H, ['#7A5236', '#865C3E', '#926646', '#9E7050'], R, { cells: 2, jitter: 0.25 });
-    g.fillStyle = '#4A3020';
-    for (let x = 0; x < W; x += 8) g.fillRect(x, 0, 1, H);
-    for (let x = 4; x < W; x += 8) for (let y = 0; y < H; y += 1) if (R() < 0.12) px(g, x, y, '#7A5236');
+    // Boards with dark gaps and flowing grain.
+    const n = 4, bw = W / n;
+    for (let i = 0; i < n; i++) {
+      const tone = ['#7E563A', '#8A6042', '#966A4A', '#86603E'][Math.floor(R() * 4)];
+      g.fillStyle = tone; g.fillRect(i * bw, 0, bw, H);
+      for (let k = 0; k < 5; k++) stroke(g, W, H, i * bw + 2 + R() * (bw - 4), R() * H, Math.PI / 2 + (R() - 0.5) * 0.06, 14 + R() * 30, 1.2, R() < 0.5 ? '#5E3E28' : '#A88060', 0.5, (R() - 0.5) * 3);
+      if (R() < 0.4) dab(g, W, H, i * bw + bw / 2, R() * H, 2.2, '#4A3020', 0.7);   // a knot
+      g.fillStyle = '#3E2818'; g.fillRect(i * bw, 0, 1.5, H);
+      g.fillStyle = 'rgba(255,230,190,0.18)'; g.fillRect(i * bw + 1.5, 0, 1.5, H);
+    }
   },
   door(g, W, H, R) {
     PAINTERS.planks(g, W, H, R);
-    // Iron bands + studs + a ring pull (the door is tall: this tile is stretched over 1.8 x 3.4 m).
+    // Iron bands + studs + a ring pull (the door tile is stretched over 1.8 x 3.4 m).
     for (const y of [Math.floor(H * 0.18), Math.floor(H * 0.78)]) {
-      g.fillStyle = '#3A3A3A'; g.fillRect(0, y, W, 3); g.fillStyle = '#5A5A58'; g.fillRect(0, y, W, 1);
-      for (let x = 2; x < W; x += 6) px(g, x, y + 1, '#8A8A86');
+      g.fillStyle = '#34322E'; g.fillRect(0, y, W, 6); g.fillStyle = '#5E5C56'; g.fillRect(0, y, W, 2);
+      for (let x = 4; x < W; x += 12) dab(g, W, H, x, y + 3, 1.8, '#A4A49C', 1);
     }
-    g.fillStyle = '#6E6E6A'; g.fillRect(W - 9, Math.floor(H * 0.5), 4, 1); g.fillRect(W - 9, Math.floor(H * 0.5) + 3, 4, 1);
-    g.fillRect(W - 9, Math.floor(H * 0.5), 1, 4); g.fillRect(W - 6, Math.floor(H * 0.5), 1, 4);
+    g.strokeStyle = '#6E6E6A'; g.lineWidth = 2; g.beginPath(); g.arc(W - 13, H * 0.5 + 5, 5, 0, Math.PI * 2); g.stroke();
   },
   wood(g, W, H, R) {
-    mottle(g, W, H, ['#7A5236', '#865C3E', '#946848', '#A07452'], R, { cells: 2, jitter: 0.2 });
-    for (let y = 0; y < H; y += 4) for (let x = 0; x < W; x++) if (R() < 0.35) px(g, x, y, '#5E3F28');
+    wash(g, W, H, ['#76503A', '#845C40', '#926848', '#9E7452'], R, { cells: 2 });
+    scatter(16, W, H, R, (x, y) => stroke(g, W, H, x, y, (R() - 0.5) * 0.08, 14 + R() * 24, 1.2, R() < 0.6 ? '#5E3F28' : '#AE8460', 0.45, (R() - 0.5) * 3));
   },
   parchment(g, W, H, R) {
-    mottle(g, W, H, ['#D9CBA6', '#E3D6B4', '#EFE3C4', '#F5ECD4'], R, { cells: 3, jitter: 0.12 });
+    wash(g, W, H, ['#D9CBA6', '#E3D6B4', '#EFE3C4', '#F5ECD4'], R, { cells: 3 });
     g.fillStyle = '#8A7E66';
-    for (let y = 6; y < H - 4; y += 4) g.fillRect(4, y, W - 8 - Math.floor(R() * 8), 1);
+    for (let y = 12; y < H - 8; y += 8) g.fillRect(8, y, W - 16 - Math.floor(R() * 16), 1.5);
   },
   cover(g, W, H, R) {
-    mottle(g, W, H, ['#7E3A22', '#8E4628', '#9E522E', '#B0693F'], R, { cells: 3, jitter: 0.15 });
-    g.fillStyle = '#F2C94C'; g.fillRect(2, 2, W - 4, 1); g.fillRect(2, H - 3, W - 4, 1);
+    wash(g, W, H, ['#7E3A22', '#8E4628', '#9E522E', '#B0693F'], R, { cells: 3 });
+    g.fillStyle = '#F2C94C'; g.fillRect(4, 4, W - 8, 2); g.fillRect(4, H - 6, W - 8, 2);
   },
 } satisfies Record<string, (g: CanvasRenderingContext2D, W: number, H: number, R: () => number) => void>;
 
 export type TexName = keyof typeof PAINTERS;
-const SIZE: Partial<Record<TexName, [number, number]>> = { door: [32, 64], grassBlades: [32, 32], fern: [32, 32] };
+const SIZE: Partial<Record<TexName, [number, number]>> = { door: [64, 128] };
 
 const cache = new Map<TexName, THREE.Texture>();
 const canvases = new Map<TexName, HTMLCanvasElement>();
