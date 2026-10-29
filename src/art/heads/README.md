@@ -10,7 +10,6 @@ Templates and starter sheets are in `art-templates/`.
 | --- | --- |
 | `<id>-face.png` | Face: eyes, brows, mouth, blush. |
 | `<id>-face.json` | Optional Aseprite sheet data (File > Export Sprite Sheet > Output > JSON Data). |
-| `<id>.png` | The old 2D head sheet (chibi look). No longer used; kept as Mike's art. |
 
 **Cells:** 96×104 px each, transparent, hard pixels, laid out as in `art-templates/face-template.png` (head ~40 px
 across, its centre 40 px from the top). The game shows the middle 48×48 px of the **front** cell (x 24–72,

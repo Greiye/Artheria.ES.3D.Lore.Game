@@ -8,7 +8,6 @@ import type { FigureLook } from '../world/figure';
 // Hand-drawn sheets go in src/art/heads/ (see README.md there): <id>-face.png with an optional Aseprite JSON
 // (<id>-face.json). A look with `art: '<id>'` uses them, inlined into the build. Every other look gets a sheet in the
 // same layout drawn here in code, in "head units" (1 u = one head diameter = U_PX pixels).
-// (The 2D head sheets, <id>.png, belonged to the chibi look and are no longer used.)
 
 const U_PX = 40;
 export const SHEET = { w: 2.4, h: 2.6, top: 1.0 };   // frame size in head units; head centre 1.0 u below the top
