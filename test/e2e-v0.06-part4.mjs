@@ -63,10 +63,12 @@ for (const hall of ['library', 'gallery']) {
   for (const [name, tp, step, pitch] of views) {
     await G(page, ([hall, tp, step, pitch]) => {
       const g = window.__gametool, r = g.ROOFED[hall], p = g.player;
-      g.player.spawn(new g.Vector3((r.minX + r.maxX) / 2 + (hall === 'gallery' ? 1 : 0), 0, (r.minZ + r.maxZ) / 2), hall === 'gallery' ? -Math.PI / 2 : 0);
+      g.player.spawn(hall === 'gallery' ? new g.Vector3((r.minX + r.maxX) / 2 + 1, 0, (r.minZ + r.maxZ) / 2) : new g.Vector3(5, 0, -26), hall === 'gallery' ? -Math.PI / 2 : 0);   // the library's aisle (its centre holds the relic)
       p.thirdPerson = tp; g.rig.setStep(step); p.pitch = pitch;
     }, [hall, tp, step, pitch]);
-    await frames(40);
+    await frames(5);
+    const t0 = await G(page, () => window.__gametool.perf.simSeconds);
+    await until(page, (t0) => window.__gametool.perf.simSeconds > t0 + 1.5, t0, 60000);   // the view glides and zooms over ~1 s
     const v = await G(page, (hall) => {
       const g = window.__gametool, r = g.ROOFED[hall], cam = g.camera, ray = new g.Raycaster(), bad = [];
       g.player.pitch = g.player.thirdPerson ? 0 : 1.3;
@@ -76,7 +78,12 @@ for (const hall of ['library', 'gallery']) {
         const o = ray.ray.origin, d = ray.ray.direction;
         if (d.y <= 0.02) continue;
         up++;
-        const t = (r.y - o.y) / d.y, hx = o.x + d.x * t, hz = o.z + d.z * t;
+        // Where the ray leaves the hall's footprint sideways: below the ceiling, that's a wall (or the gallery's
+        // open side under its lintel), not sky.
+        const out = (lo, hi, o, d) => (d > 0 ? (hi - o) / d : d < 0 ? (lo - o) / d : Infinity);
+        const tSide = Math.min(out(r.minX, r.maxX, o.x, d.x), out(r.minZ, r.maxZ, o.z, d.z)), tRoof = (r.y - o.y) / d.y;
+        if (tRoof > tSide) continue;
+        const hx = o.x + d.x * tRoof, hz = o.z + d.z * tRoof;
         if (!(hx > r.minX - 0.5 && hx < r.maxX + 0.5 && hz > r.minZ - 0.5 && hz < r.maxZ + 0.5)) bad.push([x, y, +hx.toFixed(1), +hz.toFixed(1)]);
       }
       return { camY: +cam.position.y.toFixed(2), roof: r.y, up, bad };
