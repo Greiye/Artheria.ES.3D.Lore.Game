@@ -28,6 +28,8 @@ export interface World {
   bounds: number;               // half-size of the walkable square (F1.3)
   readonly sunElevationDeg: number;      // F2.2: < 15° for the sunset
   readonly time: TimeOfDay;              // v0.04: day / sunset / night
+  trees: [number, number][];             // v0.06 T2: where the trees stand (birdsong zones)
+  lanterns: THREE.Vector3[];             // v0.06 W3: every lantern (town, lamp posts, library door)
   setTime(t: TimeOfDay): void;
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
@@ -174,11 +176,12 @@ export function buildWorld(): World {
   shadowCasters.push(libraryDoor);
   solids.push(libraryDoor);
   // A warm lantern either side of the door (bloom).
+  const libLanterns: THREE.Vector3[] = [];
   const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color('#FFC878').multiplyScalar(1.7) });
   for (const x of [-1.6, 1.6]) {
     B.box(tex('wood'), V(x, 2.7, LIB.front + 0.55), 0.08, 0.5, 0.3);
     const l = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.22), lamp);
-    l.position.set(x, 2.45, LIB.front + 0.72); scene.add(l); glowBits.push(l);
+    l.position.set(x, 2.45, LIB.front + 0.72); scene.add(l); glowBits.push(l); libLanterns.push(l.position.clone());
   }
   pave(-2.9, LIB.front + 0.8, 0.22);
 
@@ -401,10 +404,17 @@ export function buildWorld(): World {
   const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2), banner: hitbox('banner', BX, 0.7, BZ, 1.0, 1.4), campfire: hitbox('campfire', FX, 0.4, FZ, 1.4, 0.8), bedroll: hitbox('bedroll', BRX, 0.3, BRZ, 1.2, 0.6) };
 
   stations.mirror.rotation.y = MR;   // v0.06: the way the glass faces (the character forge stands you in front of it)
-  let doorOpen = false, doorAngle = 0;
+  let doorOpen = false, doorAngle = 0, fogFar = 85;
+  // Style pass 1: the haze starts later, so the painted colour reads. v0.06 W3: night fog closes in.
+  const applyFog = () => {
+    const far = fogFar * (sky.time === 'night' ? 0.72 : 1);
+    if (scene.fog instanceof THREE.Fog) { scene.fog.near = far * (sky.time === 'night' ? 0.3 : 0.45); scene.fog.far = far; }
+  };
   return {
     stations,
     town,
+    trees,
+    lanterns: [...town.lanterns, ...libLanterns],
     heightAt,
     bannerCloth,
     campfireFlame: flame,
@@ -414,7 +424,7 @@ export function buildWorld(): World {
     bounds: HALF,
     get sunElevationDeg() { return sky.elevationDeg; },
     get time() { return sky.time; },
-    setTime(t: TimeOfDay) { sky.setTime(t); },
+    setTime(t: TimeOfDay) { sky.setTime(t); applyFog(); },
     libraryDoor,
     natalieTarget,
     standees,
@@ -439,9 +449,6 @@ export function buildWorld(): World {
     setFoliage(density: number) {
       undergrowth.forEach((m, i) => { m.count = Math.round(fullCounts[i] * THREE.MathUtils.clamp(density, 0, 1)); });
     },
-    setFogDistance(far: number) {
-      // Style pass 1: the haze starts later, so the painted colour reads.
-      if (scene.fog instanceof THREE.Fog) { scene.fog.near = far * 0.45; scene.fog.far = far; }
-    },
+    setFogDistance(far: number) { fogFar = far; applyFog(); },
   };
 }

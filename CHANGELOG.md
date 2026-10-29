@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### v0.06 changelog, part 3: living town and sound
+- Townsfolk (placeholders, role names only): four walkers go door to door round the green, two pupils spar and one drills outside the dojo, two customers haggle at the General Store's counter, and two pairs chat on the green, taking turns to talk. They walk round the well, the lamp posts and the houses, and never get in your way. Low has fewer of them.
+- A small band (fiddler, drummer, piper) stands by the Projectionist's screen and plays along whenever a reel with its sound on is playing.
+- Every sound in the world now has a place: it gets fainter as you walk away, goes silent out of range, and pans left or right with where it is. That covers the campfire band and your own notes there, the cinema reels (from the screen), the townsfolk's voices and the new ambience. Menu sounds stay as they were.
+- Ambience you hear only near its source: birdsong in the trees, water at the well, the hammer at the smithy, chatter by the General Store.
+- Night: every lantern and lamp post glows with a soft halo, there's a new lantern by every door in town, the windows burn brighter, and up to four warm lights (two on Low) follow you from lantern to lantern. The moonlight is cooler, the shadows darker, and the night fog closes in.
+- The frame rate is uncapped again on Medium and High (Low keeps 30). Movement runs on a fixed step, so speed is the same at any frame rate. Saves on Medium's old 60 cap move to uncapped once.
+
 ### v0.06 changelog, part 2: stations, campfire, centre, mobile
 - The rune dais at the centre is gone: the blue stones, the pillars, the lectern and its book, and the dirt patch around them. The red book is read at the library door. The scratched-tally clue moved to a buttress of the library.
 - Stations put you in a pose: sitting on the log at the fire, standing at the anvil, standing at the mirror, writing at the desk, kneeling at the bedroll.

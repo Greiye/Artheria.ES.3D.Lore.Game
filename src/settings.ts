@@ -11,7 +11,7 @@ export interface AudioSettings {
 /** v0.05: the three camera perspectives. */
 export type View = 'first' | 'shoulder' | 'overhead';
 export interface Settings {
-  schemaVersion: 1;
+  schemaVersion: 2;   // 2 = v0.06 (W4: Medium renders uncapped)
   sensitivity: number; // default 1.0
   fov: number;         // F1.1: 60-100 (D2)
   invertY: boolean;
@@ -35,7 +35,7 @@ export interface Settings {
 // Picking a preset just fills the sliders — the owner can still fine-tune afterward.
 export const PRESETS: Record<Preset, Pick<Settings, 'renderScale' | 'shadows' | 'postFx' | 'fogDistance' | 'fpsCap'>> = {
   low: { renderScale: 50, shadows: false, postFx: false, fogDistance: 45, fpsCap: 30 },
-  medium: { renderScale: 75, shadows: false, postFx: false, fogDistance: 85, fpsCap: 60 },
+  medium: { renderScale: 75, shadows: false, postFx: false, fogDistance: 85, fpsCap: 0 },   // v0.06 W4: uncapped (was 60)
   high: { renderScale: 100, shadows: true, postFx: true, fogDistance: 120, fpsCap: 0 },
 };
 
@@ -44,7 +44,7 @@ const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 
 // Phones and tablets start on Low; desktops on Medium. Either can be changed in the pause menu.
 const firstPreset: Preset = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'medium';
 const defaults: Settings = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true,
   preset: firstPreset, ...PRESETS[firstPreset],
   audio: { ...defaultAudio },
@@ -75,8 +75,10 @@ export function loadSettings(): Settings {
     lastWritten = raw;
     const s = JSON.parse(raw) as Partial<Settings>;
     const preset: Preset = s.preset === 'low' || s.preset === 'medium' || s.preset === 'high' ? s.preset : defaults.preset;
+    // v0.06 W4: a version-1 save holding Medium's old 60 cap moves to the new uncapped default.
+    const oldCap = s.schemaVersion !== 2 && preset !== 'low' && s.fpsCap === 60;
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       sensitivity: clamp(s.sensitivity, 0.1, 3, defaults.sensitivity),
       fov: clamp(s.fov, 60, 100, defaults.fov),
       invertY: bool(s.invertY, defaults.invertY),
@@ -91,7 +93,7 @@ export function loadSettings(): Settings {
       // Saved before the rebuild: the old outlines toggle carries over as the post-effects choice.
       postFx: bool(s.postFx ?? (s as { outlines?: unknown }).outlines, PRESETS[preset].postFx),
       fogDistance: clamp(s.fogDistance, 20, 120, PRESETS[preset].fogDistance),
-      fpsCap: (s.fpsCap === 30 || s.fpsCap === 60 || s.fpsCap === 0) ? s.fpsCap : PRESETS[preset].fpsCap,
+      fpsCap: oldCap ? 0 : (s.fpsCap === 30 || s.fpsCap === 60 || s.fpsCap === 0) ? s.fpsCap : PRESETS[preset].fpsCap,
       audio: loadAudio(s.audio),
     };
   } catch {

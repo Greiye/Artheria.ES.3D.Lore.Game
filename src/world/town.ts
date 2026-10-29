@@ -17,7 +17,7 @@ export const TOWN_NAMES: Record<TownId, string> = {
 };
 const ICONS: Record<TownId, string> = { library: '❦', smithy: '⚒', tailor: '✂', scriptorium: '✒', cartographer: '⌖', dojo: '☯', gallery: '▣', shop: '⚖', inn: '☾' };
 // The green: an oval ring of lots round (C.x, C.z). Everything stays inside the flat middle (|x|, |z| < 42).
-const GREEN = { x: 4, z: 26.5, rx: 24, rz: 9.5 };
+export const GREEN = { x: 4, z: 26.5, rx: 24, rz: 9.5 };
 // One plaster and three roof colours: each tint is its own merged mesh (draw call), so keep them few.
 const PLASTER = '#FFF6E6';
 const WALL = 3.0, PLINTH = 0.4, RISE = 2.1;
@@ -65,6 +65,12 @@ function layout(): Map<Slot['id'], Spot> {
 }
 const SPOTS = layout();
 const LOTS = RING.filter((s): s is Slot & { id: TownId } => s.id !== 'lane' && s.id !== 'cinema').map((s) => ({ ...s, ...SPOTS.get(s.id)!, wall: PLASTER, roof: s.roof! }));
+/** v0.06 T1: every lot's centre, facing (toward the green) and size, for the townsfolk's routes. */
+export const TOWN_LOTS = LOTS.map(({ id, x, z, ry, w, d }) => ({ id, x, z, ry, w, d }));
+/** The well on the green (style pass 2): the townsfolk walk round it, and its water is a T2 ambience zone. */
+export const WELL = { x: GREEN.x, z: GREEN.z + 0.5, r: 1.15 };
+/** v0.06 T4: where the cinema band stands, in the cinema slot's frame (x along the screen, z toward the green). */
+export const CINEMA_SPOT = () => SPOTS.get('cinema')!;
 /** v0.05: the camp's exit gate, at the west end of the coach road. Walking through it asks whether to retire. */
 export const GATE = { x: -41, z: -4, half: 2.0 };
 /** Keep-out for scattered props (trees, rocks, bushes, undergrowth): the ring and its lots, the lane, the road west. */
@@ -102,6 +108,10 @@ export interface Town {
   shopkeeperHit: THREE.Object3D;
   /** Where the projectionist's screen stands (main.ts hangs the screen and places the projectionist). */
   cinema: Spot;
+  /** v0.06 W3: every lantern (lamp-post tops and the lantern by each door), for night halos and the few real lights. */
+  lanterns: THREE.Vector3[];
+  /** The lit-window material (brighter at night). */
+  windows: THREE.MeshBasicMaterial;
 }
 
 export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[]): Town {
@@ -109,6 +119,8 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const tinted = new Map<string, THREE.MeshLambertMaterial>();
   const tint = (t: TexName, color: string) => tinted.get(t + color) ?? (tinted.set(t + color, new THREE.MeshLambertMaterial({ map: pixelTexture(t), color })), tinted.get(t + color)!);
   const glow = new THREE.MeshBasicMaterial({ color: '#F2C27A' });
+  const lanternMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#FFC878').multiplyScalar(1.7) });
+  const lanterns: THREE.Vector3[] = [];
   const doors = {} as Record<TownId, THREE.Object3D>;
   const local = (L: Spot) => { const c = Math.cos(L.ry), s = Math.sin(L.ry); return (lx: number, y: number, lz: number) => V(L.x + lx * c + lz * s, y, L.z - lx * s + lz * c); };
 
@@ -161,6 +173,10 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     // Door, step and two lit windows.
     B.add(tex('door'), new THREE.BoxGeometry(1.2, 2.2, 0.1), at(0, PLINTH + 1.1, D / 2 + 0.05), undefined, L.ry);
     B.add(tex('stone'), new THREE.BoxGeometry(1.8, 0.2, 0.7), at(0, 0.1, D / 2 + 0.45), undefined, L.ry);
+    // v0.06 W3: a lantern on a bracket beside the door.
+    B.add(wood, new THREE.BoxGeometry(0.06, 0.06, 0.34), at(0.95, PLINTH + 2.42, D / 2 + 0.17), undefined, L.ry);
+    B.add(lanternMat, new THREE.BoxGeometry(0.2, 0.28, 0.2), at(0.95, PLINTH + 2.22, D / 2 + 0.3), undefined, L.ry);
+    lanterns.push(at(0.95, PLINTH + 2.22, D / 2 + 0.3));
     for (const x of [-W * 0.36, W * 0.36]) {
       B.add(glow, new THREE.BoxGeometry(0.9, 0.9, 0.06), at(x, PLINTH + 1.7, D / 2 + 0.03), undefined, L.ry);
       B.add(wood, new THREE.BoxGeometry(1.08, 0.12, 0.14), at(x, PLINTH + 1.2, D / 2 + 0.06), undefined, L.ry);
@@ -218,6 +234,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     const x = G.x + ((a.x + b.x) / 2 - G.x) * 0.8, z = G.z + ((a.z + b.z) / 2 - G.z) * 0.72;
     B.add(tex('wood'), new THREE.CylinderGeometry(0.07, 0.09, 2.8, 6), V(x, 1.4, z));
     B.add(glow, new THREE.BoxGeometry(0.26, 0.34, 0.26), V(x, 2.9, z));
+    lanterns.push(V(x, 2.9, z));
     colliders.push({ kind: 'circle', x, z, r: 0.15 });
   });
 
@@ -233,7 +250,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const shopkeeperHit = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
   shopkeeperHit.position.copy(sa(2.0, 0.9, shop.d / 2 + 2.55)); shopkeeperHit.rotation.y = shop.ry; shopkeeperHit.name = 'shopkeeper';
   scene.add(shopkeeperHit);
-  return { doors, shopkeeper, shopkeeperHit, cinema: cin };
+  return { doors, shopkeeper, shopkeeperHit, cinema: cin, lanterns, windows: glow };
 }
 
 // ---------- Style pass 2: storybook dressing (window boxes, pots, awnings, barrels, a well, bunting) ----------

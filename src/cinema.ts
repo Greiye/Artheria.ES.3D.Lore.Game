@@ -15,6 +15,10 @@ export class CinemaPanel {
   playing: 'video' | 'gif' | null = null;
   muted = true;
   private video: HTMLVideoElement | null = null;
+  /** v0.06 T3: called with each new reel's <video> so its sound can come from the screen (positional). */
+  onVideo: (v: HTMLVideoElement) => void = () => undefined;
+  /** v0.06 T4: a reel with its sound on is playing (the band by the screen plays along). */
+  get withSound() { return this.isOpen && this.playing === 'video' && !!this.current?.sound && !this.muted; }
 
   constructor(private screen: THREE.Mesh, private onClose: () => void) {
     this.el = document.createElement('div');
@@ -56,6 +60,7 @@ export class CinemaPanel {
       v.src = p.src; v.muted = this.muted || !c.sound; v.playsInline = true; v.autoplay = true; v.loop = true; v.controls = false;
       v.addEventListener('error', () => { if (c.gif) { this.playGif(c.gif, stage); } }, { once: true });   // can't decode after all: fall back
       stage.replaceChildren(v);
+      this.onVideo(v);
       void v.play().catch(() => { /* autoplay refused: the viewer can press play */ });
       this.video = v;
       this.playing = 'video';
