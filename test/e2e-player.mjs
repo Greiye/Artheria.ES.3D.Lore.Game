@@ -83,8 +83,9 @@ const tap = (i) => G(page, (i) => new Promise((done) => { const b = window.__pad
   requestAnimationFrame(() => { b.pressed = false; b.value = 0; requestAnimationFrame(() => requestAnimationFrame(done)); }); }), i);
 await tap(13); await page.waitForTimeout(200);
 const tapNoTorch = await G(page, () => !window.__gametool.torch.lit);
-await btn(13, true); await page.waitForTimeout(700);
-const held = await G(page, () => window.__gametool.torch.lit);
+// Held until it lights (0.4 s of game time; under software rendering that can take a few slow frames).
+await btn(13, true);
+const held = await until(page, () => window.__gametool.torch.lit, null, 5000);
 await btn(13, false); await page.waitForTimeout(200);
 check('v0.04 controller: a tap of D-pad down does nothing, a hold lights the torch', tapNoTorch && held);
 // Quick swap: D-pad left = left hand (torch), D-pad right = right hand (hands / crossbow).

@@ -61,7 +61,7 @@ export function buildRiver(scene: THREE.Scene, B: Batch, tex: (n: TexName) => TH
   mud.name = 'river-bank'; wet.name = 'river'; mud.receiveShadow = wet.receiveShadow = true;
   scene.add(mud, wet);
   // Stones and reeds along both banks (skipping the bridges).
-  const reed = new THREE.MeshLambertMaterial({ color: P.moss });
+  const reed = tex('mossStone');   // shared materials keep the static batch to a handful of meshes
   for (let z = Z0 + 1; z < Z1; z += 1.3) {
     if (BRIDGES.some((b) => Math.abs(z - b.z) < b.half + 1.2)) continue;
     for (const s of [-1, 1]) {
@@ -94,9 +94,8 @@ export function buildRiver(scene: THREE.Scene, B: Batch, tex: (n: TexName) => TH
     }
   }
 
-  // The windmill: a tapered tan tower, a brown cap, four lattice sails turning toward the town.
-  const M = WINDMILL, wall = new THREE.MeshLambertMaterial({ map: (tex('plaster') as THREE.MeshLambertMaterial).map, color: P.tan });
-  const capMat = new THREE.MeshLambertMaterial({ map: (tex('roofTiles') as THREE.MeshLambertMaterial).map, color: P.brown });
+  // The windmill: a tapered plaster tower, a tiled cap, four lattice sails turning toward the town.
+  const M = WINDMILL, wall = tex('plaster'), capMat = tex('roofTiles');
   B.add(tex('stone'), new THREE.CylinderGeometry(2.25, 2.35, 0.6, 8), V(M.x, 0.3, M.z));
   B.add(wall, new THREE.CylinderGeometry(1.5, 2.1, 7, 8), V(M.x, 4.1, M.z));
   B.add(capMat, new THREE.ConeGeometry(1.95, 2.2, 8), V(M.x, 8.7, M.z));
