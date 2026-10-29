@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { paintedAtlas, toTile, type PaintKind } from '../tex/paintedAtlas';
-import { painted, rigged, faceMaterial, blobShadow, BONES, type BoneName, type FigureLook, type FigureRig } from './figure';
+import { painted, rigged, faceMaterial, faceGeometry, blobShadow, BONES, type BoneName, type FigureLook, type FigureRig } from './figure';
 import { spriteFigure } from '../render/sprites';
 import { FACE } from '../render/headArt';
 
@@ -133,7 +133,7 @@ export function buildKavik(height = 1.85): THREE.Group {
   const root = new THREE.Group();
   root.add(mesh);
   // The drawn face over the front of his skull (0.184 m wide), as on every figure.
-  const headW = 0.184, face = new THREE.Mesh(new THREE.PlaneGeometry(FACE.w * headW * U, FACE.h * headW * U), faceMaterial());
+  const headW = 0.184, face = new THREE.Mesh(faceGeometry(FACE.w * headW * U, FACE.h * headW * U), faceMaterial());
   face.name = 'figure-face';
   face.position.set(0, (1.75 - FACE.drop * headW - RIG.head[1][1]) * U, 0.104 * U);
   face.raycast = () => {};
