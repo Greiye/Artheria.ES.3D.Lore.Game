@@ -226,7 +226,9 @@ async function open(opts, init) {
     await teleport(page, 0, 30, Math.PI / 2);
     const a = await pos(page);
     await axes([0, y, 0, 0]); await page.waitForTimeout(150);
-    const s1 = await sample(page); await page.waitForTimeout(ms); const s2 = await sample(page);
+    const s1 = await sample(page); await page.waitForTimeout(ms);
+    await page.waitForFunction((t) => window.__gametool.perf.simSeconds - t > 0.4, s1.t, { timeout: 10000 }).catch(() => undefined);   // slow software frames
+    const s2 = await sample(page);
     await axes([0, 0, 0, 0]);
     const b = await pos(page);
     return { v: speedOf(s1, s2), dx: b.x - a.x };

@@ -137,8 +137,8 @@ check('B14 the dojo opens on the safety disclaimer first, with no drill shown', 
   && await G(page, () => /not medical or professional advice/.test(document.querySelector('.dj-disclaimer').textContent) && !document.querySelector('[data-drill]') && window.__gametool.dojo.pose === null));
 await page.click('#djAck');
 check('B14 after "I understand", your character demonstrates the drill in third person', await G(page, () => { const g = window.__gametool; return g.dojo.pose === 'stance' && g.player.thirdPerson && g.rig.inShot && Math.hypot(g.player.pos.x + 15, g.player.pos.z - 14) < 0.1; }));
-await page.waitForTimeout(600);
-check('B14 the pose bends the figure (horse stance knees)', await G(page, () => { const b = window.__gametool.puppets.get('player').root.userData.rig?.bones; return !b || Math.abs(b.shinN.rotation.x) > 0.6; }));
+// Poll (not a fixed wait): a slow software frame can hold the 12 fps pose step back.
+check('B14 the pose bends the figure (horse stance knees)', await until(page, () => { const b = window.__gametool.puppets.get('player').root.userData.rig?.bones; return !b || Math.abs(b.shinN.rotation.x) > 0.6; }, null, 6000));
 await G(page, () => window.__gametool.dojo.tick(0));
 await page.click('#djStart');
 await G(page, () => { for (let i = 0; i < 21; i++) window.__gametool.dojo.tick(1); });
