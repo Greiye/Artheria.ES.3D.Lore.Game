@@ -23,6 +23,11 @@ const PLAYABLE: { kind: PlayKind; label: string; item?: string; pads: number }[]
   { kind: 'ocarina', label: 'Ocarina', item: 'ocarina', pads: 6 },
 ];
 const PENTA = [60, 62, 64, 67, 69, 72], PAD_NAMES = ['C', 'D', 'E', 'G', 'A', 'C′'];
+// v0.06 C1: the panel is a list of big buttons, one open at a time, Sleep first.
+export type FireSection = 'sleep' | 'play' | 'hear' | 'tell' | 'leave';
+const SECTIONS: [FireSection, string, string][] = [
+  ['sleep', '☾', 'Sleep'], ['play', '♫', 'Play along'], ['hear', '❦', 'Hear a tale'], ['tell', '✒', 'Tell a tale'], ['leave', '⇠', 'Leave'],
+];
 
 export class CampfirePanel {
   readonly el: HTMLDivElement;
@@ -38,6 +43,12 @@ export class CampfirePanel {
   tales: () => { id: string; title: string }[] = () => [];
   onTell: (id: string) => void = () => {};
   instrument: PlayKind = 'hum';
+  /** v0.06 C1: the open item (one at a time), and what Sleep says and does. Set by main. */
+  section: FireSection | null = 'play';
+  sleepLabel: () => string = () => 'Sleep';
+  onSleep: () => void = () => {};
+  /** v0.06 C3: a controller's button name for note pad i (null: keyboard numbers). Set by main. */
+  padGlyph: ((i: number) => string) | null = null;
   private stopBand: () => void = () => {};
 
   constructor(private natalie: () => string[], private onShelf: (b: Ballad) => void, public onClose: () => void, private author: () => string) {
@@ -73,6 +84,7 @@ export class CampfirePanel {
   get isOpen() { return !this.el.classList.contains('hidden'); }
   open() {
     this.ballad = null;
+    this.section = 'play';
     if (!this.playable.some((p) => p.kind === this.instrument)) this.instrument = 'hum';
     audio.band.muted = this.instrument;
     this.render(); this.el.classList.remove('hidden');
@@ -89,6 +101,8 @@ export class CampfirePanel {
     const b = (ev.target as HTMLElement).closest('button') as HTMLButtonElement | null;
     if (!b) return;
     const d = b.dataset;
+    if (d.sec) { this.openSection(this.section === d.sec ? null : d.sec as FireSection); if (b.matches(':focus-visible')) this.focusSec(); return; }
+    if (b.id === 'cfSleep') { this.close(); this.onSleep(); return; }
     if (d.step !== undefined) this.toggle(Number(d.step), Number(d.row));
     else if (d.pad !== undefined) this.pad(Number(d.pad));
     else if (d.play) { this.instrument = audio.band.muted = d.play as PlayKind; this.render(); }
@@ -109,6 +123,42 @@ export class CampfirePanel {
     else if (b.id === 'cfSubmit' && this.ballad) openSubmitSheet({ kind: 'song', title: this.ballad.title, markdown: balladMarkdown(this.ballad, this.author()) });
     else if (b.id === 'cfAgain') { this.ballad = null; this.render(); }
     else if (b.id === 'cfClose') this.close();
+  }
+
+  /** Open one item (or none), closing the others. */
+  openSection(sec: FireSection | null) { this.section = sec; this.render(); }
+  private focusSec(sec = this.section) { this.el.querySelector<HTMLElement>(`[data-sec="${sec ?? 'sleep'}"]`)?.focus({ preventScroll: true }); }
+  private padsHtml() {
+    return Array.from({ length: this.pads }, (_, i) => `<button class="cf-pad" data-pad="${i}"><kbd>${this.padGlyph ? this.padGlyph(i) : i + 1}</kbd>${this.pads > 2 ? PAD_NAMES[i] : i ? 'Accent' : 'Beat'}</button>`).join('');
+  }
+  /** C3: swap the note keys' labels when a controller comes or goes. */
+  setPadGlyphs(g: ((i: number) => string) | null) {
+    this.padGlyph = g;
+    const p = this.el.querySelector('.cf-pads');
+    if (p) p.innerHTML = this.padsHtml();
+  }
+  /** C1 without a mouse: up / down move through the items and the open item's controls, A opens or presses,
+   *  left / right change a list, B closes the open item (or, with none open, leaves the fire). */
+  input(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back') {
+    const items = [...this.el.querySelectorAll<HTMLElement>('.cf-sec, .cf-body button, .cf-body select')].filter((e) => e.offsetParent !== null);
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const cur = items[at];
+    if (dir === 'back') {
+      if (this.section) { const was = this.section; this.openSection(null); this.focusSec(was); } else this.close();
+      return;
+    }
+    if (dir === 'up' || dir === 'down') { items[at < 0 ? 0 : (at + (dir === 'down' ? 1 : -1) + items.length) % items.length]?.focus({ preventScroll: true }); return; }
+    if (!cur) { items[0]?.focus({ preventScroll: true }); return; }
+    if (cur instanceof HTMLSelectElement) {
+      if (dir === 'left' || dir === 'right' || dir === 'ok') cur.selectedIndex = (cur.selectedIndex + (dir === 'left' ? -1 : 1) + cur.options.length) % cur.options.length;
+      return;
+    }
+    if (dir !== 'ok') return;
+    const sec = cur.dataset.sec as FireSection | undefined;
+    if (sec === 'leave') { this.close(); return; }
+    cur.click();
+    if (sec && this.section === sec) this.el.querySelector<HTMLElement>('.cf-body button, .cf-body select')?.focus({ preventScroll: true });
+    else if (sec) this.focusSec(sec);
   }
 
   private renderGrid() {
@@ -139,23 +189,27 @@ export class CampfirePanel {
         ${nat[i] ? `<p class="cf-natalie">Natalie: “${escapeHtml(nat[i])}”</p>` : ''}`).join('')}
       <label class="field">Title<input id="cfTitle" type="text" maxlength="60" value="${escapeHtml(this.title)}" placeholder="The Ballad of the Ruined Library"></label>
       <div class="forge-actions"><button class="primary" id="cfBard">Hand it to the bard</button></div>`;
+    const bodies: Record<FireSection, string> = {
+      sleep: `<p class="fine">You've sat by the fire, so the bedroll is yours. The camp keeps watch.</p>
+        <div class="forge-actions"><button class="primary" id="cfSleep">${escapeHtml(this.sleepLabel())}</button></div>`,
+      play: `<div class="chips">${this.playable.map((p) => `<button class="chip${p.kind === this.instrument ? ' on' : ''}" data-play="${p.kind}">${p.label}</button>`).join('')}</div>
+        <p class="fine cf-band">The camp plays ${PLAYABLE.filter((p) => p.kind !== this.instrument).map((p) => p.label.toLowerCase()).join(', ')}. The ${this.label.toLowerCase()} part is yours. <button class="chip${audio.band.guide ? ' on' : ''}" id="cfGuide">Hear your part</button></p>
+        <div class="cf-pads">${this.padsHtml()}</div>
+        ${this.playable.length < PLAYABLE.length ? '<p class="fine">More instruments at the General Store in town.</p>' : ''}`,
+      hear: this.tales().length ? `<p class="fine">Natalie tells a page from the library, the way it was written.</p>
+        <div class="forge-actions"><select id="cfTale" aria-label="Tale">${this.tales().map((t) => `<option value="${t.id}">${escapeHtml(t.title)}</option>`).join('')}</select><button class="secondary" id="cfTell">Ask Natalie to tell it</button></div>` : '<p class="fine">No tales on the shelves yet.</p>',
+      tell: `<p class="fine">Tell Natalie a tale, a place or a person; she writes it down as a lore page for the library.</p>
+        <div class="forge-actions"><button class="secondary" id="cfWriteLore">✒ Write lore with Natalie</button></div>
+        <p class="fine">Or tell her what happened, and the bard sings it back to your tune.</p>${body}`,
+      leave: `<div class="forge-actions"><button class="secondary" id="cfClose">Leave the fire</button></div>`,
+    };
     this.el.innerHTML = `
       <div class="forge-panel campfire-panel">
         <div class="eyebrow">Campfire · the bard</div>
-        <h2>Tell it by the fire</h2>
-        <p class="fine">Natalie is a bard. The camp plays while you sit. Pick an instrument and play your part, tell her what happened and she'll sing it back, or give her a tale to write down for the library.</p>
-        <h4>Play along</h4>
-        <div class="chips">${this.playable.map((p) => `<button class="chip${p.kind === this.instrument ? ' on' : ''}" data-play="${p.kind}">${p.label}</button>`).join('')}</div>
-        <p class="fine cf-band">The camp plays ${PLAYABLE.filter((p) => p.kind !== this.instrument).map((p) => p.label.toLowerCase()).join(', ')}. The ${this.label.toLowerCase()} part is yours. <button class="chip${audio.band.guide ? ' on' : ''}" id="cfGuide">Hear your part</button></p>
-        <div class="cf-pads">${Array.from({ length: this.pads }, (_, i) => `<button class="cf-pad" data-pad="${i}"><kbd>${i + 1}</kbd>${this.pads > 2 ? PAD_NAMES[i] : i ? 'Accent' : 'Beat'}</button>`).join('')}</div>
-        ${this.playable.length < PLAYABLE.length ? '<p class="fine">More instruments at the General Store in town.</p>' : ''}
-        ${this.tales().length ? `<h4>Hear a tale</h4>
-        <div class="forge-actions"><select id="cfTale" aria-label="Tale">${this.tales().map((t) => `<option value="${t.id}">${escapeHtml(t.title)}</option>`).join('')}</select><button class="secondary" id="cfTell">Ask Natalie to tell it</button></div>` : ''}
-        <h4>Write lore</h4>
-        <p class="fine">Tell Natalie a tale, a place or a person; she writes it down as a lore page for the library.</p>
-        <div class="forge-actions"><button class="secondary" id="cfWriteLore">✒ Write lore with Natalie</button></div>
-        ${body}
-        <div class="forge-actions"><button class="secondary" id="cfClose">Leave the fire</button></div>
+        <h2>By the fire</h2>
+        ${SECTIONS.map(([id, icon, name]) => `<div class="cf-item${this.section === id ? ' open' : ''}">
+          <button class="cf-sec" data-sec="${id}" aria-expanded="${this.section === id}"><span class="cf-ico" aria-hidden="true">${icon}</span>${name}</button>
+          ${this.section === id ? `<div class="cf-body">${bodies[id]}</div>` : ''}</div>`).join('')}
       </div>`;
     this.renderGrid();
   }

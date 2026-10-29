@@ -25,6 +25,17 @@ const teleport = async (page, x, z, yaw = 0, pitch = 0) => {
   await G(page, ([x, z, yaw, pitch]) => { const p = window.__gametool.player; p.pos.set(x, 0, z); p.yaw = yaw; p.pitch = pitch; p.update(0); }, [x, z, yaw, pitch]);
   await frames(page);
 };
+// v0.06 W1: the lectern is gone; the red book is read at the library door.
+const atLibrary = async (page, back = 1.3) => {
+  await G(page, (back) => {
+    const g = window.__gametool, c = new g.Vector3(); g.world.town.doors.library.getWorldPosition(c);
+    const out = new g.Vector3(-c.x, 0, -c.z).normalize(), p = g.player;
+    p.pos.set(c.x + out.x * back, 0, c.z + out.z * back);
+    const d = c.clone().sub(new g.Vector3(p.pos.x, 1.7, p.pos.z));
+    p.yaw = Math.atan2(-d.x, -d.z); p.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); p.update(0); p.syncNow();
+  }, back);
+  await frames(page);
+};
 const clearColliders = (page) => G(page, () => { const gt = window.__gametool; gt.parked = gt.world.colliders.splice(0); });
 const restoreColliders = (page) => G(page, () => { const gt = window.__gametool; gt.world.colliders.push(...gt.parked); });
 
@@ -112,11 +123,11 @@ async function open(opts, init) {
   check('Touch: Sneak button toggles sneak', sneaking && !(await G(page, () => window.__gametool.player.sneaking)));
 
   // Read button near the book.
-  await teleport(page, 0, 8.5, 0);
+  await atLibrary(page, 8);
   const farRead = await page.isVisible('.t-read');
-  await teleport(page, 0, 1.4, 0, -0.45);
+  await atLibrary(page);
   const nearRead = await page.isVisible('.t-read');
-  check('Touch: Read button appears only when aimed at the book', !farRead && nearRead);
+  check('Touch: Read button appears only when aimed at the library door', !farRead && nearRead);
   await page.screenshot({ path: path.join(shots, 'm2-phone-read-button.png') });
   await page.tap('.t-read');
   await page.waitForFunction(() => window.__gametool.state === 'book');
@@ -160,7 +171,7 @@ async function open(opts, init) {
   await page.screenshot({ path: path.join(shots, 'm3-phone-portrait-title.png') });
   await page.tap('#begin');
   await page.waitForFunction(() => window.__gametool.state === 'play');
-  await teleport(page, 0, 1.4, 0, -0.5);
+  await atLibrary(page);
   await page.tap('.t-read');
   await page.waitForFunction(() => window.__gametool.state === 'book');
   await page.waitForTimeout(500);
@@ -271,7 +282,7 @@ async function open(opts, init) {
   const ps = await G(page, () => ({ pad: document.body.dataset.pad, map: document.querySelector('#pause [data-padmap]').textContent }));
   check('v0.04 Gamepad: a PlayStation pad shows its own button names in the controls map', ps.pad === 'playstation' && ps.map.includes('✕') && ps.map.includes('R2'), JSON.stringify(ps).slice(0, 120));
   await G(page, () => { window.__pad.id = 'Test Pad (STANDARD GAMEPAD)'; }); await frames(page);
-  await teleport(page, 0, 1.4, 0, -0.45);
+  await atLibrary(page);
   check('Gamepad: prompt shows "A — Read"', (await page.textContent('#prompt')).includes('A'));
   await btn(0);
   await page.waitForFunction(() => window.__gametool.state === 'book', null, { timeout: 3000 }).catch(() => undefined);

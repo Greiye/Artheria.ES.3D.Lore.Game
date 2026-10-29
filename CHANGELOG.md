@@ -7,6 +7,18 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### v0.06 changelog, part 2: stations, campfire, centre, mobile
+- The rune dais at the centre is gone: the blue stones, the pillars, the lectern and its book, and the dirt patch around them. The red book is read at the library door. The scratched-tally clue moved to a buttress of the library.
+- Stations put you in a pose: sitting on the log at the fire, standing at the anvil, standing at the mirror, writing at the desk, kneeling at the bedroll.
+- While a station is open the camera frames the whole station and you beside the panel (above it on a phone), then slowly sways a few degrees each way (about 10 s). Reduced motion turns the sway off.
+- The tailor's mirror stands in the doorway facing the street, so the building no longer hides you in the character editor.
+- The weapon on the anvil stays still. Turn it with a right-mouse drag, a one-finger drag or the right stick; it stays where you leave it.
+- The camp banner is now a writing desk with a sheet of paper, an inkpot and a quill. Your sketch lies on the paper.
+- The campfire menu is a list of large buttons with icons, each opening its options: **Sleep, Play along, Hear a tale, Tell a tale, Leave**. One opens at a time; D-pad up/down moves, A opens, B closes. Sleep is ready as soon as you sit.
+- With a controller connected, the band's note pads show the pad's buttons (X, Y, LB, RB, LT, RT) and play from the pad; the labels swap live.
+- Phone: the crossbow buttons sit in their own block beside the action cluster, Sprint and View hide while aiming, and every button is at least 44 px.
+- Backing right up to a wall in the overhead view, the camera rises straight up instead of sitting in your head.
+
 ### v0.06 changelog, part 1: title, main menu, pause menu
 - The splash lasts 2 seconds, and its book-and-sword icon animates: the book opens and the sword is drawn into it with a glint. With reduced motion it stays still.
 - After "Press any button" the title stays on screen (the drifting stone wall, the water and the logo) and the main menu fades in under the logo: **Begin, Extras, Options**, with no panel behind them. Arrow keys, the D-pad or a stick move between them, A or Enter picks one, and mouse and touch work too.

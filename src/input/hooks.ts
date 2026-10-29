@@ -31,4 +31,6 @@ export interface GameHooks {
   menuActive(): boolean;   // v0.05: a menu that takes the D-pad is up (intro, main menu, Extras, gate prompt)
   menu(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boolean;   // v0.05: menus with the D-pad
   setMode(m: InputMode): void;
+  bandPad?(i: number): void;              // v0.06 C3: play note pad i at the campfire
+  forgeStick?(x: number, y: number): void;   // v0.06 S4: the right stick turns the weapon on the anvil
 }

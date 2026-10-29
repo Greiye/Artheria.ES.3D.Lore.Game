@@ -86,6 +86,7 @@ export class CameraRig {
   }
 
   get inShot(): boolean { return this.shot !== null; }
+  get currentShot(): Shot | null { return this.shot; }
   get switching(): boolean { return this.viewT < 1; }
 
   setShot(s: Shot | null) {
@@ -130,6 +131,16 @@ export class CameraRig {
         }
         if (target * dist >= Math.min(MIN_CLEAR, dist) || elev >= 1.35) break;
         elev = Math.min(1.35, elev + 0.22);
+      }
+      // v0.06: back right up to a wall in the overhead view even the steepest crane meets it at once; rise almost straight up.
+      if (target * dist < Math.min(MIN_CLEAR, dist)) {
+        offset.set(Math.sin(p.yaw) * 0.03, 1, Math.cos(p.yaw) * 0.03).normalize().multiplyScalar(Math.min(dist, 6));
+        target = 0;
+        for (let t = 0.05; t <= 1.0001; t += 0.05) {
+          q.copy(this.look).addScaledVector(offset, t);
+          if (q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad, q.y))) break;
+          target = t;
+        }
       }
       // Pull in at once (never clip a wall), ease back out (no popping when a tree passes).
       this.free = target < this.free || !this.wasThird ? target : Math.min(target, this.free + dt * 2.5);

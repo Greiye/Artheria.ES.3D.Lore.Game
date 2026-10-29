@@ -99,11 +99,10 @@ export class LivingMap {
     g.strokeStyle = '#3A3024'; g.fillStyle = '#3A3024'; g.lineWidth = 2;
     g.setLineDash([6, 4]); g.beginPath(); g.moveTo(X(0), Z(12)); g.lineTo(X(0), Z(-18)); g.stroke(); g.setLineDash([]);   // paved path
     g.strokeRect(X(-13), Z(-42), 26 * S, 24 * S);                                                                         // library
-    g.beginPath(); g.arc(X(0), Z(0), 2.2 * S, 0, 7); g.stroke();                                                          // dais
     g.strokeRect(X(10), Z(2.5), 10 * S, 7 * S);                                                                           // gallery
     g.beginPath(); g.arc(X(-7), Z(0), 3.5 * S, 0, 7); g.stroke();                                                         // camp
     const label = (x: number, z: number, t: string, size = 15) => { if (!this.isSeen(x, z)) return; g.font = `italic ${size}px Georgia, serif`; g.fillStyle = '#2B2418'; g.textAlign = 'center'; g.fillText(t, X(x), Z(z)); };
-    label(0, -30, 'The Ruined Library', 18); label(0, 3.8, 'Rune dais'); label(15, 1.6, 'Gallery hall'); label(-7, 5.2, 'Camp'); label(0, 12.5, 'Paved road'); label(-14, 10.2, 'Dojo');
+    label(0, -30, 'The Ruined Library', 18); label(15, 1.6, 'Gallery hall'); label(-7, 5.2, 'Camp'); label(0, 12.5, 'Paved road'); label(-14, 10.2, 'Dojo');
     g.strokeRect(X(-18), Z(10.5), 8 * S, 7 * S);                                                                          // dojo
     // What happened here.
     const icon: Record<Mark['kind'], [string, string]> = { clue: ['✕', '#7A2420'], lead: ['◆', '#2E5FA8'], found: ['★', '#A8322A'], song: ['♪', '#6B4423'], delve: ['▼', '#2B2A24'], place: ['•', '#2B2418'] };

@@ -142,6 +142,8 @@ export class TouchControls {
     bow.classList.toggle('hidden', !(this.g.state() === 'play' && (cb.equipped || this.hasBow())));
     bow.querySelectorAll('[data-act="fire"], [data-act="reload"], [data-act="aim"]').forEach((b) => b.classList.toggle('hidden', !cb.equipped));
     this.root.querySelector('[data-act="aim"]')!.classList.toggle('latched', cb.ads);
+    const ads = cb.ads ? '1' : '0';
+    if (document.body.dataset.ads !== ads) document.body.dataset.ads = ads;   // v0.06 U2: fewer buttons while aiming
   }
 
   private hasBow() { return this.g.hasCrossbow(); }

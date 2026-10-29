@@ -152,7 +152,7 @@ export class SketchPad {
     this.el.innerHTML = `
       <div class="forge-panel sketch-panel">
         <div class="eyebrow">Sketchbook · 32 × 32</div>
-        <h2>Paint a banner</h2>
+        <h2>Sketch a crest</h2>
         <canvas id="skCanvas" width="${SIZE}" height="${SIZE}"></canvas>
         <div class="swatches sk-palette">${PALETTE.map((c, i) => i ? `<button class="sw" data-c="${i}" style="background:${c}" aria-label="colour ${i}"></button>` : '').join('')}</div>
         <div class="chips sk-tools">
@@ -162,7 +162,7 @@ export class SketchPad {
         <label class="field">Name<input id="skName" type="text" maxlength="40" value="${escapeHtml(this.name)}" placeholder="e.g. The Lantern Crest"></label>
         <h4>Saved on this device</h4>
         <div class="sk-list"></div>
-        <div class="forge-actions"><button class="primary" id="skStamp">Hang on the banner</button></div>
+        <div class="forge-actions"><button class="primary" id="skStamp">Pin to the desk</button></div>
         <div class="forge-actions"><button class="secondary" id="skDone">Done</button><button class="secondary" id="skSubmit">Submit…</button></div>
         <p class="fine">Sketches also work as wax seals on margin notes.</p>
       </div>`;

@@ -38,7 +38,7 @@ const px = () => G(page, () => window.__gametool.sketchPad.pixels);
 
 // ---------- B10 sketchbook and banner ----------
 await aimAt('banner');
-check('B10 the camp banner offers "Paint the banner"', await verbIs('Paint the banner'));
+check('B10 the camp writing desk offers "Sketch at the writing desk"', await verbIs('Sketch at the writing desk'));
 await page.keyboard.press('KeyE');
 check('B10 E opens the sketchbook, framed on the banner', await until(page, () => window.__gametool.state === 'forge' && !document.getElementById('sketchpad').classList.contains('hidden') && window.__gametool.rig.inShot));
 await page.click('#skClear');
@@ -65,24 +65,21 @@ check('B10 Undo takes the fill back', [...(await px())].filter((c) => c === '7')
 await page.fill('#skName', 'Test Crest');
 await page.click('#skStamp');
 const stamped = await G(page, () => { const s = JSON.parse(localStorage.getItem('gametool.sketches')); const b = window.__gametool.world.bannerCloth; return { n: s.length, id: s[0].id, name: s[0].name, banner: b.userData.sketch, map: !!b.material.map }; });
-check('B10 "Hang on the banner" saves the sketch and stamps it on the cloth', stamped.n === 1 && stamped.name === 'Test Crest' && stamped.banner === stamped.id && stamped.map, JSON.stringify(stamped));
+check('B10 "Pin to the desk" saves the sketch and lays it on the desk page', stamped.n === 1 && stamped.name === 'Test Crest' && stamped.banner === stamped.id && stamped.map, JSON.stringify(stamped));
 await page.click('#skSubmit');
 const sk = await G(page, () => decodeURIComponent(document.querySelector('.submit-sheet [data-act=issue]').href));
 check('B10 Submit exports the sketch as a lore file (pixels in front matter)', sk.includes('[sketch] Test Crest') && /pixels: "[0-9a-f]{1024}"/.test(sk));
 await page.click('.submit-sheet [data-act=close]');
-const sway0 = await G(page, () => window.__gametool.world.bannerCloth.geometry.attributes.position.getZ(60));
-await page.waitForTimeout(300);
-check('B10 the banner sways in the wind', Math.abs(sway0 - await G(page, () => window.__gametool.world.bannerCloth.geometry.attributes.position.getZ(60))) > 1e-4);
+const lies = await G(page, () => { const b = window.__gametool.world.bannerCloth; b.updateMatrixWorld(true); const n = new window.__gametool.Vector3(0, 0, 1).transformDirection(b.matrixWorld); return { y: +b.getWorldPosition(new window.__gametool.Vector3()).y.toFixed(2), up: +n.y.toFixed(2) }; });
+check('v0.06 W1 the sketch lies as a page on the writing desk (not a swaying banner)', lies.y > 0.7 && lies.y < 1.2 && lies.up > 0.85, JSON.stringify(lies));
 await page.click('#skDone');
 check('B10 Done closes the sketchbook', await until(page, () => window.__gametool.state !== 'forge'));
 if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn');
 await until(page, () => window.__gametool.state === 'play');
 
-// ---------- B3 margin notes in the lectern book ----------
-await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 1.4); p.yaw = 0; p.pitch = -0.45; p.update(0); });
-await verbIs('Read');
-await page.keyboard.press('KeyE');
-check('B3 the lectern book opens', await until(page, () => window.__gametool.state === 'book'));
+// ---------- B3 margin notes in the red book (v0.06: read in the library, the lectern is gone) ----------
+await G(page, () => window.__gametool.readRedBook());
+check('B3 the red book opens', await until(page, () => window.__gametool.state === 'book'));
 await G(page, () => window.__gametool.book.goto(2));
 await page.waitForTimeout(400);
 const page0 = await G(page, () => window.__gametool.book.currentPage);
@@ -100,8 +97,8 @@ await page.click(`#book .margin-desk [data-seal="${sealId}"]`);
 await page.click('#book .margin-desk [data-act="pin"]');
 const note = await G(page, () => { const n = document.querySelector('#book .margin-note'); return n && { text: n.textContent, ink: n.style.getPropertyValue('--ink'), seal: !!n.querySelector('.mn-seal') }; });
 check('B3 the pinned note shows on the page in its ink, with the wax seal', !!note && note.text.includes('Dad said the door') && note.ink === '#B3362C' && note.seal, JSON.stringify(note));
-const world3d = await G(page, () => { const g = window.__gametool; return { lect: g.world.lecternPages.some((m) => !!m.userData.marginMat), marks: g.world.scene.getObjectByName('bookmarks') ? 1 : 0 }; });
-check('B3 the note is drawn onto the 3D lectern pages and ribbons a shelf book', world3d.lect && world3d.marks === 1, JSON.stringify(world3d));
+const world3d = await G(page, () => window.__gametool.world.scene.getObjectByName('bookmarks') ? 1 : 0);
+check('B3 the note ribbons a shelf book', world3d === 1, JSON.stringify(world3d));
 await page.click('#book .book-pen');
 const sub = await page.isVisible('#book .margin-desk [data-act="submit"]');
 if (sub) await page.click('#book .margin-desk [data-act="submit"]');
@@ -125,8 +122,8 @@ for (let attempt = 0; attempt < 5; attempt++) {
   if (!lost.length) break;
   await G(page, (s) => { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v); }, snap);
 }
-const kept = await G(page, () => ({ banner: window.__gametool.world.bannerCloth.userData.sketch, notes: JSON.parse(localStorage.getItem('gametool.margins')).length, lect: window.__gametool.world.lecternPages.some((m) => !!m.userData.marginMat) }));
-check('B3/B10 notes, banner and 3D pages come back after a reload', kept.banner === sealId && kept.notes === 1 && kept.lect, JSON.stringify(kept));
+const kept = await G(page, () => ({ banner: window.__gametool.world.bannerCloth.userData.sketch, notes: JSON.parse(localStorage.getItem('gametool.margins')).length}));
+check('B3/B10 notes and the desk sketch come back after a reload', kept.banner === sealId && kept.notes === 1, JSON.stringify(kept));
 
 check('Writing: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

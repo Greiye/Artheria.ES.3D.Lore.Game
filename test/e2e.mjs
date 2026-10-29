@@ -46,6 +46,18 @@ const teleport = async (page, x, z, yaw = 0, pitch = 0) => {
   }, [x, z, yaw, pitch]);
   await frames(page);
 };
+// v0.06 W1: the lectern is gone; the red book is read at the library door ("Enter the Library").
+// back = metres in front of the door; turn = extra yaw (π faces away).
+const atLibrary = async (page, back = 1.3, turn = 0) => {
+  await G(page, ([back, turn]) => {
+    const g = window.__gametool, c = new g.Vector3(); g.world.town.doors.library.getWorldPosition(c);
+    const out = new g.Vector3(-c.x, 0, -c.z).normalize(), p = g.player;
+    p.pos.set(c.x + out.x * back, 0, c.z + out.z * back);
+    const d = c.clone().sub(new g.Vector3(p.pos.x, 1.7, p.pos.z));
+    p.yaw = Math.atan2(-d.x, -d.z) + turn; p.bodyYaw = p.yaw; p.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)); p.update(0); p.syncNow();
+  }, [back, turn]);
+  await frames(page);
+};
 
 // Checks every book page: nothing overflows, and the entry's words all appear exactly once in order.
 async function auditBook(page, entryId) {
@@ -90,7 +102,7 @@ if (!longOnly) {
 
   // ---------- F1.2 book visible from spawn ----------
   const proj = await G(page, () => {
-    const gt = window.__gametool, p = gt.player, b = gt.world.bookCenter;
+    const gt = window.__gametool, p = gt.player, b = new gt.Box3().setFromObject(gt.world.scene.getObjectByName('library-interior')).getCenter(new gt.Vector3());
     const eye = { x: p.pos.x, y: p.pos.y + 1.7, z: p.pos.z };
     const dx = b.x - eye.x, dy = b.y - eye.y, dz = b.z - eye.z;
     const fwd = { x: -Math.sin(p.yaw), z: -Math.cos(p.yaw) };
@@ -98,7 +110,7 @@ if (!longOnly) {
     const hfov = Math.atan((Math.tan((gt.settings.fov * Math.PI) / 360)) * innerWidth / innerHeight);
     return { dist: Math.hypot(dx, dz), angle: Math.atan2(Math.abs(side), along), hfov, vAngle: Math.atan2(dy, along) };
   });
-  check('F1.2 lore book visible from spawn', proj.angle < proj.hfov && Math.abs(proj.vAngle) < (75 * Math.PI) / 360, `${proj.dist.toFixed(1)} m ahead, ${(proj.angle * 57.3).toFixed(1)}° off-centre`);
+  check('F1.2 the library (lore books) visible from spawn', proj.angle < proj.hfov && Math.abs(proj.vAngle) < (75 * Math.PI) / 360, `${proj.dist.toFixed(1)} m ahead, ${(proj.angle * 57.3).toFixed(1)}° off-centre`);
 
   // ---------- F2.1 movement speeds ----------
   // Speed checks run with colliders parked so a random tree can't shorten the run.
@@ -170,17 +182,17 @@ if (!longOnly) {
 
   // ---------- F3.1 prompt ----------
   const promptVisible = () => page.isVisible('#prompt');
-  await teleport(page, 0, 8.5, 0); await page.waitForTimeout(100);
+  await atLibrary(page, 8); await page.waitForTimeout(100);
   const far = await promptVisible();
-  await teleport(page, 0, 1.4, 0, -0.45); await page.waitForTimeout(100);
+  await atLibrary(page); await page.waitForTimeout(100);
   const near = await promptVisible();
   await page.screenshot({ path: path.join(shots, '03-read-prompt.png') });
-  await teleport(page, 0, 1.4, Math.PI, -0.45); await page.waitForTimeout(100);
+  await atLibrary(page, 1.3, Math.PI); await page.waitForTimeout(100);
   const away = await promptVisible();
-  check('F3.1 prompt shows only when aiming at the book within 2 m', !far && near && !away, `far ${far}, near ${near}, turned away ${away}`);
+  check('F3.1 prompt shows only when aiming at the library door up close', !far && near && !away, `far ${far}, near ${near}, turned away ${away}`);
 
   // ---------- F3.2 open ----------
-  await teleport(page, 0, 1.4, 0, -0.45); await page.waitForTimeout(100);
+  await atLibrary(page); await page.waitForTimeout(100);
   await page.keyboard.press('KeyE');
   await page.waitForFunction(() => window.__gametool.state === 'book');
   await page.waitForTimeout(400);
@@ -222,7 +234,7 @@ if (!longOnly) {
   const before = await cur();
   for (const key of ['Tab', 'Escape', 'KeyE']) {
     if ((await state(page)) !== 'book') {
-      await teleport(page, 0, 1.4, 0, -0.45); await page.waitForTimeout(100);
+      await atLibrary(page); await page.waitForTimeout(100);
       await page.keyboard.press('KeyE'); await page.waitForFunction(() => window.__gametool.state === 'book');
       await page.waitForTimeout(300);
     }
@@ -235,7 +247,7 @@ if (!longOnly) {
     const a = await pos(page); await page.keyboard.down('KeyS'); await page.waitForTimeout(300); await frames(page, 4); await page.keyboard.up('KeyS'); const b = await pos(page);
     check(`F3.6 ${key} closes the book; player can walk again`, st === 'play' && !(await page.isVisible('#book .spread')) && Math.hypot(b.x - a.x, b.z - a.z) > 0.5, `state ${st} moved ${Math.hypot(b.x - a.x, b.z - a.z).toFixed(2)}`);
   }
-  await teleport(page, 0, 1.4, 0, -0.45); await page.waitForTimeout(100);
+  await atLibrary(page); await page.waitForTimeout(100);
   await page.keyboard.press('KeyE'); await page.waitForFunction(() => window.__gametool.state === 'book'); await page.waitForTimeout(300);
   check('F3.7 reopening returns to the last page read', (await cur()) === before, `page ${(await cur()) + 1}`);
   await page.keyboard.press('Tab'); await page.waitForTimeout(300);
@@ -303,7 +315,7 @@ if (!longOnly) {
   await frames(page);
   const y2 = await G(page, () => window.__gametool.player.yaw);
   check('Fallback: no pointer lock → still playable, drag-to-look works', (await state(page)) === 'play' && hint && y1 < y0 && y2 < y1, `yaw ${y0.toFixed(2)} → ${y1.toFixed(2)} → ${y2.toFixed(2)}, hint ${hint}`);
-  await teleport(page, 0, 1.4, 0, -0.45);
+  await atLibrary(page);
   await page.keyboard.press('KeyE'); await page.waitForTimeout(400);
   const opened = (await state(page)) === 'book';
   await page.keyboard.press('Escape'); await page.waitForTimeout(300);
@@ -322,7 +334,7 @@ if (process.env.LONG_ENTRY) {
   for (const vp of [{ width: 1280, height: 800 }, { width: 1920, height: 1080 }, { width: 1024, height: 640 }]) {
     const { ctx, page, errors } = await newPage(vp);
     await page.click('#begin'); await page.waitForTimeout(300);
-    await teleport(page, 0, 1.4, 0, -0.45); await page.waitForTimeout(100);
+    await atLibrary(page); await page.waitForTimeout(100);
     await page.keyboard.press('KeyE'); await page.waitForFunction(() => window.__gametool.state === 'book'); await page.waitForTimeout(500);
     const a = await auditBook(page, 'long-test-entry');
     // Extract the long entry's words from the flattened book text, from its title onward.

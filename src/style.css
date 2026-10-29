@@ -391,3 +391,24 @@ body[data-state="title"] #padStatus, body[data-state="pause"] #padStatus { displ
 /* The logo belongs to the main menu itself; screens opened from it (Options, character, editor) hide it. */
 #intro .logo { transition: opacity .3s ease; }
 body:not([data-state="title"]) #intro.menu .logo { opacity: 0; }
+
+/* ---------- v0.06 part 2: mobile pass ---------- */
+/* U2: the face buttons no longer touch (Jump used to clip Sneak and Sprint). */
+.t-cluster { width: 212px; height: 206px; }
+.t-cluster [data-act="jump"] { right: 66px; }
+.t-cluster [data-act="sprint"] { right: 148px; }
+.t-cluster [data-act="pov"] { right: 74px; bottom: 140px; }
+/* U1: the crossbow buttons sit in a 2×2 block to the left of the face buttons (they used to run down the right
+   edge into Jump / Sneak). U2: every touch target is at least 44 px and clear of the notch. */
+.t-bow { top: auto; right: calc(16px + 212px + 14px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom));
+  grid-template-columns: repeat(2, 58px); }
+.t-bow .t-btn { width: 58px; height: 58px; }
+.t-bow .t-fire { background: rgba(160,60,40,.6); }
+body[data-input="touch"] #ammo { bottom: calc(94px + env(safe-area-inset-bottom)); }
+/* Context-sensitive: aiming hides what you can't use while aiming. */
+body[data-ads="1"] .t-cluster [data-act="sprint"], body[data-ads="1"] .t-cluster [data-act="pov"] { display: none; }
+@media (max-height: 420px) {
+  .t-cluster { transform: scale(.86); transform-origin: right bottom; }
+  .t-bow { right: calc(16px + 183px + 12px + env(safe-area-inset-right)); grid-template-columns: repeat(2, 52px); }
+  .t-bow .t-btn { width: 52px; height: 52px; }
+}

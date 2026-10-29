@@ -23,3 +23,12 @@
 .cf-pad.hit { animation: cfHit .25s ease-out; }
 @keyframes cfHit { from { background: #F2B36B; box-shadow: 0 0 14px rgba(242,179,107,.8); } to { background: rgba(242,179,107,.12); box-shadow: none; } }
 #campfire.telling-on { display: none; }
+/* v0.06 C1: big icon buttons, each opening into its options; one open at a time. */
+.cf-item { margin: 6px 0; border: 1px solid rgba(226,181,103,.3); border-radius: 10px; background: rgba(239,227,196,.03); }
+.cf-item.open { border-color: rgba(226,181,103,.7); background: rgba(239,227,196,.06); }
+.cf-sec { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 14px; background: none; border: 0; border-radius: 10px;
+  color: #F2E2B8; font: 600 18px Georgia, var(--serif); text-align: left; cursor: pointer; box-shadow: none; }
+.cf-sec:hover, .cf-sec:focus-visible { outline: none; background: rgba(226,181,103,.14); }
+.cf-ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(#F2B36B, #9C6A2A); color: #2A1A0C; font-size: 18px; flex: none; }
+.cf-body { padding: 0 12px 10px; }
+.cf-body :is(button, select):focus-visible { outline: 2px solid #FFE2A0; outline-offset: 2px; }

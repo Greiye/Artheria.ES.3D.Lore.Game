@@ -171,7 +171,7 @@ async function newPage() {
   await page.keyboard.press('KeyL');
   await page.waitForTimeout(100);
   check('v0.04: "L" no longer opens the editor (lore is written at the campfire)', (await G(page, () => window.__gametool.state)) === 'play');
-  await G(page, () => { const g = window.__gametool; g.openCampfire(); g.campfire.el.querySelector('#cfWriteLore').click(); });
+  await G(page, () => { const g = window.__gametool; g.openCampfire(); g.campfire.openSection('tell'); g.campfire.el.querySelector('#cfWriteLore').click(); });
   await page.waitForTimeout(200);
   check('v0.04: the campfire\'s "Write lore with Natalie" opens the editor', (await G(page, () => window.__gametool.state)) === 'editor');
   check('Movement keys are released on entering the editor', (await G(page, () => window.__gametool.player.held.size)) === 0);
