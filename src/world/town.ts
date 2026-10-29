@@ -90,20 +90,27 @@ function footprint(colliders: Collider[], x: number, z: number, ry: number, w: n
   }
 }
 
-/** All the signs on one canvas (one row each), so the town's signs (and the exit gate's) are a single draw call. */
-function signAtlas(rows: string[][]): THREE.CanvasTexture {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64 * rows.length;
+/** All the signs on one canvas, two to a row (512 px wide, inside the mobile texture budget), so the town's signs
+ *  (and the exit gate's) are a single draw call. */
+function signAtlas(signs: string[][]): THREE.CanvasTexture {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 64 * Math.ceil(signs.length / 2);
   const g = c.getContext('2d')!;
-  rows.forEach((lines, i) => {
-    const y = i * 64;
-    g.fillStyle = '#4A3222'; g.fillRect(0, y, 256, 64);
-    g.strokeStyle = '#C9A36B'; g.lineWidth = 4; g.strokeRect(4, y + 4, 248, 56);
+  signs.forEach((lines, i) => {
+    const x = (i % 2) * 256, y = Math.floor(i / 2) * 64;
+    g.fillStyle = '#4A3222'; g.fillRect(x, y, 256, 64);
+    g.strokeStyle = '#C9A36B'; g.lineWidth = 4; g.strokeRect(x + 4, y + 4, 248, 56);
     g.fillStyle = '#F2E2B8'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.font = lines.length > 1 ? '600 19px Georgia, serif' : '600 26px Georgia, serif';
-    lines.forEach((t, k) => g.fillText(t, 128, y + 34 + (k - (lines.length - 1) / 2) * 22));
+    lines.forEach((t, k) => g.fillText(t, x + 128, y + 34 + (k - (lines.length - 1) / 2) * 22));
   });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
+}
+/** Point a sign plane's UVs at sign i of n in the atlas. */
+function signUV(geo: THREE.BufferGeometry, i: number, n: number) {
+  const uv = geo.attributes.uv as THREE.BufferAttribute, rows = Math.ceil(n / 2), col = i % 2, row = Math.floor(i / 2);
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, (col + uv.getX(k)) / 2, 1 - (row + 1 - uv.getY(k)) / rows);
+  return geo;
 }
 
 export interface Town {
@@ -209,8 +216,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
       for (const lx of [1.4, 2.6]) { const cp = at(lx, 0, D / 2 + 1.6); colliders.push({ kind: 'circle', x: cp.x, z: cp.z, r: 0.62, top: 0.9 }); }
     }
     // Hanging sign over the door: its row of the shared atlas.
-    const sg = new THREE.PlaneGeometry(2.4, 0.6), uv = sg.attributes.uv as THREE.BufferAttribute, n = LOTS.length + 1;
-    for (let k = 0; k < uv.count; k++) uv.setY(k, 1 - (li + 1 - uv.getY(k)) / n);
+    const sg = signUV(new THREE.PlaneGeometry(2.4, 0.6), li, LOTS.length + 1);
     const sp = at(0, PLINTH + (jetty ? 2.55 : 2.75), D / 2 + 0.12);
     signs.push(sg.rotateY(L.ry).translate(sp.x, sp.y, sp.z));
     footprint(colliders, L.x, L.z, L.ry, W + 0.4, D + 0.4);
@@ -226,8 +232,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   }
   B.box(tex('wood'), V(GATE.x, 3.2, GATE.z), 0.34, 0.3, GATE.half * 2 + 1.4);
   for (const dz of [-0.9, 0.9]) B.box(tex('wood'), V(GATE.x, 2.95, GATE.z + dz), 0.05, 0.4, 0.05);   // sign chains
-  const gs = new THREE.PlaneGeometry(2.8, 0.7), guv = gs.attributes.uv as THREE.BufferAttribute, rows = LOTS.length + 1;
-  for (let k = 0; k < guv.count; k++) guv.setY(k, guv.getY(k) / rows);   // the bottom row of the atlas
+  const gs = signUV(new THREE.PlaneGeometry(2.8, 0.7), LOTS.length, LOTS.length + 1);   // the atlas's last sign
   signs.push(gs.rotateY(Math.PI / 2).translate(GATE.x + 0.2, 2.45, GATE.z));
   const signMesh = new THREE.Mesh(mergeGeometries(signs), new THREE.MeshBasicMaterial({ map: signAtlas([...LOTS.map((l) => [`${ICONS[l.id]}  ${TOWN_NAMES[l.id]}`]), ['Temporary Exit -', 'Mind the dust']]), side: THREE.DoubleSide }));
   signMesh.name = 'town-signs'; signMesh.raycast = () => {};

@@ -27,6 +27,7 @@ export interface Settings {
   postFx: boolean;     // rebuild R1: bloom on glows/sun (replaces the legacy toon outlines)
   fogDistance: number;  // far-plane distance, 20-120 m; near is derived (F1.1)
   fpsCap: FpsCap;
+  autoQuality: boolean;   // references review: step quality down/up to hold the frame rate (src/render/autoQuality.ts)
   // F1.2 audio
   audio: AudioSettings;
 }
@@ -46,7 +47,7 @@ const firstPreset: Preset = typeof matchMedia === 'function' && matchMedia('(poi
 const defaults: Settings = {
   schemaVersion: 2,
   sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true,
-  preset: firstPreset, ...PRESETS[firstPreset],
+  preset: firstPreset, ...PRESETS[firstPreset], autoQuality: true,
   audio: { ...defaultAudio },
 };
 
@@ -93,6 +94,7 @@ export function loadSettings(): Settings {
       // Saved before the rebuild: the old outlines toggle carries over as the post-effects choice.
       postFx: bool(s.postFx ?? (s as { outlines?: unknown }).outlines, PRESETS[preset].postFx),
       fogDistance: clamp(s.fogDistance, 20, 120, PRESETS[preset].fogDistance),
+      autoQuality: bool(s.autoQuality, true),
       fpsCap: oldCap ? 0 : (s.fpsCap === 30 || s.fpsCap === 60 || s.fpsCap === 0) ? s.fpsCap : PRESETS[preset].fpsCap,
       audio: loadAudio(s.audio),
     };

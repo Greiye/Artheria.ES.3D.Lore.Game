@@ -99,7 +99,7 @@ export class Townsfolk {
       f.root.visible = f.active;
     }
   }
-  /** For tests: clearance from the well and the lots at (x, z). */
+  /** For tests: clearance from the fountain and the lots at (x, z). */
   clearance(x: number, z: number) { return clearance(x, z); }
   get activeCount() { return this.folk.filter((f) => f.active && f.role !== 'band').length; }
 

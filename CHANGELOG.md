@@ -7,6 +7,21 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### References put into the game (after v0.06)
+From the references review (`docs/references-review-2026-10-29.md`, Mike 2026-10-29). Nothing from `references/` ships; only the ideas.
+- Faces are two strips, eyes over mouth, swapped on their own (the DokiBird method). Six expressions: neutral, happy, angry, surprised, sad and wink. Blinking and talking play on top of any of them. Drawn sheets can now be an eye sheet plus a mouth sheet (`src/art/heads/README.md`; templates and starters in `art-templates/`); whole-face sheets still work.
+- Goblins paint from one shared 256² swatch atlas (the Mona method): a roll only picks rows from it, so a nest of six costs one texture.
+- The town has a Willowbrook layout:
+  - a fountain in the middle of the plaza (it replaces the well);
+  - a river down the west side, crossed by a stone bridge on the coach road and a plank footbridge to a windmill whose sails turn;
+  - a bell tower with a slate spire on the library;
+  - seven colours for roofs, walls, awnings and bunting (brown, tan, brick red, grey, slate blue, moss green, cream).
+  You hear water at the fountain and at both bridges.
+- Mobile budget:
+  - every character is at most 5k triangles (the fullest heroine went from 5.7k to 3.5k: thin parts are plain boxes and hair tips are lighter);
+  - every texture is at most 512²: faces are packed in a grid, signs sit two to a row, and the gallery wall stores its pictures at half size (the exhibit card still shows full text).
+- Auto quality (Graphics settings, on by default), after the idea in Edelweiss's Optimizer.js. When frames run long it eases off one step at a time: render scale first, then shadows and undergrowth, then fewer townsfolk. It steps back up after 8 easy seconds. Your settings are never changed.
+
 ### Trait roll tables: rolled goblins and crowds (after v0.06)
 - Goblins are rolled from trait tables (`src/data/traits/goblin.json`, spec `docs/trait-roll-tables.md`, approved by Mike 2026-10-29). Each goblin rolls a size, a skin, headgear, a behaviour, a weapon that fits it, and two accessories. Rarity, requirements, exclusions, "roll on another table" and a threat budget of 6 keep the stacking sensible. The dice are never shown; you only see the goblin.
 - New goblins every run. Every goblin has a name, and Rare ones also get a title from their traits ("Moll Pot-Head", "Soot the Plague-Crowned"). Name tags are coloured by rarity, with a health bar.

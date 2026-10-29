@@ -172,7 +172,9 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   const box = (bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0, r = 0.02) => {
     const k = bone === 'head' ? 1 : W;
     w *= k; d *= k; x *= k;
-    place(new RoundedBoxGeometry(w * U, h * U, d * U, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
+    // Under 6 cm thick the rounding can't be seen, so a plain box (12 tris, not ~100) keeps the 5k budget.
+    const g = Math.min(w, h, d) < 0.06 ? new THREE.BoxGeometry(w * U, h * U, d * U) : new RoundedBoxGeometry(w * U, h * U, d * U, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2) * U);
+    place(g, bone, x, y, z, color, rz, rx);
   };
   // A tapered limb from (x1, y1) to (x2, y2), in the figure's XY plane; sz flattens it front to back.
   const seg = (bone: BoneName, x1: number, y1: number, x2: number, y2: number, r1: number, r2: number, color: string, z = 0, sides = 7, sz = 1) => {
@@ -267,7 +269,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
     const c = hp(x, y, z);
     place(g, 'head', c.x, c.y, c.z, color);
   };
-  // A lock through the given head-space points, tapering from r1 to r2, each joint rounded off.
+  // A lock through the given head-space points, tapering from r1 to r2, each inner joint rounded off.
   const lock = (pts: [number, number, number][], r1: number, r2: number, color: string, sides = 6) => {
     const P = pts.map(([x, y, z]) => hp(x, y, z)), up = new THREE.Vector3(0, 1, 0);
     for (let i = 0; i < P.length - 1; i++) {
@@ -277,8 +279,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
       g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize()));
       const m = a.clone().add(b).multiplyScalar(0.5);
       place(g, 'head', m.x, m.y, m.z, color);
-      const k = new THREE.SphereGeometry(rb * U, sides, 4);
-      place(k, 'head', b.x, b.y, b.z, color);
+      if (i < P.length - 2) place(new THREE.SphereGeometry(rb * U, sides, 3), 'head', b.x, b.y, b.z, color);   // joints, not the tip (tri budget)
     }
   };
   // Every style but the hood and bald starts from the same cap: down to the ears, nape covered.

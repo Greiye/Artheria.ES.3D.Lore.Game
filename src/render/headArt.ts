@@ -132,12 +132,13 @@ function strips(img: HTMLImageElement, x0: number, h: number, names: readonly st
 
 // The drawn fallback: two columns of cells, eyes on the left (a row per eye state) and the mouth on the right.
 function generated(look: FigureLook): HeadArt {
-  const rows = Math.max(EYES.length, MOUTHS.length);
-  const fc = document.createElement('canvas'); fc.width = FW * 2; fc.height = FH * rows;
+  // 15 cells (8 eye states, 7 mouths) in a 4 × 4 grid: 384 × 416 px, inside the 512² texture budget.
+  const COLS = 4, cell = (i: number) => [(i % COLS) * FW, Math.floor(i / COLS) * FH] as const;
+  const fc = document.createElement('canvas'); fc.width = FW * COLS; fc.height = FH * Math.ceil((EYES.length + MOUTHS.length) / COLS);
   const fg = fc.getContext('2d')!;
   const eyes = new Map<string, Frame>(), mouths = new Map<string, Frame>();
-  EYES.forEach((e, row) => { drawFace(fg, 0, row * FH, look, e, null); eyes.set(e, eyeOf([0, row * FH, FW, FH], fc.width, fc.height)); });
-  MOUTHS.forEach((m, row) => { drawFace(fg, FW, row * FH, look, null, m); mouths.set(m, mouthOf([FW, row * FH, FW, FH], fc.width, fc.height)); });
+  EYES.forEach((e, i) => { const [x, y] = cell(i); drawFace(fg, x, y, look, e, null); eyes.set(e, eyeOf([x, y, FW, FH], fc.width, fc.height)); });
+  MOUTHS.forEach((m, i) => { const [x, y] = cell(EYES.length + i); drawFace(fg, x, y, look, null, m); mouths.set(m, mouthOf([x, y, FW, FH], fc.width, fc.height)); });
   return { face: pixelTex(new THREE.CanvasTexture(fc)), eyes, mouths };
 }
 
