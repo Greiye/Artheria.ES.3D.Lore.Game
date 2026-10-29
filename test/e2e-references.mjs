@@ -4,6 +4,8 @@
 // Usage: npm run build && node test/e2e-references.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import path from 'node:path';
+import fs from 'node:fs';
+import http from 'node:http';
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
 const browser = await chromium.launch({
@@ -101,6 +103,35 @@ check('Auto quality is off in test browsers unless asked', aq.off);
 check('Auto quality steps down when frames run long (lower render scale) and back up with headroom', aq.down >= 1 && aq.pr && aq.up < aq.down && aq.pr0, JSON.stringify(aq));
 const menu = await G(page, () => !!document.getElementById('autoQuality'));
 check('Graphics settings have an Auto quality switch', menu);
+
+// ---------- The shipped models (CC0 Quaternius witch + sword, CC-BY 99.Miles tree pack), served over HTTP ----------
+const root = path.dirname(file);
+const server = http.createServer((req, res) => {
+  const p = path.join(root, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+  if (!p.startsWith(root) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { 'Content-Type': p.endsWith('.html') ? 'text/html' : 'application/octet-stream' });
+  fs.createReadStream(p).pipe(res);
+});
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+const mp = await (await browser.newContext()).newPage();
+const mErr = [];
+mp.on('pageerror', (e) => mErr.push(e.message));
+await mp.goto(`http://127.0.0.1:${server.address().port}/` + path.basename(file));
+await mp.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
+const models = await G(mp, async () => { const g = window.__gametool; await g.modelsReady; const pack = await g.forestPack;
+  const size = (id) => { const h = g.loadedModels.get(id); if (!h) return 0; g.animators.get(id)?.update(0.05); h.updateWorldMatrix(true, true); h.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); } }); const b = new g.Box3().setFromObject(h); return +(b.max.y - b.min.y).toFixed(2); };   // skinned bounds follow the bones
+  let witchTris = 0; g.loadedModels.get('witch')?.traverse((o) => { if (o.isMesh) witchTris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+  const big = []; pack?.mesh.traverse((o) => { if (o.isMesh && o.material.map) { const i = o.material.map.image; if (i.width > 512 || i.height > 512) big.push(i.width + 'x' + i.height); } });
+  return { witch: size('witch'), witchAnim: g.animators.get('witch')?.current, witchTris, witchHidden: !g.world.standees.witch.visible, sword: size('sword'),
+    trees: pack?.trees ?? 0, rocks: pack?.rocks ?? 0, packMeshes: pack?.mesh.children.length ?? 0, big, failed: [...g.failedModels.keys()] }; });
+check('The Quaternius witch replaces her placeholder by the windmill: 1.7 m, idling, ≤5k tris', Math.abs(models.witch - 1.7) < 0.05 && models.witchAnim === 'idle' && models.witchTris <= 5000 && models.witchHidden, JSON.stringify(models));
+check('The Quaternius sword stands at the smithy', Math.abs(models.sword - 1.02) < 0.05);
+check('The tree pack dresses the hills in a few merged meshes, textures ≤512²', models.trees >= 50 && models.rocks > 0 && models.packMeshes <= 8 && models.big.length === 0 && models.failed.length === 0);
+await G(mp, () => { document.getElementById('extras')?.remove(); });
+const credits = await G(page, () => { const g = window.__gametool; g.extras.open(); g.extras.show('inspirations'); const t = document.getElementById('extras').textContent; g.extras.close(); return t; });
+check('Extras credits Quaternius (CC0) and 99.Miles (CC BY 4.0)', /Quaternius/.test(credits) && /CC0/.test(credits) && /99\.Miles/.test(credits) && /CC BY 4\.0/.test(credits));
+check('No page errors with the models loaded', mErr.length === 0, mErr.slice(0, 3).join(' | '));
+server.close();
 
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();

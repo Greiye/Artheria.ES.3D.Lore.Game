@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### Models from the references (after v0.06)
+- Three cleared models now ship in `public/models/` (credits are in Extras → Inspirations → Asset credits and in `public/models/CREDITS.md`):
+  - Quaternius's **Witch** (CC0) stands by the windmill, idling. She is a placeholder NPC, role name only, simplified from 6.9k to 4.5k triangles.
+  - Quaternius's **Sword** (CC0) stands on a stone block in front of the smithy.
+  - 99.Miles's **Low Poly Forest Tree Pack** (CC BY 4.0) puts about 70 trees and 20 rocks on the hills past the meadow. It costs 6 draw calls, lit like the world's own trees, with textures cut to 512 px.
+- Models with animation clips are now sized in their idle pose, and skinned models are measured through their bones (the Quaternius rigs were coming in a few centimetres tall).
+- The README is rewritten for the current game.
+
 ### References put into the game (after v0.06)
 From the references review (`docs/references-review-2026-10-29.md`, Mike 2026-10-29). Nothing from `references/` ships; only the ideas.
 - Faces are two strips, eyes over mouth, swapped on their own (the DokiBird method). Six expressions: neutral, happy, angry, surprised, sad and wink. Blinking and talking play on top of any of them. Drawn sheets can now be an eye sheet plus a mouth sheet (`src/art/heads/README.md`; templates and starters in `art-templates/`); whole-face sheets still work.
