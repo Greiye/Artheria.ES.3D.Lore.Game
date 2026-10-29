@@ -62,6 +62,8 @@ export class GamepadControls {
         const dir = pressed(B.dpadUp) ? 'up' : pressed(B.dpadDown) ? 'down' : pressed(B.dpadLeft) ? 'left' : pressed(B.dpadRight) ? 'right' : pressed(B.back) ? 'back' : 'ok';
         if (!this.g.menu(dir) && dir === 'ok') this.g.begin();
       }
+      // v0.06 C3: at the campfire, X / Y / LB / RB / LT / RT play the note pads (A and B stay on the menu).
+      [B.reload, B.jump, B.zoomIn, B.zoomOut, B.aim, B.fire].forEach((b, i) => { if (pressed(b)) this.g.bandPad?.(i); });
     } else if (st === 'play') {
       pl.analog.x = lx; pl.analog.y = -ly;
       const ls = controls.gamepad.lookSpeed * this.sensitivity();
@@ -90,6 +92,7 @@ export class GamepadControls {
       cb.setADS(!!now[B.aim]);
     } else {
       this.release();
+      if (st === 'forge' && (rx || ry)) this.g.forgeStick?.(rx, ry);
       if (st === 'book') {
         const bk = this.g.book;
         if (pressed(B.pageNext) || pressed(B.dpadRight)) bk.next();

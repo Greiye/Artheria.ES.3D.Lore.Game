@@ -24,8 +24,6 @@ export type Collider = CircleCollider | BoxCollider;
 export interface World {
   scene: THREE.Scene;
   colliders: Collider[];
-  bookTarget: THREE.Object3D;   // F3.1 raycast target (forgiving hitbox around the book)
-  bookCenter: THREE.Vector3;
   spawn: { pos: THREE.Vector3; yaw: number };
   bounds: number;               // half-size of the walkable square (F1.3)
   readonly sunElevationDeg: number;      // F2.2: < 15° for the sunset
@@ -37,8 +35,7 @@ export interface World {
   heightAt(x: number, z: number): number;   // v0.04 hills: ground height
   stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D; campfire: THREE.Object3D; bedroll: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
   campfireFlame: THREE.Mesh;                                  // B8: flickers in main.ts
-  bannerCloth: THREE.Mesh;                                    // B10: its map is the stamped sketch
-  lecternPages: [THREE.Mesh, THREE.Mesh];                     // B3: margin notes are drawn onto these
+  bannerCloth: THREE.Mesh;                                    // B10: the page on the writing desk; its map is the stamped sketch
   doorOpen: boolean;
   openDoor(): void;             // F3.4 `unlock:library_door`
   standees: Record<string, THREE.Object3D>;  // placeholder characters; .glb model slots replace them
@@ -64,7 +61,6 @@ export function buildWorld(): World {
   // One lit material per pixel texture (Lambert: cheap on phones, takes shadows).
   const mats = new Map<TexName, THREE.MeshLambertMaterial>();
   const tex = (n: TexName) => mats.get(n) ?? (mats.set(n, new THREE.MeshLambertMaterial({ map: pixelTexture(n) })), mats.get(n)!);
-  const rune = new THREE.MeshBasicMaterial({ color: new THREE.Color('#3FE0E8').multiplyScalar(1.4) });   // A4 rune glow, blooms
   const B = new Batch();
   const solids: THREE.Object3D[] = [];
   const shadowCasters: THREE.Object3D[] = [];
@@ -77,7 +73,7 @@ export function buildWorld(): World {
   const ground = new THREE.Mesh(groundGeo, groundMaterial());
   ground.name = 'ground';
   scene.add(ground);
-  // Bare-earth patches: alpha-blended dirt decals around the dais and along the walk.
+  // Bare-earth patches: alpha-blended dirt decals along the walk.
   const dirtMat = new THREE.MeshLambertMaterial({ map: pixelTexture('dirt'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
   dirtMat.onBeforeCompile = (sh) => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
@@ -86,7 +82,7 @@ export function buildWorld(): World {
   };
   // Dirt patches, merged into one mesh (one draw call): `edge` keeps 0..1 across each patch for the soft rim,
   // `uv` is scaled by the patch size so the dirt texture keeps the same pixel size on every patch.
-  const patches = ([[0, 0.5, 4.2], [0, 6, 2.2], [0, -10, 2.6], [0, -15.5, 3.4], [-4.2, -2.2, 2.2]] as const).map(([x, z, r]) => {
+  const patches = ([[0, 6, 2.2], [0, -10, 2.6], [0, -15.5, 3.4], [-4.2, -2.2, 2.2]] as const).map(([x, z, r]) => {
     const g = new THREE.CircleGeometry(r, 20).rotateX(-Math.PI / 2).translate(x, 0.006, z);
     const uv = g.attributes.uv as THREE.BufferAttribute;
     g.setAttribute('edge', uv.clone());
@@ -97,7 +93,7 @@ export function buildWorld(): World {
   decals.name = 'dirt-patches'; decals.raycast = () => {};
   scene.add(decals);
 
-  // ---------- paved path spawn -> lectern -> library ----------
+  // ---------- paved path spawn -> library ----------
   const pave = (z0: number, z1: number, gap: number) => {
     for (let z = z0; z1 > z0 ? z <= z1 : z >= z1; z += z1 > z0 ? 0.7 : -0.7) {
       for (const x of [-0.36, 0.36]) {
@@ -108,44 +104,13 @@ export function buildWorld(): World {
   };
   pave(1.6, 9, 0.14);
 
-  // ---------- rune dais, pillars, lectern, book ----------
-  B.add(tex('mossStone'), new THREE.CylinderGeometry(2.2, 2.35, 0.1, 10), V(0, 0.05, 0));
-  B.add(tex('stone'), new THREE.CylinderGeometry(1.6, 1.6, 0.04, 10), V(0, 0.11, 0));
+  // v0.06 W1: the rune dais, its pillars, the lectern and the book are gone; the paving now runs straight from the
+  // spawn to the library. The red book is read in the town library. (No random draws here, so the scatter is unchanged.)
+  for (let z = 1.2; z >= -2.6; z -= 0.7) for (const x of [-0.36, 0.36]) B.box(tex('paving'), V(x + Math.sin(z * 7 + x) * 0.03, 0.025, z), 0.64, 0.05, 0.64, Math.sin(z * 3 + x * 5) * 0.06);
   const glowBits: THREE.Mesh[] = [];
-  [[0, -2.6], [2.6, 0], [-2.6, 0]].forEach(([x, z]) => {
-    B.box(tex('mossStone'), V(x, 0.55, z), 0.5, 1.1, 0.5, Math.PI / 8);
-    B.box(tex('stone'), V(x, 1.14, z), 0.62, 0.08, 0.62, Math.PI / 8);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.2, 0.28), rune);
-    cap.position.set(x, 1.3, z); cap.rotation.y = Math.PI / 4;
-    scene.add(cap); glowBits.push(cap);
-    colliders.push({ kind: 'circle', x, z, r: 0.38 });
-  });
-  // Lectern: chunky carved wood.
-  B.box(tex('wood'), V(0, 0.06, 0), 0.62, 0.12, 0.52);
-  B.box(tex('wood'), V(0, 0.55, 0), 0.22, 0.9, 0.22);
-  B.add(tex('planks'), new THREE.BoxGeometry(0.74, 0.07, 0.54), V(0, 1.05, 0), undefined, 0, -0.35);
-  colliders.push({ kind: 'circle', x: 0, z: 0, r: 0.45 });
-  // The lore book: open pages + red cover, tilted with the lectern top.
-  const book = new THREE.Group();
-  const cover = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.03, 0.44), tex('cover'));
-  const pageL = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.04, 0.39), tex('parchment')); pageL.position.set(-0.155, 0.03, 0); pageL.rotation.z = 0.06;
-  const pageR = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.04, 0.39), tex('parchment')); pageR.position.set(0.155, 0.03, 0); pageR.rotation.z = -0.06;
-  const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.01, 0.46), rune); ribbon.position.set(0, 0.055, 0.02);
-  book.add(cover, pageL, pageR, ribbon);
-  book.position.set(0, 1.12, 0.02);
-  book.rotation.x = -0.35;
-  scene.add(book);
-  shadowCasters.push(cover, pageL, pageR);
-  // Floating rune ring above the book so it reads from spawn (F1.2).
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.025, 4, 12).rotateX(Math.PI / 2), rune);
-  ring.position.set(0, 1.62, 0);
-  scene.add(ring);
-  const bookTarget = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.45, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
-  bookTarget.position.set(0, 1.12, 0);
-  scene.add(bookTarget);
 
   // ---------- F2.3 / D13: the Ruined Library ----------
-  // Giant scorched stone hall beyond the lectern, front toward spawn, 3.4 m door (2x player). Roof burned away.
+  // Giant scorched stone hall up the path, front toward spawn, 3.4 m door (2x player). Roof burned away.
   const LIB = { x: 0, front: -18, w: 26, d: 24, h: 8.5 };
   const DOOR = { w: 1.8, h: 3.4 };
   const back = LIB.front - LIB.d, midZ = LIB.front - LIB.d / 2, T = 0.8;
@@ -217,7 +182,7 @@ export function buildWorld(): World {
   }
   pave(-2.9, LIB.front + 0.8, 0.22);
 
-  // Keep-out zone for scattered props: dais + path + spawn + library and its forecourt.
+  // Keep-out zone for scattered props: the old dais clearing + path + spawn + library and its forecourt.
   const clear = (x: number, z: number, pad: number) => Math.hypot(x, z) < 4.5 + pad || (Math.abs(x) < 2 + pad && z > LIB.front && z < 12 + pad)
     || (Math.abs(x) < LIB.w / 2 + 2 + pad && z < LIB.front + 4 + pad && z > back - 2 - pad)
     // Phases B–E: the camp, the gallery hall, the quest's forest tracks and its two outdoor leads.
@@ -390,15 +355,22 @@ export function buildWorld(): World {
   const MX = -8.4, MZ = -0.6, MR = 1.1;
   campB.box(tex('wood'), V(MX, 1.0, MZ), 0.9, 1.8, 0.08, MR);
   for (const s of [-1, 1]) campB.box(tex('wood'), V(MX + Math.cos(MR) * s * 0.36, 0.05, MZ - Math.sin(MR) * s * 0.36), 0.08, 0.1, 0.5, MR);
-  // B10 banner pole: the cloth (a sketch, painted in the sketchbook) hangs from the crossbar and sways.
-  const BX = -9.2, BZ = 1.0, BR = Math.atan2(-BX, -BZ);
-  campB.box(tex('wood'), V(BX, 1.3, BZ), 0.09, 2.6, 0.09, BR);
-  campB.box(tex('wood'), V(BX, 2.45, BZ), 1.1, 0.07, 0.07, BR);
-  campB.add(tex('mossStone'), new THREE.CylinderGeometry(0.22, 0.28, 0.16, 7), V(BX, 0.08, BZ));
-  colliders.push({ kind: 'circle', x: BX, z: BZ, r: 0.3 });
-  const bannerCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.2, 6, 8), new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }));
+  // v0.06 S5: the sketchbook station is a writing desk (it was a banner pole): a slanted top with the page you
+  // sketched on (B10: still called `bannerCloth`, its map is the stamped sketch), a quill in an inkpot.
+  const BX = -9.2, BZ = 1.0, BR = Math.atan2(-BX, -BZ);   // the desk faces the camp; you stand on that side
+  const at = (lx: number, y: number, lz: number) => V(BX + lx * Math.cos(BR) + lz * Math.sin(BR), y, BZ - lx * Math.sin(BR) + lz * Math.cos(BR));
+  for (const lx of [-0.36, 0.36]) for (const lz of [-0.2, 0.18]) campB.add(tex('wood'), new THREE.BoxGeometry(0.07, lz < 0 ? 0.98 : 0.8, 0.07), at(lx, lz < 0 ? 0.49 : 0.4, lz), undefined, BR);
+  campB.add(tex('planks'), new THREE.BoxGeometry(0.9, 0.05, 0.6), at(0, 0.9, 0), undefined, BR, 0.3);
+  campB.add(tex('wood'), new THREE.BoxGeometry(0.8, 0.05, 0.04), at(0, 0.21, 0), undefined, BR);                  // foot rail
+  campB.add(tex('wood'), new THREE.BoxGeometry(0.9, 0.04, 0.05), at(0, 0.8, 0.29), undefined, BR, 0.3);          // ledge under the page
+  const ink = new THREE.MeshLambertMaterial({ color: '#1E1A22' }), feather = new THREE.MeshLambertMaterial({ color: '#EFE6D2' });
+  campB.add(ink, new THREE.CylinderGeometry(0.04, 0.05, 0.08, 8), at(0.36, 1.0, -0.2));
+  campB.add(feather, new THREE.BoxGeometry(0.03, 0.34, 0.012), at(0.38, 1.17, -0.21), undefined, BR, 0.15, -0.3);
+  colliders.push({ kind: 'circle', x: BX, z: BZ, r: 0.5 });
+  const bannerCloth = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.48), new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }));
   bannerCloth.name = 'bannerCloth';
-  bannerCloth.position.set(BX + Math.sin(BR) * 0.06, 1.8, BZ + Math.cos(BR) * 0.06); bannerCloth.rotation.y = BR;
+  bannerCloth.position.copy(at(-0.08, 0.93, 0.02));
+  bannerCloth.rotation.set(-Math.PI / 2 + 0.3, BR, 0, 'YXZ');
   bannerCloth.castShadow = true;
   scene.add(bannerCloth);
   // B8 campfire: a ring of stones, crossed logs, and log seats; the flame is its own flickering mesh.
@@ -426,8 +398,9 @@ export function buildWorld(): World {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshBasicMaterial({ visible: false }));
     m.name = name; m.position.set(x, y, z); scene.add(m); return m;
   };
-  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2), banner: hitbox('banner', BX, 1.4, BZ, 1.0, 2.8), campfire: hitbox('campfire', FX, 0.4, FZ, 1.4, 0.8), bedroll: hitbox('bedroll', BRX, 0.3, BRZ, 1.2, 0.6) };
+  const stations = { mirror: hitbox('mirror', MX, 1.0, MZ, 1.0, 2.0), anvil: hitbox('anvil', AX, 0.6, AZ, 1.0, 1.2), banner: hitbox('banner', BX, 0.7, BZ, 1.0, 1.4), campfire: hitbox('campfire', FX, 0.4, FZ, 1.4, 0.8), bedroll: hitbox('bedroll', BRX, 0.3, BRZ, 1.2, 0.6) };
 
+  stations.mirror.rotation.y = MR;   // v0.06: the way the glass faces (the character forge stands you in front of it)
   let doorOpen = false, doorAngle = 0;
   return {
     stations,
@@ -435,12 +408,9 @@ export function buildWorld(): World {
     heightAt,
     bannerCloth,
     campfireFlame: flame,
-    lecternPages: [pageL, pageR],
     scene,
     colliders,
-    bookTarget,
-    bookCenter: new THREE.Vector3(0, 1.12, 0),
-    spawn: { pos: new THREE.Vector3(0, 0, 8.5), yaw: 0 },  // yaw 0 looks toward -Z: the lectern
+    spawn: { pos: new THREE.Vector3(0, 0, 8.5), yaw: 0 },  // yaw 0 looks toward -Z: up the path to the library
     bounds: HALF,
     get sunElevationDeg() { return sky.elevationDeg; },
     get time() { return sky.time; },
@@ -458,8 +428,6 @@ export function buildWorld(): World {
     update(t: number, camera: THREE.Camera) {
       const targetAngle = doorOpen ? THREE.MathUtils.degToRad(100) : 0;
       if (doorAngle !== targetAngle) { doorAngle = Math.min(targetAngle, doorAngle + 0.03); hinge.rotation.y = doorAngle; }
-      ring.rotation.y = t * 0.8;
-      ring.position.y = 1.62 + Math.sin(t * 1.6) * 0.05;
       wind.value = t;
       sky.update(t, camera);
     },

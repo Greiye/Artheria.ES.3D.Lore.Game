@@ -45,13 +45,13 @@ const follow = await until(page, () => { const g = window.__gametool; const d = 
 check('R3/S1 default view: overhead (v0.05) camera behind and above the player', follow);
 
 // ---------- R3: reading shot ----------
-await G(page, () => { const p = window.__gametool.player; p.pos.set(0.2, 0, 1.6); p.yaw = 0; p.pitch = -0.35; });
-await until(page, () => !document.getElementById('prompt').classList.contains('hidden'));
-await page.keyboard.press('KeyE');
+// v0.06 W1: the lectern is gone; the red book is read at the library door.
+await G(page, () => { const g = window.__gametool, c = new g.Vector3(); g.world.town.doors.library.getWorldPosition(c); const o = new g.Vector3(-c.x, 0, -c.z).normalize(); g.player.pos.set(c.x + o.x * 1.3, 0, c.z + o.z * 1.3); g.player.syncNow(); });
+await G(page, () => window.__gametool.readRedBook());
 await until(page, () => window.__gametool.state === 'book');
-const framed = await until(page, () => { const g = window.__gametool; return g.camera.position.distanceTo(g.world.bookCenter) < 2.2 && Math.abs(g.camera.fov - 45) < 1; });
+const framed = await until(page, () => { const g = window.__gametool; return g.camera.position.distanceTo(g.player.eyePos) < 2.6 && Math.abs(g.camera.fov - 45) < 1; });
 await page.screenshot({ path: path.join(shots, 'rebuild-reading-shot.png') });
-check('R3 opening the lectern book frames it (camera < 2.2 m away, 45° FOV)', framed);
+check('R3 opening the red book frames it in hand (camera close, 45° FOV)', framed);
 await page.keyboard.press('Tab');
 const back = await until(page, () => { const g = window.__gametool; return g.state !== 'book' && !g.rig.inShot && Math.abs(g.camera.fov - g.rig.playFov) < 0.5; });
 check('R3 closing the book blends back to the play camera', back);

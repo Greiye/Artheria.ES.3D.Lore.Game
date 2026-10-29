@@ -35,6 +35,8 @@ const aimAt = (src, back = 1.8, side = [1, 0.4]) => G(page, ([src, back, side]) 
   p.yaw = Math.atan2(-d.x, -d.z); p.pitch = Math.atan2(d.y, Math.hypot(d.x, d.z));
 }, [src, back, side]);
 const verbIs = (w) => until(page, (want) => document.getElementById('promptVerb').textContent === want && !document.getElementById('prompt').classList.contains('hidden'), w);
+// v0.06 C1: the fire menu is an accordion; open a section before using what is in it.
+const sec = (name) => G(page, (n) => window.__gametool.campfire.openSection(n), name);
 const resume = async () => { if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn'); await until(page, () => window.__gametool.state === 'play'); };
 
 // ---------- B8 campfire ----------
@@ -47,6 +49,7 @@ await page.keyboard.press('KeyE');
 check('B8 E opens the campfire panel, framed on the fire', await until(page, () => window.__gametool.state === 'forge' && window.__gametool.campfire.isOpen && window.__gametool.rig.inShot));
 
 // ---------- B11 tune ----------
+await sec('tell');
 await page.click('#cfClearTune');
 await page.click('#campfire .cf-cell[data-step="0"][data-row="0"]');
 await page.click('#campfire .cf-cell[data-step="3"][data-row="4"]');
@@ -82,6 +85,7 @@ await page.fill('#campfire [data-turn=middle]', 'Two were still missing.');
 await page.fill('#campfire [data-turn=end]', 'We kept walking.');
 await page.click('#cfBard');
 check('B8 a new ballad can pick up where another left off (chain)', await G(page, () => window.__gametool.campfire.ballad.verses[0][0] === 'Where The Ditch Song left off,' && /Swordsman was alive/i.test(window.__gametool.campfire.ballad.verses[0][1])));
+await sec('leave');
 await page.click('#cfClose');
 await until(page, () => window.__gametool.state !== 'forge');
 await resume();
@@ -117,6 +121,7 @@ check('v0.04 campfire: the camp plays while you sit; hum and clap are always you
 check('v0.05 §4.2 band: the camp plays the six other stems and leaves yours (hum) to you', inst0.band.muted === 'hum' && inst0.band.playing.length === 6 && !inst0.band.playing.includes('hum') && ['violin', 'ocarina', 'lute', 'drum', 'clap', 'whistle'].every((k) => inst0.band.playing.includes(k)), JSON.stringify(inst0.band));
 await G(page, () => { const g = window.__gametool; g.campfire.close(); g.inventory.give('lute', 1); g.openCampfire(); });
 await until(page, () => window.__gametool.campfire.isOpen);
+await sec('play');
 await page.click('#campfire [data-play="lute"]');
 await page.keyboard.press('3');
 const played = await G(page, () => window.__gametool.audio.lastPlayed);
@@ -130,6 +135,7 @@ check('v0.05 §4.2 band: "Hear your part" plays your stem softly', await G(page,
 await page.click('#cfGuide');
 await G(page, () => { const g = window.__gametool; g.campfire.close(); g.inventory.give('violin', 1); g.inventory.give('ocarina', 1); g.openCampfire(); });
 await until(page, () => window.__gametool.campfire.isOpen);
+await sec('play');
 await page.click('#campfire [data-play="violin"]');
 await page.click('#campfire [data-pad="0"]');
 const vio = await G(page, () => window.__gametool.audio.lastPlayed);
@@ -143,6 +149,7 @@ check('v0.05 §4.2 band: the General Store sells a violin and an ocarina', /Viol
 // ---------- v0.05 §5: Natalie's telling (kinetic type) ----------
 await G(page, () => { const g = window.__gametool; if (!g.campfire.isOpen) g.openCampfire(); });
 await until(page, () => window.__gametool.campfire.isOpen);
+await sec('hear');
 await page.selectOption('#cfTale', 'natalies-field-note');
 await page.click('#cfTell');
 const kt = await G(page, () => { const t = window.__gametool.telling; return { open: t.isOpen, panelHidden: getComputedStyle(document.getElementById('campfire')).display === 'none', tones: [...new Set(t.beats.map((b) => b.tone))].sort(), words: t.beats.length, title: document.querySelector('#telling h2').textContent }; });
@@ -170,6 +177,7 @@ await until(page, () => window.__gametool.telling.isOpen);
 const padOk = await G(page, () => { const g = window.__gametool, n = g.telling.shown; g.menuInput('ok'); const m = g.telling.shown; g.menuInput('back'); return { n, m, open: g.telling.isOpen, fire: g.campfire.isOpen }; });
 check('v0.05 §5 controller: A hurries her along, B goes back to the fire', padOk.m > padOk.n && !padOk.open && padOk.fire, JSON.stringify(padOk));
 check('v0.05 §5 the fire flares on the dramatic beat', flared);
+await sec('leave');
 await page.click('#cfClose');
 await until(page, () => window.__gametool.state === 'play');
 check('v0.04 campfire: leaving the fire stops the band', !(await G(page, () => window.__gametool.audio.band.on)));

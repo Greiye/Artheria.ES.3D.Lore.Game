@@ -14,7 +14,8 @@ export interface AnimInput {
   look?: { yaw: number; pitch: number } | null;   // head target relative to the body, radians
   pose?: Pose | null;     // Phase F (B14): a dojo drill takes over the whole body; v0.04: 'read' while a book is open
 }
-export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'read';
+// v0.06 S1 station poses: sit (campfire), smith (anvil), mirror (tailor), write (desk / scriptorium), kneel (bedroll).
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel';
 
 const WALK = 2.5, RUN = 5;
 // Restyle S2f (Tree of Savior): poses are stepped at a sprite frame rate, not interpolated every frame, for
@@ -139,6 +140,37 @@ export class FigureAnim {
       set('spine', 0.1); set('head', 0.38 + Math.sin(t * 0.7) * 0.03);
       set('armN', -0.42, 0, 0.32); set('foreN', -1.25, 0.2);
       set('armP', -0.42 - 0.25 * turn, 0, -0.32 + 0.3 * turn); set('foreP', -1.25 + 0.35 * turn, -0.2 - 0.6 * turn);
+    } else if (this.pose === 'sit') {
+      // On a log seat (about 0.4 m): thighs level, shins down, forearms on the knees, a slow sway to the music.
+      set('thighN', -1.45, 0, -0.12); set('thighP', -1.45, 0, 0.12); set('shinN', 1.5); set('shinP', 1.5);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.31 * H, k);
+      set('spine', 0.16, Math.sin(pt * 1.4) * 0.05); set('head', 0.08 + Math.sin(pt * 1.4 + 0.6) * 0.04);
+      set('armN', -0.7, 0, -0.1); set('armP', -0.7, 0, 0.1); set('foreN', -0.75); set('foreP', -0.75);
+    } else if (this.pose === 'kneel') {
+      // On the bedroll: knees down, sitting back on the heels, head bowed.
+      set('thighN', -0.2, 0, -0.08); set('thighP', -0.2, 0, 0.08); set('shinN', 1.75); set('shinP', 1.75);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.36 * H, k);
+      set('spine', 0.22); set('head', 0.35);
+      set('armN', -0.45, 0, -0.05); set('armP', -0.45, 0, 0.05); set('foreN', -0.5); set('foreP', -0.5);
+    } else if (this.pose === 'smith') {
+      // At the anvil: feet apart, leaning in; one hand holds the work, the other brings the hammer down.
+      const blow = 0.5 - 0.5 * Math.cos(pt * 5.2), hit = blow ** 3;
+      set('thighN', -0.15, 0, -0.18); set('thighP', -0.15, 0, 0.18); set('shinN', 0.2); set('shinP', 0.2);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.04 * H, k);
+      set('spine', 0.28 + 0.06 * hit); set('head', 0.25);
+      set('armN', -0.7, 0, 0.15); set('foreN', -0.9);
+      set('armP', -0.5 - 1.8 * blow, 0, -0.1); set('foreP', -0.4 - 0.5 * blow);
+    } else if (this.pose === 'mirror') {
+      // Posing for the glass: hand on the hip, the other at the chin, turning the head to see each side.
+      set('spine', -0.04, Math.sin(pt * 0.8) * 0.12); set('head', 0.05, Math.sin(pt * 0.8 + 0.4) * 0.3);
+      set('armN', -0.35, 0, 0.35); set('foreN', -2.1, 0.3);
+      set('armP', 0.15, 0, 0.55); set('foreP', -1.6);
+    } else if (this.pose === 'write') {
+      // At the desk with a quill: leaning over the page, the writing hand scratching small strokes.
+      const scratch = Math.sin(pt * 9) * 0.07 + Math.sin(pt * 2.3) * 0.05;
+      set('spine', 0.38); set('head', 0.42);
+      set('armN', -0.55, 0, 0.12); set('foreN', -1.15);
+      set('armP', -0.75 + scratch, 0, -0.18); set('foreP', -0.95 + scratch * 1.5, -0.2);
     } else if (this.pose === 'plank') {
       B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);

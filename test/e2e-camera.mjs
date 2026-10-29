@@ -154,6 +154,8 @@ check('S2h default: every character is a 3D body under a flat 2D head (head + fa
 // Face swap: an expression only moves the face layer to another row of its sheet. Read the heads seen from the
 // front side (the back shows no face).
 const faceRows = () => G(page, () => { const r = []; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) r.push(o.material.uniforms.faceFrame.value.w); }); return r; });
+// A bark can have someone mid-word (talk-b) at any moment: wait for a frame where nobody is talking.
+await until(page, () => { const r = []; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) r.push(o.material.uniforms.faceFrame.value.w); }); return r.length > 0 && r.every((v) => v > 0.01); }, null, 6000);
 const rows0 = await faceRows();
 await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) o.userData.expression = 'talk-b'; }));
 const swapped = await until(page, () => { let n = 0, moved = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) { n++; if (o.material.uniforms.faceFrame.value.w < 0.01) moved++; } }); return n > 0 && moved === n; }, null, 5000);

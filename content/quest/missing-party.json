@@ -21,8 +21,8 @@
       "text": "A page torn from one of the red books, folded small, with a tooth-hole through the corner. Someone kept it.",
       "supports": ["why:books", "who:goblin", "where:library"],
       "natalie": "It keeps the red books. I wrote that down and didn't believe it. Now look." },
-    { "id": "tally", "name": "Scratched tally", "at": [2.6, 0.7, 0.27], "prop": "tally",
-      "text": "Scratches on the dais pillar at knee height: four lines, and a fifth crossed out. A score, or a count.",
+    { "id": "tally", "name": "Scratched tally", "at": [6.5, 0.7, -16.63], "prop": "tally",
+      "text": "Scratches on a buttress of the library at knee height: four lines, and a fifth crossed out. A score, or a count.",
       "supports": ["why:game", "who:goblin"],
       "natalie": "Four of us went in. Who's the fifth? You?" },
     { "id": "ash", "name": "Ring of blue ash", "at": [3.0, 0.03, -38.0], "prop": "ash",
@@ -81,7 +81,6 @@
     "library": ["It's quieter in here than it should be.", "Keep low. It sees well, but not low.", "The shelves go on forever. They didn't."],
     "camp": ["We camped here the night before. It feels like a year ago."],
     "banner": ["Is that yours? It suits you."],
-    "dais": ["The runes still glow. Nobody knows who keeps them lit."],
     "idle": ["I keep thinking I hear them.", "Write it down. Whatever it is, write it down.", "Four went in. One came out. I'm counting on you to change that."],
     "reading": ["Read it twice. The second time it says something else."]
   }
