@@ -1,6 +1,6 @@
 // v0.04 feedback checks, part 7: the cinema NPC (the Projectionist, a placeholder) plays short clips from assets/cinema/:
-// WebM preferred, GIF fallback, sound optional (starts muted), and the screen in town shows the reel.
-// The built page has no clips of its own here, so the test hands it two (a WebM and a GIF-only reel)
+// WebM only and looping (v0.06 R2), sound optional (starts muted), and the screen in town shows the reel.
+// The built page ships one in-house sample reel (v0.06 R1); the test also hands it a fixture WebM with sound
 // from test/fixtures/cinema/ (an ffmpeg test pattern, never shipped).
 // Usage: npm run build && node test/e2e-cinema.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
@@ -36,29 +36,32 @@ await G(page, () => { const g = window.__gametool, k = g.world.scene.getObjectBy
 const talk = await until(page, () => window.__gametool.lookingAtVerb === "Watch the Projectionist's reels", null, 8000);
 check('v0.04 cinema: the Projectionist (placeholder) stands by a screen in a gap of the town ring', talk && !!(await G(page, () => window.__gametool.world.scene.getObjectByName('cinema-screen'))));
 await page.keyboard.press('KeyE');
-const empty = await until(page, () => window.__gametool.cinema.isOpen && /assets\/cinema/.test(document.querySelector('#cinema .cin-stage').textContent), null, 6000);
-check('v0.04 cinema: with no reels yet, it says where to put them', empty || (await G(page, () => window.__gametool.cinema.clips.length > 0)));
+const sample = await until(page, () => { const c = window.__gametool.cinema, v = document.querySelector('#cinema video'); return c.isOpen && c.clips.some((x) => x.id === 'sample-reel') && !!v && /sample-reel\.webm$/.test(v.src) && v.readyState >= 2; }, null, 10000);
+check('v0.06 R1: a fresh build ships the sample reel (clips.json) and it plays', sample, JSON.stringify(await G(page, () => window.__gametool.cinema.clips)));
 await page.click('#cinClose');
 await until(page, () => window.__gametool.state === 'play');
 
 // ---------- reels: WebM first, GIF fallback ----------
-await G(page, ([webm, gif]) => {
+await G(page, ([webm]) => {
   window.__gametool.cinema.clips = [
-    { id: 'test-reel', title: 'Test Reel', credit: 'Test', sound: true, webm, gif },
-    { id: 'gif-only', title: 'GIF Only', credit: '', sound: false, gif },
+    { id: 'test-reel', title: 'Test Reel', credit: 'Test', sound: true, webm },
+    { id: 'silent', title: 'Silent', credit: '', sound: false, webm },
   ];
-}, [fx('test-reel.webm'), fx('test-reel.gif')]);
+}, [fx('test-reel.webm')]);
 await G(page, () => window.__gametool.openCinema());
 const vid = await until(page, () => { const v = document.querySelector('#cinema video'); return !!v && v.readyState >= 2 && !v.paused; }, null, 10000);
 const v0 = await G(page, () => { const g = window.__gametool, v = document.querySelector('#cinema video'), map = g.world.scene.getObjectByName('cinema-screen').material.map; return { playing: g.cinema.playing, muted: v?.muted, webm: /\.webm$/.test(v?.src ?? ''), screen: !!map?.isVideoTexture }; });
 check('v0.04 cinema: a WebM reel plays (muted to start) and shows on the screen in town', vid && v0.playing === 'video' && v0.muted && v0.webm && v0.screen, JSON.stringify(v0));
 await page.click('#cinSound');
 check('v0.04 cinema: sound is optional and can be turned on', await G(page, () => !document.querySelector('#cinema video').muted));
-await page.click('[data-clip="gif-only"]');
-const gif = await G(page, () => ({ playing: window.__gametool.cinema.playing, img: !!document.querySelector('#cinema .cin-stage img'), video: !!document.querySelector('#cinema video'), sound: !!document.getElementById('cinSound') }));
-check('v0.04 cinema: a reel with only a GIF plays the GIF (no sound button)', gif.playing === 'gif' && gif.img && !gif.video && !gif.sound, JSON.stringify(gif));
-const fallback = await G(page, () => { const c = window.__gametool.cinema; const real = HTMLMediaElement.prototype.canPlayType; HTMLMediaElement.prototype.canPlayType = () => ''; const r = c.pick(c.clips[0]); HTMLMediaElement.prototype.canPlayType = real; return r; });
-check('v0.04 cinema: a browser that can\'t play WebM gets the GIF', fallback?.kind === 'gif', JSON.stringify(fallback));
+const loop = await G(page, () => { const v = document.querySelector('#cinema video'); return { loop: v?.loop, img: !!document.querySelector('#cinema .cin-stage img'), pick: 'pick' in window.__gametool.cinema }; });
+check('v0.06 R2: reels loop and there is no GIF path left', loop.loop === true && !loop.img && !loop.pick, JSON.stringify(loop));
+await page.click('[data-clip="silent"]');
+const silent = await G(page, () => ({ playing: window.__gametool.cinema.playing, muted: document.querySelector('#cinema video')?.muted, sound: !!document.getElementById('cinSound') }));
+check('v0.06 R2: a silent reel (clips.json sound:false) plays muted with no sound button', silent.playing === 'video' && silent.muted && !silent.sound, JSON.stringify(silent));
+const seam = await until(page, () => { const v = document.querySelector('#cinema video'); if (!v || !v.duration) return false; v.currentTime = v.duration - 0.05; return true; }, null, 6000)
+  && await until(page, () => { const v = document.querySelector('#cinema video'); return v && !v.paused && v.currentTime < 1 && v.currentTime > 0; }, null, 8000);
+check('v0.06 R2: at the end the reel wraps to the start and keeps playing', seam);
 await page.click('#cinClose');
 await until(page, () => window.__gametool.state === 'play');
 const after = await G(page, () => ({ playing: window.__gametool.cinema.playing, poster: !window.__gametool.world.scene.getObjectByName('cinema-screen').material.map?.isVideoTexture }));

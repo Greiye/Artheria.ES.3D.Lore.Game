@@ -1,6 +1,7 @@
 // F3.4: inventory (I) — a grid of item name + count. Items are defined in content/items.json (H4).
 // Dialogue actions `give:<item>:<n>` add to it. Session-only for now; H7 save JSON comes with F11 (0.08).
 import itemTable from '../content/items.json';
+import { DEBUG_UNLIMITED_CROWNS } from './economy';
 
 type ItemId = keyof typeof itemTable.items;
 export const ITEMS = itemTable.items as Record<string, { name: string; icon: string; note: string }>;
@@ -34,7 +35,9 @@ export class Inventory {
   }
 
   render() {
-    const cells = [...this.counts].filter(([, n]) => n > 0).map(([id, n]) => {
+    const all = [...this.counts];
+    if (DEBUG_UNLIMITED_CROWNS && !this.counts.get('crown')) all.unshift(['crown', 0]);   // v0.06 E1: the purse always shows ∞
+    const cells = all.filter(([id, n]) => n > 0 || id === 'crown' && DEBUG_UNLIMITED_CROWNS).map(([id, n]) => {
       const it = ITEMS[id as ItemId];
       const c = document.createElement('div');
       c.className = 'inv-cell';
@@ -43,7 +46,7 @@ export class Inventory {
       c.innerHTML = '<span class="inv-icon"></span><span class="inv-name"></span><span class="inv-count"></span>';
       c.querySelector('.inv-icon')!.textContent = it.icon;
       c.querySelector('.inv-name')!.textContent = it.name;
-      c.querySelector('.inv-count')!.textContent = '× ' + n;
+      c.querySelector('.inv-count')!.textContent = '× ' + (id === 'crown' && DEBUG_UNLIMITED_CROWNS ? '∞' : n);
       return c;
     });
     if (!cells.length) {

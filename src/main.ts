@@ -45,6 +45,7 @@ import { QuickDungeon, buildQuick } from './dungeon/quick';
 import { TellingView } from './campfire/telling';
 import { loadBallads, balladEntry, decodeTune, SCALE, type Ballad } from './campfire/ballad';
 import { Gallery, GALLERY, type Exhibit } from './campfire/gallery';
+import { buildCeilings, roofOver, ROOFED } from './world/ceilings';
 import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
 import './dojo/dojo.css';
 import { drawSketch, loadSketches } from './writing/sketch';
@@ -991,6 +992,7 @@ async function openBallad(b: Ballad) {
   await reader.openEntries([balladEntry(b, forgeAuthor())]);
 }
 const gallery = new Gallery(world.scene, world.colliders);
+const ceilings = buildCeilings(world.scene);
 let galleryCard: HTMLElement | null = null;
 const portrait = (look: ReturnType<typeof loadForge>['look']) => (g: CanvasRenderingContext2D, x: number, y: number, size: number) => {
   // A Legends-style bust: shoulders, a big square head, hair cap, two eyes.
@@ -1055,7 +1057,8 @@ const TRAPDOOR = new THREE.Vector3(6.5, 0, -33);
 const trapHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
 trapHit.position.copy(TRAPDOOR).setY(0.3); world.scene.add(trapHit);
 let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
-rig.ceiling = () => (inDungeon ? 2.9 : Infinity);   // the follow camera stays under the dungeon ceiling
+// The follow camera stays under the dungeon ceiling, and (v0.06 W2) under the library's and gallery's while the player is inside.
+rig.ceiling = (x, z) => { if (inDungeon) return 2.9; const r = roofOver(player.pos.x, player.pos.z); return r && roofOver(x, z, 1) === r ? r.y - 0.3 : Infinity; };
 const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; quick?: 'won' | 'lost'; at: string }>; } catch { return {}; } })();
 const saveDelves = () => { try { localStorage.setItem('gametool.delves', JSON.stringify(delves)); } catch { /* blocked */ } };
 function enterDungeon(seed: number) {
@@ -2100,4 +2103,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, ROOFED, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

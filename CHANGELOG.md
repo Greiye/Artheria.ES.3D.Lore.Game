@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### v0.06 changelog, part 4: shop, cinema, art
+- Unlimited crowns for now: the purse shows ◎ ∞ in the store and the inventory, and buying costs nothing. Finds and writing still pay underneath, so prices come back by switching off one flag (`DEBUG_UNLIMITED_CROWNS` in `src/economy.ts`).
+- The General Store has eight everyday sundries (candle, wax, lamp oil, soap, twine, chalk, salt, bread), shown faded below the main stock. They can be bought but do nothing yet.
+- The cinema ships a short in-house sample reel (a looping title card), so it is never empty on a fresh deploy.
+- Reels are WebM only and always loop. GIF and MP4 support is gone; the cinema README says so.
+- The Ruined Library and the gallery hall have timber ceilings: looking up from inside, in any camera, shows planks and beams, never sky. They only face down, so the overview still looks into both halls and their outsides are unchanged. The follow camera stays under them while you're inside.
+- Heads seen from the front are drawn wider, so the whole face reads (a little wider at three-quarter; profile and back unchanged).
+- The Ragnarok-style head redraw (H2) is dropped: Mike chose realistic proportions with 3D heads next, and the RO reference will shape their face textures instead.
+
 ### v0.06 changelog, part 3: living town and sound
 - Townsfolk (placeholders, role names only): four walkers go door to door round the green, two pupils spar and one drills outside the dojo, two customers haggle at the General Store's counter, and two pairs chat on the green, taking turns to talk. They walk round the well, the lamp posts and the houses, and never get in your way. Low has fewer of them.
 - A small band (fiddler, drummer, piper) stands by the Projectionist's screen and plays along whenever a reel with its sound on is playing.
