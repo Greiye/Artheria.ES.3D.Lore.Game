@@ -71,13 +71,15 @@ export class CampfirePanel {
       if (n >= 1 && n <= this.pads) { this.pad(n - 1); e.preventDefault(); }
     });
   }
+  /** v0.06 T3: where the fire's music comes from (a positional node at the fire); null = plain 2D. */
+  out: () => AudioNode | null = () => null;
   get playable() { const own = this.owned(); return PLAYABLE.filter((p) => !p.item || own.includes(p.item)); }
   private get label() { return PLAYABLE.find((p) => p.kind === this.instrument)?.label ?? ''; }
   private get pads() { return PLAYABLE.find((p) => p.kind === this.instrument)?.pads ?? 6; }
   /** Play pad i (0-based) on the chosen instrument. Exposed for tests. */
   pad(i: number) {
     const melodic = this.pads > 2;
-    audio.play(this.instrument, melodic ? PENTA[i] ?? 60 : i ? 64 : 55);
+    audio.play(this.instrument, melodic ? PENTA[i] ?? 60 : i ? 64 : 55, this.out());
     const b = this.el.querySelector(`[data-pad="${i}"]`);
     if (b) { b.classList.remove('hit'); void (b as HTMLElement).offsetWidth; b.classList.add('hit'); }
   }
@@ -88,11 +90,11 @@ export class CampfirePanel {
     if (!this.playable.some((p) => p.kind === this.instrument)) this.instrument = 'hum';
     audio.band.muted = this.instrument;
     this.render(); this.el.classList.remove('hidden');
-    this.stopBand = audio.playBand(STEMS);   // the camp plays the other stems while you sit
+    this.stopBand = audio.playBand(STEMS, 84, this.out());   // the camp plays the other stems while you sit
   }
   close() { if (!this.isOpen) return; this.stopBand(); this.el.classList.add('hidden'); this.onClose(); }
   private saveTune() { try { localStorage.setItem(TUNE_KEY, encodeTune(this.tune)); } catch { /* blocked */ } }
-  play(t: Tune = this.tune) { return audio.tune(t.steps, SCALE, t.instrument, t.bpm, 2); }
+  play(t: Tune = this.tune) { return audio.tune(t.steps, SCALE, t.instrument, t.bpm, 2, this.out()); }
 
   // Toggle one cell (step 0–7, row 0–7 from the low C). Exposed for tests.
   toggle(step: number, row: number) { this.tune.steps[step] ^= 1 << row; this.saveTune(); this.renderGrid(); }

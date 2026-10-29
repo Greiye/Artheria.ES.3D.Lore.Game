@@ -33,8 +33,9 @@ const PHASES: Record<TimeOfDay, Phase> = {
   // Darker than the old golden hour: the sun is nearly down, the fill is dim and violet.
   sunset: { elev: 6, az: 38, sun: '#FF9A50', sunI: 1.55, hemiSky: '#9AA8CC', hemiGround: '#3E4652', hemiI: 0.66,
     zenith: '#22346E', upper: '#5E64A0', horizon: '#F0A070', glow: '#FFB060', fog: '#8E8098', shafts: 0.16, disc: '#FFC890', stars: 0.25 },
-  night: { elev: 32, az: 218, sun: '#8AA4E0', sunI: 0.32, hemiSky: '#3A4C74', hemiGround: '#16161E', hemiI: 0.34,
-    zenith: '#050918', upper: '#0E1834', horizon: '#26304C', glow: '#3A4668', fog: '#141A2C', shafts: 0, disc: '#DCE6FF', stars: 1 },
+  // v0.06 W3: a cooler, darker fill with a stronger moon key, so lanterns carry the scene and shapes still read.
+  night: { elev: 32, az: 218, sun: '#86A2E8', sunI: 0.42, hemiSky: '#2C3C66', hemiGround: '#0C0C14', hemiI: 0.24,
+    zenith: '#050918', upper: '#0E1834', horizon: '#222C48', glow: '#3A4668', fog: '#0E1426', shafts: 0, disc: '#DCE6FF', stars: 1 },
 };
 
 export interface Sky {

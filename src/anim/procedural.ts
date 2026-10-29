@@ -15,7 +15,8 @@ export interface AnimInput {
   pose?: Pose | null;     // Phase F (B14): a dojo drill takes over the whole body; v0.04: 'read' while a book is open
 }
 // v0.06 S1 station poses: sit (campfire), smith (anvil), mirror (tailor), write (desk / scriptorium), kneel (bedroll).
-export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel';
+// v0.06 T4: the cinema band plays: fiddle, drum and pipe.
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe';
 
 const WALK = 2.5, RUN = 5;
 // Restyle S2f (Tree of Savior): poses are stepped at a sprite frame rate, not interpolated every frame, for
@@ -171,6 +172,25 @@ export class FigureAnim {
       set('spine', 0.38); set('head', 0.42);
       set('armN', -0.55, 0, 0.12); set('foreN', -1.15);
       set('armP', -0.75 + scratch, 0, -0.18); set('foreP', -0.95 + scratch * 1.5, -0.2);
+    } else if (this.pose === 'fiddle') {
+      // Fiddle under the chin (N hand on the neck), the bow arm sawing across; swaying with the tune.
+      const bow = Math.sin(pt * 4.2);
+      set('spine', 0.04, Math.sin(pt * 1.3) * 0.08, Math.sin(pt * 1.3) * 0.05); set('head', 0.2, 0.25, 0.25);
+      set('armN', -1.2, 0.3, 0.55); set('foreN', -0.9, 0.4);
+      set('armP', -0.75 + bow * 0.15, 0, -0.6 + bow * 0.25); set('foreP', -1.2 - bow * 0.35);
+    } else if (this.pose === 'drum') {
+      // A hand drum at the hip: both hands beat in turn, the head nods on the beat.
+      const a = Math.max(0, Math.sin(pt * 6)), b = Math.max(0, -Math.sin(pt * 6));
+      set('spine', 0.12); set('head', 0.15 + (a + b) * 0.08);
+      set('armN', -0.45 - a * 0.5, 0, 0.15); set('foreN', -1.0 - a * 0.4);
+      set('armP', -0.45 - b * 0.5, 0, -0.15); set('foreP', -1.0 - b * 0.4);
+    } else if (this.pose === 'pipe') {
+      // A pipe at the lips, both hands on it, fingers fluttering; a gentle bob.
+      const f = Math.sin(pt * 8) * 0.06;
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - Math.abs(Math.sin(pt * 2.1)) * 0.02 * H, k);
+      set('spine', -0.05); set('head', -0.05 + Math.sin(pt * 2.1) * 0.05);
+      set('armN', -1.1 + f, 0, 0.3); set('foreN', -1.5);
+      set('armP', -1.0 - f, 0, -0.3); set('foreP', -1.7);
     } else if (this.pose === 'plank') {
       B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);

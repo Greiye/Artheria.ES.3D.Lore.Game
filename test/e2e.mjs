@@ -121,7 +121,10 @@ if (!longOnly) {
     for (const k of keys.slice(1)) await page.keyboard.down(k);
     await page.keyboard.down(keys[0]);
     await page.waitForTimeout(150);
-    const a = await samp(); await page.waitForTimeout(ms); const b = await samp();
+    const a = await samp(); await page.waitForTimeout(ms);
+    // A software-rendered frame can stall past the window: wait until the sim has actually run for a while.
+    await page.waitForFunction((t) => window.__gametool.perf.simSeconds - t > 0.5, a.t, { timeout: 10000 }).catch(() => undefined);
+    const b = await samp();
     await page.keyboard.up(keys[0]);
     for (const k of keys.slice(1)) await page.keyboard.up(k);
     return Math.hypot(b.x - a.x, b.z - a.z) / (b.t - a.t);  // simulated seconds

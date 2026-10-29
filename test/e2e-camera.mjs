@@ -135,6 +135,8 @@ const figs = () => G(page, () => {
   const cam = window.__gametool.camera;
   window.__gametool.world.scene.traverse((o) => {
     if (!o.userData.sprite) return;
+    // v0.06 T1: off-screen townsfolk aren't drawn at all (culled whole); count the characters that are.
+    for (let a = o; a; a = a.parent) if (!a.visible) return;
     out.figures++;
     o.traverse((c) => {
       if (c.name === 'sprite' && c.visible) { out.boards++; out.nearest &&= c.material.uniforms.map.value.magFilter === 1003; }

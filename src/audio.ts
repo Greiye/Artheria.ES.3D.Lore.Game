@@ -48,7 +48,60 @@ class AudioEngine {
     for (const b of BUSES) this.bus[b].gain.value = this.muted[b] ? 0 : this.levels[b] / 100;
   }
 
-  private noise(bus: Bus, dur: number, filterHz: number, q: number, peak: number, rate = 1): void {
+  // ---------- v0.06 T3: positional audio ----------
+  // Every in-world sound goes through a PannerNode at its world position: linear falloff from 1 m to `range`
+  // (silent past it) and equal-power stereo panning by side. UI sounds (blips, the jingle, page turns, your own
+  // footsteps) stay 2D. The listener sits at the player's eyes, facing where the camera looks.
+  readonly listener = { x: 0, y: 1.7, z: 0, fx: 0, fz: -1 };
+  /** Every positional source made so far (for tests and the debug overlay): name, where, how far it carries. */
+  readonly sources: { name: string; x: number; y: number; z: number; range: number; panner: PannerNode | null }[] = [];
+  setListener(x: number, y: number, z: number, fx: number, fz: number): void {
+    const L = this.listener; L.x = x; L.y = y; L.z = z;
+    const n = Math.hypot(fx, fz) || 1; L.fx = fx / n; L.fz = fz / n;
+    const l = this.ctx?.listener;
+    if (!l) return;
+    if (l.positionX) {
+      const t = this.ctx!.currentTime;
+      l.positionX.setTargetAtTime(x, t, 0.03); l.positionY.setTargetAtTime(y, t, 0.03); l.positionZ.setTargetAtTime(z, t, 0.03);
+      l.forwardX.setTargetAtTime(L.fx, t, 0.03); l.forwardY.setTargetAtTime(0, t, 0.03); l.forwardZ.setTargetAtTime(L.fz, t, 0.03);
+      l.upX.value = 0; l.upY.value = 1; l.upZ.value = 0;
+    } else {   // older Safari
+      (l as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(x, y, z);
+      (l as unknown as { setOrientation(...a: number[]): void }).setOrientation(L.fx, 0, L.fz, 0, 1, 0);
+    }
+  }
+  /** How loud a source at (x, y, z) with this range is for the listener now: the PannerNode's linear model. */
+  gainAt(x: number, y: number, z: number, range: number): number {
+    const L = this.listener, d = Math.hypot(x - L.x, y - L.y, z - L.z);
+    return d <= 1 ? 1 : Math.max(0, 1 - (d - 1) / Math.max(0.01, range - 1));
+  }
+  /** -1 (left) … 1 (right): where the source sits for the listener. */
+  panAt(x: number, z: number): number {
+    const L = this.listener, dx = x - L.x, dz = z - L.z, d = Math.hypot(dx, dz) || 1;
+    return (dx * -L.fz + dz * L.fx) / d;
+  }
+  /** A positional input on `bus`: connect a sound to the returned node. Null when there's no WebAudio. */
+  spatial(name: string, x: number, y: number, z: number, range: number, bus: Bus = 'sfx'): AudioNode | null {
+    if (!this.ensure() || !this.ctx || !this.bus) return null;
+    const p = this.ctx.createPanner();
+    p.panningModel = 'equalpower'; p.distanceModel = 'linear';
+    p.refDistance = 1; p.maxDistance = range; p.rolloffFactor = 1;
+    if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; }
+    else (p as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(x, y, z);
+    p.connect(this.bus[bus]);
+    const known = this.sources.find((q) => q.name === name);
+    if (known) Object.assign(known, { x, y, z, range, panner: p });
+    else this.sources.push({ name, x, y, z, range, panner: p });
+    return p;
+  }
+  /** Route a <video>/<audio> element's sound through a positional node (the cinema's reels). */
+  attachMedia(el: HTMLMediaElement, name: string, x: number, y: number, z: number, range: number): boolean {
+    const out = this.spatial(name, x, y, z, range, 'music');
+    if (!out || !this.ctx) return false;
+    try { this.ctx.createMediaElementSource(el).connect(out); return true; } catch { return false; }
+  }
+
+  private noise(bus: Bus, dur: number, filterHz: number, q: number, peak: number, rate = 1, out?: AudioNode): void {
     if (!this.ensure() || !this.ctx || !this.bus || !this.noiseBuf) return;
     const src = this.ctx.createBufferSource();
     src.buffer = this.noiseBuf;
@@ -61,7 +114,7 @@ class AudioEngine {
     env.gain.setValueAtTime(0, t);
     env.gain.linearRampToValueAtTime(peak, t + dur * 0.15);
     env.gain.linearRampToValueAtTime(0, t + dur);
-    src.connect(filt).connect(env).connect(this.bus[bus]);
+    src.connect(filt).connect(env).connect(out ?? this.bus[bus]);
     src.start(t);
     src.stop(t + dur + 0.02);
   }
@@ -120,8 +173,9 @@ class AudioEngine {
 
   // B11 bard tunes: play an 8-step pattern (bitmask per step over `pitches`, MIDI) on the Music bus.
   // `loops` repeats it; returns the scheduled length in seconds (0 when audio is unavailable).
-  tune(steps: number[], pitches: number[], instrument: 'lute' | 'flute' | 'bells', bpm: number, loops = 1): number {
+  tune(steps: number[], pitches: number[], instrument: 'lute' | 'flute' | 'bells', bpm: number, loops = 1, out?: AudioNode | null): number {
     if (!this.ensure() || !this.ctx || !this.bus) return 0;
+    const dest = out ?? this.bus.music;
     const step = 60 / bpm / 2, t0 = this.ctx.currentTime + 0.05;
     const shape: Record<string, { type: OscillatorType; attack: number; decay: number; gain: number }> = {
       lute: { type: 'triangle', attack: 0.005, decay: 0.55, gain: 0.22 },
@@ -139,7 +193,7 @@ class AudioEngine {
         g.gain.setValueAtTime(0, t);
         g.gain.linearRampToValueAtTime(sh.gain, t + sh.attack);
         g.gain.exponentialRampToValueAtTime(0.001, t + sh.attack + sh.decay);
-        o.connect(g).connect(this.bus!.music);
+        o.connect(g).connect(dest);
         o.start(t); o.stop(t + sh.attack + sh.decay + 0.05);
       });
     });
@@ -148,15 +202,15 @@ class AudioEngine {
 
   // v0.04 campfire instruments: one note (or hit) on the chosen instrument, on the Music bus. `lastPlayed` is for tests.
   lastPlayed: { kind: PlayKind; midi: number } | null = null;
-  play(kind: PlayKind, midi = 67): boolean {
+  play(kind: PlayKind, midi = 67, out?: AudioNode | null): boolean {
     this.lastPlayed = { kind, midi };
     if (!this.ensure() || !this.ctx) return false;
-    this.voice(kind, midi, this.ctx.currentTime + 0.01, 0, 1);
+    this.voice(kind, midi, this.ctx.currentTime + 0.01, 0, 1, out ?? undefined);
     return true;
   }
   // One note at time `t`. `len` (seconds) holds the sustained voices (violin, ocarina, hum); 0 = their natural length.
-  private voice(kind: PlayKind, midi: number, t: number, len: number, vel: number): void {
-    const ctx = this.ctx!, out = this.bus!.music;
+  private voice(kind: PlayKind, midi: number, t: number, len: number, vel: number, dest?: AudioNode): void {
+    const ctx = this.ctx!, out = dest ?? this.bus!.music;
     if (kind === 'drum' || kind === 'clap') {
       const hit = (dur: number, hz: number, q: number, peak: number, rate = 1) => {
         const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
@@ -199,7 +253,7 @@ class AudioEngine {
   // `stems` maps each instrument to its notes over the 4-bar loop. `band.muted` is your stem (the camp leaves it
   // to you); `band.guide` plays it quietly anyway so a solo player hears the whole song. Returns a stop function.
   band = { on: false, muted: null as PlayKind | null, guide: false, kinds: [] as PlayKind[], get playing() { return this.on ? this.kinds.filter((k) => k !== this.muted) : []; } };
-  playBand(stems: Partial<Record<PlayKind, BandNote[]>>, bpm = 84): () => void {
+  playBand(stems: Partial<Record<PlayKind, BandNote[]>>, bpm = 84, out?: AudioNode | null): () => void {
     const kinds = this.band.kinds = Object.keys(stems) as PlayKind[];
     this.band.on = true;
     if (!this.ensure() || !this.ctx || !this.bus) return () => { this.band.on = false; };
@@ -212,7 +266,7 @@ class AudioEngine {
         for (const k of kinds) {
           const mine = k === this.band.muted;
           if (mine && !this.band.guide) continue;
-          for (const n of stems[k]!) if (n.beat >= b * 4 && n.beat < b * 4 + 4) this.voice(k, n.midi, next + (n.beat - b * 4) * beat, n.len * beat, (n.vel ?? 1) * (mine ? 0.35 : 0.55));
+          for (const n of stems[k]!) if (n.beat >= b * 4 && n.beat < b * 4 + 4) this.voice(k, n.midi, next + (n.beat - b * 4) * beat, n.len * beat, (n.vel ?? 1) * (mine ? 0.35 : 0.55), out ?? undefined);
         }
         next += bar;
       }
@@ -269,6 +323,60 @@ class AudioEngine {
     o.type = 'triangle'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(990, t + 0.08);
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.14, t + 0.005); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
     o.connect(g).connect(this.bus.sfx); o.start(t); o.stop(t + 0.2);
+  }
+
+  // ---------- v0.06 T2 ambience voices (each one plays into a positional node) ----------
+  /** A bird's call: two to four quick sweeping chirps. */
+  chirp(out: AudioNode): void {
+    if (!this.ctx) return;
+    const ctx = this.ctx, n = 2 + Math.floor(Math.random() * 3), base = 2600 + Math.random() * 1600;
+    for (let i = 0; i < n; i++) {
+      const t = ctx.currentTime + 0.02 + i * (0.09 + Math.random() * 0.05), o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(base * (0.9 + Math.random() * 0.2), t);
+      o.frequency.exponentialRampToValueAtTime(base * (1.25 + Math.random() * 0.3), t + 0.05);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      o.connect(g).connect(out); o.start(t); o.stop(t + 0.1);
+    }
+  }
+  /** Hammer on an anvil: a bright, inharmonic ring with a thud under it. */
+  clang(out: AudioNode): void {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime + 0.01, f0 = 820 + Math.random() * 80;
+    for (const [m, a, d] of [[1, 0.16, 0.9], [2.76, 0.09, 0.5], [5.4, 0.05, 0.25]] as const) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f0 * m;
+      g.gain.setValueAtTime(a, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.connect(g).connect(out); o.start(t); o.stop(t + d + 0.02);
+    }
+    this.noise('sfx', 0.06, 300, 1, 0.3, 0.7, out);
+  }
+  /** Townsfolk talking: a few syllables of voiced, wordless babble (formant-filtered buzz). */
+  murmur(out: AudioNode, pitch = 1): void {
+    if (!this.ctx) return;
+    const ctx = this.ctx, n = 3 + Math.floor(Math.random() * 4);
+    let t = ctx.currentTime + 0.02;
+    for (let i = 0; i < n; i++) {
+      const len = 0.09 + Math.random() * 0.12, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime((150 + Math.random() * 40) * pitch, t);
+      o.frequency.linearRampToValueAtTime((130 + Math.random() * 60) * pitch, t + len);
+      f.type = 'bandpass'; f.frequency.value = 500 + Math.random() * 900; f.Q.value = 4;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.09, t + 0.02); g.gain.linearRampToValueAtTime(0, t + len);
+      o.connect(f).connect(g).connect(out); o.start(t); o.stop(t + len + 0.02);
+      t += len + 0.03 + Math.random() * 0.08;
+    }
+  }
+  /** A steady trickle of water into `out` (the well); returns a stop function. */
+  trickle(out: AudioNode): () => void {
+    if (!this.ctx || !this.noiseBuf) return () => undefined;
+    const ctx = this.ctx, src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf; src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 1.2;
+    const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 2.3; lg.gain.value = 500;
+    l.connect(lg).connect(bp.frequency);
+    const g = ctx.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 1);
+    src.connect(bp).connect(g).connect(out); src.start(); l.start();
+    return () => { const t = ctx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 0.5); src.stop(t + 0.55); l.stop(t + 0.55); };
   }
 
   // PLACEHOLDER: not wired to a trigger yet (F4/F6 not built). Kept here so those versions

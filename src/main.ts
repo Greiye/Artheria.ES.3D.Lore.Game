@@ -56,7 +56,10 @@ import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel, buildScreen } from './cinema';
-import { TOWN_NAMES, GATE, type TownId } from './world/town';
+import { TOWN_NAMES, GATE, WELL, TOWN_LOTS, type TownId } from './world/town';
+import { Townsfolk } from './world/townsfolk';
+import { NightLights } from './world/nightlights';
+import { Ambience, type Zone } from './ambience';
 import { Intro } from './intro';
 import { Extras } from './extras';
 import { WhatsNew } from './whatsnew';
@@ -114,6 +117,11 @@ world.setShadows(settings.shadows);
 world.setFogDistance(settings.fogDistance);
 const FOLIAGE = { low: 0.35, medium: 0.6, high: 1 } as const;   // R3 perf: undergrowth density per preset
 world.setFoliage(FOLIAGE[settings.preset]);
+// v0.06 W3: lantern halos, brighter windows and a few real lights at night.
+const nightLights = new NightLights(world.scene, world.lanterns, world.town.windows);
+nightLights.setMax(settings.preset === 'low' ? 2 : 4);
+nightLights.setTime(world.time);
+const setWorldTime = (t: TimeOfDay) => { world.setTime(t); nightLights.setTime(t); };
 post = new Post(renderer, world.scene, camera);
 post.setSize(window.innerWidth, window.innerHeight);
 post.setEnabled(settings.postFx);
@@ -413,7 +421,7 @@ async function begin() {
   const save = loadGame();
   if (save?.pos) player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
   if (save && !begun) {
-    world.setTime(save.time);
+    setWorldTime(save.time);
     for (const [id, n] of save.items) if (inventory.count(id) < n) inventory.give(id, n - inventory.count(id));
   }
   begun = true;
@@ -578,6 +586,10 @@ const puppets = new Map<string, Puppet>();
 const figureOf = (o: THREE.Object3D): Puppet => ({ root: o, fig: o.userData.rig ? new FigureAnim(o.userData.rig) : undefined });
 for (const [id, o] of Object.entries(world.standees)) puppets.set(id, figureOf(o));
 puppets.set('player', figureOf(player.body.children[0]));
+// v0.06 T1/T4: townsfolk and the cinema band walk, spar, trade, chat and play on the procedural rig.
+const townsfolk = new Townsfolk(world.scene);
+townsfolk.setCount(settings.preset === 'low' ? 'low' : 'full');
+for (const f of townsfolk.folk) puppets.set(f.id, figureOf(f.root));
 let libNpc = 0;
 library.group.traverse((o) => { if (o.userData.rig) puppets.set(`library:${libNpc++}`, figureOf(o)); });
 modelsReady.then(() => {
@@ -596,6 +608,8 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   // Figures face +Z: turn the head toward the player when they come close.
   const rel = wrapAngle(Math.atan2(dx, dz) - npcE.y);
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
+  const folk = root.userData.folk as import('./world/townsfolk').Folk | undefined;
+  if (folk) return folk.active ? { speed: folk.speed, talking: folk.talking, pose: folk.pose, look: folk.speed > 0.3 || folk.pose ? null : look } : null;
   return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
@@ -640,6 +654,9 @@ function animate(dt: number) {
     else if (p.fig) p.fig.update(dt, input);
   }
   for (const a of animators.values()) a.update(dt);
+  townsfolk.bandPlaying = cinema.withSound;
+  townsfolk.update(dt, camera);
+  folkVoices(dt);
   bannerT += dt;
   swayStation(dt);
   companion.update(dt, player.pos, player.bodyYaw, state !== 'play');
@@ -957,7 +974,7 @@ function sleep(onBedroll = false) {
   fade.classList.add('on');
   setTimeout(() => {
     const next = NEXT_TIME[world.time];
-    world.setTime(next);
+    setWorldTime(next);
     fade.classList.remove('on');
     sleeping = false;
     if (stationPose === 'kneel') stationPose = null;
@@ -1249,6 +1266,34 @@ const projectionistHit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 1.0), ne
 projectionistHit.position.copy(pj).setY(0.9); projectionistHit.name = 'projectionist'; world.scene.add(projectionistHit);
 const cinema = new CinemaPanel(reelScreen, () => leaveForge());
 function openCinema() { enterForge(); cinema.open(); }
+// v0.06 T3: the reels' sound comes from the screen; the fire's music from the fire.
+cinema.onVideo = (v) => { const p = reelScreen.position; audio.attachMedia(v, 'cinema', p.x, p.y, p.z, 24); };
+let fireOut: AudioNode | null = null;
+campfire.out = () => (fireOut ??= audio.spatial('campfire', world.stations.campfire.position.x, 0.8, world.stations.campfire.position.z, 26, 'music'));
+// v0.06 T2: ambience zones. Birdsong in a spread of trees, the well's water, the smithy's hammer, chatter at the store.
+const lotFront = (id: TownId, out: number) => { const L = TOWN_LOTS.find((l) => l.id === id)!; return { x: L.x + Math.sin(L.ry) * (L.d / 2 + out), z: L.z + Math.cos(L.ry) * (L.d / 2 + out) }; };
+const zones: Zone[] = [];
+for (const [x, z] of world.trees) if (zones.length < 8 && Math.hypot(x, z) < 46 && zones.every((q) => Math.hypot(q.x - x, q.z - z) > 18)) zones.push({ name: `birds:${zones.length}`, kind: 'birds', x, y: 5, z, range: 15 });
+zones.push({ name: 'well', kind: 'water', x: WELL.x, y: 0.5, z: WELL.z, range: 9 });
+{ const s = lotFront('smithy', 0.5); zones.push({ name: 'forge', kind: 'forge', x: s.x, y: 1, z: s.z, range: 16 }); }
+{ const s = lotFront('shop', 2.3); zones.push({ name: 'chatter', kind: 'chatter', x: s.x, y: 1.5, z: s.z, range: 11 }); }
+const ambience = new Ambience(zones);
+// T3 NPC voices: townsfolk who are talking murmur from where they stand (only near enough to hear).
+const voiceNodes = new Map<string, AudioNode | null>();
+let voiceT = 0;
+function folkVoices(dt: number) {
+  if ((voiceT -= dt) > 0) return;
+  voiceT = 0.7;
+  if (!ambience.on) return;
+  for (const f of townsfolk.folk) {
+    if (!f.active || !f.talking) continue;
+    const p = f.root.position;
+    if (Math.hypot(p.x - audio.listener.x, p.z - audio.listener.z) > 14 || Math.random() < 0.35) continue;
+    if (!voiceNodes.has(f.id)) voiceNodes.set(f.id, audio.spatial('voice:' + f.id, p.x, 1.5, p.z, 14, 'dialogue'));
+    const out = voiceNodes.get(f.id);
+    if (out) audio.murmur(out, f.role === 'customer' ? 1.1 : 0.95);
+  }
+}
 interactables.push({ obj: projectionistHit, verb: () => 'Watch the Projectionist\'s reels', act: () => openCinema() });
 interactables.push({ obj: reelScreen, verb: () => 'Watch the reels', act: () => openCinema() });
 function syncCrossbowView() {
@@ -1877,6 +1922,7 @@ presetSel.addEventListener('change', () => {
   saveSettings(settings); syncMenu();
   applyRenderScale(); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows);
   post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance); world.setFoliage(FOLIAGE[p]);
+  townsfolk.setCount(p === 'low' ? 'low' : 'full'); nightLights.setMax(p === 'low' ? 2 : 4);
 });
 renderScaleEl.addEventListener('input', () => { settings.renderScale = Number(renderScaleEl.value); saveSettings(settings); syncMenu(); applyRenderScale(); });
 shadowsEl.addEventListener('change', () => { settings.shadows = shadowsEl.checked; saveSettings(settings); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows); });
@@ -1954,6 +2000,7 @@ let simAcc = 0;
 let stepTimer = 0;
 let lastFrameAt = 0;
 const MOVE_ACTIONS: Action[] = ['forward', 'left', 'back', 'right'];
+const earDir = new THREE.Vector3();
 
 function frame() {
   requestAnimationFrame(frame);
@@ -1991,6 +2038,12 @@ function frame() {
     crossbow.update(dt);
     touch?.update();
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
+  // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
+  camera.getWorldDirection(earDir);
+  audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);
+  nightLights.update(dt, player.pos.x, player.pos.z, clock.elapsedTime, camera);
+  ambience.on = state !== 'title' && !inDungeon;
+  if (ambience.on) ambience.update(dt); else ambience.stopAll();
   animate(dt);
   updateAmmoHud();
   updateSprites(renderer, world.scene, camera, dt);
@@ -2047,4 +2100,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
