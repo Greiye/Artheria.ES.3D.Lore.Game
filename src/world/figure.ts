@@ -35,6 +35,9 @@ export interface FigureLook {
   eyeStyle?: 'round' | 'slit' | 'owl' | 'sleepy';
   marks?: string;       // freckles / war paint colour, '' for none
   feature?: string;     // horns / beak / wing / ear colour (defaults per species)
+  // Trait rolls (src/traits/): a bigger head for small folk, and horns on any species.
+  headScale?: number;
+  horns?: boolean;
 }
 
 // Restyle S2d: the default hero, after Mike's Tree of Savior reference (gothic chibi, platinum hair, wings).
@@ -46,7 +49,7 @@ export const GOTHIC_LOOK: FigureLook = {
 };
 
 // Public lore species names only (lore/Artheria-IP-Renames.md).
-export type Species = 'human' | 'elf' | 'infernling' | 'drakari' | 'owlkin' | 'emberkin' | 'stonekin' | 'cinderkin' | 'titankin' | 'corvani' | 'lumari';
+export type Species = 'human' | 'elf' | 'infernling' | 'drakari' | 'owlkin' | 'emberkin' | 'stonekin' | 'cinderkin' | 'titankin' | 'corvani' | 'lumari' | 'goblin';
 
 const light = new THREE.Vector3(0.35, 0.85, 0.4).normalize();
 const WARM = new THREE.Color('#FFE2B8'), COOL = new THREE.Color('#7E8CB8');
@@ -102,7 +105,7 @@ export function blobShadow(radius: number): THREE.Mesh {
 // Default horn / beak / crest colours per species (the forge can override).
 export const FEATURE: Record<Species, string> = {
   human: '#7A5236', elf: '#7A5236', infernling: '#2B2024', drakari: '#C9B48A', owlkin: '#E0A020', emberkin: '#FFB040',
-  stonekin: '#8A8478', cinderkin: '#FF6A20', titankin: '#7A5236', corvani: '#3A3A3A', lumari: '#FFF0B0',
+  stonekin: '#8A8478', cinderkin: '#FF6A20', titankin: '#7A5236', corvani: '#3A3A3A', lumari: '#FFF0B0', goblin: '#1A1418',
 };
 
 export const BONES = ['root', 'hips', 'spine', 'head', 'armN', 'foreN', 'armP', 'foreP', 'thighN', 'shinN', 'thighP', 'shinP'] as const;
@@ -120,6 +123,26 @@ export const HIPS_AT = RIG.hips[1][1] / 1.75;
 /** The head in metres for a 1.75 m figure: centre height and skull size. */
 export const HEAD = { y: 1.625, w: 0.165, h: 0.215, d: 0.195 };
 export interface FigureRig { bones: Record<BoneName, THREE.Bone>; rest: Record<BoneName, THREE.Vector3>; mesh: THREE.SkinnedMesh }
+/** Named attach points that ride the bones (trait props, later .glb props). Positions in metres for a 1.75 m figure. */
+export const SOCKETS: Record<string, [BoneName, number, number, number]> = {
+  head_top: ['head', 0, 1.74, 0], face: ['head', 0, 1.64, 0.1], neck: ['spine', 0, 1.47, 0.05], chest: ['spine', 0, 1.3, 0.11],
+  back: ['spine', 0, 1.25, -0.12], hip_l: ['hips', 0.15, 0.95, 0], hip_r: ['hips', -0.15, 0.95, 0], hand_r: ['foreN', -0.24, 0.84, 0], hand_l: ['foreP', 0.24, 0.84, 0],
+};
+/** Builders for extra parts, passed to buildFigure's `extras`: each part is merged into the body (no extra draw call). */
+export interface PropKit {
+  /** A soft box on a bone; figure metres (x, width and depth scale with the build). */
+  box(bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz?: number, rx?: number, r?: number): void;
+  /** A tapered limb in the figure's XY plane. */
+  seg(bone: BoneName, x1: number, y1: number, x2: number, y2: number, r1: number, r2: number, color: string, z?: number, sides?: number, sz?: number): void;
+  ball(bone: BoneName, r: number, x: number, y: number, z: number, color: string, sx?: number, sy?: number, sz?: number): void;
+  /** Head-space parts (a 0.36 m head centred at y 1.4): a box, an open shell, a tapered lock through points. */
+  hbox(w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz?: number, rx?: number): void;
+  shell(rx: number, ry: number, rz: number, x: number, y: number, z: number, color: string, top?: number, open?: number, tilt?: number): void;
+  lock(pts: [number, number, number][], r1: number, r2: number, color: string, sides?: number): void;
+  /** A tapered rod between two points in figure metres on a bone (handles, shafts, straps). */
+  rod(bone: BoneName, a: [number, number, number], b: [number, number, number], r1: number, r2: number, color: string, sides?: number): void;
+  look: FigureLook;
+}
 
 export function rigged(geo: THREE.BufferGeometry, bone: number): THREE.BufferGeometry {
   const n = geo.attributes.position.count, idx = new Uint16Array(n * 4), w = new Float32Array(n * 4);
@@ -130,7 +153,7 @@ export function rigged(geo: THREE.BufferGeometry, bone: number): THREE.BufferGeo
 }
 
 // Build a figure `height` m tall, feet at y = 0, facing +Z. root.userData.rig holds the bones.
-export function buildFigure(look: FigureLook, height: number): THREE.Group {
+export function buildFigure(look: FigureLook, height: number, extras?: (kit: PropKit) => void): THREE.Group {
   const U = height / 1.75;   // proportions authored for a 1.75 m figure
   const W = THREE.MathUtils.clamp(look.build ?? (look.species === 'titankin' ? 1.2 : 1), 0.8, 1.3);   // body width
   const root = new THREE.Group();
@@ -223,7 +246,7 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   box('head', HEAD.w * 0.72, 0.06, HEAD.d * 0.74, 0, HEAD.y - HEAD.h * 0.43, 0.012, look.skin, 0, 0, 0.022);   // jaw
   box('head', 0.024, 0.04, 0.026, 0, HEAD.y - 0.025, HEAD.d / 2 + 0.006, look.skin, 0, -0.25, 0.008);           // nose
   const sp = look.species ?? 'human', fc = look.feature ?? FEATURE[sp];
-  if (sp !== 'elf' && sp !== 'lumari') for (const s of [-1, 1]) box('head', 0.022, 0.05, 0.035, s * HEAD.w / 2, HEAD.y - 0.005, -0.005, look.skin, 0, 0, 0.008);
+  if (sp !== 'elf' && sp !== 'lumari' && sp !== 'goblin') for (const s of [-1, 1]) box('head', 0.022, 0.05, 0.035, s * HEAD.w / 2, HEAD.y - 0.005, -0.005, look.skin, 0, 0, 0.008);
   // Hair (sculpted, after the realistic switch): a shell over the skull, open at the face and tilted so the
   // hairline sits high at the front and low at the nape, plus tapered locks with rounded ends.
   const shade = '#' + new THREE.Color(look.hair).multiplyScalar(0.84).getHexString();
@@ -334,10 +357,27 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     }
   }
   if (sp === 'elf' || sp === 'lumari') for (const s of [-1, 1]) hbox(0.04, 0.12, 0.06, s * 0.2, 1.46, 0, look.skin, s * -0.6);   // pointed ears
+  if (sp === 'goblin') {
+    // Long ears swept out and up, a hooked nose and a heavy brow.
+    for (const s of [-1, 1]) lock([[s * 0.17, 1.42, -0.02], [s * 0.3, 1.49, -0.05], [s * 0.42, 1.58, -0.09]], 0.07, 0.012, look.skin);
+    lock([[0, 1.43, 0.19], [0, 1.36, 0.25], [0, 1.31, 0.23]], 0.045, 0.02, look.skin);
+    hbox(0.34, 0.05, 0.06, 0, 1.47, 0.17, look.skin);
+  }
+  if (look.horns && sp !== 'infernling' && sp !== 'drakari') for (const s of [-1, 1]) lock([[s * 0.1, 1.55, 0], [s * 0.16, 1.7, -0.04], [s * 0.2, 1.8, -0.14]], 0.05, 0.012, fc);
   if (sp === 'lumari') hbox(0.34, 0.03, 0.34, 0, 1.8, 0, fc);              // halo ring (bright: bloom catches it)
   if (sp === 'emberkin' || sp === 'cinderkin') for (let i = -1; i <= 1; i++) hbox(0.1, 0.16, 0.1, i * 0.11, 1.7, -0.02, fc, i * -0.3);   // flame crest
   if (sp === 'stonekin') { box('spine', 0.11, 0.06, 0.04, -0.06, 1.28, 0.1, fc); box('spine', 0.08, 0.05, 0.04, 0.07, 1.15, 0.1, fc); }   // rock plates
 
+  if (extras) {
+    const rod: PropKit['rod'] = (bone, a, b, r1, r2, color, sides = 6) => {
+      const A = new THREE.Vector3(a[0] * W, a[1], a[2]), B = new THREE.Vector3(b[0] * W, b[1], b[2]), d = B.clone().sub(A), len = d.length();
+      const g = new THREE.CylinderGeometry(r2 * U, r1 * U, len * U, sides);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
+      const m = A.add(B).multiplyScalar(0.5);
+      place(g, bone, m.x, m.y, m.z, color);
+    };
+    extras({ box, seg, ball, hbox, shell, lock, rod, look });
+  }
   // Skeleton: bone positions are relative to the parent's pivot.
   const bones = {} as Record<BoneName, THREE.Bone>, rest = {} as Record<BoneName, THREE.Vector3>;
   for (const name of BONES) {
@@ -372,6 +412,15 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   face.raycast = noRaycast;
   bones.head.add(face);
   root.userData.face = face;
+  if (look.headScale) bones.head.scale.setScalar(look.headScale);
+  const sockets: Record<string, THREE.Object3D> = {};
+  for (const [name, [bone, x, y, z]] of Object.entries(SOCKETS)) {
+    const o = new THREE.Object3D(), pv = RIG[bone][1];
+    o.name = 'socket:' + name;
+    o.position.set((x * W - pv[0]) * U, (y - pv[1]) * U, (z - pv[2]) * U);
+    bones[bone].add(o); sockets[name] = o;
+  }
+  root.userData.sockets = sockets;
   root.userData.look = look;
   root.add(blobShadow(0.3 * U));
   root.userData.height = height;

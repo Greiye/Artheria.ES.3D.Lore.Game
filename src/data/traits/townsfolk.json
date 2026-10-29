@@ -1,0 +1,67 @@
+{
+  "archetype": "townsfolk",
+  "about": "docs/trait-roll-tables.md §4: crowds only (key NPCs stay hand-made). Same row format as goblin.json.",
+  "base": { "height": 1.68, "hp": 1, "speed": 1.35, "budget": 99 },
+  "order": ["height", "build", "skin", "hair", "hairStyle", "clothes", "pace", "habit"],
+  "epithetOrder": [],
+  "tables": {
+    "height": { "die": "2d6", "rows": [
+      { "range": [2, 3], "id": "short", "label": "short", "mods": { "scale": 0.92 } },
+      { "range": [4, 10], "id": "average", "label": "", "mods": {} },
+      { "range": [11, 12], "id": "tall", "label": "tall", "mods": { "scale": 1.07 } }
+    ] },
+    "build": { "die": "d6", "rows": [
+      { "range": [1, 2], "id": "slim", "label": "slim", "mods": { "width": 0.9 } },
+      { "range": [3, 5], "id": "average", "label": "", "mods": {} },
+      { "range": [6, 6], "id": "broad", "label": "broad", "mods": { "width": 1.2 } }
+    ] },
+    "skin": { "die": "d8", "rows": [
+      { "range": [1, 1], "id": "s1", "mods": { "skin": "#F2D6C0" } },
+      { "range": [2, 2], "id": "s2", "mods": { "skin": "#E8C0A0" } },
+      { "range": [3, 3], "id": "s3", "mods": { "skin": "#E0B090" } },
+      { "range": [4, 4], "id": "s4", "mods": { "skin": "#D8A880" } },
+      { "range": [5, 5], "id": "s5", "mods": { "skin": "#C89070" } },
+      { "range": [6, 6], "id": "s6", "mods": { "skin": "#A87050" } },
+      { "range": [7, 7], "id": "s7", "mods": { "skin": "#8A5A3E" } },
+      { "range": [8, 8], "id": "s8", "mods": { "skin": "#6A4430" } }
+    ] },
+    "hair": { "die": "d10", "rows": [
+      { "range": [1, 3], "id": "brown", "mods": { "hair": "#5A3A22" } },
+      { "range": [4, 5], "id": "black", "mods": { "hair": "#1E1A18" } },
+      { "range": [6, 6], "id": "fair", "mods": { "hair": "#C8A060" } },
+      { "range": [7, 7], "id": "red", "mods": { "hair": "#8A4A2A" } },
+      { "range": [8, 9], "id": "grey", "tags": ["old"], "mods": { "hair": "#B8B0A0" } },
+      { "range": [10, 10], "id": "auburn", "mods": { "hair": "#6A2E22" } }
+    ] },
+    "hairStyle": { "die": "d12", "rows": [
+      { "range": [1, 3], "id": "short", "mods": { "hairStyle": "short" } },
+      { "range": [4, 5], "id": "long", "mods": { "hairStyle": "long" } },
+      { "range": [6, 6], "id": "topknot", "mods": { "hairStyle": "topknot" } },
+      { "range": [7, 8], "id": "cap", "mods": { "hairStyle": "cap" } },
+      { "range": [9, 9], "id": "hood", "mods": { "hairStyle": "hood" } },
+      { "range": [10, 10], "id": "bald", "requires": ["old"], "mods": { "hairStyle": "bald" } },
+      { "range": [11, 12], "id": "spiky", "mods": { "hairStyle": "spiky" } }
+    ] },
+    "clothes": { "die": "d8", "rows": [
+      { "range": [1, 1], "id": "rust", "mods": { "primary": "#7A4A3A", "secondary": "#E8D8B8", "accent": "#C9A36B" } },
+      { "range": [2, 2], "id": "moss", "mods": { "primary": "#3E5A44", "secondary": "#D8C8A0", "accent": "#8A6A3A", "skirt": true } },
+      { "range": [3, 3], "id": "plum", "mods": { "primary": "#5A4A7A", "secondary": "#E0D0C0", "accent": "#B8935A" } },
+      { "range": [4, 4], "id": "ochre", "mods": { "primary": "#8A6A3A", "secondary": "#F0E0C0", "accent": "#6A4A2A" } },
+      { "range": [5, 5], "id": "slate", "mods": { "primary": "#4A6A8A", "secondary": "#E8E0D0", "accent": "#C9A36B" } },
+      { "range": [6, 6], "id": "wine", "mods": { "primary": "#6A3A3A", "secondary": "#D8C8A8", "accent": "#A88A5A", "skirt": true } },
+      { "range": [7, 7], "id": "olive", "mods": { "primary": "#7A6A3A", "secondary": "#E8D8B0", "accent": "#5A7A4A" } },
+      { "range": [8, 8], "id": "apron", "label": "in an apron", "mods": { "primary": "#5A4632", "secondary": "#E8E0D0", "accent": "#C8B898", "skirt": true } }
+    ] },
+    "pace": { "die": "d6", "rows": [
+      { "range": [1, 1], "id": "amble", "label": "ambling", "mods": { "speed": -0.2 } },
+      { "range": [2, 5], "id": "steady", "label": "", "mods": {} },
+      { "range": [6, 6], "id": "brisk", "label": "brisk", "mods": { "speed": 0.2 } }
+    ] },
+    "habit": { "die": "d6", "rows": [
+      { "range": [1, 2], "id": "none", "label": "" },
+      { "range": [3, 4], "id": "reads", "label": "reads at every door", "mods": { "idlePose": "read" } },
+      { "range": [5, 5], "id": "lingers", "label": "lingers", "mods": { "wait": 2 } },
+      { "range": [6, 6], "id": "hurries", "label": "never stops long", "mods": { "wait": -1.5 } }
+    ] }
+  }
+}

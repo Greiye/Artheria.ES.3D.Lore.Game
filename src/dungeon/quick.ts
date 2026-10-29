@@ -1,5 +1,7 @@
 import { mulberry32, THEMES, type Theme } from './gen';
 import { escapeHtml } from '../submit';
+import { rollGoblin, describeGoblin, goblinStats } from '../traits/goblin';
+import { seedOf, num } from '../traits/roll';
 import './quick.css';
 
 // v0.05 §6: the Quick Dungeon. A solo, menu-only run under the library: a left-to-right graph of five layers
@@ -15,7 +17,19 @@ export interface Carving { line: string; title: string; credit: string }
 export const LAYERS = 5;
 const KIND_LABEL: Record<QKind, string> = { start: 'Stairs', fight: 'Fight', event: 'Carving', loot: 'Cache', rest: 'Spring', boss: 'The Nest' };
 const KIND_ICON: Record<QKind, string> = { start: '⇣', fight: '⚔', event: '✎', loot: '◈', rest: '♨', boss: '☠' };
-const FOES = ['a goblin scout', 'two hungry rats', 'a goblin with a stolen ladle', 'a nest of book-moths', 'a goblin and its echo'];
+// Fights and the nest are rolled goblins (docs/trait-roll-tables.md): new ones every run, the dice never shown.
+const TACTIC: Record<string, string> = {
+  rusher: 'It charges straight at you. A scuffle in the dark, then quiet.',
+  skirmisher: 'It darts in, nicks you, darts out, again and again, until you pin it.',
+  coward: 'Once you wing it, it squeals and runs.',
+  thief: 'It goes for your pockets, not your throat, and you chase it off.',
+  ambusher: 'It drops on you from a ledge.',
+  archer: 'Shots hiss out of the dark before you can close in.',
+  trapper: 'You step around one snare and straight into another.',
+  leader: 'It shrieks for its friends, and two more come running.',
+  mimic: 'It copies every feint you make, until it can\'t.',
+};
+const article = (s: string) => (/^[aeiou]/i.test(s) ? 'an ' : 'a ') + s;
 
 /** The seeded graph. Every room on layers 1–3 has a way in, and every room leads to 2–3 rooms on the next layer when there are that many. */
 export function buildQuick(seed: number): QGraph {
@@ -52,7 +66,7 @@ export class QuickDungeon {
   path: string[] = [];
   hp = 10;
   sel = 0;
-  result: { title: string; text: string; reward?: QReward; end?: 'won' | 'lost' } | null = null;
+  result: { title: string; text: string; reward?: QReward; end?: 'won' | 'lost'; goblin?: number } | null = null;
   /** Lines for event rooms; set by main. */
   carvings: () => Carving[] = () => [];
   /** Pay out a room's reward (main gives crowns and items). */
@@ -86,8 +100,12 @@ export class QuickDungeon {
   /** Picks made so far (four to finish). */
   get decisions() { return this.path.length; }
 
-  open(seed: number) {
-    this.graph = buildQuick(seed);
+  /** Which goblins this run meets: new every run (Mike), so it's set at open. */
+  run = 0;
+  /** A forced first goblin seed (the `?seed=` debug flag). */
+  forcedGoblin = 0;
+  open(seed: number, run = (Math.random() * 2 ** 31) | 0) {
+    this.graph = buildQuick(seed); this.run = run;
     this.at = 'L0'; this.path = []; this.hp = 10; this.sel = 0; this.result = null;
     this.el.classList.remove('hidden');
     this.render();
@@ -122,10 +140,15 @@ export class QuickDungeon {
   private resolve(n: QNode): NonNullable<QuickDungeon['result']> {
     const R = mulberry32(this.graph!.seed * 31 + n.layer * 7 + n.row + 1);
     const ri = (a: number, b: number) => a + Math.floor(R() * (b - a + 1));
+    const idx = this.graph!.nodes.indexOf(n);
     if (n.kind === 'fight') {
-      const foe = FOES[Math.floor(R() * FOES.length)], dmg = ri(1, 2 + n.layer), crowns = ri(2, 4);
+      const first = !this.path.slice(0, -1).some((id) => this.graph!.nodes.find((x) => x.id === id)?.kind === 'fight');
+      const v = rollGoblin(first && this.forcedGoblin ? this.forcedGoblin : seedOf(this.run, idx)), st = goblinStats(v);
+      let dmg = ri(1, 2 + n.layer) + Math.floor(v.threat / 3) + (st.leader ? 1 : 0);
+      if (st.behaviour === 'coward') dmg = Math.ceil(dmg / 2);
       this.hp = Math.max(1, this.hp - dmg);
-      return { title: 'Combat', text: `You meet ${foe}. A scuffle in the dark, then quiet.\nYou take ${dmg} damage (${this.hp}/10 left).`, reward: { crowns, items: [] } };
+      const crowns = st.behaviour === 'thief' ? 0 : ri(2, 4) + num(v, 'crowns');
+      return { title: v.display, goblin: v.seed, text: `You meet ${v.display}, ${article(describeGoblin(v))}.\n${TACTIC[st.behaviour]}\nYou take ${dmg} damage (${this.hp}/10 left).`, reward: { crowns, items: st.bolts ? [['bolt', st.bolts]] : [] } };
     }
     if (n.kind === 'event') {
       const all = this.carvings(), c = all.length ? all[Math.floor(R() * all.length)] : null;
@@ -140,10 +163,11 @@ export class QuickDungeon {
       this.hp = Math.min(10, this.hp + heal);
       return { title: 'A spring', text: `Cold water from a crack in the stone. You drink and rest a moment.\n+${heal} health (${this.hp}/10).` };
     }
-    // The nest: you win if you come in with enough left.
-    const need = ri(4, 6);
-    if (this.hp >= need) return { title: 'The Nest', text: `The goblin is waiting on its heap of red-book covers. It is quick, but you are ready.\nIt drops what it was hoarding and bolts into the dark.`, reward: { crowns: 12, items: [['trinket', 1]] }, end: 'won' };
-    return { title: 'The Nest', text: `The goblin is waiting on its heap of red-book covers, and you are worn out (${this.hp}/10, you needed ${need}).\nYou back up the stairs. Rest, and try again.`, end: 'lost' };
+    // The nest: its goblin rolls with a bigger budget. You win if you come in with enough left.
+    const v = rollGoblin(seedOf(this.run, 99), 8), need = ri(4, 6) + (v.threat >= 6 ? 1 : 0);
+    const who = `${v.display}, ${article(describeGoblin(v))}`;
+    if (this.hp >= need) return { title: 'The Nest', goblin: v.seed, text: `${who}, is waiting on its heap of red-book covers. It is quick, but you are ready.\nIt drops what it was hoarding and bolts into the dark.`, reward: { crowns: 12, items: [['trinket', 1]] }, end: 'won' };
+    return { title: 'The Nest', goblin: v.seed, text: `${who}, is waiting on its heap of red-book covers, and you are worn out (${this.hp}/10, you needed ${need}).\nYou back up the stairs. Rest, and try again.`, end: 'lost' };
   }
 
   private centre(smooth: boolean) {

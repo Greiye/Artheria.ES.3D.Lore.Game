@@ -39,6 +39,8 @@ export class Crossbow {
   onFire: () => void = () => undefined;
   onReloadClick: () => void = () => undefined;
   onChange: () => void = () => undefined;
+  /** Living targets (goblins): the nearest one a bolt's step passes through, and what a hit does (false = turned aside). */
+  targets: ((from: THREE.Vector3, dir: THREE.Vector3, len: number) => { dist: number; hit: (damage: number, dir: THREE.Vector3) => boolean } | null) | null = null;
 
   constructor(private scene: THREE.Scene, private camera: THREE.PerspectiveCamera, private player: Player,
     private inventory: Inventory, private solids: THREE.Object3D[], private baseFov: () => number) {
@@ -152,6 +154,12 @@ export class Crossbow {
       const len = step.length();
       this.ray.set(from, step.clone().normalize()); this.ray.far = len + 0.2;
       const hit = this.ray.intersectObjects(this.solids, false)[0];
+      const dir = step.clone().normalize(), foe = this.targets?.(from, dir, len + 0.2);
+      if (foe && (!hit || foe.dist < hit.distance)) {
+        // Into a goblin: the bolt is spent (it comes back with the goblin's loot); turned aside, it drops.
+        if (foe.hit(b.damage, dir)) { this.removeBolt(b); continue; }
+        b.mesh.position.copy(from).addScaledVector(dir, foe.dist); b.mesh.position.y = this.player.terrain(b.mesh.position.x, b.mesh.position.z) + 0.02; b.stuck = true; b.age = 0; continue;
+      }
       if (hit) { b.mesh.position.copy(hit.point).addScaledVector(step.normalize(), -0.12); b.stuck = true; b.age = 0; continue; }
       const to = from.add(step);
       const gy = this.player.terrain(to.x, to.z);   // the ground, bumps and hills included

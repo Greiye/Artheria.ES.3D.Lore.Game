@@ -50,6 +50,9 @@ import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
 import './dojo/dojo.css';
 import { drawSketch, loadSketches } from './writing/sketch';
 import { Dungeon } from './dungeon/dungeon';
+import { Goblins, MAX_FOES } from './foes/goblins';
+import { rollGoblin, describeGoblin, goblinStats } from './traits/goblin';
+import { roll, seedOf } from './traits/roll';
 import { dailySeed, seedFrom } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
@@ -187,6 +190,7 @@ ui.innerHTML = `
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>
+    <div id="delveHp" class="hidden"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
@@ -1072,6 +1076,7 @@ function enterDungeon(seed: number) {
   player.spawn(dungeon.entrance(), dungeon.entranceYaw());
   if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
   inDungeon = true;
+  spawnGoblins();
   delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
   saveDelves();
   toast(`Under the library · seed ${seed} · ${L.theme}. Same seed, same dungeon.`, 4500);
@@ -1086,6 +1091,7 @@ function exitDungeon() {
   const fog = world.scene.fog as THREE.Fog;
   if (savedFog) { fog.color.copy(savedFog.color); fog.near = savedFog.near; fog.far = savedFog.far; (world.scene.background as THREE.Color).copy(savedFog.bg); }
   dungeon.group.visible = false; dungeon.hideSpots();
+  goblins.clear(); slowT = 0; player.speedMul = 1;
   player.spawn(TRAPDOOR.clone().add(new THREE.Vector3(0, 0, 1.6)), 0);
   if (companion.prefs.follow) natalieRoot().position.copy(TRAPDOOR).add(new THREE.Vector3(1.4, 0, 1.4));
 }
@@ -1123,6 +1129,70 @@ quick.onFinish = (seed, end) => {
 };
 quick.onClose = () => leaveForge();
 function openQuick(seed: number) { if (state !== 'forge') enterForge(); quick.open(seed); }
+// ---------- Trait roll tables: rolled goblins (docs/trait-roll-tables.md, Mike approved 2026-10-29) ----------
+// New goblins every run; `?seed=N` forces the first one (debug), `?bestiary` lines up 12 on the green (dev only).
+const urlFlags = new URLSearchParams(location.search);
+const forcedGoblin = Number(urlFlags.get('seed')) || 0;
+quick.forcedGoblin = forcedGoblin;
+const DELVE_HP = 10;
+let delveHp = DELVE_HP, slowT = 0, hurtFlash = 0;
+const goblins = new Goblins(world.scene, {
+  walkable: (x, z) => dungeon.walkable(x, z),
+  player: player.pos,
+  aiming: () => crossbow.ads,
+  hurt: (dmg, by, slow) => {
+    if (!inDungeon || delveHp <= 0) return;
+    delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('land');
+    if (slow) slowT = Math.max(slowT, slow);
+    if (delveHp <= 0) {
+      exitDungeon();
+      toast(`${by.v.display} knocks you flat. Natalie hauls you back up the stairs.`, 4500);
+      companion.say('Up you get. We go back when you\'re ready.', { force: true });
+    }
+  },
+  steal: () => { const n = Math.min(2, inventory.count('bolt')); if (n) inventory.take('bolt', n); return n; },
+  loot: (f, crowns, bolts) => {
+    inventory.give(CROWN, crowns); if (bolts) inventory.give('bolt', bolts);
+    toast(`${f.v.display} drops ${crowns} crown${crowns > 1 ? 's' : ''}${bolts ? ` and ${bolts} bolt${bolts > 1 ? 's' : ''}` : ''}.`, 2600);
+  },
+  say: (t) => toast(t, 2600),
+});
+crossbow.targets = (from, dir, len) => {
+  const h = goblins.list.length ? goblins.hitTest(from, dir, len) : null;
+  return h && { dist: h.dist, hit: (dmg, d) => goblins.shoot(h.foe, dmg, d) };
+};
+function spawnGoblins() {
+  goblins.clear(); delveHp = DELVE_HP; slowT = 0;
+  const L = dungeon.layout!, run = (Math.random() * 2 ** 31) | 0;
+  // One per room by depth, two in the nest (its first with a bigger budget); at most MAX_FOES.
+  const rooms = L.rooms.filter((r) => r.tag !== 'entrance').sort((a, b) => (a.tag === 'nest' ? -1 : b.tag === 'nest' ? 1 : a.depth - b.depth));
+  let i = 0;
+  for (const r of rooms) for (let k = 0; k < (r.tag === 'nest' ? 2 : 1) && goblins.alive.length < MAX_FOES; k++, i++) {
+    const seed = i === 0 && forcedGoblin ? forcedGoblin : seedOf(run, i);
+    goblins.spawn(rollGoblin(seed, r.tag === 'nest' && k === 0 ? 8 : undefined), dungeon.roomAt(r, k, 0), Math.PI);
+  }
+}
+const delveHpEl = document.getElementById('delveHp')!;
+function updateDelve(dt: number) {
+  if (!inDungeon) { delveHpEl.classList.add('hidden'); return; }
+  if (state === 'play') goblins.update(dt);
+  slowT = Math.max(0, slowT - dt); player.speedMul = slowT > 0 ? 0.55 : 1;
+  hurtFlash = Math.max(0, hurtFlash - dt);
+  delveHpEl.classList.remove('hidden');
+  delveHpEl.classList.toggle('hit', hurtFlash > 0);
+  const t = `♥ ${delveHp}/${DELVE_HP}${slowT > 0 ? ' · slowed' : ''} · goblins ${goblins.alive.length}`;
+  if (delveHpEl.textContent !== t) delveHpEl.textContent = t;
+}
+// Dev: a lineup of 12 rolled goblins on the green, frozen, with their name tags.
+const bestiary = urlFlags.has('bestiary') ? (() => {
+  const run = (Math.random() * 2 ** 31) | 0, out: THREE.Group[] = [];
+  for (let i = 0; i < 12; i++) {
+    const v = rollGoblin(i === 0 && forcedGoblin ? forcedGoblin : seedOf(run, i));
+    const f = goblins.spawn(v, new THREE.Vector3(2 + (i - 5.5) * 0.75, 0, 19.5), 0, true)!;
+    out.push(f.root);
+  }
+  return out;
+})() : null;
 // ---------- Phase F: B7 living map ----------
 const livingMap = new LivingMap(() => {
   const m: Mark[] = [];
@@ -2040,6 +2110,7 @@ function frame() {
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     crossbow.update(dt);
     touch?.update();
+    if (bestiary) goblins.idle(dt);
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
@@ -2049,6 +2120,7 @@ function frame() {
   if (ambience.on) ambience.update(dt); else ambience.stopAll();
   animate(dt);
   updateAmmoHud();
+  updateDelve(dt);
   updateSprites(renderer, world.scene, camera, dt);
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
@@ -2103,4 +2175,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

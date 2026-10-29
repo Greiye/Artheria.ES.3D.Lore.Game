@@ -7,6 +7,26 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### Trait roll tables: rolled goblins and crowds (after v0.06)
+- Goblins are rolled from trait tables (`src/data/traits/goblin.json`, spec `docs/trait-roll-tables.md`, approved by Mike 2026-10-29). Each goblin rolls a size, a skin, headgear, a behaviour, a weapon that fits it, and two accessories. Rarity, requirements, exclusions, "roll on another table" and a threat budget of 6 keep the stacking sensible. The dice are never shown; you only see the goblin.
+- New goblins every run. Every goblin has a name, and Rare ones also get a title from their traits ("Moll Pot-Head", "Soot the Plague-Crowned"). Name tags are coloured by rarity, with a health bar.
+- Goblins are real-time foes in the dungeon under the library: up to 6 per delve, one per room and two in the nest (its boss rolls with a bigger budget). Each behaviour has its own AI:
+  - Rushers charge.
+  - Skirmishers hit and back off.
+  - Cowards flee at half health and call the others.
+  - Thieves snatch two bolts and run.
+  - Ambushers wait crouched until you're within 4 m.
+  - Archers keep their distance and shoot.
+  - Trappers lay snares that bite and slow you.
+  - Pack leaders shriek (+1 damage to goblins near them while they live).
+  - Mimics strafe while you aim.
+- Weapons: ladles, swords and greatclubs hit up close, spears from further away. Slings and shortbows shoot from range, and bomb pots land at your feet and go off. Diseased goblins slow you with each hit. Pot-lid shields can turn a bolt.
+- Crossbow bolts hurt goblins. A fallen goblin drops crowns, plus any bolts it caught or stole (more if it had a bandolier or a sack). The dungeon HUD shows your health (♥ 10). At 0, Natalie hauls you back up the stairs.
+- The Quick Dungeon's fights and nest meet rolled goblins too. The text describes each one ("Mire, a small, loud goblin in a rag hood, swinging a rusty shortsword"), and its tactic changes the fight.
+- The townsfolk crowd is rolled from `src/data/traits/townsfolk.json` (height, build, skin, hair, hairstyle, clothes, pace and a habit: some read at every door). Natalie, the Pedlar and the other key NPCs stay hand-made.
+- Figures gained sockets (head_top, face, neck, chest, back, hips, hands) and an `extras` hook for props, which are merged into the body (no extra draw calls). There is a goblin species: long ears, a hooked nose and a bigger head.
+- Debug only: `?seed=N` forces the first goblin, and `?bestiary` lines up 12 rolled goblins on the green.
+
 ### Sculpted hair (after v0.06)
 - Hair is sculpted instead of stacked boxes: a rounded cap that hugs the skull, with the hairline high at the front and low at the nape, plus tapered locks for fringes, spikes and long hair. Every style was redone (short, spiky, long, flowing, topknot, cap, hood); the cap and hood are rounded too. Figures cost about the same to draw.
 - The old 2D head sheets (`hero.png`, `natalie.png`) are deleted (Mike 2026-10-29). Drawn faces stay.
