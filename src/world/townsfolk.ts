@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildFigure } from './figure';
-import { GREEN, TOWN_LOTS, WELL, CINEMA_SPOT, type TownId } from './town';
+import { GREEN, TOWN_LOTS, FOUNTAIN, CINEMA_SPOT, type TownId } from './town';
 import type { Pose } from '../anim/procedural';
 import { rollTownsfolk } from '../traits/townsfolk';
 import { seedOf } from '../traits/roll';
@@ -99,7 +99,7 @@ export class Townsfolk {
       f.root.visible = f.active;
     }
   }
-  /** For tests: clearance from the well and the lots at (x, z). */
+  /** For tests: clearance from the fountain and the lots at (x, z). */
   clearance(x: number, z: number) { return clearance(x, z); }
   get activeCount() { return this.folk.filter((f) => f.active && f.role !== 'band').length; }
 
@@ -166,7 +166,7 @@ export function route(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
 }
 /** For tests: how close a point comes to the well and to each lot's footprint (negative = inside). */
 export function clearance(x: number, z: number) {
-  const well = Math.hypot(x - WELL.x, z - WELL.z) - WELL.r;
+  const well = Math.hypot(x - FOUNTAIN.x, z - FOUNTAIN.z) - FOUNTAIN.r;
   let lots = Infinity;
   for (const L of TOWN_LOTS) {
     const c = Math.cos(L.ry), s = Math.sin(L.ry), lx = (x - L.x) * c - (z - L.z) * s, lz = (x - L.x) * s + (z - L.z) * c;

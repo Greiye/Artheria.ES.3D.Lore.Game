@@ -13,6 +13,7 @@ import { setLinkResolver } from './markdown';
 import greyBooks from '../content/rolltables/grey-books.json';
 import { controls, actionFor, binds, REBINDABLE, bindKey, resetKeys, keyLabel, type Action } from './controls';
 import { loadSettings, saveSettings, flushSettings, PRESETS, type Preset, type FpsCap, type View } from './settings';
+import { AutoQuality, STEPS } from './render/autoQuality';
 import { audio } from './audio';
 import { VERSION, AUTHOR } from './version';
 import { TouchControls } from './input/touch';
@@ -60,7 +61,8 @@ import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel, buildScreen } from './cinema';
-import { TOWN_NAMES, GATE, WELL, TOWN_LOTS, type TownId } from './world/town';
+import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
+import { BRIDGES, riverX } from './world/river';
 import { Townsfolk } from './world/townsfolk';
 import { NightLights } from './world/nightlights';
 import { Ambience, type Zone } from './ambience';
@@ -96,7 +98,21 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // F1.1: device pixel ratio capped (phones hold frame rate), then scaled by the render-scale setting.
 const basePixelRatio = Math.min(window.devicePixelRatio, coarse ? 1.5 : 2);
-function applyRenderScale() { renderer.setPixelRatio(basePixelRatio * (settings.renderScale / 100)); post?.setSize(window.innerWidth, window.innerHeight); }
+// References review: auto quality scales these down when the frame rate drops (settings stay as picked).
+// Automated test browsers keep it off unless a test asks (localStorage gametool.autoq = 'on').
+const autoQ = new AutoQuality(() => applyQuality());
+autoQ.enabled = settings.autoQuality && (() => { try { return !navigator.webdriver || localStorage.getItem('gametool.autoq') === 'on'; } catch { return !navigator.webdriver; } })();
+function applyRenderScale() { renderer.setPixelRatio(basePixelRatio * Math.max(0.35, (settings.renderScale / 100) * autoQ.step.scale)); post?.setSize(window.innerWidth, window.innerHeight); }
+/** Everything auto quality touches, from the settings and its current step. */
+function applyQuality() {
+  const q = autoQ.step, shadows = settings.shadows && q.shadows;
+  applyRenderScale();
+  renderer.shadowMap.enabled = shadows; world.setShadows(shadows);
+  world.setFoliage(FOLIAGE[settings.preset] * q.foliage);
+  townsfolk.setCount(settings.preset === 'low' || q.folk === 'low' ? 'low' : 'full');
+  const out = document.getElementById('autoQualityOut');
+  if (out) out.textContent = autoQ.enabled && autoQ.level ? `(easing off: step ${autoQ.level} of ${STEPS.length - 1})` : '';
+}
 let post: Post | null = null;
 applyRenderScale();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -234,6 +250,7 @@ ui.innerHTML = `
       <label class="field">FPS cap
         <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>
       </label>
+      <label class="check"><input id="autoQuality" type="checkbox"> Auto quality (eases off when the frame rate drops) <output id="autoQualityOut"></output></label>
       <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
     </section>
     <section id="audioSettings" class="pause-panel side-panel hidden" data-panel="sound">
@@ -1343,11 +1360,12 @@ function openCinema() { enterForge(); cinema.open(); }
 cinema.onVideo = (v) => { const p = reelScreen.position; audio.attachMedia(v, 'cinema', p.x, p.y, p.z, 24); };
 let fireOut: AudioNode | null = null;
 campfire.out = () => (fireOut ??= audio.spatial('campfire', world.stations.campfire.position.x, 0.8, world.stations.campfire.position.z, 26, 'music'));
-// v0.06 T2: ambience zones. Birdsong in a spread of trees, the well's water, the smithy's hammer, chatter at the store.
+// v0.06 T2: ambience zones. Birdsong in a spread of trees, the fountain's and the river's water, the smithy's hammer, chatter at the store.
 const lotFront = (id: TownId, out: number) => { const L = TOWN_LOTS.find((l) => l.id === id)!; return { x: L.x + Math.sin(L.ry) * (L.d / 2 + out), z: L.z + Math.cos(L.ry) * (L.d / 2 + out) }; };
 const zones: Zone[] = [];
 for (const [x, z] of world.trees) if (zones.length < 8 && Math.hypot(x, z) < 46 && zones.every((q) => Math.hypot(q.x - x, q.z - z) > 18)) zones.push({ name: `birds:${zones.length}`, kind: 'birds', x, y: 5, z, range: 15 });
-zones.push({ name: 'well', kind: 'water', x: WELL.x, y: 0.5, z: WELL.z, range: 9 });
+zones.push({ name: 'fountain', kind: 'water', x: FOUNTAIN.x, y: 0.8, z: FOUNTAIN.z, range: 9 });
+for (const b of BRIDGES) zones.push({ name: `river:${b.z}`, kind: 'water', x: riverX(b.z), y: 0.2, z: b.z, range: 14 });
 { const s = lotFront('smithy', 0.5); zones.push({ name: 'forge', kind: 'forge', x: s.x, y: 1, z: s.z, range: 16 }); }
 { const s = lotFront('shop', 2.3); zones.push({ name: 'chatter', kind: 'chatter', x: s.x, y: 1.5, z: s.z, range: 11 }); }
 const ambience = new Ambience(zones);
@@ -1934,7 +1952,7 @@ const sens = $<HTMLInputElement>('sens'), fov = $<HTMLInputElement>('fov');
 const inv = $<HTMLInputElement>('invert'), always = $<HTMLInputElement>('always');
 const presetSel = $<HTMLSelectElement>('preset'), renderScaleEl = $<HTMLInputElement>('renderScale');
 const shadowsEl = $<HTMLInputElement>('shadows'), postFxEl = $<HTMLInputElement>('postFx');
-const fogDistanceEl = $<HTMLInputElement>('fogDistance'), fpsCapSel = $<HTMLSelectElement>('fpsCap');
+const fogDistanceEl = $<HTMLInputElement>('fogDistance'), fpsCapSel = $<HTMLSelectElement>('fpsCap'), autoQualityEl = $<HTMLInputElement>('autoQuality');
 const audioEls = {
   master: $<HTMLInputElement>('audioMaster'), muteMaster: $<HTMLInputElement>('muteMaster'),
   music: $<HTMLInputElement>('audioMusic'), muteMusic: $<HTMLInputElement>('muteMusic'),
@@ -1952,7 +1970,7 @@ function syncMenu() {
   renderScaleEl.value = String(settings.renderScale); $('renderScaleOut').textContent = settings.renderScale + '%';
   shadowsEl.checked = settings.shadows; postFxEl.checked = settings.postFx;
   fogDistanceEl.value = String(settings.fogDistance); $('fogOut').textContent = settings.fogDistance + ' m';
-  fpsCapSel.value = String(settings.fpsCap);
+  fpsCapSel.value = String(settings.fpsCap); autoQualityEl.checked = settings.autoQuality;
   audioEls.master.value = String(settings.audio.master); $('audioMasterOut').textContent = settings.audio.master + '%';
   audioEls.muteMaster.checked = settings.audio.muteMaster;
   audioEls.music.value = String(settings.audio.music); $('audioMusicOut').textContent = settings.audio.music + '%';
@@ -1993,15 +2011,14 @@ presetSel.addEventListener('change', () => {
   settings.preset = p;
   Object.assign(settings, PRESETS[p]);
   saveSettings(settings); syncMenu();
-  applyRenderScale(); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows);
-  post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance); world.setFoliage(FOLIAGE[p]);
-  townsfolk.setCount(p === 'low' ? 'low' : 'full'); nightLights.setMax(p === 'low' ? 2 : 4);
+  applyQuality(); post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance); nightLights.setMax(p === 'low' ? 2 : 4);
 });
 renderScaleEl.addEventListener('input', () => { settings.renderScale = Number(renderScaleEl.value); saveSettings(settings); syncMenu(); applyRenderScale(); });
-shadowsEl.addEventListener('change', () => { settings.shadows = shadowsEl.checked; saveSettings(settings); renderer.shadowMap.enabled = settings.shadows; world.setShadows(settings.shadows); });
+shadowsEl.addEventListener('change', () => { settings.shadows = shadowsEl.checked; saveSettings(settings); applyQuality(); });
 postFxEl.addEventListener('change', () => { settings.postFx = postFxEl.checked; saveSettings(settings); post?.setEnabled(settings.postFx); });
 fogDistanceEl.addEventListener('input', () => { settings.fogDistance = Number(fogDistanceEl.value); saveSettings(settings); syncMenu(); world.setFogDistance(settings.fogDistance); });
 fpsCapSel.addEventListener('change', () => { settings.fpsCap = Number(fpsCapSel.value) as FpsCap; saveSettings(settings); });
+autoQualityEl.addEventListener('change', () => { settings.autoQuality = autoQualityEl.checked; saveSettings(settings); autoQ.setEnabled(settings.autoQuality); });
 
 // F1.2 audio — one GainNode per bus; a slider/mute only ever touches its own bus (src/audio.ts).
 (['master', 'music', 'sfx', 'dialogue'] as const).forEach((b) => {
@@ -2082,6 +2099,7 @@ function frame() {
   const now = performance.now();
   const minFrameMs = settings.fpsCap > 0 ? 1000 / settings.fpsCap : 0;
   if (minFrameMs > 0 && now - lastFrameAt < minFrameMs) return;
+  if (state === 'play') autoQ.frame(now - lastFrameAt, settings.fpsCap || 60);
   lastFrameAt = now;
   const t0 = now;
   // Fixed 120 Hz simulation steps: speeds and jump height stay exact even when frames are slow.
@@ -2175,4 +2193,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

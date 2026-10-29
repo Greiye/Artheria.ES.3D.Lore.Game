@@ -5,13 +5,14 @@ import { rng } from './pixel';
 // One tile per colour the figure uses, painted by material kind: cloth gets folds and soft strokes, hair
 // gets strands, leather gets scuffs and stitching, metal gets a sheen, skin stays soft. Every tile darkens
 // toward its edges, so each face of a part reads as painted occlusion. The light from painted() rides
-// on top in the vertex colours. 512 px, cached by the set of tiles, so identical figures share one atlas.
+// on top in the vertex colours. 512 px (or a smaller swatch atlas), cached by the set of tiles, so identical figures
+// share one atlas.
 
 export type PaintKind = 'cloth' | 'skin' | 'hair' | 'leather' | 'metal';
 export interface Tile { color: string; kind: PaintKind }
 export interface Atlas { texture: THREE.CanvasTexture; rect(color: string): [number, number, number, number] }
 
-const SIZE = 512, PAD = 3;
+const DEFAULT = 512, PAD = 3;
 const cache = new Map<string, Atlas>();
 
 const shade = (hex: string, k: number) => '#' + new THREE.Color(hex).multiplyScalar(k).getHexString();
@@ -64,8 +65,8 @@ function paintTile(g: CanvasRenderingContext2D, x0: number, y0: number, s: numbe
   g.restore();
 }
 
-export function paintedAtlas(tiles: Tile[]): Atlas {
-  const key = tiles.map((t) => t.color + t.kind).join('|');
+export function paintedAtlas(tiles: Tile[], SIZE = DEFAULT): Atlas {
+  const key = SIZE + ':' + tiles.map((t) => t.color + t.kind).join('|');
   const hit = cache.get(key);
   if (hit) return hit;
   const n = Math.max(1, Math.ceil(Math.sqrt(tiles.length))), s = Math.floor(SIZE / n);

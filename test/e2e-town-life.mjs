@@ -91,7 +91,7 @@ await shot(page, 'town-life-sunset');
 // ---------- T2 / T3 sound ----------
 const zones = await G(page, () => window.__gametool.ambience.zones.map((z) => ({ name: z.name, kind: z.kind, x: z.x, z: z.z, range: z.range })));
 const kinds = new Set(zones.map((z) => z.kind));
-check('v0.06 T2 ambience zones: birdsong in the trees, the well, the smithy, chatter at the store', ['birds', 'water', 'forge', 'chatter'].every((k) => kinds.has(k)) && zones.filter((z) => z.kind === 'birds').length >= 3, JSON.stringify([...kinds]));
+check('v0.06 T2 ambience zones: birdsong in the trees, the fountain, the smithy, chatter at the store', ['birds', 'water', 'forge', 'chatter'].every((k) => kinds.has(k)) && zones.filter((z) => z.kind === 'birds').length >= 3, JSON.stringify([...kinds]));
 const forge = zones.find((z) => z.kind === 'forge');
 const heard = () => G(page, () => ({ ...window.__gametool.ambience.heard }));
 await G(page, (f) => { const p = window.__gametool.player; p.pos.set(f.x + 3, 0, f.z + 1); }, forge);

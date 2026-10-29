@@ -9,6 +9,7 @@ import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
 import { buildTown, townClear, TOWN_LOTS, type Town } from './town';
+import { buildRiver, riverClear, type River } from './river';
 import { buildKavik } from './kavik';
 
 // Rebuild R2 (docs/vision.md, docs/rebuild-plan.md): the start glade in the new look.
@@ -35,6 +36,7 @@ export interface World {
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
   town: Town;                    // v0.04: the storybook town (src/world/town.ts)
+  river: River;                  // references review: the river, its bridges and the windmill (src/world/river.ts)
   heightAt(x: number, z: number): number;   // v0.04 hills: ground height
   stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D; campfire: THREE.Object3D; bedroll: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
   campfireFlame: THREE.Mesh;                                  // B8: flickers in main.ts
@@ -194,7 +196,8 @@ export function buildWorld(): World {
     || Math.hypot(x - 9.5, z + 10) < 3.5 + pad || Math.hypot(x - 16, z + 14) < 2 + pad || Math.hypot(x + 16, z + 4) < 2 + pad
     || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad)   // Phase F dojo
     || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad)   // v0.04 rock climb
-    || townClear(x, z, pad);   // v0.04 town
+    || townClear(x, z, pad)   // v0.04 town
+    || riverClear(x, z, pad);   // references review: the river and the windmill
   // Style pass 2: the meadow gets gentle bumps, except where something stands on flat ground.
   const flatSpots: [number, number, number][] = [
     ...QUEST.clues.map((c) => [c.at[0], c.at[2], 2.5] as [number, number, number]),
@@ -298,6 +301,7 @@ export function buildWorld(): World {
   }
 
   const town = buildTown(scene, B, tex, colliders);   // v0.04
+  const river = buildRiver(scene, B, tex, colliders);   // references review (Willowbrook)
   const statics = B.flush(scene, 'static');
   statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
 
@@ -417,6 +421,7 @@ export function buildWorld(): World {
   return {
     stations,
     town,
+    river,
     trees,
     lanterns: [...town.lanterns, ...libLanterns],
     heightAt,
@@ -443,6 +448,7 @@ export function buildWorld(): World {
       const targetAngle = doorOpen ? THREE.MathUtils.degToRad(100) : 0;
       if (doorAngle !== targetAngle) { doorAngle = Math.min(targetAngle, doorAngle + 0.03); hinge.rotation.y = doorAngle; }
       wind.value = t;
+      river.update(t);
       sky.update(t, camera);
     },
     setShadows(on: boolean) {

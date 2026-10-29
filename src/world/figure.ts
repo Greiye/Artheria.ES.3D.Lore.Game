@@ -4,7 +4,7 @@ import { FACE } from '../render/headArt';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { blobShadowTexture } from '../tex/pixel';
-import { paintedAtlas, toTile, type PaintKind } from '../tex/paintedAtlas';
+import { paintedAtlas, toTile, type PaintKind, type Tile } from '../tex/paintedAtlas';
 
 // Characters (Mike 2026-10-29, after the Kavik preview): low-poly figures at realistic proportions, about 7.5 heads
 // tall, with a low-poly 3D head and a drawn face swapped like Mega Man Legends' face textures. Tapered limbs,
@@ -38,6 +38,9 @@ export interface FigureLook {
   // Trait rolls (src/traits/): a bigger head for small folk, and horns on any species.
   headScale?: number;
   horns?: boolean;
+  // Swatch palette (the Mona method, references review 2026-10-29): every figure built with the same palette shares
+  // one small atlas holding all its swatches, so a variant is just a different choice of rows, not a new texture.
+  palette?: { tiles: Tile[]; size: number };
 }
 
 // Restyle S2d: the default hero, after Mike's Tree of Savior reference (gothic chibi, platinum hair, wings).
@@ -169,7 +172,9 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   const box = (bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0, r = 0.02) => {
     const k = bone === 'head' ? 1 : W;
     w *= k; d *= k; x *= k;
-    place(new RoundedBoxGeometry(w * U, h * U, d * U, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
+    // Under 6 cm thick the rounding can't be seen, so a plain box (12 tris, not ~100) keeps the 5k budget.
+    const g = Math.min(w, h, d) < 0.06 ? new THREE.BoxGeometry(w * U, h * U, d * U) : new RoundedBoxGeometry(w * U, h * U, d * U, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2) * U);
+    place(g, bone, x, y, z, color, rz, rx);
   };
   // A tapered limb from (x1, y1) to (x2, y2), in the figure's XY plane; sz flattens it front to back.
   const seg = (bone: BoneName, x1: number, y1: number, x2: number, y2: number, r1: number, r2: number, color: string, z = 0, sides = 7, sz = 1) => {
@@ -264,7 +269,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
     const c = hp(x, y, z);
     place(g, 'head', c.x, c.y, c.z, color);
   };
-  // A lock through the given head-space points, tapering from r1 to r2, each joint rounded off.
+  // A lock through the given head-space points, tapering from r1 to r2, each inner joint rounded off.
   const lock = (pts: [number, number, number][], r1: number, r2: number, color: string, sides = 6) => {
     const P = pts.map(([x, y, z]) => hp(x, y, z)), up = new THREE.Vector3(0, 1, 0);
     for (let i = 0; i < P.length - 1; i++) {
@@ -274,8 +279,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
       g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize()));
       const m = a.clone().add(b).multiplyScalar(0.5);
       place(g, 'head', m.x, m.y, m.z, color);
-      const k = new THREE.SphereGeometry(rb * U, sides, 4);
-      place(k, 'head', b.x, b.y, b.z, color);
+      if (i < P.length - 2) place(new THREE.SphereGeometry(rb * U, sides, 3), 'head', b.x, b.y, b.z, color);   // joints, not the tip (tri budget)
     }
   };
   // Every style but the hood and bald starts from the same cap: down to the ears, nape covered.
@@ -393,7 +397,8 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   const kindOf = (c: string): PaintKind => c === look.skin ? 'skin' : c === look.hair ? 'hair'
     : c === look.boots || c === gloves || c === '#141218' ? 'leather' : c === look.accent || c === '#C9A23A' ? 'metal' : 'cloth';
   const colours = [...new Set(parts.map(([, c]) => c))];
-  const atlas = paintedAtlas(colours.map((c) => ({ color: c, kind: kindOf(c) })));
+  const pal = look.palette, own = colours.filter((c) => !pal?.tiles.some((t) => t.color === c));
+  const atlas = paintedAtlas([...(pal?.tiles ?? []), ...own.map((c) => ({ color: c, kind: kindOf(c) }))], pal?.size);
   const mat = atlasMaterial(atlas.texture);
   for (const [g, c] of parts) toTile(g, atlas.rect(c));
   const geo = mergeGeometries(parts.map(([g, , b]) => rigged(painted(g, '#FFFFFF', 0, height), BONES.indexOf(b))));
@@ -406,7 +411,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   // The face (Mega Man Legends style): the look's drawn face sheet (src/render/headArt.ts, Mike's hand-drawn
   // sheets where they exist) on a quad over the front of the skull. Expressions swap by moving its UVs
   // (src/render/sprites.ts), so blinking and talking cost nothing.
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(FACE.w * HEAD.w * U, FACE.h * HEAD.w * U), faceMaterial());
+  const face = new THREE.Mesh(faceGeometry(FACE.w * HEAD.w * U, FACE.h * HEAD.w * U), faceMaterial());
   face.name = 'figure-face';
   face.position.set(0, (HEAD.y - FACE.drop * HEAD.w - RIG.head[1][1]) * U, (HEAD.d / 2 + 0.004) * U);
   face.raycast = noRaycast;
@@ -429,6 +434,12 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   return root;
 }
 
+/** The face: an eye strip over a mouth strip (two quads, w × h overall, split at FACE.split), swapped separately. */
+export function faceGeometry(w: number, h: number): THREE.BufferGeometry {
+  const t = h * FACE.split;
+  const eyes = new THREE.PlaneGeometry(w, t).translate(0, h / 2 - t / 2, 0), mouth = new THREE.PlaneGeometry(w, h - t).translate(0, -t / 2, 0);
+  return mergeGeometries([eyes, mouth]);
+}
 // One face material per figure: its map is the look's face sheet once loaded (src/render/sprites.ts).
 export function faceMaterial() { return new THREE.MeshBasicMaterial({ alphaTest: 0.5, visible: false }); }
 

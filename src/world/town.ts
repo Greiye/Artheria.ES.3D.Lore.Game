@@ -4,6 +4,8 @@ import { Batch } from './batch';
 import { buildFigure } from './figure';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Collider } from './index';
+import { TOWN_PALETTE as P } from './palette';
+import { waterMaterial } from './river';
 
 // v0.04: a small storybook town south of the glade, down the path from the spawn point. One building per
 // tool, scattered round an oval green at odd angles (Mike, 2026-10-28: "make it feel lively"): the library
@@ -18,27 +20,28 @@ export const TOWN_NAMES: Record<TownId, string> = {
 const ICONS: Record<TownId, string> = { library: '❦', smithy: '⚒', tailor: '✂', scriptorium: '✒', cartographer: '⌖', dojo: '☯', gallery: '▣', shop: '⚖', inn: '☾' };
 // The green: an oval ring of lots round (C.x, C.z). Everything stays inside the flat middle (|x|, |z| < 42).
 export const GREEN = { x: 4, z: 26.5, rx: 24, rz: 9.5 };
-// One plaster and three roof colours: each tint is its own merged mesh (draw call), so keep them few.
-const PLASTER = '#FFF6E6';
+// Two plasters and four roof colours, all from the town's seven (palette.ts): each tint is its own merged mesh
+// (draw call), so keep them few.
+const PLASTER = P.cream, PLASTER2 = P.tan;
 const WALL = 3.0, PLINTH = 0.4, RISE = 2.1;
-const R1 = '#86604E', R2 = '#4E7299', R3 = '#A84C40';
+const R1 = P.brown, R2 = P.slate, R3 = P.brick, R4 = P.moss;
 // Style pass 2: houses with a jettied upper floor (UPPER metres tall, overhanging front and back).
 const JETTY = new Set<string>(['inn', 'scriptorium', 'cartographer', 'tailor']);
 const UPPER = 1.9;
 // Clockwise round the ring from the lane (north, toward the glade). `off` pushes a lot out (+) or in (−) from
 // the ring and `turn` skews it off facing the green, so no two sit square to each other.
-type Slot = { id: TownId | 'lane' | 'cinema'; w: number; d: number; off: number; turn: number; roof?: string };
+type Slot = { id: TownId | 'lane' | 'cinema'; w: number; d: number; off: number; turn: number; roof?: string; tan?: boolean };
 const RING: Slot[] = [
   { id: 'lane', w: 3.2, d: 0, off: 0, turn: 0 },
   { id: 'shop', w: 6.6, d: 5.6, off: 0.5, turn: 0.2, roof: R3 },
-  { id: 'smithy', w: 7, d: 6, off: -0.7, turn: -0.24, roof: R1 },
+  { id: 'smithy', w: 7, d: 6, off: -0.7, turn: -0.24, roof: R1, tan: true },
   { id: 'inn', w: 7.6, d: 6.4, off: 1.0, turn: 0.14, roof: R2 },
   { id: 'cinema', w: 3.2, d: 0, off: -1.2, turn: 0 },
-  { id: 'gallery', w: 6.8, d: 5.8, off: -0.4, turn: -0.18, roof: R3 },
+  { id: 'gallery', w: 6.8, d: 5.8, off: -0.4, turn: -0.18, roof: R4, tan: true },
   { id: 'scriptorium', w: 6.2, d: 5.6, off: 0.8, turn: 0.26, roof: R1 },
   { id: 'library', w: 8.4, d: 6.6, off: 0.3, turn: -0.06, roof: R2 },
-  { id: 'cartographer', w: 6, d: 5.4, off: -0.5, turn: -0.22, roof: R3 },
-  { id: 'dojo', w: 7.2, d: 6.2, off: -0.2, turn: 0.17, roof: R1 },
+  { id: 'cartographer', w: 6, d: 5.4, off: -0.5, turn: -0.22, roof: R3, tan: true },
+  { id: 'dojo', w: 7.2, d: 6.2, off: -0.2, turn: 0.17, roof: R4 },
   { id: 'tailor', w: 6.4, d: 5.6, off: -2.2, turn: -0.2, roof: R2 },
 ];
 const GAP = 1.6;   // between neighbours along the ring
@@ -64,11 +67,12 @@ function layout(): Map<Slot['id'], Spot> {
   return out;
 }
 const SPOTS = layout();
-const LOTS = RING.filter((s): s is Slot & { id: TownId } => s.id !== 'lane' && s.id !== 'cinema').map((s) => ({ ...s, ...SPOTS.get(s.id)!, wall: PLASTER, roof: s.roof! }));
+const LOTS = RING.filter((s): s is Slot & { id: TownId } => s.id !== 'lane' && s.id !== 'cinema').map((s) => ({ ...s, ...SPOTS.get(s.id)!, wall: s.tan ? PLASTER2 : PLASTER, roof: s.roof! }));
 /** v0.06 T1: every lot's centre, facing (toward the green) and size, for the townsfolk's routes. */
 export const TOWN_LOTS = LOTS.map(({ id, x, z, ry, w, d }) => ({ id, x, z, ry, w, d }));
-/** The well on the green (style pass 2): the townsfolk walk round it, and its water is a T2 ambience zone. */
-export const WELL = { x: GREEN.x, z: GREEN.z + 0.5, r: 1.15 };
+/** The fountain in the middle of the plaza (references review, Willowbrook; it replaced style pass 2's well): the
+ *  townsfolk walk round it, and its water is a T2 ambience zone. */
+export const FOUNTAIN = { x: GREEN.x, z: GREEN.z + 0.5, r: 1.75 };
 /** v0.06 T4: where the cinema band stands, in the cinema slot's frame (x along the screen, z toward the green). */
 export const CINEMA_SPOT = () => SPOTS.get('cinema')!;
 /** v0.05: the camp's exit gate, at the west end of the coach road. Walking through it asks whether to retire. */
@@ -86,20 +90,27 @@ function footprint(colliders: Collider[], x: number, z: number, ry: number, w: n
   }
 }
 
-/** All the signs on one canvas (one row each), so the town's signs (and the exit gate's) are a single draw call. */
-function signAtlas(rows: string[][]): THREE.CanvasTexture {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64 * rows.length;
+/** All the signs on one canvas, two to a row (512 px wide, inside the mobile texture budget), so the town's signs
+ *  (and the exit gate's) are a single draw call. */
+function signAtlas(signs: string[][]): THREE.CanvasTexture {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 64 * Math.ceil(signs.length / 2);
   const g = c.getContext('2d')!;
-  rows.forEach((lines, i) => {
-    const y = i * 64;
-    g.fillStyle = '#4A3222'; g.fillRect(0, y, 256, 64);
-    g.strokeStyle = '#C9A36B'; g.lineWidth = 4; g.strokeRect(4, y + 4, 248, 56);
+  signs.forEach((lines, i) => {
+    const x = (i % 2) * 256, y = Math.floor(i / 2) * 64;
+    g.fillStyle = '#4A3222'; g.fillRect(x, y, 256, 64);
+    g.strokeStyle = '#C9A36B'; g.lineWidth = 4; g.strokeRect(x + 4, y + 4, 248, 56);
     g.fillStyle = '#F2E2B8'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.font = lines.length > 1 ? '600 19px Georgia, serif' : '600 26px Georgia, serif';
-    lines.forEach((t, k) => g.fillText(t, 128, y + 34 + (k - (lines.length - 1) / 2) * 22));
+    lines.forEach((t, k) => g.fillText(t, x + 128, y + 34 + (k - (lines.length - 1) / 2) * 22));
   });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
+}
+/** Point a sign plane's UVs at sign i of n in the atlas. */
+function signUV(geo: THREE.BufferGeometry, i: number, n: number) {
+  const uv = geo.attributes.uv as THREE.BufferAttribute, rows = Math.ceil(n / 2), col = i % 2, row = Math.floor(i / 2);
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, (col + uv.getX(k)) / 2, 1 - (row + 1 - uv.getY(k)) / rows);
+  return geo;
 }
 
 export interface Town {
@@ -189,6 +200,14 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     }
     if (L.id === 'library') {   // a stone canopy over the door: the grandest front on the green
       B.add(tex('stone'), new THREE.BoxGeometry(2.2, 0.3, 1.2), at(0, PLINTH + 2.55, D / 2 + 0.55), undefined, L.ry);
+      // References review (Willowbrook landmark): a bell tower and slate spire at the back corner, seen from the river.
+      const tx = W / 2 - 0.9, tz = -D / 2 + 0.9, TH = 9.5;
+      B.add(tex('stone'), new THREE.BoxGeometry(2.2, TH, 2.2), at(tx, TH / 2, tz), undefined, L.ry);
+      B.add(tex('stone'), new THREE.BoxGeometry(2.5, 0.3, 2.5), at(tx, TH, tz), undefined, L.ry);
+      for (const [ox, oz, r] of [[0, 1.11, 0], [0, -1.11, 0], [1.11, 0, Math.PI / 2], [-1.11, 0, Math.PI / 2]] as const)
+        B.add(tex('wood'), new THREE.BoxGeometry(0.8, 1.4, 0.06), at(tx + ox, TH - 1.2, tz + oz), undefined, L.ry + r);   // belfry louvres
+      B.add(roof, new THREE.ConeGeometry(1.75, 5.5, 4), at(tx, TH + 2.9, tz), undefined, L.ry + Math.PI / 4);
+      B.add(glow, new THREE.SphereGeometry(0.14, 6, 4), at(tx, TH + 5.75, tz));   // gilt finial
     }
     if (L.id === 'shop') {   // a market counter in front, with crates
       B.add(wood, new THREE.BoxGeometry(2.4, 0.9, 0.7), at(2.0, 0.45, D / 2 + 1.6), undefined, L.ry);
@@ -197,8 +216,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
       for (const lx of [1.4, 2.6]) { const cp = at(lx, 0, D / 2 + 1.6); colliders.push({ kind: 'circle', x: cp.x, z: cp.z, r: 0.62, top: 0.9 }); }
     }
     // Hanging sign over the door: its row of the shared atlas.
-    const sg = new THREE.PlaneGeometry(2.4, 0.6), uv = sg.attributes.uv as THREE.BufferAttribute, n = LOTS.length + 1;
-    for (let k = 0; k < uv.count; k++) uv.setY(k, 1 - (li + 1 - uv.getY(k)) / n);
+    const sg = signUV(new THREE.PlaneGeometry(2.4, 0.6), li, LOTS.length + 1);
     const sp = at(0, PLINTH + (jetty ? 2.55 : 2.75), D / 2 + 0.12);
     signs.push(sg.rotateY(L.ry).translate(sp.x, sp.y, sp.z));
     footprint(colliders, L.x, L.z, L.ry, W + 0.4, D + 0.4);
@@ -214,8 +232,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   }
   B.box(tex('wood'), V(GATE.x, 3.2, GATE.z), 0.34, 0.3, GATE.half * 2 + 1.4);
   for (const dz of [-0.9, 0.9]) B.box(tex('wood'), V(GATE.x, 2.95, GATE.z + dz), 0.05, 0.4, 0.05);   // sign chains
-  const gs = new THREE.PlaneGeometry(2.8, 0.7), guv = gs.attributes.uv as THREE.BufferAttribute, rows = LOTS.length + 1;
-  for (let k = 0; k < guv.count; k++) guv.setY(k, guv.getY(k) / rows);   // the bottom row of the atlas
+  const gs = signUV(new THREE.PlaneGeometry(2.8, 0.7), LOTS.length, LOTS.length + 1);   // the atlas's last sign
   signs.push(gs.rotateY(Math.PI / 2).translate(GATE.x + 0.2, 2.45, GATE.z));
   const signMesh = new THREE.Mesh(mergeGeometries(signs), new THREE.MeshBasicMaterial({ map: signAtlas([...LOTS.map((l) => [`${ICONS[l.id]}  ${TOWN_NAMES[l.id]}`]), ['Temporary Exit -', 'Mind the dust']]), side: THREE.DoubleSide }));
   signMesh.name = 'town-signs'; signMesh.raycast = () => {};
@@ -256,8 +273,8 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
 // ---------- Style pass 2: storybook dressing (window boxes, pots, awnings, barrels, a well, bunting) ----------
 // The painted bits are one merged mesh with vertex colours (one draw call); wood and stone go in the batch.
 const FLOWERS = ['#E86A8A', '#F2C94C', '#F2F0E6', '#B07AD8', '#E8603A'];
-const AWNING = ['#B8423A', '#F2E8D0'];
-const BUNTING = ['#C8423A', '#F2C94C', '#4E7299', '#5E9A4A', '#F2E8D0'];
+const AWNING = [P.brick, P.cream];
+const BUNTING = [P.brick, P.tan, P.slate, P.moss, P.cream];
 function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[], local: (L: Spot) => (lx: number, y: number, lz: number) => THREE.Vector3, ring: Spot[]) {
   const R = rng(6262), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
   const painted: THREE.BufferGeometry[] = [];
@@ -320,17 +337,22 @@ function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Mate
     }
   });
 
-  // A well on the green: a stone ring, posts, a little tiled roof, the winch and its bucket.
-  const wx = GREEN.x, wz = GREEN.z + 0.5;
-  B.add(tex('stone'), new THREE.CylinderGeometry(1.0, 1.08, 0.8, 10, 1, true), V(wx, 0.4, wz));
-  B.add(tex('stone'), new THREE.TorusGeometry(0.98, 0.12, 4, 10).rotateX(Math.PI / 2), V(wx, 0.82, wz));
-  paint(new THREE.CircleGeometry(0.92, 10).rotateX(-Math.PI / 2), '#2A3A4A', V(wx, 0.35, wz));   // water, down in the dark
-  for (const dx of [-0.95, 0.95]) B.add(tex('wood'), new THREE.BoxGeometry(0.16, 1.9, 0.16), V(wx + dx, 1.25, wz));
-  B.add(tex('wood'), new THREE.CylinderGeometry(0.07, 0.07, 1.9, 6).rotateZ(Math.PI / 2), V(wx, 1.75, wz));   // winch
-  paint(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 4), '#C9B48A', V(wx, 1.38, wz));   // rope
-  paint(new THREE.CylinderGeometry(0.15, 0.12, 0.22, 7), '#6A4A2A', V(wx, 0.98, wz));   // bucket
-  for (const sd of [-1, 1]) B.add(tex('roofTiles'), new THREE.BoxGeometry(1.0, 0.08, 1.5), V(wx + sd * 0.45, 2.35, wz), undefined, 0, 0, -sd * 0.6);
-  colliders.push({ kind: 'circle', x: wx, z: wz, r: 1.15, top: 0.85 });
+  // The fountain: a low octagonal basin, a pillar, an upper bowl spilling a sheet of water, a finial on top.
+  const F = FOUNTAIN, wm = waterMaterial();
+  B.add(tex('stone'), new THREE.CylinderGeometry(F.r, F.r + 0.08, 0.6, 8, 1, true), V(F.x, 0.3, F.z));
+  B.add(tex('stone'), new THREE.TorusGeometry(F.r - 0.04, 0.14, 4, 8).rotateX(Math.PI / 2), V(F.x, 0.62, F.z), undefined, Math.PI / 8);
+  B.add(tex('stone'), new THREE.CylinderGeometry(0.22, 0.3, 1.3, 8), V(F.x, 0.65, F.z));
+  B.add(tex('stone'), new THREE.CylinderGeometry(0.7, 0.3, 0.3, 8), V(F.x, 1.35, F.z));
+  B.add(tex('stone'), new THREE.CylinderGeometry(0.1, 0.16, 0.6, 6), V(F.x, 1.75, F.z));
+  B.add(tex('stone'), new THREE.SphereGeometry(0.16, 6, 4), V(F.x, 2.1, F.z));
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(F.r - 0.08, 8).rotateX(-Math.PI / 2).rotateY(Math.PI / 8), wm);
+  pool.position.set(F.x, 0.48, F.z);
+  const bowl = new THREE.Mesh(new THREE.CircleGeometry(0.62, 8).rotateX(-Math.PI / 2), wm);
+  bowl.position.set(F.x, 1.49, F.z);
+  const sheet = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.9, 1.0, 12, 1, true), new THREE.MeshLambertMaterial({ map: wm.map, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+  sheet.position.set(F.x, 0.98, F.z);
+  for (const m of [pool, bowl, sheet]) { m.name = 'fountain-water'; m.raycast = () => {}; scene.add(m); }
+  colliders.push({ kind: 'circle', x: F.x, z: F.z, r: F.r + 0.05, top: 0.7 });
 
   // Bunting strung between the lamp posts, sagging a little, flags in turn.
   ring.forEach((_, i) => {

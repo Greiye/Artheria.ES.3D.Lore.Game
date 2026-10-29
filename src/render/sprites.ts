@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { headArt, SHEET, FACE, type Frame, type HeadArt } from './headArt';
+import { headArt, EXPRESSION, type Frame, type HeadArt } from './headArt';
 import type { FigureLook } from '../world/figure';
 
 // Characters' drawn parts and the optional pixel-sprite bodies.
@@ -117,47 +117,50 @@ function bodyBoard(root: THREE.Object3D): Board {
 }
 
 const BLINK = 0.12, TALK_FPS = 8;
-// Which face to show: root.userData.expression if set (any row of the face sheet), else talking / blinking / neutral.
-function expression(b: FaceState, root: THREE.Object3D, dt: number): string {
+// What the face shows: root.userData.expression if set (neutral, happy, angry, surprised, sad, wink, or a legacy row
+// name: blink, talk-a, talk-b), with talking swapping the mouth and blinking the eyes on top of it.
+function expression(b: FaceState, root: THREE.Object3D, dt: number): { eyes: string; mouth: string; name: string } {
   b.blink -= dt;
   if (b.blink < -BLINK) b.blink = 2 + Math.random() * 3;
   const set = root.userData.expression as string | undefined;
-  if (set && b.art.faces.has(set)) return set;
-  if (root.userData.talking) { b.talk += dt; return Math.floor(b.talk * TALK_FPS) % 2 ? 'talk-b' : 'talk-a'; }
+  if (set === 'blink') return { eyes: 'blink', mouth: 'neutral', name: set };
+  if (set === 'talk-a' || set === 'talk-b') return { eyes: 'open', mouth: set, name: set };
+  const e = EXPRESSION[set ?? 'neutral'] ?? EXPRESSION.neutral, base = set && EXPRESSION[set] ? set : 'neutral';
+  if (root.userData.talking) { b.talk += dt; const m = Math.floor(b.talk * TALK_FPS) % 2 ? 'talk-b' : 'talk-a'; return { eyes: e.eyes, mouth: m, name: base === 'neutral' ? m : base }; }
   b.talk = 0;
-  return b.blink < 0 ? 'blink' : 'neutral';
+  const blink = b.blink < 0 && e.eyes !== 'wink' && e.eyes !== 'happy';
+  return { eyes: blink ? 'blink' : e.eyes, mouth: e.mouth, name: blink && base === 'neutral' ? 'blink' : base };
 }
 
-// Realistic figures (2026-10-29): a 3D head with the drawn face on a quad over its front (Mega Man Legends style).
-// The quad shows the middle of the front face cell; an expression change only moves its UVs.
-interface FaceState { art: HeadArt; blink: number; talk: number; f: Frame | null }
+// Realistic figures (2026-10-29): a 3D head with the drawn face on two quads over its front (Mega Man Legends style):
+// an eye strip and a mouth strip. An expression change only moves their UVs.
+interface FaceState { art: HeadArt; blink: number; talk: number; eyes: Frame | null; mouth: Frame | null; name: string }
 const faceStates = new WeakMap<THREE.Object3D, FaceState>();
-const CROP = { u0: 0.5 - FACE.w / 2 / SHEET.w, u1: 0.5 + FACE.w / 2 / SHEET.w,
-  v0: 1 - (SHEET.top + FACE.drop + FACE.h / 2) / SHEET.h, v1: 1 - (SHEET.top + FACE.drop - FACE.h / 2) / SHEET.h };
 function showFace(root: THREE.Object3D, dt: number) {
   const face = root.userData.face as THREE.Mesh, m = face.material as THREE.MeshBasicMaterial;
   let st = faceStates.get(root);
-  if (!st) { st = { art: headArt(root.userData.look as FigureLook), blink: 1 + Math.random() * 3, talk: 0, f: null }; faceStates.set(root, st); }
-  const art = st.art, f = art.faces.get(expression(st, root, dt)) ?? art.faces.get('neutral');
-  if (!art.face || !f) { m.visible = false; return; }
-  if (m.map !== art.face) { m.map = art.face; m.needsUpdate = true; st.f = null; }
+  if (!st) { st = { art: headArt(root.userData.look as FigureLook), blink: 1 + Math.random() * 3, talk: 0, eyes: null, mouth: null, name: '' }; faceStates.set(root, st); }
+  const art = st.art, x = expression(st, root, dt);
+  const fe = art.eyes.get(x.eyes) ?? art.eyes.get('open'), fm = art.mouths.get(x.mouth) ?? art.mouths.get('neutral');
+  if (!art.face || !fe || !fm) { m.visible = false; return; }
+  if (m.map !== art.face) { m.map = art.face; m.needsUpdate = true; st.eyes = st.mouth = null; }
   m.visible = true;
-  if (st.f === f) return;
-  st.f = f;
+  st.name = x.name;
+  if (st.eyes === fe && st.mouth === fm) return;
+  st.eyes = fe; st.mouth = fm;
+  // Two quads (src/world/figure.ts faceGeometry): vertices 0–3 the eye strip, 4–7 the mouth strip, each in
+  // PlaneGeometry order (top-left, top-right, bottom-left, bottom-right).
   const uv = face.geometry.attributes.uv as THREE.BufferAttribute;
   for (let i = 0; i < uv.count; i++) {
-    const a = i % 2, b = i < 2 ? 1 : 0;   // PlaneGeometry corners: (0,1) (1,1) (0,0) (1,0)
-    const cu = CROP.u0 + a * (CROP.u1 - CROP.u0), cv = CROP.v0 + b * (CROP.v1 - CROP.v0);
-    uv.setXY(i, cu * f[0] + f[2], cv * f[1] + f[3]);
+    const f = i < 4 ? fe : fm, a = i % 2, b = i % 4 < 2 ? 1 : 0;
+    uv.setXY(i, f[2] + a * f[0], f[3] + b * f[1]);
   }
   uv.needsUpdate = true;
 }
-/** The expression a realistic figure's face shows now (tests). */
+/** The expression a realistic figure's face shows now (tests): the set expression, or blink / talk-a / talk-b. */
 export function faceExpression(root: THREE.Object3D): string | null {
-  const st = faceStates.get(root), f = st?.f;
-  if (!st || !f) return null;
-  for (const [name, frame] of st.art.faces) if (frame === f) return name;
-  return null;
+  const st = faceStates.get(root);
+  return st?.eyes ? st.name : null;
 }
 
 let spriteMode = false;

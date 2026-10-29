@@ -3,6 +3,7 @@ import GOBLIN from '../data/traits/goblin.json';
 import { roll, has, num, pickOf, rollDie, type Archetype, type Variant } from './roll';
 import { mulberry32 } from '../dungeon/gen';
 import { buildFigure, type FigureLook, type PropKit } from '../world/figure';
+import type { PaintKind, Tile } from '../tex/paintedAtlas';
 
 // The goblin archetype (docs/trait-roll-tables.md §3). Lore (public): three feet tall, green, nimble, creative with
 // what they use as weapons, clever with traps; some learned the bow by watching adventurers; the Daemonic Goblin
@@ -46,15 +47,30 @@ export const RARITY_COLOUR: Record<Variant['rarity'], string> = { common: '#E8E0
 const SKIN_DARK = (c: string, k: number) => '#' + new THREE.Color(c).multiplyScalar(k).getHexString();
 
 /** The goblin's figure: a small realistic body with a big head, rags, and its rolled props merged into the body. */
+// Mona method (references review): every goblin paints from one shared 256² swatch atlas. Rolls only pick
+// rows from it (skin, rags, kit), so a nest of six costs one texture.
+const SKINS = [...new Set(['#6E8B3D', ...GOBLIN.tables.skin.rows.map((r) => r.mods.skin)])];
+const RAGS = ['#5A4632', '#4A3A2A', '#6A5038', '#54402E', '#3E3A2C'];
+const KIT: [string, PaintKind][] = [['#2A2A1E', 'hair'], ['#26261b', 'hair'], ['#3A2E22', 'metal'], ['#C9A23A', 'metal'], ['#8A8E92', 'metal'], ['#141218', 'leather'],
+  ['#8A7A5A', 'cloth'], ['#6A3A2A', 'cloth'], ['#6A4A2A', 'cloth'], ['#2E2A26', 'cloth'], ['#7A6A4A', 'cloth'], ['#7A4A8A', 'cloth'], ['#6A5A40', 'cloth'],
+  ['#8A1E1E', 'cloth'], ['#2A2024', 'cloth'], ['#C8B898', 'cloth'], ['#3A5A3A', 'cloth'], ['#C83A2A', 'cloth'], ['#1A1418', 'cloth'], ['#1A1614', 'cloth'],
+  ['#9A8A74', 'cloth'], ['#A8322A', 'cloth'], ['#D9D8CC', 'cloth'], ['#E8E0C8', 'cloth'], ['#E8E0D0', 'cloth'],
+  ['#6AB4FF', 'cloth'], ['#7AD07A', 'cloth'], ['#E8F0F8', 'cloth'], ['#FFB040', 'cloth'], ['#FFD27A', 'cloth'], ['#E0302A', 'cloth'], ['#E8C83A', 'cloth']];
+export const GOBLIN_PALETTE: { tiles: Tile[]; size: number } = { size: 256, tiles: [
+  ...SKINS.flatMap((c) => [{ color: c, kind: 'skin' as const }, { color: SKIN_DARK(c, 0.7), kind: 'leather' as const }, { color: SKIN_DARK(c, 0.85), kind: 'leather' as const }]),
+  ...RAGS.map((c) => ({ color: c, kind: 'cloth' as const })),
+  ...KIT.map(([color, kind]) => ({ color, kind })),
+] };
+
 export function buildGoblin(v: Variant): THREE.Group {
   const st = goblinStats(v), R = mulberry32(v.seed ^ 0x6B1);
   const skin = String(v.mods.skin ?? '#6E8B3D'), diseased = v.tags.has('diseased');
-  const rags = ['#5A4632', '#4A3A2A', '#6A5038', '#54402E', '#3E3A2C'];
+  const rags = RAGS;
   const look: FigureLook = {
     species: 'goblin', skin, hair: '#2A2A1E', primary: rags[Math.floor(R() * rags.length)], secondary: '#8A7A5A', boots: SKIN_DARK(skin, 0.7),
     legs: rags[Math.floor(R() * rags.length)], accent: '#3A2E22', scarf: '#6A3A2A', pack: false, gloves: SKIN_DARK(skin, 0.85),
     eyes: diseased ? '#E0302A' : '#E8C83A', eyeStyle: 'slit', marks: '', hairStyle: has(v, 'headgear', 'none') && R() < 0.4 ? 'spiky' : 'bald',
-    build: st.width, headScale: 1.5, horns: diseased, feature: '#1A1418',
+    build: st.width, headScale: 1.5, horns: diseased, feature: '#1A1418', palette: GOBLIN_PALETTE,
   };
   const fig = buildFigure(look, st.height, (k) => props(k, v, diseased));
   fig.userData.variant = v;

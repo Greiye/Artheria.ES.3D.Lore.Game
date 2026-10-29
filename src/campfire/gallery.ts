@@ -15,7 +15,9 @@ export interface Exhibit {
   open?: () => void;
 }
 export const GALLERY = { x: 15, z: 6, minX: 10, maxX: 20, minZ: 2.5, maxZ: 9.5 };
-const TILE = 256, COLS = 4;
+// Tiles are laid out at 256 px but stored at half size (512 × 256 atlas, the mobile texture budget); the
+// exhibit card (E on a frame) shows the full text.
+const TILE = 256, COLS = 4, STORE = 0.5;
 
 export class Gallery {
   readonly hitboxes: THREE.Mesh[] = [];
@@ -60,7 +62,7 @@ export class Gallery {
       this.hitboxes.push(hb);
     });
     B.flush(scene, 'gallery').forEach((m) => { m.castShadow = m.receiveShadow = true; });
-    this.atlas.width = TILE * COLS; this.atlas.height = TILE * 2;
+    this.atlas.width = TILE * COLS * STORE; this.atlas.height = TILE * 2 * STORE;
     this.tex = new THREE.CanvasTexture(this.atlas);
     this.tex.colorSpace = THREE.SRGBColorSpace;
     const merged = new THREE.Mesh(mergeAll(pics), new THREE.MeshBasicMaterial({ map: this.tex }));
@@ -68,10 +70,11 @@ export class Gallery {
     scene.add(merged);
   }
 
-  // Repaint every exhibit into the atlas (cheap: eight 256 px tiles).
+  // Repaint every exhibit into the atlas (cheap: eight small tiles).
   paint(list: Exhibit[]) {
     this.exhibits = list.slice(0, 8);
     const g = this.atlas.getContext('2d')!;
+    g.setTransform(STORE, 0, 0, STORE, 0, 0);
     this.exhibits.forEach((e, i) => {
       const x = (i % COLS) * TILE, y = Math.floor(i / COLS) * TILE;
       g.fillStyle = e.discovered ? '#2A2620' : '#1C1A17'; g.fillRect(x, y, TILE, TILE);
