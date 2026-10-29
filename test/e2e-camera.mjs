@@ -33,7 +33,8 @@ const place = (x, z, yaw = 0) => G(page, ([x, z, yaw]) => { const p = window.__g
 await place(0, 9);
 await page.waitForTimeout(1500);
 const c0 = await cam();
-check('v0.05 starts in the overhead view, above and behind the player', c0.third && c0.view === 'overhead' && c0.up > 3 && c0.d > 6 && await G(page, () => window.__gametool.rig.step === 2), JSON.stringify(c0));
+// 2026-10-29: the overhead view came closer (realistic figures: faces must read), about 5.5 m back and 2 m up.
+check('v0.05 starts in the overhead view, above and behind the player', c0.third && c0.view === 'overhead' && c0.up > 1.6 && c0.d > 4.5 && await G(page, () => window.__gametool.rig.step === 2), JSON.stringify(c0));
 check('S1 the overhead view frees the cursor (no pointer lock, no crosshair)', await G(page, () => !document.pointerLockElement && getComputedStyle(document.getElementById('crosshair')).display === 'none'));
 await page.mouse.move(640, 300);
 const wheel = async (n, dy) => { for (let i = 0; i < n; i++) { await page.mouse.wheel(0, dy); await page.waitForTimeout(150); } };

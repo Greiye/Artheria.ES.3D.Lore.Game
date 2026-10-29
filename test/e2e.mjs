@@ -147,9 +147,11 @@ if (!longOnly) {
   await page.keyboard.press('CapsLock');
   check('F2 Caps Lock toggles always-run', afterCaps === false && capsWalk < 2.9 && (await G(page, () => window.__gametool.settings.alwaysRun)) === true, capsWalk.toFixed(2) + ' m/s with always-run off');
   await teleport(page, 0, 30);
+  // Track the apex inside the page every frame (sampling from here at wall-clock intervals can miss it on slow frames).
+  await G(page, () => { const w = window; w.__peak = 0; const f = () => { w.__peak = Math.max(w.__peak, w.__gametool.player.pos.y); if (w.__peak === 0 || w.__gametool.player.pos.y > 0) requestAnimationFrame(f); }; requestAnimationFrame(f); });
   await page.keyboard.press('Space');
-  let peak = 0;
-  for (let i = 0; i < 30; i++) { peak = Math.max(peak, (await pos(page)).y); await page.waitForTimeout(20); }
+  await page.waitForFunction(() => window.__peak > 0 && window.__gametool.player.pos.y === 0, null, { timeout: 8000 }).catch(() => {});
+  const peak = await G(page, () => window.__peak);
   const landed = await page.waitForFunction(() => window.__gametool.player.pos.y === 0, null, { timeout: 2000 }).then(() => true, () => false);
   check('F2 Space jumps ~1 m and lands', peak > 0.8 && peak < 1.15 && landed, 'apex ' + peak.toFixed(2) + ' m');
   await page.keyboard.press('KeyC'); await page.waitForTimeout(500);
