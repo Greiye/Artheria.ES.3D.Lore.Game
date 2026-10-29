@@ -26,3 +26,4 @@ jobs:
       - run: npx playwright-core install --with-deps chromium
       - run: node test/e2e-boot.mjs dist/index.html
       - run: node test/e2e-town.mjs dist/index.html
+      - run: node test/e2e-menus.mjs dist/index.html

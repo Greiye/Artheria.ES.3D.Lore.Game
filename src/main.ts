@@ -59,6 +59,7 @@ import { CinemaPanel, buildScreen } from './cinema';
 import { TOWN_NAMES, GATE, type TownId } from './world/town';
 import { Intro } from './intro';
 import { Extras } from './extras';
+import { WhatsNew } from './whatsnew';
 import { loadGame, saveGame } from './save';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
@@ -149,36 +150,15 @@ const library = buildLibrary(world.scene, world.colliders, world.solids);
 const ui = document.createElement('div');
 ui.innerHTML = `
   <div id="title" class="screen">
-    <div class="card">
-      <div class="eyebrow">Artheria Lore Tool <span id="versionLabel"></span></div>
-      <h1>Tales of Artheria</h1>
-      <p class="lead">Walk Straphan Forest and read the lore your friends wrote, as compiled by Natalie Bourbon.</p>
-      <p class="daily"><span>Today's prompt</span><span id="dailyPrompt"></span></p>
-      <button id="begin" class="primary">Click to begin</button>
-      <button id="writeLoreTitle" class="secondary">Write lore</button>
-      <button id="openSettingsTitle" class="secondary">Options</button>
-      <button id="openExtras" class="secondary">Extras</button>
-      <p id="saveNote" class="fine hidden"></p>
-      <table class="keys only-touch">
-        <tr><td>Left thumb</td><td>Move (small push walks, full push runs)</td></tr>
-        <tr><td>Right thumb</td><td>Drag to look</td></tr>
-        <tr><td>Buttons</td><td>Jump · Sneak · Sprint (hold) · View · Use · − / + camera · ☰ menu</td></tr>
-        <tr><td>Book</td><td>Swipe or tap a page edge · ✕ to close</td></tr>
-      </table>
-      <div class="padmap only-pad" data-padmap></div>
-      <table class="keys only-mouse">
-        <tr><td>W A S D</td><td>Move (runs by default)</td><td>Mouse</td><td>Look</td></tr>
-        <tr><td>Shift</td><td>Walk (hold)</td><td>Caps Lock</td><td>Toggle always-run</td></tr>
-        <tr><td>Alt</td><td>Sprint (hold)</td><td>Space</td><td>Jump</td></tr>
-        <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Read the book</td></tr>
-        <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
-        <tr><td>F</td><td>Camera: first person / shoulder / overhead</td><td>Wheel</td><td>Camera in / out</td></tr>
-        <tr><td>Q</td><td>Swap shoulder (or weapon)</td><td></td><td></td></tr>
-        <tr><td>E at the fire</td><td>Write lore</td><td>T</td><td>Torch</td></tr>
-      </table>
-      <p class="fine">Private project · all rights reserved.</p>
-    </div>
+    <nav class="menu-list" aria-label="Main menu">
+      <button id="begin" class="menu-item">Begin</button>
+      <button id="openExtras" class="menu-item">Extras</button>
+      <button id="openSettingsTitle" class="menu-item">Options</button>
+    </nav>
+    <p id="saveNote" class="fine hidden"></p>
+    <span id="versionLabel" class="menu-version"></span>
   </div>
+  <div id="padStatus" aria-live="polite"></div>
   <div id="versionNote"></div>
   <div id="gateConfirm" class="screen hidden">
     <div class="card narrow">
@@ -199,59 +179,81 @@ ui.innerHTML = `
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
-    <div id="status"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
   <div id="pause" class="screen hidden">
-    <div class="card narrow">
+    <nav class="pause-side side-panel" aria-label="Pause menu">
       <h1>Paused</h1>
-      <button id="resume" class="primary">Resume</button>
-      <button id="quitToMenu" class="secondary">Save and return to the menu</button>
+      <button id="resume" class="pause-item">Resume</button>
+      <button class="pause-item" data-group="gameplay">Gameplay</button>
+      <button class="pause-item" data-group="graphics">Graphics</button>
+      <button class="pause-item" data-group="sound">Sound</button>
+      <button class="pause-item" data-group="controls">Controls</button>
+      <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
+      <p class="fine">Settings are saved in this browser.</p>
+    </nav>
+    <section id="gameplaySettings" class="pause-panel side-panel hidden" data-panel="gameplay">
+      <h2>Gameplay</h2>
+      <label class="field">Camera <select id="viewSel"><option value="overhead">Overhead (Dark Cloud 2 style)</option><option value="shoulder">Over the shoulder</option><option value="first">First person</option></select></label>
       <label>Look sensitivity <output id="sensOut"></output><input id="sens" type="range" min="0.2" max="3" step="0.05"></label>
-      <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
-      <label>Camera <select id="viewSel"><option value="overhead">Overhead (Dark Cloud 2 style)</option><option value="shoulder">Over the shoulder</option><option value="first">First person</option></select></label>
-      <label>Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="invert" type="checkbox"> Invert Y</label>
       <label class="check"><input id="always" type="checkbox"> Always run (Caps Lock)</label>
-      <details id="graphicsSettings">
-        <summary>Graphics (F1.1)</summary>
-        <label class="field">Preset
-          <select id="preset"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
-        </label>
-        <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="50" max="100" step="5"></label>
-        <label class="check"><input id="shadows" type="checkbox"> Shadows</label>
-        <label class="check"><input id="postFx" type="checkbox"> Post effects (glow)</label>
-        <label>Fog distance <output id="fogOut"></output><input id="fogDistance" type="range" min="20" max="120" step="5"></label>
-        <label class="field">FPS cap
-          <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>
-        </label>
-      </details>
+      <label class="field">Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
-      <details id="controlsMap">
-        <summary>Controls</summary>
-        <div class="padmap" data-padmap></div>
-        <div id="keyBinds"></div>
-      </details>
-      <details id="audioSettings">
-        <summary>Audio (F1.2)</summary>
-        <label>Master <output id="audioMasterOut"></output><input id="audioMaster" type="range" min="0" max="100" step="5"></label>
-        <label class="check"><input id="muteMaster" type="checkbox"> Mute master</label>
-        <label>Music <output id="audioMusicOut"></output><input id="audioMusic" type="range" min="0" max="100" step="5"></label>
-        <label class="check"><input id="muteMusic" type="checkbox"> Mute music</label>
-        <label>SFX <output id="audioSfxOut"></output><input id="audioSfx" type="range" min="0" max="100" step="5"></label>
-        <label class="check"><input id="muteSfx" type="checkbox"> Mute SFX</label>
-        <label>Dialogue <output id="audioDialogueOut"></output><input id="audioDialogue" type="range" min="0" max="100" step="5"></label>
-        <label class="check"><input id="muteDialogue" type="checkbox"> Mute dialogue</label>
-      </details>
-      <p class="fine">Settings are saved in this browser.</p>
+      <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
+      <h4>Your hero</h4>
       <button id="editCharacter" class="secondary">Character</button>
       <button id="openCharacterForge" class="secondary">Character forge</button>
       <button id="openWeaponForge" class="secondary">Weapon forge</button>
       <button id="openSketchbook" class="secondary">Sketchbook</button>
       <button id="openCasebook" class="secondary">Casebook (J)</button>
       <button id="openMap" class="secondary">Map (M)</button>
-      <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
-    </div>
+    </section>
+    <section id="graphicsSettings" class="pause-panel side-panel hidden" data-panel="graphics">
+      <h2>Graphics</h2>
+      <label class="field">Preset
+        <select id="preset"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+      </label>
+      <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="50" max="100" step="5"></label>
+      <label class="check"><input id="shadows" type="checkbox"> Shadows</label>
+      <label class="check"><input id="postFx" type="checkbox"> Post effects (glow)</label>
+      <label>Fog distance <output id="fogOut"></output><input id="fogDistance" type="range" min="20" max="120" step="5"></label>
+      <label class="field">FPS cap
+        <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>
+      </label>
+      <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
+    </section>
+    <section id="audioSettings" class="pause-panel side-panel hidden" data-panel="sound">
+      <h2>Sound</h2>
+      <label>Master <output id="audioMasterOut"></output><input id="audioMaster" type="range" min="0" max="100" step="5"></label>
+      <label class="check"><input id="muteMaster" type="checkbox"> Mute master</label>
+      <label>Music <output id="audioMusicOut"></output><input id="audioMusic" type="range" min="0" max="100" step="5"></label>
+      <label class="check"><input id="muteMusic" type="checkbox"> Mute music</label>
+      <label>SFX <output id="audioSfxOut"></output><input id="audioSfx" type="range" min="0" max="100" step="5"></label>
+      <label class="check"><input id="muteSfx" type="checkbox"> Mute SFX</label>
+      <label>Dialogue <output id="audioDialogueOut"></output><input id="audioDialogue" type="range" min="0" max="100" step="5"></label>
+      <label class="check"><input id="muteDialogue" type="checkbox"> Mute dialogue</label>
+    </section>
+    <section id="controlsMap" class="pause-panel side-panel hidden" data-panel="controls">
+      <h2>Controls</h2>
+      <table class="keys only-touch">
+        <tr><td>Left thumb</td><td>Move (small push walks, full push runs)</td></tr>
+        <tr><td>Right thumb</td><td>Drag to look</td></tr>
+        <tr><td>Buttons</td><td>Jump · Sneak · Sprint (hold) · View · Use · − / + camera · ☰ menu</td></tr>
+        <tr><td>Book</td><td>Swipe or tap a page edge · ✕ to close</td></tr>
+      </table>
+      <table class="keys only-mouse">
+        <tr><td>W A S D</td><td>Move (runs by default)</td><td>Mouse</td><td>Look</td></tr>
+        <tr><td>Shift</td><td>Walk (hold)</td><td>Caps Lock</td><td>Toggle always-run</td></tr>
+        <tr><td>Alt</td><td>Sprint (hold)</td><td>Space</td><td>Jump</td></tr>
+        <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Use · read · talk</td></tr>
+        <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
+        <tr><td>F</td><td>Camera: first person / shoulder / overhead</td><td>Wheel</td><td>Camera in / out</td></tr>
+        <tr><td>Q</td><td>Swap shoulder (or weapon)</td><td>T</td><td>Torch</td></tr>
+      </table>
+      <div class="padmap" data-padmap></div>
+      <div id="keyBinds"></div>
+    </section>
   </div>
   <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>
   <div id="charcreate" class="screen hidden">
@@ -346,14 +348,15 @@ function renderPadMap(fam: PadFamily) {
 // v0.04: button names follow the input in use (and the pad's family: Xbox, PlayStation, Nintendo).
 function syncGlyphs() {
   const fam = gamepad?.family ?? 'xbox', A = glyph(fam, controls.gamepad.buttons.activate);
-  $('begin').textContent = inputMode === 'touch' ? 'Tap to begin' : inputMode === 'pad' ? `Press ${A} to begin` : 'Click to begin';
   $('prompt').querySelector('kbd')!.textContent = inputMode === 'pad' ? A : 'E';
   document.body.dataset.pad = fam;
   renderPadMap(fam);
 }
 
 function setState(s: State) {
+  if (s === 'pause' && state !== 'pause') openGroup(null);   // v0.06 P1: the pause menu opens on its sidebar
   state = s;
+  intro?.backdrop(!inWorld);   // v0.06 M3: the title wall stays behind every menu screen until Begin
   show('title', s === 'title');
   show('hud', s === 'play');
   show('pause', s === 'pause');
@@ -370,6 +373,7 @@ function setState(s: State) {
   }
   document.body.dataset.state = s;
   if (s !== 'dialogue' && s !== 'book' && s !== 'forge') rig.setShot(null);   // R3: framed shots only while reading or talking
+  if (s === 'pause' && inputMode !== 'mouse') focusMenu(0);
 }
 
 // ---------- pointer lock ----------
@@ -411,9 +415,11 @@ async function begin() {
     for (const [id, n] of save.items) if (inventory.count(id) < n) inventory.give(id, n - inventory.count(id));
   }
   begun = true;
+  inWorld = true;
   audio.water(false);
-  setView(settings.view, false);
+  setView('overhead');                          // v0.06 M7: every Begin starts in the overhead camera
   setState('play');                             // in the world immediately, even before lock resolves
+  if (wantWhatsNew && !whatsNew.shown) { enterForge(); whatsNew.open(() => leaveForge()); }   // v0.06 M6: once a session
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
     // Android: go fullscreen. iPhone Safari has no element fullscreen; Add to Home Screen does it.
@@ -427,6 +433,7 @@ async function begin() {
   lockSupported = await requestLock();
   show('nolock', state === 'play' && !lockSupported && wantLock());
 }
+let inWorld = false;   // v0.06: false at the main menu (and the screens opened from it), true from Begin until back at the menu
 let begun = false;   // v0.05: a save's bag and hour are restored once per page load (later Begins keep the live ones)
 let character: Character = loadCharacter();
 let ccFrom: State = 'title';
@@ -482,7 +489,50 @@ async function resumePlay() {
 let pauseFrom: State = 'play';
 function closePauseMenu() { if (pauseFrom === 'title') setState('title'); else void resumePlay(); }
 $('openSettingsTitle').addEventListener('click', () => { pauseFrom = 'title'; setState('pause'); });
+
+// v0.06 P1: Skyrim-style pause. A sidebar of groups; picking a group opens its options to the right, picking it
+// again (or B / Esc) closes them. From the main menu (Options) the same panel opens, with Back instead of Resume.
+let pauseGroup: string | null = null;
+function openGroup(g: string | null) {
+  pauseGroup = g;
+  document.querySelectorAll<HTMLElement>('#pause .pause-panel').forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== g));
+  document.querySelectorAll<HTMLElement>('#pause [data-group]').forEach((b) => b.classList.toggle('on', b.dataset.group === g));
+  $('resume').textContent = pauseFrom === 'title' ? 'Back' : 'Resume';
+  show('quitToMenu', pauseFrom !== 'title');
+}
+document.querySelectorAll<HTMLButtonElement>('#pause [data-group]').forEach((b) => b.addEventListener('click', () => {
+  openGroup(pauseGroup === b.dataset.group ? null : b.dataset.group!);
+  if (pauseGroup && b.matches(':focus-visible')) focusMenu(0, 'panel');
+}));
+function pauseBack() {
+  if (!pauseGroup) { closePauseMenu(); return; }
+  const g = pauseGroup;
+  openGroup(null);
+  document.querySelector<HTMLButtonElement>(`#pause [data-group="${g}"]`)?.focus({ preventScroll: true });
+}
+/** Left / right on a focused setting: step a slider, cycle a list, flip a box. */
+function nudge(el: Element, d: number) {
+  if (el instanceof HTMLInputElement && el.type === 'range') {
+    const v = Math.min(Number(el.max), Math.max(Number(el.min), Number(el.value) + d * Number(el.step || 1)));
+    el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true }));
+  } else if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+    el.checked = !el.checked; el.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (el instanceof HTMLSelectElement) {
+    el.selectedIndex = (el.selectedIndex + d + el.options.length) % el.options.length; el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
 $('resume').addEventListener('click', () => closePauseMenu());
+// v0.06 M8: is a controller plugged in? Shown at the side of the main menu and the pause menu.
+function syncPadStatus() {
+  const on = [...(navigator.getGamepads?.() ?? [])].some((p) => !!p && p.connected);
+  const t = on ? 'Controller connected' : 'No controller detected';
+  const el = $('padStatus');
+  if (el.textContent !== t) { el.textContent = t; el.classList.toggle('on', on); }
+}
+window.addEventListener('gamepadconnected', syncPadStatus);
+window.addEventListener('gamepaddisconnected', syncPadStatus);
+setInterval(syncPadStatus, 500);
+syncPadStatus();
 $('relockBtn').addEventListener('click', () => void resumePlay());
 
 // ---------- F3 dialogue + inventory ----------
@@ -1355,7 +1405,6 @@ function closeEditor() {
   if (editorFrom === 'play') void resumePlay();
   else setState(editorFrom);
 }
-$('writeLoreTitle').addEventListener('click', () => openEditor());
 $('eCancel').addEventListener('click', () => closeEditor());
 $('ghSave').addEventListener('click', () => {
   saveGitHub({ owner: ghOwner.value.trim(), repo: ghRepo.value.trim(), branch: ghBranch.value.trim() || 'main', token: ghToken.value.trim() });
@@ -1404,6 +1453,7 @@ function toMenu(note: string) {
   if (inDungeon) exitDungeon();
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
   rig.setShot(null);
+  inWorld = false;
   setState('title');
   audio.water(true);
   const n = $('saveNote'); n.textContent = note; n.classList.remove('hidden');
@@ -1439,7 +1489,11 @@ function gateYes() {
 $('gateYes').addEventListener('click', () => gateYes());
 $('gateNo').addEventListener('click', () => gateNo());
 
-const extras = new Extras(() => { setState('title'); focusMenu(3); });
+const extras = new Extras(() => { setState('title'); focusMenu(1); });
+extras.onWrite = () => { extras.el.classList.add('hidden'); openEditor(); };   // v0.06: Write lore moved from the main menu to Extras
+// v0.06 M6: What's new, once per session on Begin. Automated test browsers skip it unless a test asks.
+const whatsNew = new WhatsNew(promptOfTheDay());
+const wantWhatsNew = (() => { try { return !navigator.webdriver || localStorage.getItem('gametool.whatsnew') === 'on'; } catch { return !navigator.webdriver; } })();
 $('openExtras').addEventListener('click', () => { show('title', false); extras.open(); focusMenu(0); });
 
 // Pause → Controls: rebind the keyboard. Click a key, then press the new one (Esc cancels).
@@ -1465,11 +1519,16 @@ window.addEventListener('keydown', (e) => {
 renderKeyBinds();
 
 // Menus without a mouse: arrow keys / D-pad move between buttons, Enter / A presses, Esc / B goes back.
-function menuButtons(): HTMLButtonElement[] {
+function menuButtons(where: 'side' | 'panel' = 'side'): HTMLElement[] {
+  if (whatsNew.isOpen) return [...whatsNew.el.querySelectorAll<HTMLElement>('summary, button.primary')];
+  if (state === 'pause' && !gateOpen) {
+    const root = where === 'panel' && pauseGroup ? $('pause').querySelector(`[data-panel="${pauseGroup}"]`) : $('pause').querySelector('.pause-side');
+    return root ? [...root.querySelectorAll<HTMLElement>('button, input, select')].filter((b) => b.offsetParent !== null && !(b as HTMLButtonElement).disabled) : [];
+  }
   const root = gateOpen ? $('gateConfirm') : extras.isOpen ? extras.el : state === 'title' ? $('title') : null;
   return root ? [...root.querySelectorAll<HTMLButtonElement>('button')].filter((b) => b.offsetParent !== null && !b.disabled) : [];
 }
-function focusMenu(i: number) { const bs = menuButtons(); bs[Math.max(0, Math.min(bs.length - 1, i))]?.focus({ preventScroll: true }); }
+function focusMenu(i: number, where: 'side' | 'panel' = 'side') { const bs = menuButtons(where); bs[Math.max(0, Math.min(bs.length - 1, i))]?.focus({ preventScroll: true }); }
 function menuInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boolean {
   if (intro?.active) { intro.input(); return true; }
   if (telling.isOpen) { if (dir === 'ok') telling.press(); else if (dir === 'back') telling.close(); return true; }
@@ -1477,6 +1536,8 @@ function menuInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boole
   if (extras.isOpen && extras.tab === 'evolution' && (dir === 'left' || dir === 'right')) { extras.go(extras.index + (dir === 'right' ? 1 : -1)); return true; }
   if (extras.isOpen && dir === 'back') { extras.back(); if (extras.isOpen) focusMenu(0); return true; }
   if (gateOpen && dir === 'back') { gateNo(); return true; }
+  if (whatsNew.isOpen && dir === 'back') { whatsNew.close(); return true; }
+  if (state === 'pause' && !gateOpen) return pauseInput(dir);
   const bs = menuButtons();
   if (!bs.length) return false;
   const at = bs.indexOf(document.activeElement as HTMLButtonElement);
@@ -1484,8 +1545,40 @@ function menuInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boole
   if (dir === 'ok') { (at < 0 ? bs[0] : bs[at]).click(); return true; }
   return false;
 }
+// v0.06 P1: the pause menu without a mouse. In the sidebar: up / down move, A / right opens a group, B resumes.
+// In a group: up / down move between settings, left / right change one, A presses or flips it, B goes back.
+function pauseInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boolean {
+  if (dir === 'back') { pauseBack(); return true; }
+  const active = document.activeElement as HTMLElement | null;
+  const inPanel = !!pauseGroup && !!active?.closest('.pause-panel');
+  const bs = menuButtons(inPanel ? 'panel' : 'side');
+  const at = bs.indexOf(active as HTMLElement);
+  if (dir === 'up' || dir === 'down') { focusMenu(at < 0 ? 0 : (at + (dir === 'down' ? 1 : -1) + bs.length) % bs.length, inPanel ? 'panel' : 'side'); return true; }
+  const el = bs[at < 0 ? 0 : at];
+  if (!el) return true;
+  if (inPanel) {
+    if (dir === 'left' && !(el instanceof HTMLInputElement || el instanceof HTMLSelectElement)) { pauseBack(); return true; }
+    if (dir === 'left' || dir === 'right') { nudge(el, dir === 'right' ? 1 : -1); return true; }
+    if (el instanceof HTMLButtonElement) el.click(); else nudge(el, 1);
+    return true;
+  }
+  if (dir === 'left') return true;
+  if (dir === 'right' && !el.dataset.group) return true;
+  if (el.dataset.group && pauseGroup === el.dataset.group) { focusMenu(0, 'panel'); return true; }
+  el.click();
+  if (el.dataset.group && pauseGroup) focusMenu(0, 'panel');
+  return true;
+}
 window.addEventListener('keydown', (e) => {
-  if (e.repeat || !(state === 'title' || extras.isOpen || gateOpen) || (e.target as HTMLElement)?.closest?.('input, textarea')) return;
+  if (e.repeat || state !== 'pause' || gateOpen || rebinding || (e.target as HTMLElement)?.closest?.('textarea, input[type=text]')) return;
+  const dir = ({ ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', Escape: 'back' } as Record<string, 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'>)[e.code];
+  if (!dir || (dir === 'ok' && (e.target as HTMLElement)?.tagName === 'BUTTON')) return;   // Enter on a button clicks it natively
+  if (dir === 'back' && pauseFrom === 'play' && lockSupported && wantLock() && !pauseGroup) return;   // locked first person: the browser's own Esc
+  e.preventDefault(); e.stopImmediatePropagation();
+  pauseInput(dir);
+}, true);
+window.addEventListener('keydown', (e) => {
+  if (e.repeat || !(state === 'title' || extras.isOpen || gateOpen || whatsNew.isOpen) || (e.target as HTMLElement)?.closest?.('input, textarea')) return;
   if (extras.isOpen && extras.handleKey(e.code)) { e.preventDefault(); if (extras.isOpen) focusMenu(0); return; }
   const dir = ({ ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Escape: 'back' } as const)[e.code as 'ArrowUp'];
   if (dir && menuInput(dir)) e.preventDefault();
@@ -1508,7 +1601,7 @@ const hooks: GameHooks = {
   get book() { return reader.isOpen ? reader : book; },
   begin: () => void begin(),
   pause,
-  resume: () => void resumePlay(),
+  resume: () => { if (state === 'pause') closePauseMenu(); else void resumePlay(); },
   activate,
   lookingAtBook: () => lookingAt !== null,
   advanceDialogue: () => dialogue.press(),
@@ -1524,7 +1617,7 @@ const hooks: GameHooks = {
   stepCamera: (n) => stepView(n),
   toggleTorch: () => toggleTorch(),
   quickSwap: (h) => quickSwap(h),
-  menuActive: () => !!intro?.active || extras.isOpen || gateOpen || telling.isOpen || quick.isOpen,
+  menuActive: () => !!intro?.active || extras.isOpen || gateOpen || telling.isOpen || quick.isOpen || whatsNew.isOpen,
   menu: (d) => menuInput(d),
   setMode,
 };
@@ -1532,7 +1625,6 @@ const touch: TouchControls | null = new TouchControls(hooks);
 const gamepad = new GamepadControls(hooks, () => settings.sensitivity);
 gamepad.onFamily = () => syncGlyphs();
 document.body.dataset.input = inputMode;
-$('begin').textContent = inputMode === 'touch' ? 'Tap to begin' : 'Click to begin';
 
 // ---------- keyboard (F2.1) ----------
 const MOVE: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'sprint'];
@@ -1543,6 +1635,7 @@ function toggleRun() {
   settings.alwaysRun = !settings.alwaysRun;
   saveSettings(settings);
   ($('always') as HTMLInputElement).checked = settings.alwaysRun;
+  toast(settings.alwaysRun ? 'Always run: on' : 'Always run: off', 1400);   // v0.06 W5: no walk/run label on the HUD any more
 }
 
 window.addEventListener('keydown', (e) => {
@@ -1653,7 +1746,6 @@ window.addEventListener('mousemove', (e) => {
 $('versionLabel').textContent = 'v' + VERSION;
 $('credit').textContent = `v${VERSION} · ${AUTHOR}`;
 const dailyPrompt = promptOfTheDay();
-$('dailyPrompt').textContent = dailyPrompt;   // §8 0.03 creativity check
 const sens = $<HTMLInputElement>('sens'), fov = $<HTMLInputElement>('fov');
 const inv = $<HTMLInputElement>('invert'), always = $<HTMLInputElement>('always');
 const presetSel = $<HTMLSelectElement>('preset'), renderScaleEl = $<HTMLInputElement>('renderScale');
@@ -1781,7 +1873,6 @@ function updateTarget() {
   if (!lookingAt && crossbow.boltAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'bolt';   // F4.4
 }
 const clock = new THREE.Clock();
-const statusEl = $('status');
 function libraryVerb(h: LibraryHit): string {
   if (h.kind === 'relic') return 'Look at the Noctavel shard';
   if (h.kind === 'grey') return 'Read a grey book';
@@ -1791,7 +1882,6 @@ function libraryVerb(h: LibraryHit): string {
   return e.type === 'song' ? `Play "${t}"` : e.type === 'character' ? `Meet ${t}` : e.type === 'art' ? `Look at "${t}"` : `Read "${t}"`;
 }
 const promptVerb = $('promptVerb');
-let lastStatus = '';
 const perf = { frames: 0, cpuMs: 0, worstMs: 0, simSeconds: 0 };
 const SIM_STEP = 1 / 120;
 let simAcc = 0;
@@ -1832,9 +1922,6 @@ function frame() {
     const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : lookingAt === 'thing' ? lookingAtThing!.verb()
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
-    const s = (player.sneaking ? 'SNEAK' : player.speed() === controls.speeds.sprint ? 'SPRINT' : player.speed() === controls.speeds.run ? 'RUN' : 'WALK')
-      + (settings.alwaysRun ? '' : ' · always-run off');
-    if (s !== lastStatus) { statusEl.textContent = s; lastStatus = s; }
     crossbow.update(dt);
     touch?.update();
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
@@ -1845,12 +1932,12 @@ function frame() {
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
 }
-setState('title');
 // v0.05 boot: splash → title → main menu. Automated test browsers go straight to the menu unless a test asks
 // for the intro (localStorage gametool.intro = 'on').
-let intro: Intro | null = null;   // starts once loading is done (below), so its 1 s splash isn't eaten by the build
+let intro: Intro | null = null;   // starts once loading is done (below), so its 2 s splash isn't eaten by the build
+setState('title');
 const wantIntro = (() => { try { return !navigator.webdriver || localStorage.getItem('gametool.intro') === 'on'; } catch { return !navigator.webdriver; } })();
-if (!wantIntro) versionNote();
+if (!wantIntro) { intro = new Intro(() => undefined, true); versionNote(); }
 // F2.1: everything is built; compile every shader before the first frame (hidden things too: player body, held
 // crossbow, dust, so they don't stutter the first time they show), then fade in from black over 2 s (no pop-in).
 // compileAsync lets the browser compile in the background (KHR_parallel_shader_compile) while the loader bar shows.

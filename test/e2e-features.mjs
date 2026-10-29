@@ -71,6 +71,7 @@ async function newPage() {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   check('Esc opens the pause menu', (await G(page, () => window.__gametool.state)) === 'pause');
+  await page.click('[data-group="gameplay"]');
   await page.click('#editCharacter');
   await page.waitForTimeout(150);
   check('"Character" button in the pause menu reopens the form', (await G(page, () => window.__gametool.state)) === 'charcreate');
@@ -99,7 +100,9 @@ async function newPage() {
   await page.waitForFunction(() => window.__gametool);
   await page.waitForTimeout(400);
 
-  check('"Write lore" button visible on the title screen', await page.isVisible('#writeLoreTitle'));
+  await page.click('#openExtras');
+  check('v0.06 "Write lore" button visible under Extras', await page.isVisible('#writeLoreTitle'));
+  if (!(await page.isVisible('#writeLoreTitle'))) await page.click('#openExtras');
   await page.click('#writeLoreTitle');
   await page.waitForTimeout(100);
   check('Editor opens from the title screen', (await G(page, () => window.__gametool.state)) === 'editor');
@@ -133,6 +136,7 @@ async function newPage() {
     await page.reload();
     await page.waitForFunction(() => window.__gametool);
     await page.waitForTimeout(300);
+    if (!(await page.isVisible('#writeLoreTitle'))) await page.click('#openExtras');
     await page.click('#writeLoreTitle');
     await page.waitForTimeout(200);
     await page.click('#eSettings summary');
@@ -150,6 +154,8 @@ async function newPage() {
   await page.click('#eCancel');
   await page.waitForTimeout(100);
   check('Cancel returns to the title screen', (await G(page, () => window.__gametool.state)) === 'title');
+
+  if (!(await page.isVisible('#writeLoreTitle'))) await page.click('#openExtras');
 
   await page.click('#writeLoreTitle');
   await page.fill('#eAuthor', 'Another Player');

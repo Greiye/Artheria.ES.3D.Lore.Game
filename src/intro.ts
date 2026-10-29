@@ -1,20 +1,27 @@
 import { audio } from './audio';
 import './intro.css';
 
-// v0.05 boot sequence: a 1 s developer splash, then the title (a carved stone wall that slowly pans and zooms,
-// flowing water, the logo), and on any key, click, tap or pad button the main menu (#title) underneath.
+// v0.05 boot sequence: a 2 s developer splash (v0.06: the book opens and the sword is drawn), then the title (a
+// carved stone wall that slowly pans and zooms, flowing water, the logo). v0.06: on any key, click, tap or pad
+// button the title stays where it is and the main menu (#title) fades in under the logo; the wall is the menu's
+// backdrop until Begin, and again whenever you return to the menu.
 // Browsers keep sound locked until the first input, so on a cold load the splash jingle is skipped and the
 // water starts with that first input; it keeps running under the main menu until Begin.
 export type IntroPhase = 'splash' | 'title' | 'done';
 
 const BOOK_SWORD = `<svg viewBox="0 0 120 120" aria-hidden="true">
+  <g class="bk">
   <path d="M60 34 C46 26 26 26 14 30 L14 92 C26 88 46 88 60 96 C74 88 94 88 106 92 L106 30 C94 26 74 26 60 34 Z" fill="#2A2218" stroke="#E8D3A0" stroke-width="3" stroke-linejoin="round"/>
   <path d="M60 34 L60 96" stroke="#E8D3A0" stroke-width="2.5"/>
   <path d="M24 42 C34 39 44 39 52 42 M24 52 C34 49 44 49 52 52 M24 62 C34 59 44 59 52 62 M68 42 C76 39 86 39 96 42 M68 52 C76 49 86 49 96 52" stroke="#9C8A62" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+  <g class="sw">
   <path d="M60 6 L64 14 L64 78 L60 86 L56 78 L56 14 Z" fill="#D9DEE6" stroke="#8C96A6" stroke-width="1.5"/>
   <rect x="44" y="76" width="32" height="6" rx="2" fill="#C9A36B" stroke="#7A5A30" stroke-width="1.5"/>
   <rect x="57" y="82" width="6" height="22" rx="2" fill="#5A3A22"/>
   <circle cx="60" cy="108" r="5" fill="#C9A36B" stroke="#7A5A30" stroke-width="1.5"/>
+  <path class="gl" d="M57 18 L63 12 L63 20 L57 26 Z" fill="#FFFFFF"/>
+  </g>
 </svg>`;
 
 /** A stone wall with carved symbols, drawn once on a canvas and used as a tiling background. */
@@ -70,7 +77,8 @@ export class Intro {
   readonly log: [IntroPhase, number][] = [['splash', performance.now()]];
   private timers: number[] = [];
 
-  constructor(private onDone: () => void) {
+  /** `skip`: go straight to the menu with the title as its backdrop (automated test browsers). */
+  constructor(private onDone: () => void, skip = false) {
     this.el = document.createElement('div');
     this.el.id = 'intro';
     this.el.innerHTML = `
@@ -88,13 +96,22 @@ export class Intro {
     window.addEventListener('keydown', key, true);
     this.el.addEventListener('pointerdown', key);
     this.cleanup = () => window.removeEventListener('keydown', key, true);
-    // Phase 1: the splash, with the jingle if sound is already allowed; it fades to black at 1.0 s.
+    if (skip) {
+      this.phase = 'done';
+      this.log.push(['done', performance.now()]);
+      this.cleanup();
+      this.el.classList.add('title-on', 'menu', 'instant');
+      return;
+    }
+    // Phase 1: the splash, with the jingle if sound is already allowed; it fades to black at 2.0 s.
     audio.jingle();
     this.el.classList.add('splash-on');
-    this.timers.push(window.setTimeout(() => this.el.classList.add('splash-out'), 800), window.setTimeout(() => this.toTitle(), 1000));
+    this.timers.push(window.setTimeout(() => this.el.classList.add('splash-out'), 1800), window.setTimeout(() => this.toTitle(), 2000));
   }
   private cleanup = () => {};
   get active() { return this.phase !== 'done'; }
+  /** The title wall behind the main menu: shown at the menu, hidden in the world. */
+  backdrop(on: boolean) { this.el.classList.toggle('away', !on); }
 
   private toTitle() {
     if (this.phase !== 'splash') return;
@@ -116,8 +133,7 @@ export class Intro {
     audio.water(true);
     audio.blip();
     this.cleanup();
-    this.el.classList.add('leaving');
-    window.setTimeout(() => this.el.remove(), 700);
+    this.el.classList.add('menu');
     this.onDone();
   }
 }

@@ -52,7 +52,7 @@ async function open(opts, init) {
   const { ctx, page, errors } = await open({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 });
   const cdp = await ctx.newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
-  check('Touch: title says "Tap to begin" and shows touch help', (await page.textContent('#begin')) === 'Tap to begin' && await page.isVisible('.keys.only-touch') && !(await page.isVisible('.keys.only-mouse')));
+  check('Touch: the menu says "Begin"; Pause → Controls has the touch help, not the keyboard table', (await page.textContent('#begin')) === 'Begin' && await G(page, () => getComputedStyle(document.querySelector('#controlsMap .keys.only-touch')).display !== 'none' && getComputedStyle(document.querySelector('#controlsMap .keys.only-mouse')).display === 'none'));
   await page.tap('#begin');
   await page.waitForFunction(() => window.__gametool.state === 'play');
   await frames(page);

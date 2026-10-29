@@ -31,14 +31,16 @@ await page.waitForFunction(() => window.__gametool);
 const titled = await until(page, () => document.querySelector('#intro')?.classList.contains('title-on'), null, 6000);
 const splash = await G(page, () => { const i = document.querySelector('#intro'), log = window.__gametool.intro.log; return { text: i.querySelector('.splash').textContent.trim(), svg: !!i.querySelector('.splash svg'), ms: Math.round(log[1][1] - log[0][1]) }; });
 const title = await G(page, () => { const i = document.querySelector('#intro'); return { logo: [...i.querySelectorAll('.logo span')].map((e) => e.textContent).join(' '), foot: i.querySelector('.foot').textContent, wall: /^url\("?data:image\/png/.test(getComputedStyle(i.querySelector('.wall')).backgroundImage), anim: getComputedStyle(i.querySelector('.wall')).animationName }; });
-check('v0.05 §2.1 splash: book-and-sword icon, "Michael P. Go Presents:", then the title at 1 s', titled && splash.svg && splash.text === 'Michael P. Go Presents:' && splash.ms >= 950, JSON.stringify(splash) + ' (later than 1 s only when software rendering stalls the page)');
+const anim = await G(page, () => ['.bk', '.sw', '.gl'].map((c) => getComputedStyle(document.querySelector('#intro .splash ' + c)).animationName));
+check('v0.06 M1–M2 splash: animated book-and-sword icon (book opens, sword drawn, glint), "Michael P. Go Presents:", then the title at 2 s', titled && splash.svg && splash.text === 'Michael P. Go Presents:' && splash.ms >= 1950 && anim.join() === 'bookOpen,swordDraw,glint', JSON.stringify({ ...splash, anim }) + ' (later than 2 s only when software rendering stalls the page)');
 check('v0.05 §2.1 title: carved stone wall drifting (pan + zoom), the logo, the prototype notice', title.logo === 'Tales of Artheria' && title.wall && title.anim === 'wallDrift' && title.foot === 'This is a prototype, vibe coded by Michael Go. 2026, All Rights Reserved.', JSON.stringify(title));
 await page.keyboard.press('KeyQ');
-const menu = await until(page, () => !document.querySelector('#intro') && window.__gametool.state === 'title' && !document.querySelector('#title').classList.contains('hidden'), null, 4000);
-check('v0.05 §2.1 any key leaves the title for the main menu', menu);
+const menu = await until(page, () => document.querySelector('#intro')?.classList.contains('menu') && window.__gametool.state === 'title' && !document.querySelector('#title').classList.contains('hidden'), null, 4000);
+const kept = await G(page, () => { const i = document.querySelector('#intro'); return { logo: getComputedStyle(i.querySelector('.logo')).opacity, wall: getComputedStyle(i).opacity, card: !!document.querySelector('#title .card'), items: [...document.querySelectorAll('#title .menu-list button')].map((b) => b.textContent) }; });
+check('v0.06 M3–M5 any key keeps the title (wall + logo) and fades in a borderless Begin / Extras / Options list; no welcome window', menu && kept.logo === '1' && kept.wall === '1' && !kept.card && kept.items.join() === 'Begin,Extras,Options', JSON.stringify(kept));
 await G(page, () => localStorage.removeItem('gametool.intro'));   // later loads in this test skip the intro
 const note = await G(page, () => document.querySelector('#versionNote').textContent);
-check('v0.05 §1.1 version notice on the menu (and says it was updated)', note === 'Tales of Artheria v0.05 | Updated from v0.04', note);
+check('v0.05 §1.1 version notice on the menu (and says it was updated)', note === 'Tales of Artheria v0.06 | Updated from v0.04', note);
 check('v0.05 §2.2 main menu: Begin, Options, Extras', await page.isVisible('#begin') && (await page.textContent('#openSettingsTitle')) === 'Options' && await page.isVisible('#openExtras'));
 await page.keyboard.press('ArrowDown');
 const focus = await G(page, () => document.activeElement?.id);
@@ -76,6 +78,8 @@ check('v0.05 §3.1 pause → "Save and return to the menu" saves and shows the m
 await page.reload();
 await page.waitForFunction(() => window.__gametool);
 const before = await G(page, () => ({ save: !!localStorage.getItem('gametool.save'), state: window.__gametool.state, intro: !!document.querySelector('#intro'), loader: !!document.querySelector('#loader') }));
+// file:// storage can drop across a reload, so the intro may run again: skip through it to the menu.
+for (let k = 0; k < 40 && !(await G(page, () => window.__gametool.intro && !window.__gametool.intro.active)); k++) { await page.keyboard.press('KeyQ'); await page.waitForTimeout(150); }
 await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play');
 const resumed = await G(page, () => { const g = window.__gametool; return { x: g.player.pos.x, z: g.player.pos.z, time: g.world.time, lute: g.inventory.count('lute') }; });
@@ -84,7 +88,7 @@ check('v0.05 Begin carries on from the save: the spot, the hour and the bag', Ma
 // ---------- rebinding ----------
 await page.keyboard.press('Escape');
 await until(page, () => window.__gametool.state === 'pause', null, 3000);
-await G(page, () => { document.querySelector('#controlsMap').open = true; });
+await page.click('[data-group="controls"]');
 await page.click('[data-bind="jump"]');
 await page.keyboard.press('KeyK');
 const rebound = await G(page, () => window.__gametool.binds.jump[0] === 'KeyK' && JSON.parse(localStorage.getItem('gametool.keys')).jump === 'KeyK' && document.querySelector('[data-bind="jump"] kbd').textContent === 'K');

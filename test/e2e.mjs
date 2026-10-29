@@ -249,6 +249,7 @@ if (!longOnly) {
   await page.screenshot({ path: path.join(shots, '06-pause.png') });
   await page.$eval('#sens', (e) => { e.value = '1.75'; e.dispatchEvent(new Event('input')); });
   await page.$eval('#fov', (e) => { e.value = '90'; e.dispatchEvent(new Event('input')); });
+  await page.click('[data-group="gameplay"]');   // v0.06: settings live in pause-menu groups
   await page.check('#invert');
   await page.waitForTimeout(50);
   const preReload = await G(page, () => ({ ...window.__gametool.settings }));

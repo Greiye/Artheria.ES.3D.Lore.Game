@@ -4,8 +4,20 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 
 ## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.05,
-Mike 2026-10-28). Spec doc v0.05.
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
+Mike 2026-10-28). Spec doc v0.06.
+
+### v0.06 changelog, part 1: title, main menu, pause menu
+- The splash lasts 2 seconds, and its book-and-sword icon animates: the book opens and the sword is drawn into it with a glint. With reduced motion it stays still.
+- After "Press any button" the title stays on screen (the drifting stone wall, the water and the logo) and the main menu fades in under the logo: **Begin, Extras, Options**, with no panel behind them. Arrow keys, the D-pad or a stick move between them, A or Enter picks one, and mouse and touch work too.
+- The old welcome window is gone. The controls tables moved to Pause → Controls, and Write lore moved to Extras.
+- A "What's new" window opens the first time you press Begin in a session. This version is open at the top and every earlier version is a bar you can open. It's built from this changelog, and today's writing prompt sits at the bottom. Close it with A, Enter, a tap or ✕.
+- Begin always starts in the overhead camera.
+- The main menu and the pause menu show whether a controller is connected, and the label updates live.
+- New pause menu, Skyrim style: a sidebar with Resume, Gameplay, Graphics, Sound, Controls and Quit to Main Menu. Picking a group opens its options beside it, and picking it again (or B / Esc) closes it. It works fully on D-pad and keyboard: left and right change a setting, and B on the sidebar resumes. Options on the main menu opens the same panel.
+- Side panels (the pause menu, the forges, the shop and the other stations) fade from solid at their edge toward the middle of the screen.
+- The walk/run label in the bottom-left corner is gone. Caps Lock still toggles always-run and says so.
+- The "E: …" prompt sits lower, between the middle and the bottom of the screen.
 
 ### Style pass 2: storybook town and land
 - Town: four houses (inn, scriptorium, cartographer, tailor) have a jettied upper floor with lit upstairs windows; crooked brick chimneys; window boxes of flowers; terracotta pots by every door; striped awnings over the shop counter and the tailor's and gallery's windows; barrels and crates against some side walls.

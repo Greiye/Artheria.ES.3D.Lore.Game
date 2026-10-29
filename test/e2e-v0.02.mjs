@@ -65,7 +65,7 @@ async function newPage() {
   await page.waitForTimeout(300);
   check('Esc opens the pause menu during play', (await G(page, () => window.__gametool.state)) === 'pause');
 
-  await page.click('#graphicsSettings summary');
+  await page.click('[data-group="graphics"]');
   await page.selectOption('#preset', 'low');
   await page.waitForTimeout(100);
   const prLow = await G(page, () => window.__gametool.renderer.getPixelRatio());
@@ -100,7 +100,7 @@ async function newPage() {
   check('Fog-distance slider applies live to the scene fog', fogFar === 30, `fog.far ${fogFar}`);
 
   // ---------- F1.2 Audio: one bus per slider, mute isolated ----------
-  await page.click('#audioSettings summary');
+  await page.click('[data-group="sound"]');
   await page.fill('#audioMusic', '20');
   await page.dispatchEvent('#audioMusic', 'input');
   await page.fill('#audioSfx', '90');
@@ -148,12 +148,13 @@ async function newPage() {
   await page.click('#begin');
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 });
   await openPauseFromPlay(page);
-  await page.click('#graphicsSettings summary');
+  await page.click('[data-group="graphics"]');
   await page.selectOption('#preset', 'low');
   await page.waitForTimeout(100);
   await closePauseAndRun(page);
   const lowMs = await G(page, () => { const p = window.__gametool.perf; return p.cpuMs / Math.max(1, p.frames); });
   await openPauseFromPlay(page);
+  await page.click('[data-group="graphics"]');
   await page.selectOption('#preset', 'high');
   await page.waitForTimeout(100);
   await closePauseAndRun(page);
