@@ -224,52 +224,92 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   box('head', 0.024, 0.04, 0.026, 0, HEAD.y - 0.025, HEAD.d / 2 + 0.006, look.skin, 0, -0.25, 0.008);           // nose
   const sp = look.species ?? 'human', fc = look.feature ?? FEATURE[sp];
   if (sp !== 'elf' && sp !== 'lumari') for (const s of [-1, 1]) box('head', 0.022, 0.05, 0.035, s * HEAD.w / 2, HEAD.y - 0.005, -0.005, look.skin, 0, 0, 0.008);
-  // Hair masses.
+  // Hair (sculpted, after the realistic switch): a shell over the skull, open at the face and tilted so the
+  // hairline sits high at the front and low at the nape, plus tapered locks with rounded ends.
+  const shade = '#' + new THREE.Color(look.hair).multiplyScalar(0.84).getHexString();
+  const hp = (x: number, y: number, z: number) => new THREE.Vector3(x * hx, HEAD.y + (y - 1.4) * hy, z * hz);
+  // An ellipsoid shell around (x, y, z): `top` is how far down it reaches (0.5 = to its middle), `open` the half
+  // width of the gap at the front in radians, `tilt` lifts its front edge.
+  const shell = (rx: number, ry: number, rz: number, x: number, y: number, z: number, color: string, top = 0.6, open = 0, tilt = 0) => {
+    const g = new THREE.SphereGeometry(1, 14, 9, Math.PI / 2 + open, Math.PI * 2 - 2 * open, 0, Math.PI * top);
+    // Squared off toward a box (a superellipsoid), so it hugs the skull's corners rather than cutting through them.
+    if (tilt) g.rotateX(-tilt);
+    const pos = g.attributes.position.array as Float32Array;
+    for (let i = 0; i < pos.length; i++) pos[i] = Math.sign(pos[i]) * Math.abs(pos[i]) ** 0.6;
+    g.scale(rx * hx * U, ry * hy * U, rz * hz * U);
+    g.computeVertexNormals();
+    const c = hp(x, y, z);
+    place(g, 'head', c.x, c.y, c.z, color);
+  };
+  // A lock through the given head-space points, tapering from r1 to r2, each joint rounded off.
+  const lock = (pts: [number, number, number][], r1: number, r2: number, color: string, sides = 6) => {
+    const P = pts.map(([x, y, z]) => hp(x, y, z)), up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < P.length - 1; i++) {
+      const a = P[i], b = P[i + 1], d = b.clone().sub(a), len = d.length();
+      const ra = (r1 + (r2 - r1) * i / (P.length - 1)) * hx, rb = (r1 + (r2 - r1) * (i + 1) / (P.length - 1)) * hx;
+      const g = new THREE.CylinderGeometry(rb * U, ra * U, len * U, sides, 1, true);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize()));
+      const m = a.clone().add(b).multiplyScalar(0.5);
+      place(g, 'head', m.x, m.y, m.z, color);
+      const k = new THREE.SphereGeometry(rb * U, sides, 4);
+      place(k, 'head', b.x, b.y, b.z, color);
+    }
+  };
+  // Every style but the hood and bald starts from the same cap: down to the ears, nape covered.
+  const cap = (reach = 0.6) => shell(0.205, 0.2, 0.205, 0, 1.43, -0.012, look.hair, reach, 0, 0.5);
+  const fringe = (n: number, len: number, sweep = 0) => {
+    for (let i = 0; i < n; i++) {
+      const x = (i - (n - 1) / 2) * (0.3 / n), k = Math.abs(x) / 0.15;
+      lock([[x, 1.6, 0.11], [x + sweep * 0.5, 1.56 - k * 0.02, 0.19], [x + sweep, 1.56 - len - k * 0.03, 0.2]], 0.045, 0.02, i % 2 ? shade : look.hair);
+    }
+  };
   if (look.hairStyle === 'hood') {
-    hbox(0.42, 0.42, 0.4, 0, 1.43, -0.03, look.secondary);
+    shell(0.24, 0.24, 0.235, 0, 1.4, -0.02, look.secondary, 0.72, 0, 0.85);
+    lock([[0, 1.56, -0.2], [0, 1.4, -0.27], [0, 1.24, -0.26]], 0.08, 0.05, look.secondary);   // the hood's fall at the back
   } else if (look.hairStyle === 'bald') {
     // nothing on top
   } else if (look.hairStyle === 'short') {
-    hbox(0.39, 0.08, 0.39, 0, 1.6, -0.01, look.hair);
-    hbox(0.39, 0.2, 0.08, 0, 1.5, -0.16, look.hair);
+    cap(0.62);
+    fringe(4, 0.05, 0.03);
   } else if (look.hairStyle === 'flowing') {
-    // Long wavy hair (Tree of Savior style): crown, fringe, wavy side locks, separate strands down the back.
-    hbox(0.43, 0.3, 0.36, 0, 1.52, -0.05, look.hair);                         // rounded crown
-    hbox(0.38, 0.26, 0.12, 0, 1.43, -0.15, look.hair);                          // back of the head
-    const shade = '#' + new THREE.Color(look.hair).multiplyScalar(0.82).getHexString();
-    for (let i = -1; i <= 1; i++) hbox(0.035, 0.22, 0.02, i * 0.1, 1.44, -0.21, shade);   // strand lines over the crown
-    for (let i = 0; i < 5; i++) {
-      const x = (i - 2) * 0.09, col = i % 2 ? shade : look.hair, len = 0.13 - Math.abs(i - 2) * 0.012;
-      let y = 1.32;
-      for (let k = 0; k < 3; k++) {
-        const sway = (k % 2 ? 1 : -1) * (i % 2 ? -1 : 1) * 0.018;
-        hbox(0.065 - k * 0.006, len, 0.06, x + sway, y - len / 2, -0.19 + Math.abs(i - 2) * 0.012, col, sway * 4);
-        y -= len * 0.9;
-      }
-      hbox(0.06, 0.05, 0.06, x + (i % 2 ? 0.02 : -0.02), y - 0.01, -0.18, col);   // curled tip
+    // Long wavy hair (Tree of Savior style): crown, a parted fringe, wavy side locks and strands down the back.
+    cap(0.66);
+    shell(0.19, 0.2, 0.1, 0, 1.36, -0.13, look.hair, 0.75);                                    // fullness at the back
+    for (let i = 0; i < 6; i++) {
+      const x = (i - 2.5) * 0.065, w = (i % 2 ? 1 : -1) * 0.025, col = i % 2 ? shade : look.hair;
+      lock([[x * 0.8, 1.42, -0.17], [x + w, 1.25, -0.22], [x - w, 1.08, -0.21], [x + w * 0.6, 0.94, -0.18]], 0.05, 0.022, col);
     }
-    for (let i = -2; i <= 2; i++) hbox(0.1, 0.11, 0.06, i * 0.085, 1.555 - Math.abs(i) * 0.012, 0.19, look.hair, i * 0.2);
     for (const s of [-1, 1]) {
-      hbox(0.1, 0.24, 0.14, s * 0.2, 1.42, 0.02, look.hair);
-      hbox(0.1, 0.2, 0.12, s * 0.23, 1.24, 0, look.hair, s * -0.15);
-      hbox(0.09, 0.18, 0.1, s * 0.24, 1.08, -0.02, look.hair, s * 0.2);
+      lock([[s * 0.06, 1.6, 0.12], [s * 0.13, 1.55, 0.19], [s * 0.18, 1.44, 0.17]], 0.05, 0.03, look.hair);   // parted fringe
+      lock([[s * 0.19, 1.5, 0.06], [s * 0.23, 1.32, 0.05], [s * 0.21, 1.16, 0.02], [s * 0.24, 1.02, -0.01]], 0.055, 0.025, s < 0 ? shade : look.hair);
     }
   } else if (look.hairStyle === 'topknot') {
-    hbox(0.39, 0.08, 0.39, 0, 1.6, -0.01, look.hair);
-    hbox(0.14, 0.14, 0.14, 0, 1.72, -0.06, look.hair);
+    cap(0.6);
+    shell(0.075, 0.075, 0.075, 0, 1.69, -0.08, look.hair, 1);                                    // the knot
+    lock([[0, 1.62, -0.06], [0, 1.66, -0.08]], 0.04, 0.035, shade);                                // its tie
   } else {
-    hbox(0.4, 0.1, 0.4, 0, 1.6, -0.01, look.hair);
-    hbox(0.4, 0.3, 0.1, 0, 1.45, -0.17, look.hair);
-    for (const s of [-1, 1]) hbox(0.06, 0.18, 0.12, s * 0.19, 1.47, 0.02, look.hair);   // sideburns
-    if (look.hairStyle === 'long') hbox(0.38, 0.42, 0.1, 0, 1.25, -0.2, look.hair);
-    else for (let i = -1; i <= 1; i++) hbox(0.1, 0.12, 0.14, i * 0.12, 1.66, -0.06 + Math.abs(i) * 0.03, look.hair, i * -0.4);
+    cap(look.hairStyle === 'long' ? 0.66 : 0.6);
+    for (const s of [-1, 1]) lock([[s * 0.19, 1.52, 0.04], [s * 0.2, 1.4, 0.06]], 0.04, 0.025, look.hair);   // sideburns
+    if (look.hairStyle === 'long') {
+      fringe(3, 0.06, -0.02);
+      for (let i = 0; i < 5; i++) {
+        const x = (i - 2) * 0.075;
+        lock([[x * 0.9, 1.45, -0.17], [x, 1.3, -0.21], [x * 1.05, 1.12, -0.2]], 0.06, 0.035, i % 2 ? shade : look.hair);
+      }
+    } else if (look.hairStyle !== 'cap') {
+      // Spiky: swept-up points over the crown and a jagged fringe.
+      for (let i = -2; i <= 2; i++) lock([[i * 0.07, 1.6, -0.03 + Math.abs(i) * 0.01], [i * 0.1, 1.73 - Math.abs(i) * 0.025, -0.09]], 0.06, 0.012, i % 2 ? shade : look.hair);
+      for (const s of [-1, 1]) lock([[s * 0.1, 1.55, -0.16], [s * 0.15, 1.6, -0.25]], 0.055, 0.012, look.hair);
+      fringe(5, 0.07, 0.02);
+    }
     if (look.hairStyle === 'cap') {
+      fringe(3, 0.04);
       // Newsboy cap with a brim and goggles strapped on (the board's adventurer).
-      hbox(0.43, 0.13, 0.43, 0, 1.64, -0.01, look.primary);
-      hbox(0.36, 0.05, 0.14, 0, 1.585, 0.2, look.primary, 0, 0.25);
-      hbox(0.44, 0.04, 0.44, 0, 1.585, -0.01, trim);
-      for (const s of [-1, 1]) hbox(0.11, 0.08, 0.05, s * 0.08, 1.62, 0.2, '#C9A23A');
-      for (const s of [-1, 1]) hbox(0.07, 0.05, 0.02, s * 0.08, 1.62, 0.23, '#9FD0D8');
+      shell(0.225, 0.17, 0.225, 0, 1.55, -0.01, look.primary, 0.5);
+      shell(0.2, 0.03, 0.12, 0, 1.56, 0.17, look.primary, 0.5, 0, 0.3);                             // brim
+      lock([[-0.22, 1.56, -0.01], [0.22, 1.56, -0.01]], 0.022, 0.022, trim, 10);                  // band
+      for (const s of [-1, 1]) lock([[s * 0.04, 1.63, 0.19], [s * 0.12, 1.63, 0.19]], 0.04, 0.04, '#C9A23A', 8);
+      for (const s of [-1, 1]) shell(0.03, 0.03, 0.012, s * 0.08, 1.63, 0.225, '#9FD0D8', 1);
     }
   }
   if (look.headpiece) {

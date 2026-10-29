@@ -7,13 +7,17 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### Sculpted hair (after v0.06)
+- Hair is sculpted instead of stacked boxes: a rounded cap that hugs the skull, with the hairline high at the front and low at the nape, plus tapered locks for fringes, spikes and long hair. Every style was redone (short, spiky, long, flowing, topknot, cap, hood); the cap and hood are rounded too. Figures cost about the same to draw.
+- The old 2D head sheets (`hero.png`, `natalie.png`) are deleted (Mike 2026-10-29). Drawn faces stay.
+
 ### Realistic characters (after v0.06)
 - Every character now has realistic proportions (about 7.5 heads tall) instead of the chibi look: tapered low-poly limbs, a V-shaped torso, soft-cornered clothes and kit. Every outfit option, hairstyle and species feature was reworked for the new body.
 - Heads are low-poly 3D (skull, jaw, nose, ears) with 3D hair. The face is drawn and laid over the front of the head. Blinking and talking swap the drawn face like Mega Man Legends' face textures, and Mike's drawn faces (the heroine, Natalie, the hero) are used where they exist. The flat 2D head billboards are gone, along with v0.06's wider-front-head tweak.
 - The overhead follow camera starts closer (about 5.5 m back instead of about 12 m), so faces read.
 - Kavik (Mike's character) stands by the dojo door watching the pupils spar, with his own outfit: purple skin, horns, wrap top, obi with a back bow, bracers, hakama and leg wraps.
 - Station poses (sitting by the fire, kneeling on the bedroll, the dojo stance, hanging from the bar) are adjusted for the longer legs.
-- Face sheets only need the front cell of each expression now; see `src/art/heads/README.md`. The old 2D head sheets stay in the repo but are no longer used or shipped, so the page is about 28 KB smaller.
+- Face sheets only need the front cell of each expression now; see `src/art/heads/README.md`. The old 2D head sheets are no longer used or shipped, so the page is about 28 KB smaller.
 
 ### v0.06 changelog, part 4: shop, cinema, art
 - Unlimited crowns for now: the purse shows ◎ ∞ in the store and the inventory, and buying costs nothing. Finds and writing still pay underneath, so prices come back by switching off one flag (`DEBUG_UNLIMITED_CROWNS` in `src/economy.ts`).
