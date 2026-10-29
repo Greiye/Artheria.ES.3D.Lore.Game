@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { buildFigure, buildCoach } from './figure';
+import { buildKavik } from './realFigure';
 import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
@@ -331,6 +332,8 @@ export function buildWorld(): World {
   };
   place('stagecoach', buildCoach(3.4), -5.0, -2.6, 0.5, 1.5);
   place('hero', buildFigure({ art: 'hero', skin: '#F0C8A0', hair: '#6B3E22', primary: '#3E6FA8', secondary: '#7FA8D0', boots: '#2E4A6E', accent: '#F2C94C', hairStyle: 'spiky' }, 1.8), 3.8, 3.2, -0.6, 0.35);
+  // PREVIEW ONLY: realistic-proportion Kavik beside the chibi hero (?realistic).
+  if (typeof location !== 'undefined' && location.search.includes('realistic')) place('kavik', buildKavik(1.85), 4.9, 3.95, -0.6, 0.35);
   // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
   const NAT = { x: -2.8, z: LIB.front + 1.8 };
   place('natalie', buildFigure({ art: 'natalie', skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);

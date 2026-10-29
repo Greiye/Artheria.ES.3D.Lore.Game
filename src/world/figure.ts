@@ -52,7 +52,7 @@ const WARM = new THREE.Color('#FFE2B8'), COOL = new THREE.Color('#7E8CB8');
 
 // Paint per-face light into vertex colours: a warm key from above-front, cool shade on the far side,
 // plus a gentle top-down gradient (storybook painted shading, three soft steps).
-function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: number): THREE.BufferGeometry {
+export function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: number): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   g.computeVertexNormals();
   // S2f: each part is also shaded down its own height (occlusion under it, light on top), as ToS bakes
@@ -115,7 +115,7 @@ const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> = {
 };
 export interface FigureRig { bones: Record<BoneName, THREE.Bone>; rest: Record<BoneName, THREE.Vector3>; mesh: THREE.SkinnedMesh }
 
-function rigged(geo: THREE.BufferGeometry, bone: number): THREE.BufferGeometry {
+export function rigged(geo: THREE.BufferGeometry, bone: number): THREE.BufferGeometry {
   const n = geo.attributes.position.count, idx = new Uint16Array(n * 4), w = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) { idx[i * 4] = bone; w[i * 4] = 1; }
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
