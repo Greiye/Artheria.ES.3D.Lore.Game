@@ -2,23 +2,23 @@ import * as THREE from 'three';
 import { escapeHtml } from './submit';
 import './cinema.css';
 
-// v0.04: the Projectionist's reels (a placeholder NPC, never part of the lore). Short clips by Mike and friends from assets/cinema/ (see its README): WebM is
-// preferred, an MP4 next, a GIF as the fallback. Clips start muted (sound is optional); the viewer can turn it on.
+// v0.04: the Projectionist's reels (a placeholder NPC, never part of the lore). Short clips by Mike and friends from assets/cinema/ (see its README).
+// v0.06 R2: reels are WebM only and always loop. Clips start muted (sound is optional); the viewer can turn it on.
 // While a video plays, the screen on the Projectionist's stand in town shows it too.
-export interface Clip { id: string; title: string; credit: string; sound: boolean; webm?: string; mp4?: string; gif?: string }
+export interface Clip { id: string; title: string; credit: string; sound: boolean; webm: string }
 declare const __CINEMA__: Clip[];
 
 export class CinemaPanel {
   readonly el: HTMLDivElement;
   clips: Clip[] = typeof __CINEMA__ === 'undefined' ? [] : __CINEMA__;
   current: Clip | null = null;
-  playing: 'video' | 'gif' | null = null;
+  playing: 'video' | null = null;
   muted = true;
   private video: HTMLVideoElement | null = null;
   /** v0.06 T3: called with each new reel's <video> so its sound can come from the screen (positional). */
   onVideo: (v: HTMLVideoElement) => void = () => undefined;
   /** v0.06 T4: a reel with its sound on is playing (the band by the screen plays along). */
-  get withSound() { return this.isOpen && this.playing === 'video' && !!this.current?.sound && !this.muted; }
+  get withSound() { return this.isOpen && !!this.playing && !!this.current?.sound && !this.muted; }
 
   constructor(private screen: THREE.Mesh, private onClose: () => void) {
     this.el = document.createElement('div');
@@ -36,44 +36,24 @@ export class CinemaPanel {
     this.onClose();
   }
 
-  /** Which source this browser plays for a clip: a video it can decode, else the GIF. */
-  pick(c: Clip): { kind: 'video' | 'gif'; src: string } | null {
-    const probe = document.createElement('video');
-    if (c.webm && probe.canPlayType('video/webm') !== '') return { kind: 'video', src: c.webm };
-    if (c.mp4 && probe.canPlayType('video/mp4') !== '') return { kind: 'video', src: c.mp4 };
-    if (c.gif) return { kind: 'gif', src: c.gif };
-    const any = c.webm ?? c.mp4;
-    return any ? { kind: 'video', src: any } : null;
-  }
-
   play(id: string) {
     const c = this.clips.find((x) => x.id === id);
     if (!c) return;
     this.stop();
     this.current = c;
-    const p = this.pick(c);
     this.render();
     const stage = this.el.querySelector('.cin-stage')!;
-    if (!p) { stage.textContent = 'This reel has no playable file.'; return; }
-    if (p.kind === 'video') {
-      const v = document.createElement('video');
-      v.src = p.src; v.muted = this.muted || !c.sound; v.playsInline = true; v.autoplay = true; v.loop = true; v.controls = false;
-      v.addEventListener('error', () => { if (c.gif) { this.playGif(c.gif, stage); } }, { once: true });   // can't decode after all: fall back
-      stage.replaceChildren(v);
-      this.onVideo(v);
-      void v.play().catch(() => { /* autoplay refused: the viewer can press play */ });
-      this.video = v;
-      this.playing = 'video';
-      const tex = new THREE.VideoTexture(v);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      this.setScreen(tex);
-    } else this.playGif(p.src, stage);
-  }
-  private playGif(src: string, stage: Element) {
-    const img = document.createElement('img');
-    img.src = src; img.alt = this.current?.title ?? '';
-    stage.replaceChildren(img);
-    this.playing = 'gif';
+    const v = document.createElement('video');
+    v.src = c.webm; v.muted = this.muted || !c.sound; v.playsInline = true; v.autoplay = true; v.loop = true; v.controls = false;
+    v.addEventListener('error', () => { if (this.video === v) stage.replaceChildren(Object.assign(document.createElement('p'), { className: 'fine', textContent: "This browser can't play WebM reels." })); }, { once: true });
+    stage.replaceChildren(v);
+    this.onVideo(v);
+    void v.play().catch(() => { /* autoplay refused: the viewer can press play */ });
+    this.video = v;
+    this.playing = 'video';
+    const tex = new THREE.VideoTexture(v);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.setScreen(tex);
   }
   stop() {
     if (this.video) { this.video.pause(); this.video.removeAttribute('src'); this.video.load(); this.video = null; }
@@ -109,7 +89,7 @@ export class CinemaPanel {
     this.el.innerHTML = `<div class="card cinema-card">
       <div class="eyebrow">The Projectionist's reels</div>
       <div class="cin-body">
-        <div class="cin-stage">${this.clips.length ? '' : '<p class="fine">No reels yet. Drop short .webm (or .gif) clips into <code>assets/cinema/</code>; see its README.</p>'}</div>
+        <div class="cin-stage">${this.clips.length ? '' : '<p class="fine">No reels yet. Drop short looping .webm clips into <code>assets/cinema/</code>; see its README.</p>'}</div>
         <div class="cin-list">${this.clips.map((x) => `<button class="cin-row${x.id === c?.id ? ' on' : ''}" data-clip="${escapeHtml(x.id)}"><b>${escapeHtml(x.title)}</b>${x.credit ? `<span>by ${escapeHtml(x.credit)}</span>` : ''}</button>`).join('')}</div>
       </div>
       <div class="forge-actions">

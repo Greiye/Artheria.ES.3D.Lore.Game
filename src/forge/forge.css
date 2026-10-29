@@ -43,4 +43,6 @@
 .shop-row { display: flex; justify-content: space-between; gap: 10px; width: 100%; margin: 4px 0; padding: 10px 12px; border-radius: 8px;
   border: 1px solid var(--stone-d); background: rgba(255,255,255,.04); color: var(--parchment); font: inherit; cursor: pointer; text-align: left; }
 .shop-row:disabled { opacity: .45; cursor: default; }
+.shop-row.sundry { opacity: .62; filter: saturate(.35); font-size: .92em; }
+.shop-sundry-head { margin: 14px 0 4px; color: var(--parchment); opacity: .7; font-weight: normal; font-style: italic; }
 @media (hover: hover) { .shop-row:not(:disabled):hover { background: rgba(63,224,232,.14); } }

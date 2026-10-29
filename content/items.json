@@ -45,6 +45,46 @@
       "name": "Violin",
       "icon": "♬",
       "note": "Four strings and a bow. Carries the long notes at the fire."
+    },
+    "candle": {
+      "name": "Tallow Candle",
+      "icon": "🕯",
+      "note": "A stub of tallow. Smells of the kitchen."
+    },
+    "wax": {
+      "name": "Block of Wax",
+      "icon": "▭",
+      "note": "For sealing letters, or a stuck drawer."
+    },
+    "lampOil": {
+      "name": "Lamp Oil",
+      "icon": "⛽",
+      "note": "A small flask. Keep it upright."
+    },
+    "soap": {
+      "name": "Bar of Soap",
+      "icon": "◻",
+      "note": "Lye and lavender. The inn would thank you."
+    },
+    "twine": {
+      "name": "Ball of Twine",
+      "icon": "➰",
+      "note": "Good for parcels, snares and lost buttons."
+    },
+    "chalk": {
+      "name": "Stick of Chalk",
+      "icon": "▯",
+      "note": "Mark a wall, a door, a way back out."
+    },
+    "salt": {
+      "name": "Pouch of Salt",
+      "icon": "⁘",
+      "note": "For the pot. Some say for the doorstep too."
+    },
+    "bread": {
+      "name": "Loaf of Bread",
+      "icon": "◒",
+      "note": "Yesterday's, but still good."
     }
   }
 }

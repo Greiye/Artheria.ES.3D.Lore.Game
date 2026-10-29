@@ -108,7 +108,7 @@ function makeBoard(root: THREE.Object3D, anchor: THREE.Object3D, w: number, h: n
     const pitch = Math.atan2(camera.position.y - tmpV.y - 0.8, Math.hypot(dx, dz));
     if (lift) tmpV.addScaledVector(toCam.subVectors(camera.position, tmpV).normalize(), lift * tmpS.x);
     tmpQ.setFromEuler(tmpE.set(-Math.max(0, pitch), Math.atan2(dx, dz), 0));
-    tmpS.set(tmpS.x, tmpS.x, tmpS.x);
+    tmpS.set(tmpS.x * (mesh.userData.wide ?? 1), tmpS.x, tmpS.x);
     mesh.matrixWorld.compose(tmpV, tmpQ, tmpS);
     mesh.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, mesh.matrixWorld);
     mesh.normalMatrix.getNormalMatrix(mesh.modelViewMatrix);
@@ -154,6 +154,7 @@ function expression(b: Board, root: THREE.Object3D, dt: number): string {
   return b.blink! < 0 ? 'blink' : 'neutral';
 }
 
+const FRONT_WIDE = [1.2, 1.08, 1, 1, 1, 1, 1, 1.08];
 const setFrame = (v: THREE.Vector4, f: Frame) => v.set(f[0], f[1], f[2], f[3]);
 
 function showHead(b: Board, root: THREE.Object3D, camera: THREE.Camera, dt: number) {
@@ -164,6 +165,9 @@ function showHead(b: Board, root: THREE.Object3D, camera: THREE.Camera, dt: numb
   const img = art.head.image as { width: number; height: number };
   u.texel.value.set(1 / img.width, 1 / img.height);
   setFrame(u.frame.value, art.headFrames[dir]);
+  // v0.06 H1: the front (and a little the ¾) view is drawn wider so the whole face reads, never cropped (the frame
+  // has clear margin either side of the head).
+  b.mesh.userData.wide = FRONT_WIDE[dir];
   const faces = art.faces.get(expression(b, root, dt)) ?? art.faces.get('neutral');
   const f = faces?.[dir];
   u.faceOn.value = art.face && f ? 1 : 0;

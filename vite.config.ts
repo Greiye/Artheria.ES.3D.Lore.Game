@@ -35,11 +35,11 @@ function buildStamp(): Plugin {
   };
 }
 
-// v0.04 cinema: short clips by Mike and friends live in assets/cinema/ (name.webm preferred, name.gif fallback,
+// v0.04 cinema: short clips by Mike and friends live in assets/cinema/ (name.webm only since v0.06 R2,
 // optional clips.json for titles and credits). They are too big to inline, so they ship as separate files under
 // dist/cinema/ (served from assets/cinema/ in dev), and the list of clips is baked into the page.
 const CINEMA_DIR = 'assets/cinema';
-const CINEMA_EXT = /\.(webm|mp4|gif)$/i;
+const CINEMA_EXT = /\.webm$/i;
 function cinemaClips() {
   if (!fs.existsSync(CINEMA_DIR)) return [];
   const files = fs.readdirSync(CINEMA_DIR).filter((f) => CINEMA_EXT.test(f));
@@ -49,7 +49,7 @@ function cinemaClips() {
   return ids.map((id) => {
     const has = (ext: string) => files.find((f) => f.toLowerCase() === `${id}.${ext}`.toLowerCase());
     const src = (ext: string) => (has(ext) ? `cinema/${has(ext)}` : undefined);
-    return { id, title: meta[id]?.title ?? id.replace(/[-_]+/g, ' '), credit: meta[id]?.credit ?? '', sound: meta[id]?.sound ?? true, webm: src('webm'), mp4: src('mp4'), gif: src('gif') };
+    return { id, title: meta[id]?.title ?? id.replace(/[-_]+/g, ' '), credit: meta[id]?.credit ?? '', sound: meta[id]?.sound ?? true, webm: src('webm')! };
   });
 }
 // Files too big to inline ship beside the page: copied into dist/<url>/ on build and served from <dir>/ in dev.
@@ -70,7 +70,7 @@ function shipDir(name: string, dir: string, url: string, ext: RegExp, mime: (f: 
     },
   };
 }
-const cinema = () => shipDir('cinema', CINEMA_DIR, 'cinema', CINEMA_EXT, (f) => (f.endsWith('.gif') ? 'image/gif' : f.endsWith('.mp4') ? 'video/mp4' : 'video/webm'));
+const cinema = () => shipDir('cinema', CINEMA_DIR, 'cinema', CINEMA_EXT, () => 'video/webm');
 
 // v0.05 Extras: the game's evolution in screenshots (assets/evolution/, titles in evolution.json), in file-name order.
 const EVO_DIR = 'assets/evolution';

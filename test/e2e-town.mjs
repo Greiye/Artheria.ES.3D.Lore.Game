@@ -98,7 +98,9 @@ await page.click('[data-sell="trinket"]');
 const afterSell = await G(page, () => ({ crowns: window.__gametool.inventory.count('crown'), trinket: window.__gametool.inventory.count('trinket') }));
 await page.click('[data-buy="0"]');
 const afterBuy = await G(page, () => ({ crowns: window.__gametool.inventory.count('crown'), bolts: window.__gametool.inventory.count('bolt') }));
-check('v0.04 shop: no crowns, no sale; sell a curio for 10, buy 5 bolts for 6', !broke && afterSell.crowns === 10 && afterSell.trinket === 0 && afterBuy.crowns === 4 && afterBuy.bolts === 5, JSON.stringify({ afterSell, afterBuy }));
+// v0.06 E1: DEBUG_UNLIMITED_CROWNS is on, so buying is free (the purse shows ∞) while selling and earning still pay.
+const purseText = await G(page, () => document.querySelector('#shop .shop-purse').textContent);
+check('v0.04/v0.06 E1 shop: unlimited crowns (◎ ∞) buy without spending; sell a curio for 10, buy 5 bolts', broke && /∞/.test(purseText) && afterSell.crowns === 10 && afterSell.trinket === 0 && afterBuy.crowns === 10 && afterBuy.bolts >= 5, JSON.stringify({ broke, purseText, afterSell, afterBuy }));
 await page.click('[data-act="close"]');
 await until(page, () => window.__gametool.state === 'play');
 
