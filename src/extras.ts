@@ -19,6 +19,8 @@ export class Extras {
   tab: 'menu' | 'inspirations' | 'evolution' = 'menu';
   shots: Shot[] = typeof __EVOLUTION__ === 'undefined' ? [] : __EVOLUTION__;
   index = 0;
+  /** v0.06: Write lore lives here now (the main menu is Begin, Extras, Options). */
+  onWrite = () => {};
   private seeking = false;   // a smooth scroll we started is still on its way
 
   constructor(private onClose: () => void) {
@@ -32,6 +34,7 @@ export class Extras {
       if (b.dataset.tab) this.show(b.dataset.tab as Extras['tab']);
       else if (b.dataset.go) this.go(this.index + Number(b.dataset.go));
       else if (b.dataset.act === 'back') this.back();
+      else if (b.dataset.act === 'write') this.onWrite();
     });
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
@@ -47,6 +50,7 @@ export class Extras {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Extras</h1>
         <button class="primary" data-tab="inspirations">Inspirations</button>
         <button class="secondary" data-tab="evolution">Evolution of the game</button>
+        <button class="secondary" id="writeLoreTitle" data-act="write">Write lore</button>
         ${back}</div>`;
     } else if (tab === 'inspirations') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Inspirations</h1>

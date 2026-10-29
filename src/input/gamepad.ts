@@ -107,7 +107,13 @@ export class GamepadControls {
         if (pressed(B.activate)) this.g.advanceDialogue();
       } else if (st === 'inventory') {
         if (pressed(B.back) || pressed(B.activate) || pressed(B.pause)) this.g.closeInventory();
-      } else if (st === 'pause' || st === 'resume') {
+      } else if (st === 'pause') {
+        // v0.06 P1: Start resumes; the D-pad, A and B work the pause menu's sidebar and groups.
+        if (pressed(B.pause)) this.g.resume();
+        else if (pressed(B.dpadUp) || pressed(B.dpadDown) || pressed(B.dpadLeft) || pressed(B.dpadRight) || pressed(B.activate) || pressed(B.back)) {
+          this.g.menu(pressed(B.dpadUp) ? 'up' : pressed(B.dpadDown) ? 'down' : pressed(B.dpadLeft) ? 'left' : pressed(B.dpadRight) ? 'right' : pressed(B.back) ? 'back' : 'ok');
+        }
+      } else if (st === 'resume') {
         if (pressed(B.pause) || pressed(B.back) || pressed(B.activate)) this.g.resume();
       }
     }

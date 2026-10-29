@@ -77,6 +77,7 @@ await until(page, () => window.__gametool.player.thirdPerson && !window.__gameto
 await page.keyboard.press('Escape');
 await until(page, () => window.__gametool.state === 'pause');
 const opts = await G(page, () => [...document.querySelectorAll('#viewSel option')].map((o) => o.value).join(','));
+await page.click('[data-group="gameplay"]');
 await page.selectOption('#viewSel', 'first');
 check('v0.05 the pause menu Camera list has the three perspectives; first person saves', opts === 'overhead,shoulder,first' && await G(page, () => !window.__gametool.player.thirdPerson && JSON.parse(localStorage.getItem('gametool.settings')).view === 'first'), opts);
 await page.selectOption('#viewSel', 'overhead');

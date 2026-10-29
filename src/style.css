@@ -340,3 +340,54 @@ kbd { background: linear-gradient(#F2E2B8, #D8C090); color: #2A1A0C; box-shadow:
 .daily { background: rgba(226,181,103,.08); }
 .cin-row.on { background: rgba(226,181,103,.14); }
 select { background: #EFE3C4; color: #2A1A0C; border: 1px solid var(--gold-d); border-radius: 5px; padding: 2px 4px; font: 13px var(--ui); }
+
+/* ---------- v0.06 part 1: menus ---------- */
+/* M4: the main menu is a borderless list under the title logo; the title wall (src/intro.ts) is its backdrop. */
+#title { background: none; display: block; padding: 0; }
+.menu-list { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px;
+  animation: menuIn .8s ease both; }
+@keyframes menuIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.menu-item { min-width: 220px; min-height: 44px; padding: 6px 24px; background: none; border: 0; box-shadow: none; color: #E8D8B4;
+  font: 600 clamp(20px, 3.4vmin, 28px) Georgia, var(--serif); letter-spacing: .08em; text-shadow: 0 2px 0 #1A140C, 0 0 12px rgba(0,0,0,.6); cursor: pointer; }
+.menu-item:hover, .menu-item:focus-visible { outline: none; color: #FFF1C8; text-shadow: 0 2px 0 #1A140C, 0 0 16px rgba(255,200,120,.75); }
+.menu-item:focus-visible::after, .menu-item:hover::after { content: ''; display: block; height: 2px; margin: 4px auto 0; width: 70%;
+  background: linear-gradient(90deg, transparent, #E2B567, transparent); }
+#title #saveNote { position: absolute; left: 16px; right: 16px; top: calc(56% + 170px); text-align: center; color: #E8D8B4; text-shadow: 0 1px 2px #000; }
+.menu-version { position: absolute; left: calc(16px + env(safe-area-inset-left)); bottom: calc(10px + env(safe-area-inset-bottom)); font-size: 12px; color: rgba(239,227,196,.6); }
+@media (prefers-reduced-motion: reduce) { .menu-list { animation: none; } }
+
+/* M8: controller status, at the side of the main menu and the pause menu. */
+#padStatus { position: fixed; right: calc(16px + env(safe-area-inset-right)); top: calc(14px + env(safe-area-inset-top)); z-index: 25; display: none;
+  padding: 5px 10px 5px 26px; border-radius: 6px; background: rgba(20,14,8,.7); color: #D8C8A4; font-size: 12px; pointer-events: none; }
+#padStatus::before { content: ''; position: absolute; left: 10px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #8A7A60; }
+#padStatus.on::before { background: #7FD87F; box-shadow: 0 0 6px #7FD87F; }
+body[data-state="title"] #padStatus, body[data-state="pause"] #padStatus { display: block; }
+
+/* P3: side panels fade from opaque at their edge toward the middle of the screen. */
+:root { --side-a: rgba(36,25,15,.97); --side-b: rgba(36,25,15,.62); }
+.side-panel, body .forge-panel { background: linear-gradient(90deg, var(--side-a), var(--side-b)); }
+.side-panel.right { background: linear-gradient(270deg, var(--side-a), var(--side-b)); }
+
+/* P1: Skyrim-style pause: sidebar of groups on the left, the open group's options beside it. */
+#pause { display: flex; align-items: stretch; justify-items: initial; place-items: initial; padding: 0; background: linear-gradient(90deg, rgba(10,7,4,.55), rgba(10,7,4,.15)); }
+.pause-side { width: min(260px, 40vw); padding: calc(24px + env(safe-area-inset-top)) 18px 18px calc(18px + env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 4px;
+  border-right: 1px solid rgba(226,181,103,.35); overflow-y: auto; }
+.pause-side h1 { margin: 0 0 14px; font: 600 28px Georgia, var(--serif); color: transparent; background: linear-gradient(#FFF1C8, #E2B567 60%, #B88440); -webkit-background-clip: text; background-clip: text; }
+.pause-item { text-align: left; min-height: 44px; padding: 8px 12px; background: none; border: 0; border-left: 3px solid transparent; border-radius: 0; color: #E8D8B4;
+  font: 600 17px Georgia, var(--serif); letter-spacing: .03em; cursor: pointer; box-shadow: none; }
+.pause-item:hover, .pause-item:focus-visible { outline: none; color: #FFF1C8; background: linear-gradient(90deg, rgba(226,181,103,.18), transparent); }
+.pause-item.on { color: #FFF1C8; border-left-color: #E2B567; background: linear-gradient(90deg, rgba(226,181,103,.24), transparent); }
+.pause-side .fine { margin-top: auto; }
+.pause-panel { width: min(440px, 56vw); padding: calc(24px + env(safe-area-inset-top)) 22px 22px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.pause-panel h2 { margin: 0 0 6px; font: 600 22px Georgia, var(--serif); color: #F2E2B8; }
+.pause-panel h4 { margin: 10px 0 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+.pause-panel .keys { margin-top: 0; }
+.pause-panel :is(input, select, button):focus-visible { outline: 2px solid #FFE2A0; outline-offset: 2px; }
+.pause-panel label.field { display: grid; grid-template-columns: 1fr auto; align-items: center; }
+
+/* W6: the interaction prompt sits between the middle and the bottom of the screen. */
+#prompt { top: 68%; }
+#title .menu-item:focus-visible { outline: none; }
+/* The logo belongs to the main menu itself; screens opened from it (Options, character, editor) hide it. */
+#intro .logo { transition: opacity .3s ease; }
+body:not([data-state="title"]) #intro.menu .logo { opacity: 0; }
