@@ -1,5 +1,6 @@
 // v0.06 part 4 checks: unlimited crowns (E1), faded sundries in the store (E2), interior ceilings in the library and
-// the gallery (W2) and the wider front head view (H1). The cinema (R1, R2) is covered by e2e-cinema.mjs.
+// the gallery (W2). The cinema (R1, R2) is covered by e2e-cinema.mjs. (H1, the wider 2D head, went with the 2D heads:
+// figures have 3D heads since 2026-10-29, checked in e2e-camera.mjs.)
 // Usage: npm run build && node test/e2e-v0.06-part4.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import path from 'node:path';
@@ -103,29 +104,6 @@ for (const hall of ['library', 'gallery']) {
 }
 const roofs = await G(page, () => { const g = window.__gametool; return g.ceilings.every((m) => !m.castShadow && (m.material.side ?? 0) === 0); });
 check('v0.06 W2 ceilings cast no shadow and are one-sided (the overview still looks in; outside unchanged)', roofs);
-
-// ---------- H1: the wider front head ----------
-await G(page, () => { const g = window.__gametool; g.player.thirdPerson = false; g.player.pitch = 0; });
-const head = await G(page, async () => {
-  // A figure that stands still and never turns to the viewer: a character artifact in the library.
-  const g = window.__gametool, V = g.Vector3;
-  let fig = null;
-  g.library.group.traverse((o) => { if (!fig && o.userData.head && o.userData.look) fig = o; });
-  const p = new V(); fig.getWorldPosition(p);
-  const fwd = new V(0, 0, 1).applyQuaternion(fig.getWorldQuaternion(fig.quaternion.clone())); fwd.y = 0; fwd.normalize();
-  const sideways = new V(fwd.z, 0, -fwd.x);
-  const measure = async (dir, d) => {
-    g.player.spawn(new V(p.x + dir.x * d, 0, p.z + dir.z * d), Math.atan2(dir.x, dir.z));
-    await new Promise((r) => { let k = 0; const f = () => (++k >= 30 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
-    let board = null; fig.traverse((o) => { if (o.name === 'head-sprite') board = o; });
-    const e = board.matrixWorld.elements, sx = Math.hypot(e[0], e[1], e[2]), sy = Math.hypot(e[4], e[5], e[6]);
-    return +(sx / sy).toFixed(2);
-  };
-  const side = await measure(sideways, 1.8);
-  return { front: await measure(fwd, 1.8), side };
-});
-check('v0.06 H1 a head seen from the front is drawn wider (no crop: the frame keeps clear margin), narrower from the side', head.front >= 1.15 && head.side < head.front, JSON.stringify(head));
-await shot(page, 'head-front-fp');
 
 check('v0.06 part 4: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

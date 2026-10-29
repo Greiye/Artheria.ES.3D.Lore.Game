@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { spriteFigure } from '../render/sprites';
+import { FACE } from '../render/headArt';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { blobShadowTexture } from '../tex/pixel';
 import { paintedAtlas, toTile, type PaintKind } from '../tex/paintedAtlas';
 
-// Storybook restyle S2 (docs/vision.md, Mike's "Echoes of Avalon" boards): low-poly chibi characters,
-// about 2.8 heads tall. Chamfered boxes and six-sided limbs, a big rounded head with a painted anime face,
-// chunky gloves and boots, a cap with goggles. Unlit: a warm key and a cool shadow are painted into the
-// vertex colours per face, so they read the same in any scene light.
+// Characters (Mike 2026-10-29, after the Kavik preview): low-poly figures at realistic proportions, about 7.5 heads
+// tall, with a low-poly 3D head and a drawn face swapped like Mega Man Legends' face textures. Tapered limbs,
+// soft-cornered clothes and kit. Unlit: a warm key and a cool shadow are painted into the vertex colours per face,
+// so they read the same in any scene light. (Before: chibi, 2.8 heads, with flat 2D drawn heads.)
 // PLACEHOLDER: replaced per slot by public/models/<id>.glb (src/models.ts).
 
 export interface FigureLook {
@@ -52,7 +53,7 @@ const WARM = new THREE.Color('#FFE2B8'), COOL = new THREE.Color('#7E8CB8');
 
 // Paint per-face light into vertex colours: a warm key from above-front, cool shade on the far side,
 // plus a gentle top-down gradient (storybook painted shading, three soft steps).
-function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: number): THREE.BufferGeometry {
+export function painted(geo: THREE.BufferGeometry, color: string, yMin: number, yMax: number): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   g.computeVertexNormals();
   // S2f: each part is also shaded down its own height (occlusion under it, light on top), as ToS bakes
@@ -87,7 +88,7 @@ function atlasMaterial(map: THREE.Texture): THREE.MeshBasicMaterial {
 }
 const noRaycast = () => {};
 
-function blobShadow(radius: number): THREE.Mesh {
+export function blobShadow(radius: number): THREE.Mesh {
   const m = new THREE.Mesh(new THREE.CircleGeometry(radius, 16).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: blobShadowTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   m.position.y = 0.015;
@@ -107,15 +108,20 @@ export const FEATURE: Record<Species, string> = {
 export const BONES = ['root', 'hips', 'spine', 'head', 'armN', 'foreN', 'armP', 'foreP', 'thighN', 'shinN', 'thighP', 'shinP'] as const;
 export type BoneName = typeof BONES[number];
 // [parent, pivot] per bone, in metres for a 1.75 m figure. N = the figure's -X side, P = its +X side.
-// Chibi proportions (S2): short legs (hips at 0.72, knees at 0.4), a head about 0.6 m tall.
+// Realistic proportions (Mike 2026-10-29, after the Kavik preview): about 7.5 heads tall, hips at 0.93, knees at 0.49,
+// shoulders at 1.42, the neck pivot at 1.5.
 const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> = {
-  root: [null, [0, 0, 0]], hips: ['root', [0, 0.72, 0]], spine: ['hips', [0, 0.76, 0]], head: ['spine', [0, 1.13, 0]],
-  armN: ['spine', [-0.24, 1.07, 0]], foreN: ['armN', [-0.28, 0.87, 0]], armP: ['spine', [0.24, 1.07, 0]], foreP: ['armP', [0.28, 0.87, 0]],
-  thighN: ['hips', [-0.11, 0.7, 0]], shinN: ['thighN', [-0.11, 0.4, 0]], thighP: ['hips', [0.11, 0.7, 0]], shinP: ['thighP', [0.11, 0.4, 0]],
+  root: [null, [0, 0, 0]], hips: ['root', [0, 0.93, 0]], spine: ['hips', [0, 0.98, 0]], head: ['spine', [0, 1.5, 0]],
+  armN: ['spine', [-0.19, 1.42, 0]], foreN: ['armN', [-0.22, 1.13, 0]], armP: ['spine', [0.19, 1.42, 0]], foreP: ['armP', [0.22, 1.13, 0]],
+  thighN: ['hips', [-0.09, 0.9, 0]], shinN: ['thighN', [-0.095, 0.49, 0]], thighP: ['hips', [0.09, 0.9, 0]], shinP: ['thighP', [0.095, 0.49, 0]],
 };
+/** Hips height as a fraction of the figure's height (poses scale their offsets by it). */
+export const HIPS_AT = RIG.hips[1][1] / 1.75;
+/** The head in metres for a 1.75 m figure: centre height and skull size. */
+export const HEAD = { y: 1.625, w: 0.165, h: 0.215, d: 0.195 };
 export interface FigureRig { bones: Record<BoneName, THREE.Bone>; rest: Record<BoneName, THREE.Vector3>; mesh: THREE.SkinnedMesh }
 
-function rigged(geo: THREE.BufferGeometry, bone: number): THREE.BufferGeometry {
+export function rigged(geo: THREE.BufferGeometry, bone: number): THREE.BufferGeometry {
   const n = geo.attributes.position.count, idx = new Uint16Array(n * 4), w = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) { idx[i * 4] = bone; w[i * 4] = 1; }
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
@@ -129,75 +135,96 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   const W = THREE.MathUtils.clamp(look.build ?? (look.species === 'titankin' ? 1.2 : 1), 0.8, 1.3);   // body width
   const root = new THREE.Group();
   const parts: [THREE.BufferGeometry, string, BoneName][] = [];
-    const place = (g: THREE.BufferGeometry, bone: BoneName, x: number, y: number, z: number, color: string, rz = 0, rx = 0, ry = 0) => {
+  const place = (g: THREE.BufferGeometry, bone: BoneName, x: number, y: number, z: number, color: string, rz = 0, rx = 0, ry = 0) => {
     if (ry) g.rotateY(ry);
     if (rx) g.rotateX(rx);
     if (rz) g.rotateZ(rz);
     g.translate(x * U, y * U, z * U);
-    if (bone === 'head') g.dispose();   // S2h: no 3D head; src/render/headArt.ts draws it in 2D
-    else parts.push([g, color, bone]);
+    parts.push([g, color, bone]);
   };
-  // Pillowy rounded box and a round limb: the sprite pass (src/render/sprites.ts) pixelates them, so soft
-  // shapes read as drawn pixel art rather than boxes.
-  const box = (bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0, r = 0.06) => {
+  // Soft-cornered boxes for clothes, hair and kit; tapered low-poly limbs (six to ten sides) for the body.
+  const box = (bone: BoneName, w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0, r = 0.02) => {
     const k = bone === 'head' ? 1 : W;
     w *= k; d *= k; x *= k;
-    place(new RoundedBoxGeometry(w * U, h * U, d * U, 2, Math.min(Math.max(r, Math.min(w, h, d) * 0.45), w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
+    place(new RoundedBoxGeometry(w * U, h * U, d * U, 1, Math.min(r, w / 2.2, h / 2.2, d / 2.2) * U), bone, x, y, z, color, rz, rx);
   };
-  const limb = (bone: BoneName, rTop: number, rBot: number, h: number, x: number, y: number, z: number, color: string, rz = 0) => {
-    place(new THREE.CylinderGeometry(rTop * W * U, rBot * W * U, h * U, 8), bone, x * W, y, z, color, rz);
+  // A tapered limb from (x1, y1) to (x2, y2), in the figure's XY plane; sz flattens it front to back.
+  const seg = (bone: BoneName, x1: number, y1: number, x2: number, y2: number, r1: number, r2: number, color: string, z = 0, sides = 7, sz = 1) => {
+    x1 *= W; x2 *= W;
+    const len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(x2 - x1, y1 - y2);
+    const g = new THREE.CylinderGeometry(r1 * W * U, r2 * W * U, len * U, sides);
+    g.scale(1, 1, sz);
+    place(g, bone, (x1 + x2) / 2, (y1 + y2) / 2, z, color, ang);
+  };
+  const ball = (bone: BoneName, r: number, x: number, y: number, z: number, color: string, sx = 1, sy = 1, sz = 1) => {
+    const g = new THREE.SphereGeometry(r * W * U, 7, 5);
+    g.scale(sx, sy, sz);
+    place(g, bone, x * W, y, z, color);
   };
   // Head-space parts (hair, hats, species features) were authored for a 0.36 m head centred at y 1.4;
-  // map them onto the big chibi head.
-  const HEAD_Y = 1.42, HEAD = 0.58, HK = HEAD / 0.36;
+  // they are mapped onto the skull, axis by axis.
+  const hx = HEAD.w / 0.36, hy = HEAD.h / 0.36, hz = HEAD.d / 0.36;
   const hbox = (w: number, h: number, d: number, x: number, y: number, z: number, color: string, rz = 0, rx = 0) =>
-    box('head', w * HK, h * HK, d * HK, x * HK, HEAD_Y + (y - 1.4) * HK, z * HK, color, rz, rx, 0.04);
+    box('head', w * hx, h * hy, d * hz, x * hx, HEAD.y + (y - 1.4) * hy, z * hz, color, rz, rx, 0.012);
   const legs = look.legs ?? look.primary, gloves = look.gloves ?? look.boots, trim = look.accent ?? look.boots;
   for (const s of [-1, 1]) {
-    const side = s < 0 ? 'N' : 'P';
-    // Chunky boots with a turned-down cuff, short legs.
+    const side = s < 0 ? 'N' : 'P', thigh = `thigh${side}` as BoneName, shin = `shin${side}` as BoneName;
+    const arm = `arm${side}` as BoneName, fore = `fore${side}` as BoneName;
+    seg(thigh, s * 0.09, 0.95, s * 0.095, 0.49, 0.078, 0.056, legs, 0, 8);
+    seg(shin, s * 0.095, 0.5, s * 0.095, 0.1, 0.054, 0.038, legs, 0, 7);
     if (look.platform) {
-      // Platform boots: a thick sole, a rounded toe and crossed straps up the stockings.
-      box(`shin${side}`, 0.2, 0.09, 0.31, s * 0.11, 0.045, 0.04, '#141218', 0, 0, 0.03);
-      box(`shin${side}`, 0.18, 0.16, 0.27, s * 0.11, 0.16, 0.035, look.boots, 0, 0, 0.06);
-      for (const [y, t] of [[0.3, 1], [0.4, -1], [0.5, 1]]) box(`${y > 0.38 ? 'thigh' : 'shin'}${side}` as BoneName, 0.18, 0.025, 0.19, s * 0.11, y, 0.002, look.boots, t * 0.35, 0, 0.01);
+      // Platform boots: a thick sole, a rounded toe and strapped stockings up the thigh.
+      box(shin, 0.1, 0.06, 0.26, s * 0.095, 0.03, 0.045, '#141218', 0, 0, 0.015);
+      seg(shin, s * 0.095, 0.44, s * 0.095, 0.08, 0.052, 0.046, look.boots, 0, 7);
+      box(shin, 0.09, 0.07, 0.2, s * 0.095, 0.1, 0.05, look.boots, 0, 0, 0.025);
+      for (const y of [0.56, 0.64, 0.72]) { const r = 0.062 + (y - 0.49) * 0.048; seg(thigh, s * 0.093, y + 0.012, s * 0.093, y - 0.012, r, r, look.boots, 0, 7); }
     } else {
-      box(`shin${side}`, 0.19, 0.2, 0.3, s * 0.11, 0.1, 0.035, look.boots, 0, 0, 0.06);
-      box(`shin${side}`, 0.21, 0.06, 0.22, s * 0.11, 0.22, 0, trim, 0, 0, 0.02);
+      // Calf boots with a turned-down cuff.
+      seg(shin, s * 0.095, 0.3, s * 0.095, 0.06, 0.05, 0.047, look.boots, 0, 7);
+      box(shin, 0.09, 0.07, 0.24, s * 0.095, 0.035, 0.05, look.boots, 0, 0, 0.025);
+      seg(shin, s * 0.095, 0.32, s * 0.095, 0.27, 0.058, 0.058, trim, 0, 7);
     }
-    limb(`shin${side}`, 0.075, 0.08, 0.18, s * 0.11, 0.33, 0, legs);
-    limb(`thigh${side}`, 0.095, 0.085, 0.3, s * 0.11, 0.56, 0, legs);
-    // Arms: short sleeve, bare forearm, a big glove.
-    limb(`arm${side}`, 0.075, 0.065, 0.2, s * 0.27, 0.97, 0, look.secondary, s * 0.1);
-    limb(`fore${side}`, 0.055, 0.05, 0.13, s * 0.285, 0.8, 0.005, look.skin, s * 0.05);
-    box(`fore${side}`, 0.15, 0.15, 0.15, s * 0.295, 0.67, 0.01, gloves, 0, 0, 0.045);
-    box(`fore${side}`, 0.16, 0.05, 0.16, s * 0.29, 0.75, 0.01, gloves, 0, 0, 0.015);   // glove cuff
+    // Arms: sleeve, bare forearm, a glove.
+    ball(arm, 0.058, s * 0.175, 1.415, 0, look.secondary, 1, 0.85, 0.9);
+    seg(arm, s * 0.19, 1.43, s * 0.22, 1.13, 0.047, 0.04, look.secondary, 0, 7);
+    seg(fore, s * 0.22, 1.13, s * 0.235, 0.9, 0.037, 0.03, look.skin, 0, 7);
+    seg(fore, s * 0.228, 0.99, s * 0.236, 0.9, 0.041, 0.035, gloves, 0, 7);
+    box(fore, 0.045, 0.1, 0.075, s * 0.24, 0.84, 0.005, gloves, 0, 0, 0.018);
   }
+  // Pelvis, torso (a V-taper, flattened front to back), neck.
+  seg('hips', 0, 0.86, 0, 1.0, 0.135, 0.14, legs, 0, 10, 0.72);
+  seg('spine', 0, 0.98, 0, 1.44, 0.135, 0.175, look.primary, 0, 10, 0.62);
+  seg('spine', 0, 1.43, 0, 1.54, 0.045, 0.048, look.skin, 0, 7);
+  box('spine', 0.12, 0.22, 0.012, 0, 1.3, 0.103, look.secondary, 0, 0, 0.004);   // shirt showing at the open vest
   if (look.dress) {
     // Bell skirt with a pale frill at the hem, puffed sleeves and a frilled collar.
-    place(new THREE.CylinderGeometry(0.19 * W * U, 0.4 * W * U, 0.34 * U, 14), 'hips', 0, 0.58, 0, look.primary);
-    place(new THREE.CylinderGeometry(0.4 * W * U, 0.43 * W * U, 0.06 * U, 14), 'hips', 0, 0.4, 0, look.secondary);
-    place(new THREE.CylinderGeometry(0.43 * W * U, 0.41 * W * U, 0.03 * U, 14), 'hips', 0, 0.36, 0, '#E8E0D8');
-    for (const s of [-1, 1]) box(s < 0 ? 'armN' : 'armP', 0.17, 0.15, 0.17, s * 0.265, 1.0, 0, look.secondary, 0, 0, 0.07);
-    box('spine', 0.3, 0.05, 0.22, 0, 1.15, 0.01, '#E8E0D8', 0, 0, 0.02);
-  } else if (look.skirt) box('hips', 0.46, 0.3, 0.3, 0, 0.6, 0, look.primary, 0, 0, 0.05);
+    place(new THREE.CylinderGeometry(0.14 * W * U, 0.32 * W * U, 0.53 * U, 14), 'hips', 0, 0.715, 0, look.primary);
+    place(new THREE.CylinderGeometry(0.32 * W * U, 0.335 * W * U, 0.05 * U, 14), 'hips', 0, 0.47, 0, look.secondary);
+    place(new THREE.CylinderGeometry(0.335 * W * U, 0.325 * W * U, 0.025 * U, 14), 'hips', 0, 0.435, 0, '#E8E0D8');
+    for (const s of [-1, 1]) ball(s < 0 ? 'armN' : 'armP', 0.075, s * 0.19, 1.39, 0, look.secondary);
+    seg('spine', 0, 1.44, 0, 1.47, 0.085, 0.07, '#E8E0D8', 0, 10, 0.8);
+  } else if (look.skirt) place(new THREE.CylinderGeometry(0.15 * W * U, 0.22 * W * U, 0.38 * U, 12), 'hips', 0, 0.79, 0, look.primary);
   if (look.wings) {
     // Small feathered wings, three fanned feathers a side.
     for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
-      box('spine', 0.06, 0.46 - i * 0.08, 0.14, s * (0.24 + i * 0.12), 1.08 + i * 0.05, -0.22 - i * 0.02, look.wings, s * -(0.75 + i * 0.35), 0, 0.02);
+      box('spine', 0.035, 0.3 - i * 0.05, 0.09, s * (0.12 + i * 0.08), 1.3 + i * 0.03, -0.13 - i * 0.012, look.wings, s * -(0.75 + i * 0.35), 0, 0.012);
     }
   }
-  // Belt with pouches, a vest over the shirt, a neckerchief.
-  box('hips', 0.42, 0.07, 0.29, 0, 0.75, 0, trim, 0, 0, 0.02);
-  box('spine', 0.4, 0.34, 0.27, 0, 0.94, 0, look.primary, 0, 0, 0.06);
-  box('spine', 0.22, 0.2, 0.02, 0, 1.0, 0.135, look.secondary, 0, 0, 0.005);           // shirt showing at the open vest
-  if (!look.dress) box('spine', 0.3, 0.07, 0.24, 0, 1.12, 0, look.scarf ?? '#A8423A', 0, 0, 0.03);   // neckerchief
-  else box('spine', 0.08, 0.06, 0.04, 0, 1.1, 0.14, look.scarf ?? '#7A2A3A', 0, 0, 0.015);          // ribbon
+  // Belt, neckerchief (or the dress's ribbon), pouches and a satchel strap.
+  seg('hips', 0, 0.95, 0, 1.01, 0.143, 0.143, trim, 0, 10, 0.72);
+  if (!look.dress) seg('spine', 0, 1.42, 0, 1.475, 0.078, 0.066, look.scarf ?? '#A8423A', 0, 8, 0.85);
+  else box('spine', 0.05, 0.04, 0.025, 0, 1.425, 0.075, look.scarf ?? '#7A2A3A', 0, 0, 0.01);
   if (look.pack !== false) {
-    for (const s of [-1, 1]) box('hips', 0.1, 0.1, 0.08, s * 0.17, 0.71, 0.13, trim, 0, 0, 0.02);   // pouches
-    box('spine', 0.05, 0.5, 0.02, 0.02, 0.95, 0.14, trim, 0.62);                                       // satchel strap
+    for (const s of [-1, 1]) box('hips', 0.06, 0.07, 0.05, s * 0.11, 0.93, 0.1, trim, 0, 0, 0.012);
+    box('spine', 0.035, 0.5, 0.012, 0.0, 1.2, 0.107, trim, 0.62, 0, 0.004);
   }
-  // The big head and hair masses.
+  // The head: a low-poly skull, jaw, nose and ears. The face is a drawn texture over its front (below).
+  place(new RoundedBoxGeometry(HEAD.w * U, HEAD.h * U, HEAD.d * U, 2, 0.035 * U), 'head', 0, HEAD.y, 0, look.skin);
+  box('head', HEAD.w * 0.72, 0.06, HEAD.d * 0.74, 0, HEAD.y - HEAD.h * 0.43, 0.012, look.skin, 0, 0, 0.022);   // jaw
+  box('head', 0.024, 0.04, 0.026, 0, HEAD.y - 0.025, HEAD.d / 2 + 0.006, look.skin, 0, -0.25, 0.008);           // nose
+  const sp = look.species ?? 'human', fc = look.feature ?? FEATURE[sp];
+  if (sp !== 'elf' && sp !== 'lumari') for (const s of [-1, 1]) box('head', 0.022, 0.05, 0.035, s * HEAD.w / 2, HEAD.y - 0.005, -0.005, look.skin, 0, 0, 0.008);
+  // Hair masses.
   if (look.hairStyle === 'hood') {
     hbox(0.42, 0.42, 0.4, 0, 1.43, -0.03, look.secondary);
   } else if (look.hairStyle === 'bald') {
@@ -211,8 +238,6 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     hbox(0.38, 0.26, 0.12, 0, 1.43, -0.15, look.hair);                          // back of the head
     const shade = '#' + new THREE.Color(look.hair).multiplyScalar(0.82).getHexString();
     for (let i = -1; i <= 1; i++) hbox(0.035, 0.22, 0.02, i * 0.1, 1.44, -0.21, shade);   // strand lines over the crown
-    // Thin wavy strands down the back with gaps between them: each is three segments that sway side to side,
-    // alternate strands a shade darker so they read apart, and each ends in a little curl.
     for (let i = 0; i < 5; i++) {
       const x = (i - 2) * 0.09, col = i % 2 ? shade : look.hair, len = 0.13 - Math.abs(i - 2) * 0.012;
       let y = 1.32;
@@ -252,29 +277,26 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
     hbox(0.4, 0.035, 0.05, 0, 1.63, 0.105, look.headpiece);
     for (let i = -1; i <= 1; i++) hbox(0.06, 0.06, 0.04, i * 0.1, 1.66 - Math.abs(i) * 0.015, 0.12, i ? look.headpiece : look.scarf ?? '#7A2A3A');
   }
-  // Species features, all rigid boxes on the bones they move with.
-  const sp = look.species ?? 'human', fc = look.feature ?? FEATURE[sp];
+  // Species features, all rigid to the bones they move with.
   if (sp === 'infernling' || sp === 'drakari') {
     for (const s of [-1, 1]) {   // horns: back-swept
       hbox(0.08, 0.2, 0.08, s * 0.14, 1.7, 0.02, fc, s * -0.35, -0.4);
       hbox(0.06, 0.14, 0.06, s * 0.19, 1.81, -0.04, fc, s * -0.6, -0.9);
     }
-    for (let i = 0; i < 4; i++) box('hips', 0.08 - i * 0.012, 0.08, 0.16, 0, 0.66 - i * 0.07, -0.18 - i * 0.13, look.skin, 0, 0.5, 0.02);   // tail
+    for (let i = 0; i < 4; i++) box('hips', 0.06 - i * 0.01, 0.06, 0.13, 0, 0.88 - i * 0.07, -0.13 - i * 0.11, look.skin, 0, 0.5, 0.012);   // tail
   }
   if (sp === 'drakari') hbox(0.22, 0.12, 0.12, 0, 1.32, 0.2, look.skin);   // snout
   if (sp === 'owlkin' || sp === 'corvani') {
     hbox(0.08, 0.08, 0.1, 0, 1.33, 0.2, fc);                                 // beak
     for (const s of [-1, 1]) {
       hbox(0.07, 0.12, 0.06, s * 0.15, 1.66, 0.02, look.hair, s * -0.4);     // ear tufts
-      box(s < 0 ? 'armN' : 'armP', 0.04, 0.32, 0.2, s * 0.32, 0.9, -0.08, look.hair, s * 0.12, 0, 0.015);   // wing feathers
+      box(s < 0 ? 'armN' : 'armP', 0.03, 0.26, 0.13, s * 0.23, 1.27, -0.05, look.hair, s * 0.12, 0, 0.01);   // wing feathers
     }
   }
   if (sp === 'elf' || sp === 'lumari') for (const s of [-1, 1]) hbox(0.04, 0.12, 0.06, s * 0.2, 1.46, 0, look.skin, s * -0.6);   // pointed ears
   if (sp === 'lumari') hbox(0.34, 0.03, 0.34, 0, 1.8, 0, fc);              // halo ring (bright: bloom catches it)
   if (sp === 'emberkin' || sp === 'cinderkin') for (let i = -1; i <= 1; i++) hbox(0.1, 0.16, 0.1, i * 0.11, 1.7, -0.02, fc, i * -0.3);   // flame crest
-  if (sp === 'stonekin') { box('spine', 0.18, 0.1, 0.08, -0.08, 1.02, 0.14, fc); box('spine', 0.12, 0.08, 0.08, 0.1, 0.9, 0.14, fc); }   // rock plates
-  const headY = HEAD_Y * U, headS = HEAD * U;
-  place(new RoundedBoxGeometry(headS, headS * 0.96, headS * 0.9, 4, headS * 0.4), 'head', 0, HEAD_Y, 0, look.skin);
+  if (sp === 'stonekin') { box('spine', 0.11, 0.06, 0.04, -0.06, 1.28, 0.1, fc); box('spine', 0.08, 0.05, 0.04, 0.07, 1.15, 0.1, fc); }   // rock plates
 
   // Skeleton: bone positions are relative to the parent's pivot.
   const bones = {} as Record<BoneName, THREE.Bone>, rest = {} as Record<BoneName, THREE.Vector3>;
@@ -301,20 +323,25 @@ export function buildFigure(look: FigureLook, height: number): THREE.Group {
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));
   mesh.frustumCulled = false;   // small and always near; skips per-frame skinned bounds
   root.add(mesh);
-  // S2h (Tree of Savior): there is no 3D head. The head is flat 2D pixel art drawn from 8 directions
-  // (src/render/headArt.ts) on a billboard at this anchor, the head's centre on the head bone.
-  const anchor = new THREE.Object3D();
-  anchor.name = 'head-anchor';
-  anchor.position.set(0, headY - RIG.head[1][1] * U, 0);
-  bones.head.add(anchor);
-  root.userData.head = { anchor, size: headS };
+  // The face (Mega Man Legends style): the look's drawn face sheet (src/render/headArt.ts, Mike's hand-drawn
+  // sheets where they exist) on a quad over the front of the skull. Expressions swap by moving its UVs
+  // (src/render/sprites.ts), so blinking and talking cost nothing.
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(FACE.w * HEAD.w * U, FACE.h * HEAD.w * U), faceMaterial());
+  face.name = 'figure-face';
+  face.position.set(0, (HEAD.y - FACE.drop * HEAD.w - RIG.head[1][1]) * U, (HEAD.d / 2 + 0.004) * U);
+  face.raycast = noRaycast;
+  bones.head.add(face);
+  root.userData.face = face;
   root.userData.look = look;
-  root.add(blobShadow(0.36 * U));
+  root.add(blobShadow(0.3 * U));
   root.userData.height = height;
   spriteFigure(root);
   root.userData.rig = { bones, rest, mesh } satisfies FigureRig;
   return root;
 }
+
+// One face material per figure: its map is the look's face sheet once loaded (src/render/sprites.ts).
+export function faceMaterial() { return new THREE.MeshBasicMaterial({ alphaTest: 0.5, visible: false }); }
 
 // The stagecoach (D13 BBEG placeholder): a black coach with lit lanterns. Feet at y = 0, faces +Z.
 export function buildCoach(height: number): THREE.Group {

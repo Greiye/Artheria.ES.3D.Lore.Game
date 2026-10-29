@@ -17,7 +17,7 @@ const ease = (t: number) => t * t * (3 - 2 * t);
 // Follow camera shape at zoom 0 (close) and 1 (overview).
 const FOLLOW = { distNear: 3.6, distFar: 17, elevNear: 0.32, elevFar: 0.95, fovFar: 32, lookNear: 1.45, lookFar: 0.9 };
 /** The 3 perspectives, near to far. Step 0 is first person; the others are follow-camera zooms. */
-const STEPS = [{ name: 'first', zoom: 0 }, { name: 'shoulder', zoom: 0 }, { name: 'overhead', zoom: 0.7 }] as const;
+const STEPS = [{ name: 'first', zoom: 0 }, { name: 'shoulder', zoom: 0 }, { name: 'overhead', zoom: 0.2 }] as const;
 export const OVERHEAD = 2;
 const SHOULDER = { side: 0.55, dist: 2.3, elev: 0.14, look: 1.5 };   // over the shoulder (right by default)
 const MIN_CLEAR = 1.3;   // closest the follow camera may come to the look point before it cranes up instead
@@ -41,8 +41,8 @@ export class CameraRig {
   private viewT = 1;
   private viewFromPos = new THREE.Vector3();
   private viewFromQ = new THREE.Quaternion();
-  private cur = 0.7;                      // the zoom shown, easing toward `target`
-  private target = 0.7;
+  private cur = 0.2;                      // the zoom shown, easing toward `target`
+  private target = 0.2;
   private shoulderT = 0;                  // 0..1 blend into the over-the-shoulder framing
   private sideCur = 1;                    // eases toward `shoulderSide` when the shoulder swaps
   private stepAcc = 0;

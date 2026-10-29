@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { headArt, SHEET, type Frame, type HeadArt } from './headArt';
+import { headArt, SHEET, FACE, type Frame, type HeadArt } from './headArt';
 import type { FigureLook } from '../world/figure';
 
-// Pixel-art billboards, shown facing the camera with a 1 px ink outline and snapped to 8 directions (45°).
+// Characters' drawn parts and the optional pixel-sprite bodies.
 //
-// - Heads (S2h, as in Tree of Savior): every head is flat 2D pixel art (src/render/headArt.ts): a head sheet
-//   plus a face sheet layered on top. There is no 3D head at all; the billboard picks the frames for the side
-//   it's seen from and the face's expression (blinking, talking), so an expression change costs nothing.
-// - Hybrid (default): the body is an unlit 3D mesh with baked shading, under the 2D head.
-// - Sprites (S2b, Graphics > Characters): the body is a billboard too, drawn live from the rig into a small
-//   render target at a sprite frame rate (as in Ragnarok Online), under the same 2D head.
+// - Faces (realistic figures, 2026-10-29): every figure has a low-poly 3D head with a drawn face (src/render/headArt.ts,
+//   Mike's sheets where they exist) on a quad over its front. Expressions (blinking, talking) only move the quad's UVs
+//   to another row of the face sheet, like Mega Man Legends' face textures.
+// - Hybrid (default): the whole figure is an unlit 3D mesh with baked shading.
+// - Sprites (S2b, Graphics > Characters): the body (head and face included) is a billboard, drawn live from the rig
+//   into a small render target at a sprite frame rate (as in Ragnarok Online).
 // The 3D parts a billboard replaces live on SPRITE_LAYER, which the main camera doesn't render.
 
 const SPRITE_LAYER = 3;
@@ -17,40 +17,32 @@ const BODY_PX = 52;           // pixels per metre: a 1.75 m figure is ~90 px tal
 const FPS = 12;               // sprite animation rate
 const DIRS = 8;
 const ELEV = 0.26;            // radians: the sprite artist's viewing angle, a little above eye level
-const HEAD_LIFT = 0.18;       // metres the head billboard sits toward the camera, clear of the shoulders
 const INK = new THREE.Color('#2A2026');
 
 interface Board {
-  rt: THREE.WebGLRenderTarget | null;   // null: a drawn sheet (heads)
+  rt: THREE.WebGLRenderTarget;
   mesh: THREE.Mesh;
   anchor: THREE.Object3D;     // its world position is the frame's reference point
   w: number; h: number; cy: number;   // frame size and centre height above the anchor, metres (unscaled)
   t: number; dir: number;
-  art?: HeadArt; blink?: number; talk?: number;   // heads: their sheets, the next-blink timer, the mouth timer
 }
 
 const vert = /* glsl */`
-uniform vec4 frame;       // xy scale, zw offset: which frame of a sheet
-uniform vec4 faceFrame;   // the same for the face layer
+uniform vec4 frame;       // xy scale, zw offset: which part of the target
 varying vec2 vUv;
-varying vec2 vFaceUv;
 #include <common>
 #include <fog_pars_vertex>
 void main() {
   vUv = uv * frame.xy + frame.zw;
-  vFaceUv = uv * faceFrame.xy + faceFrame.zw;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
 }`;
 const frag = /* glsl */`
 uniform sampler2D map;
-uniform sampler2D faceMap;
-uniform float faceOn;
 uniform vec2 texel;
 uniform vec3 ink;
 varying vec2 vUv;
-varying vec2 vFaceUv;
 #include <common>
 #include <fog_pars_fragment>
 void main() {
@@ -61,7 +53,6 @@ void main() {
     if (n < 0.5) discard;
     c = vec4(ink, 1.0);
   }
-  if (faceOn > 0.5) { vec4 f = texture2D(faceMap, vFaceUv); c.rgb = mix(c.rgb, f.rgb, f.a); }
   gl_FragColor = vec4(c.rgb, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -74,22 +65,20 @@ const tmpV = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpS = new THRE
 const toCam = new THREE.Vector3();
 const clear = new THREE.Color();
 const bodies = new Map<THREE.Object3D, Board>();
-const heads = new Map<THREE.Object3D, Board>();
 
 function shown(o: THREE.Object3D | null): boolean {
   for (; o; o = o.parent) if (!o.visible) return false;
   return true;
 }
 
-function makeBoard(root: THREE.Object3D, anchor: THREE.Object3D, w: number, h: number, cy: number, src: number | THREE.Texture, lift: number, name: string): Board {
-  const rt = typeof src === 'number' ? new THREE.WebGLRenderTarget(Math.ceil(w * src), Math.ceil(h * src), {
+function makeBoard(root: THREE.Object3D, anchor: THREE.Object3D, w: number, h: number, cy: number, px: number, name: string): Board {
+  const rt = new THREE.WebGLRenderTarget(Math.ceil(w * px), Math.ceil(h * px), {
     minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false, depthBuffer: true,
-  }) : null;
-  const map = rt ? rt.texture : src as THREE.Texture;
+  });
+  const map = rt.texture;
   const mat = new THREE.ShaderMaterial({
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
       map: { value: null }, texel: { value: new THREE.Vector2() }, ink: { value: INK.clone() }, frame: { value: new THREE.Vector4(1, 1, 0, 0) },
-      faceMap: { value: null }, faceOn: { value: 0 }, faceFrame: { value: new THREE.Vector4(1, 1, 0, 0) },
     }]),
     vertexShader: vert, fragmentShader: frag, fog: true,
   });
@@ -106,9 +95,8 @@ function makeBoard(root: THREE.Object3D, anchor: THREE.Object3D, w: number, h: n
     anchor.matrixWorld.decompose(tmpV, tmpQ, tmpS);
     const dx = camera.position.x - tmpV.x, dz = camera.position.z - tmpV.z;
     const pitch = Math.atan2(camera.position.y - tmpV.y - 0.8, Math.hypot(dx, dz));
-    if (lift) tmpV.addScaledVector(toCam.subVectors(camera.position, tmpV).normalize(), lift * tmpS.x);
     tmpQ.setFromEuler(tmpE.set(-Math.max(0, pitch), Math.atan2(dx, dz), 0));
-    tmpS.set(tmpS.x * (mesh.userData.wide ?? 1), tmpS.x, tmpS.x);
+    tmpS.set(tmpS.x, tmpS.x, tmpS.x);
     mesh.matrixWorld.compose(tmpV, tmpQ, tmpS);
     mesh.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, mesh.matrixWorld);
     mesh.normalMatrix.getNormalMatrix(mesh.modelViewMatrix);
@@ -122,61 +110,58 @@ function bodyBoard(root: THREE.Object3D): Board {
   if (!b) {
     const height = (root.userData.height as number) ?? 1.75;
     const h = height * 1.3;   // room for raised arms, hats, tails
-    b = makeBoard(root, root, height * 0.95, h, h / 2 - height * 0.08, BODY_PX, 0, 'sprite');
+    b = makeBoard(root, root, height * 0.95, h, h / 2 - height * 0.08, BODY_PX, 'sprite');
     bodies.set(root, b);
   }
   return b;
 }
 
-// The 2D head: frames of the look's head and face sheets. Head units scale by the figure's head size.
-function headBoard(root: THREE.Object3D): Board | null {
-  let b = heads.get(root);
-  const hd = root.userData.head as { anchor: THREE.Object3D; size: number } | undefined;
-  const look = root.userData.look as FigureLook | undefined;
-  if (!b && hd && look) {
-    const s = hd.size, art = headArt(look);
-    b = makeBoard(root, hd.anchor, SHEET.w * s, SHEET.h * s, (SHEET.top - SHEET.h / 2) * s, art.head, HEAD_LIFT, 'head-sprite');
-    b.art = art; b.blink = 1 + Math.random() * 3; b.talk = 0;
-    heads.set(root, b);
-  }
-  return b ?? null;
-}
-
 const BLINK = 0.12, TALK_FPS = 8;
 // Which face to show: root.userData.expression if set (any row of the face sheet), else talking / blinking / neutral.
-function expression(b: Board, root: THREE.Object3D, dt: number): string {
-  b.blink! -= dt;
-  if (b.blink! < -BLINK) b.blink = 2 + Math.random() * 3;
+function expression(b: FaceState, root: THREE.Object3D, dt: number): string {
+  b.blink -= dt;
+  if (b.blink < -BLINK) b.blink = 2 + Math.random() * 3;
   const set = root.userData.expression as string | undefined;
-  if (set && b.art!.faces.has(set)) return set;
-  if (root.userData.talking) { b.talk! += dt; return Math.floor(b.talk! * TALK_FPS) % 2 ? 'talk-b' : 'talk-a'; }
+  if (set && b.art.faces.has(set)) return set;
+  if (root.userData.talking) { b.talk += dt; return Math.floor(b.talk * TALK_FPS) % 2 ? 'talk-b' : 'talk-a'; }
   b.talk = 0;
-  return b.blink! < 0 ? 'blink' : 'neutral';
+  return b.blink < 0 ? 'blink' : 'neutral';
 }
 
-const FRONT_WIDE = [1.2, 1.08, 1, 1, 1, 1, 1, 1.08];
-const setFrame = (v: THREE.Vector4, f: Frame) => v.set(f[0], f[1], f[2], f[3]);
-
-function showHead(b: Board, root: THREE.Object3D, camera: THREE.Camera, dt: number) {
-  const art = b.art!, u = (b.mesh.material as THREE.ShaderMaterial).uniforms;
-  const dir = direction(b, camera);
-  // Re-read every frame: hand-drawn sheets replace the drawn ones once their images load.
-  u.map.value = art.head;
-  const img = art.head.image as { width: number; height: number };
-  u.texel.value.set(1 / img.width, 1 / img.height);
-  setFrame(u.frame.value, art.headFrames[dir]);
-  // v0.06 H1: the front (and a little the ¾) view is drawn wider so the whole face reads, never cropped (the frame
-  // has clear margin either side of the head).
-  b.mesh.userData.wide = FRONT_WIDE[dir];
-  const faces = art.faces.get(expression(b, root, dt)) ?? art.faces.get('neutral');
-  const f = faces?.[dir];
-  u.faceOn.value = art.face && f ? 1 : 0;
-  if (art.face && f) { u.faceMap.value = art.face; setFrame(u.faceFrame.value, f); }
-  b.dir = dir;
+// Realistic figures (2026-10-29): a 3D head with the drawn face on a quad over its front (Mega Man Legends style).
+// The quad shows the middle of the front face cell; an expression change only moves its UVs.
+interface FaceState { art: HeadArt; blink: number; talk: number; f: Frame | null }
+const faceStates = new WeakMap<THREE.Object3D, FaceState>();
+const CROP = { u0: 0.5 - FACE.w / 2 / SHEET.w, u1: 0.5 + FACE.w / 2 / SHEET.w,
+  v0: 1 - (SHEET.top + FACE.drop + FACE.h / 2) / SHEET.h, v1: 1 - (SHEET.top + FACE.drop - FACE.h / 2) / SHEET.h };
+function showFace(root: THREE.Object3D, dt: number) {
+  const face = root.userData.face as THREE.Mesh, m = face.material as THREE.MeshBasicMaterial;
+  let st = faceStates.get(root);
+  if (!st) { st = { art: headArt(root.userData.look as FigureLook), blink: 1 + Math.random() * 3, talk: 0, f: null }; faceStates.set(root, st); }
+  const art = st.art, f = art.faces.get(expression(st, root, dt)) ?? art.faces.get('neutral');
+  if (!art.face || !f) { m.visible = false; return; }
+  if (m.map !== art.face) { m.map = art.face; m.needsUpdate = true; st.f = null; }
+  m.visible = true;
+  if (st.f === f) return;
+  st.f = f;
+  const uv = face.geometry.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) {
+    const a = i % 2, b = i < 2 ? 1 : 0;   // PlaneGeometry corners: (0,1) (1,1) (0,0) (1,0)
+    const cu = CROP.u0 + a * (CROP.u1 - CROP.u0), cv = CROP.v0 + b * (CROP.v1 - CROP.v0);
+    uv.setXY(i, cu * f[0] + f[2], cv * f[1] + f[3]);
+  }
+  uv.needsUpdate = true;
+}
+/** The expression a realistic figure's face shows now (tests). */
+export function faceExpression(root: THREE.Object3D): string | null {
+  const st = faceStates.get(root), f = st?.f;
+  if (!st || !f) return null;
+  for (const [name, frame] of st.art.faces) if (frame === f) return name;
+  return null;
 }
 
 let spriteMode = false;
-/** true = pixel-sprite bodies, false = hybrid 3D bodies (default); heads are 2D either way. */
+/** true = pixel-sprite bodies, false = hybrid 3D bodies (default). */
 export function setSpriteCharacters(on: boolean) { spriteMode = on; }
 
 // Hybrid: the body on the main camera. Sprites: the body on the sprite layer. Bodies are unlit (light
@@ -185,7 +170,7 @@ function applyMode(root: THREE.Object3D) {
   root.userData.spriteMode = spriteMode;
   root.traverse((o) => {
     const m = o as THREE.Mesh;
-    if (!m.isMesh || m.name === 'sprite' || m.name === 'head-sprite' || m.name === 'blob-shadow') return;
+    if (!m.isMesh || m.name === 'sprite' || m.name === 'blob-shadow') return;
     m.layers.set(spriteMode ? SPRITE_LAYER : 0);
   });
   const b = bodies.get(root);
@@ -235,8 +220,7 @@ export function updateSprites(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   for (const root of roots) {
     if (!shown(root)) continue;
     root.updateWorldMatrix(true, true);   // this frame's pose; cheaper than updating the whole scene
-    const h = headBoard(root);
-    if (h) { h.mesh.visible = true; showHead(h, root, camera, dt); }
+    if (root.userData.face) showFace(root, dt);
     if (!spriteMode) continue;
     const b = bodyBoard(root);
     b.mesh.visible = true;

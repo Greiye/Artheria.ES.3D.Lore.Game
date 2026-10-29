@@ -33,7 +33,8 @@ const place = (x, z, yaw = 0) => G(page, ([x, z, yaw]) => { const p = window.__g
 await place(0, 9);
 await page.waitForTimeout(1500);
 const c0 = await cam();
-check('v0.05 starts in the overhead view, above and behind the player', c0.third && c0.view === 'overhead' && c0.up > 3 && c0.d > 6 && await G(page, () => window.__gametool.rig.step === 2), JSON.stringify(c0));
+// 2026-10-29: the overhead view came closer (realistic figures: faces must read), about 5.5 m back and 2 m up.
+check('v0.05 starts in the overhead view, above and behind the player', c0.third && c0.view === 'overhead' && c0.up > 1.6 && c0.d > 4.5 && await G(page, () => window.__gametool.rig.step === 2), JSON.stringify(c0));
 check('S1 the overhead view frees the cursor (no pointer lock, no crosshair)', await G(page, () => !document.pointerLockElement && getComputedStyle(document.getElementById('crosshair')).display === 'none'));
 await page.mouse.move(640, 300);
 const wheel = async (n, dy) => { for (let i = 0; i < n; i++) { await page.mouse.wheel(0, dy); await page.waitForTimeout(150); } };
@@ -98,7 +99,8 @@ check('S1 dragging turns the camera around the player', Math.abs((await G(page, 
 const wall = await G(page, () => { const c = window.__gametool.world.colliders.find((c) => c.kind !== 'circle' && c.maxX - c.minX > 3 && c.minX > -40 && c.maxX < 40); return c && { x: (c.minX + c.maxX) / 2, z: c.maxZ }; });
 await G(page, () => window.__gametool.rig.setStep(2));
 await place(wall.x, wall.z + 0.7, Math.PI);   // facing away from the wall: the follow camera's spot is inside it
-await page.waitForTimeout(1500);
+// The camera eases back out after a pull-in; give slow software frames time to settle.
+await until(page, () => { const g = window.__gametool; return g.player.body.visible && g.camera.position.distanceTo(g.player.eyePos) > 1 && g.camera.position.y - g.player.pos.y > 2; }, null, 10000);
 const cw = await G(page, () => { const g = window.__gametool; return { third: g.player.thirdPerson, body: g.player.body.visible, eye: g.camera.position.distanceTo(g.player.eyePos), up: g.camera.position.y - g.player.pos.y }; });
 check('v0.04 backed against a wall the camera stays third person, cranes up and keeps the body in view', cw.third && cw.body && cw.eye > 1 && cw.up > 2, JSON.stringify({ wall, ...cw }));
 
@@ -131,7 +133,7 @@ await G(page, () => window.__gametool.exitDungeon());
 
 // ---------- S2c hybrid characters, S2b sprite option ----------
 const figs = () => G(page, () => {
-  const out = { figures: 0, boards: 0, bodies3d: 0, heads3d: 0, headBoards: 0, drawnHeads: 0, nearest: true };
+  const out = { figures: 0, boards: 0, bodies3d: 0, faces: 0, headBoards: 0, nearest: true };
   const cam = window.__gametool.camera;
   window.__gametool.world.scene.traverse((o) => {
     if (!o.userData.sprite) return;
@@ -140,38 +142,34 @@ const figs = () => G(page, () => {
     out.figures++;
     o.traverse((c) => {
       if (c.name === 'sprite' && c.visible) { out.boards++; out.nearest &&= c.material.uniforms.map.value.magFilter === 1003; }
-      if (c.name === 'head-sprite' && c.visible) {
-        const map = c.material.uniforms.map.value;
-        out.headBoards++; out.nearest &&= map.magFilter === 1003;
-        if (map.image.height === 104 && c.material.uniforms.faceMap.value) out.drawnHeads++;   // a head sheet with a face sheet
-      }
+      if (c.name === 'head-sprite' && c.visible) out.headBoards++;
       if (c.name === 'figure-body' && c.layers.test(cam.layers)) out.bodies3d++;
-      if (c.name === 'figure-head' || c.name === 'face') out.heads3d++;
+      // The drawn face quad on the 3D head, showing a 96 × 104 px face cell's sheet.
+      if (c.name === 'figure-face' && c.material.visible && c.material.map?.image?.height % 104 === 0) out.faces++;
     });
   });
   return out;
 });
 const hy = await figs();
-check('S2h default: every character is a 3D body under a flat 2D head (head + face sheets); no 3D head exists', hy.figures >= 3 && hy.bodies3d === hy.figures && hy.headBoards === hy.figures && hy.drawnHeads === hy.figures && hy.heads3d === 0 && hy.boards === 0 && hy.nearest, JSON.stringify(hy));
-// Face swap: an expression only moves the face layer to another row of its sheet. Read the heads seen from the
-// front side (the back shows no face).
-const faceRows = () => G(page, () => { const r = []; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) r.push(o.material.uniforms.faceFrame.value.w); }); return r; });
+check('Realistic figures (2026-10-29): every character is one 3D body with a 3D head wearing a drawn face sheet; no 2D head billboards', hy.figures >= 3 && hy.bodies3d === hy.figures && hy.faces === hy.figures && hy.headBoards === 0 && hy.boards === 0, JSON.stringify(hy));
+// Face swap (Mega Man Legends style): an expression only moves the face quad's UVs to another row of its sheet.
+const exprs = () => G(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face && o.userData.face.material.visible) { let v = true; for (let a = o; a; a = a.parent) v &&= a.visible; if (v) r.push(g.figureKit.faceExpression(o)); } }); return r; });
 // A bark can have someone mid-word (talk-b) at any moment: wait for a frame where nobody is talking.
-await until(page, () => { const r = []; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) r.push(o.material.uniforms.faceFrame.value.w); }); return r.length > 0 && r.every((v) => v > 0.01); }, null, 6000);
-const rows0 = await faceRows();
+await until(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) r.push(g.figureKit.faceExpression(o)); }); return r.length > 0 && r.every((e) => e === 'neutral' || e === 'blink'); }, null, 6000);
+const rows0 = await exprs();
 await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) o.userData.expression = 'talk-b'; }));
-const swapped = await until(page, () => { let n = 0, moved = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'head-sprite' && o.material.uniforms.faceOn.value) { n++; if (o.material.uniforms.faceFrame.value.w < 0.01) moved++; } }); return n > 0 && moved === n; }, null, 5000);
+const swapped = await until(page, () => { const g = window.__gametool; let n = 0, moved = 0; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) { n++; if (g.figureKit.faceExpression(o) === 'talk-b') moved++; } }); return n > 0 && moved === n; }, null, 5000);
 await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) delete o.userData.expression; }));
-check('Faces swap expressions by frame (talk-b moves every visible face to the last row of its sheet)', rows0.length > 0 && rows0.every((v) => v > 0.01) && swapped, JSON.stringify({ rows0 }));
+check('Faces swap expressions by frame (talk-b moves every visible face to its talk-b row)', rows0.length > 0 && rows0.every((e) => e === 'neutral' || e === 'blink') && swapped, JSON.stringify({ rows0 }));
 const setChars = (v) => G(page, (v) => { const s = document.getElementById('charsSel'); s.value = v; s.dispatchEvent(new Event('change')); }, v);
 await setChars('sprite');
 await until(page, () => { let n = 0, f = 0; window.__gametool.world.scene.traverse((o) => { if (o.userData.sprite) f++; if (o.name === 'sprite' && o.visible) n++; }); return n === f; }, null, 5000);
 const sp = await figs();
-check('S2b Characters > Pixel sprites: every body becomes a nearest-filtered billboard under its 2D head; its 3D rig leaves the main camera', sp.boards === sp.figures && sp.bodies3d === 0 && sp.headBoards === sp.figures && sp.nearest, JSON.stringify(sp));
+check('S2b Characters > Pixel sprites: every body (head and face included) becomes a nearest-filtered billboard; its 3D rig leaves the main camera', sp.boards === sp.figures && sp.bodies3d === 0 && sp.headBoards === 0 && sp.nearest, JSON.stringify(sp));
 await setChars('hybrid');
 await until(page, () => { let n = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'sprite' && o.visible) n++; }); return n === 0; }, null, 5000);
 const back = await figs();
-check('S2c switching back restores the 3D bodies', back.bodies3d === back.figures && back.headBoards === back.figures && back.boards === 0 && await G(page, () => JSON.parse(localStorage.getItem('gametool.settings')).chars === 'hybrid'), JSON.stringify(back));
+check('S2c switching back restores the 3D bodies', back.bodies3d === back.figures && back.faces === back.figures && back.boards === 0 && await G(page, () => JSON.parse(localStorage.getItem('gametool.settings')).chars === 'hybrid'), JSON.stringify(back));
 
 check('Camera: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

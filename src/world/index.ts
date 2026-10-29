@@ -8,7 +8,8 @@ import { buildFigure, buildCoach } from './figure';
 import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
-import { buildTown, townClear, type Town } from './town';
+import { buildTown, townClear, TOWN_LOTS, type Town } from './town';
+import { buildKavik } from './kavik';
 
 // Rebuild R2 (docs/vision.md, docs/rebuild-plan.md): the start glade in the new look.
 // Vintage Story environment (pixel-textured, lit, dense undergrowth) + Mega Man Legends figures
@@ -331,6 +332,9 @@ export function buildWorld(): World {
   };
   place('stagecoach', buildCoach(3.4), -5.0, -2.6, 0.5, 1.5);
   place('hero', buildFigure({ art: 'hero', skin: '#F0C8A0', hair: '#6B3E22', primary: '#3E6FA8', secondary: '#7FA8D0', boots: '#2E4A6E', accent: '#F2C94C', hairStyle: 'spiky' }, 1.8), 3.8, 3.2, -0.6, 0.35);
+  // Kavik (Mike's character, 2026-10-29): watches the dojo's pupils spar, by its door.
+  { const d = TOWN_LOTS.find((l) => l.id === 'dojo')!, c = Math.cos(d.ry), s = Math.sin(d.ry), lx = 0.4, lz = d.d / 2 + 1.5;
+    place('kavik', buildKavik(1.85), d.x + lx * c + lz * s, d.z - lx * s + lz * c, d.ry - 0.5, 0.35); }
   // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
   const NAT = { x: -2.8, z: LIB.front + 1.8 };
   place('natalie', buildFigure({ art: 'natalie', skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);

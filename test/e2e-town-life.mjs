@@ -111,7 +111,7 @@ const fall = await G(page, (f) => {
 check('v0.06 T3 a source fades with distance and is silent past its range', fall.g.every((v, i) => i === 0 || v <= fall.g[i - 1]) && fall.g[0] === 1 && fall.g[5] === 0 && fall.model === 'linear' && fall.max === 16, JSON.stringify(fall));
 check('v0.06 T3 stereo: a source on your right pans right, on your left pans left', fall.right > 0.5 && fall.left < -0.5, JSON.stringify({ r: fall.right, l: fall.left }));
 await G(page, () => { const p = window.__gametool.player; p.pos.set(6, 0, 20); });
-await page.waitForTimeout(400);
+await until(page, () => { const g = window.__gametool, a = g.audio.listener, e = g.player.eyePos; return Math.hypot(e.x - 6, e.z - 20) < 0.5 && Math.hypot(a.x - e.x, a.z - e.z) < 0.5; }, null, 10000);
 const ear = await G(page, () => { const g = window.__gametool; return { a: g.audio.listener, e: g.player.eyePos }; });
 check('v0.06 T3 the listener follows the player\'s head', Math.hypot(ear.a.x - ear.e.x, ear.a.z - ear.e.z) < 0.5, JSON.stringify(ear));
 await G(page, () => window.__gametool.openCampfire());
