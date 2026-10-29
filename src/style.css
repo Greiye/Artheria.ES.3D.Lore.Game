@@ -412,3 +412,8 @@ body[data-ads="1"] .t-cluster [data-act="sprint"], body[data-ads="1"] .t-cluster
   .t-bow { right: calc(16px + 183px + 12px + env(safe-area-inset-right)); grid-template-columns: repeat(2, 52px); }
   .t-bow .t-btn { width: 52px; height: 52px; }
 }
+/* Trait-rolled goblins: health in the dungeon, a red flash when hit. */
+#delveHp { position: absolute; left: calc(16px + env(safe-area-inset-left)); bottom: calc(40px + env(safe-area-inset-bottom)); color: var(--parchment); font-size: 14px;
+  letter-spacing: .05em; text-shadow: 0 1px 2px #000; pointer-events: none; padding: 4px 10px; border-radius: 4px; background: rgba(20,16,14,.45); transition: background .1s; }
+#delveHp.hit { background: rgba(192,80,58,.75); }
+body[data-input="touch"] #delveHp { bottom: auto; top: calc(64px + env(safe-area-inset-top)); }

@@ -141,6 +141,18 @@ export class Dungeon {
     }
     return best;
   }
+  /** Floor (not rock) at world (x, z), with a little margin from the walls. */
+  walkable(x: number, z: number, margin = 0.3): boolean {
+    const L = this.layout;
+    if (!L) return false;
+    for (const [mx, mz] of [[margin, 0], [-margin, 0], [0, margin], [0, -margin]]) {
+      const cx = Math.floor((x + mx - ORIGIN.x) / CELL + N / 2), cy = Math.floor((z + mz - ORIGIN.z) / CELL + N / 2);
+      if (!isFloor(L, cx, cy)) return false;
+    }
+    return true;
+  }
+  /** World position of a room cell. */
+  roomAt(r: Room, dx = 0, dy = 0) { return cellToWorld(r.cx + dx, r.cy + dy); }
   update(t: number) { if (this.flames && this.group.visible) this.flames.scale.y = 1 + Math.sin(t * 17) * 0.03; }
   hideSpots() { this.hits.forEach((h) => { h.visible = false; }); }
 }

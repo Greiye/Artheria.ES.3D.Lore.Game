@@ -1,0 +1,71 @@
+{
+  "archetype": "goblin",
+  "about": "docs/trait-roll-tables.md §3. Edit freely: ranges are die results, threat is the budget cost, tags drive requires/excludes/limits. Rows: range, id, label, rarity, tags, requires, excludes, threat, mods, epithet, roll (another table), sets (forces a row of a later table), limits (allowed tags for a later table).",
+  "base": { "height": 0.95, "hp": 6, "speed": 3.2, "budget": 6 },
+  "order": ["size", "skin", "headgear", "behaviour", "weapon", "accessory"],
+  "epithetOrder": ["headgear", "skin", "weapon", "behaviour", "size", "accessory"],
+  "tables": {
+    "size": { "die": "2d6", "rows": [
+      { "range": [2, 2], "id": "runt", "label": "runt", "tags": ["size:small"], "mods": { "scale": 0.8, "hp": -2, "speed": 0.15 }, "epithet": "the Runt" },
+      { "range": [3, 5], "id": "small", "label": "small", "tags": ["size:small"], "mods": { "scale": 0.9, "hp": -1, "speed": 0.05 } },
+      { "range": [6, 8], "id": "average", "label": "", "mods": {} },
+      { "range": [9, 11], "id": "big", "label": "big", "tags": ["size:big"], "threat": 1, "mods": { "scale": 1.12, "width": 1.1, "hp": 2, "speed": -0.05 }, "epithet": "the Big" },
+      { "range": [12, 12], "id": "brute", "label": "hulking", "rarity": "uncommon", "tags": ["size:big"], "threat": 2, "mods": { "scale": 1.3, "width": 1.25, "hp": 5, "speed": -0.15 }, "epithet": "Orc-Blood" }
+    ] },
+    "skin": { "die": "d20", "rows": [
+      { "range": [1, 9], "id": "moss", "label": "", "mods": { "skin": "#6E8B3D" } },
+      { "range": [10, 14], "id": "olive", "label": "", "mods": { "skin": "#8C9A3E" } },
+      { "range": [15, 17], "id": "swamp", "label": "grey", "mods": { "skin": "#6F7A5C" } },
+      { "range": [18, 19], "id": "ashen", "label": "blue-grey", "rarity": "uncommon", "mods": { "skin": "#6A7E96" }, "epithet": "Ash-Skin" },
+      { "range": [20, 20], "id": "diseased", "label": "sick", "rarity": "rare", "tags": ["diseased"], "threat": 2, "mods": { "skin": "#6A8A42", "hp": 1, "slowOnHit": 1.5 }, "epithet": "the Plague-Crowned" }
+    ] },
+    "headgear": { "die": "d20", "rows": [
+      { "range": [1, 8], "id": "none", "label": "" },
+      { "range": [9, 11], "id": "hood", "label": "in a rag hood", "tags": ["headgear"] },
+      { "range": [12, 13], "id": "pot", "label": "wearing a cooking pot", "tags": ["headgear"], "mods": { "armour": 1 }, "epithet": "Pot-Head" },
+      { "range": [14, 15], "id": "scholar", "label": "in a stolen scholar's cap", "rarity": "uncommon", "tags": ["headgear"], "epithet": "the Scholar" },
+      { "range": [16, 17], "id": "antlers", "label": "under an antler crown", "tags": ["headgear"], "mods": { "shout": 1 }, "epithet": "Antler-Crown" },
+      { "range": [18, 19], "id": "helmet", "label": "in a dented helmet", "tags": ["headgear"], "threat": 1, "mods": { "armour": 1 }, "epithet": "Tin-Lid" },
+      { "range": [20, 20], "id": "feathered", "label": "in an adventurer's feathered hat", "rarity": "rare", "tags": ["headgear"], "sets": { "behaviour": "archer" }, "epithet": "the Dandy" }
+    ] },
+    "behaviour": { "die": "d12", "rows": [
+      { "range": [1, 3], "id": "rusher", "label": "charging", "limits": { "weapon": ["melee", "reach", "thrown"] } },
+      { "range": [4, 5], "id": "skirmisher", "label": "darting", "limits": { "weapon": ["melee", "reach", "thrown", "ranged"] }, "epithet": "Quick-Foot" },
+      { "range": [6, 6], "id": "coward", "label": "nervous", "epithet": "the Yellow" },
+      { "range": [7, 7], "id": "thief", "label": "light-fingered", "limits": { "weapon": ["melee", "reach", "ranged"] }, "epithet": "the Thief" },
+      { "range": [8, 8], "id": "ambusher", "label": "lurking", "epithet": "the Lurker" },
+      { "range": [9, 9], "id": "archer", "label": "sharp-eyed", "limits": { "weapon": ["ranged"] }, "epithet": "Far-Eye" },
+      { "range": [10, 10], "id": "trapper", "label": "sly", "limits": { "weapon": ["trap"] }, "epithet": "the Snare" },
+      { "range": [11, 11], "id": "leader", "label": "loud", "rarity": "uncommon", "threat": 2, "mods": { "leader": 1 }, "limits": { "weapon": ["melee", "reach", "thrown", "ranged"] }, "epithet": "the Loud" },
+      { "range": [12, 12], "id": "mimic", "label": "copycat", "rarity": "rare", "threat": 2, "epithet": "Mirror-Eyes" }
+    ] },
+    "weapon": { "die": "d20", "rows": [
+      { "range": [1, 4], "id": "ladle", "label": "a stolen ladle", "tags": ["melee"], "mods": { "damage": "1", "reach": 1.2, "cooldown": 1.1 }, "epithet": "the Ladle-Thief" },
+      { "range": [5, 8], "id": "sword", "label": "a rusty shortsword", "tags": ["melee"], "threat": 1, "mods": { "damage": "1d4", "reach": 1.3, "cooldown": 1.2 } },
+      { "range": [9, 11], "id": "spear", "label": "a spear made of a stick and a nail", "tags": ["reach"], "threat": 1, "mods": { "damage": "1d4", "reach": 2.0, "cooldown": 1.4 }, "epithet": "Long-Poke" },
+      { "range": [12, 14], "id": "sling", "label": "a sling and a pouch of pebbles", "tags": ["ranged"], "threat": 1, "mods": { "damage": "1", "range": 10, "cooldown": 1.8, "shot": 13 } },
+      { "range": [15, 16], "id": "bow", "label": "a shortbow", "tags": ["ranged"], "threat": 2, "mods": { "damage": "1d4", "range": 14, "cooldown": 2.2, "shot": 20 }, "epithet": "the Archer" },
+      { "range": [17, 18], "id": "bomb", "label": "a bomb pot with a hissing fuse", "tags": ["thrown"], "threat": 2, "mods": { "damage": "1d6", "range": 8, "cooldown": 4, "fuse": 2, "blast": 2 }, "epithet": "Boom" },
+      { "range": [19, 19], "id": "greatclub", "label": "a greatclub", "tags": ["melee"], "requires": ["size:big"], "threat": 3, "mods": { "damage": "1d8", "reach": 1.5, "cooldown": 2.2 }, "epithet": "Skull-Knock" },
+      { "range": [20, 20], "id": "trapkit", "label": "a sack of snares", "tags": ["trap"], "threat": 2, "mods": { "damage": "1", "reach": 1.1, "cooldown": 1.2, "trap": "1d6" } }
+    ] },
+    "accessory": { "die": "d12", "times": 2, "rows": [
+      { "range": [1, 4], "id": "none", "label": "" },
+      { "range": [5, 5], "id": "teeth", "label": "a tooth necklace", "socket": "neck" },
+      { "range": [6, 6], "id": "spoons", "label": "a belt of spoons", "socket": "hip_l", "epithet": "Spoon-Belt" },
+      { "range": [7, 7], "id": "eyepatch", "label": "an eyepatch", "socket": "face", "mods": { "aim": -0.1 }, "epithet": "One-Eye" },
+      { "range": [8, 8], "id": "lantern", "label": "a lantern on a stick", "socket": "back", "mods": { "light": 1 } },
+      { "range": [9, 9], "id": "sack", "label": "a sack of loot", "socket": "back", "mods": { "crowns": 2 } },
+      { "range": [10, 10], "id": "bandolier", "label": "a bandolier of stolen bolts", "socket": "chest", "mods": { "bolts": 3 } },
+      { "range": [11, 11], "id": "potlid", "label": "a pot-lid shield", "socket": "hand_l", "mods": { "block": 1 } },
+      { "range": [12, 12], "id": "trinket", "label": "", "socket": "hip_r", "roll": "trinket" }
+    ] },
+    "trinket": { "die": "d6", "rows": [
+      { "range": [1, 2], "id": "page", "label": "a torn red-book page" },
+      { "range": [3, 4], "id": "glasseye", "label": "a glass eye on a string" },
+      { "range": [5, 6], "id": "bell", "label": "a little brass bell" }
+    ] }
+  },
+  "names": ["Grub", "Snik", "Moll", "Rattle", "Pib", "Gutch", "Nib", "Skree", "Wort", "Fen", "Tuck", "Brack", "Imp", "Scab", "Dob", "Mire", "Klik", "Wick", "Nettle", "Soot"],
+  "epithets": ["the Loud", "Three-Toes", "the Sneak", "Mud-Foot", "the Hungry", "Snaggle-Tooth", "the Quick", "Bent-Ear", "the Grinner", "Wet-Nose", "the Biter", "Half-Ear", "the Lucky", "Rag-Tail", "the Small", "Knock-Knee", "the Sour", "Gristle", "the Chewer", "Ink-Fingers"]
+}

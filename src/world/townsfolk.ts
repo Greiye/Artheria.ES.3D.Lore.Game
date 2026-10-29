@@ -1,7 +1,9 @@
 import * as THREE from 'three';
-import { buildFigure, type FigureLook } from './figure';
+import { buildFigure } from './figure';
 import { GREEN, TOWN_LOTS, WELL, CINEMA_SPOT, type TownId } from './town';
 import type { Pose } from '../anim/procedural';
+import { rollTownsfolk } from '../traits/townsfolk';
+import { seedOf } from '../traits/roll';
 
 // v0.06 T1: placeholder townsfolk (role names only, never in the lore: placeholder-names.md). Walkers go from door
 // to door round a loop on the green that clears the well, the lamp posts and the lots; two pupils spar and one
@@ -21,7 +23,6 @@ export interface Folk {
 }
 
 const LOOP = { rx: 15, rz: 3.6 };   // the walkers' oval: inside the lamp posts (~0.8 of the ring), outside the well
-const WALK_SPEED = 1.35;
 const loopAt = (a: number, out = new THREE.Vector3()) => out.set(GREEN.x + LOOP.rx * Math.sin(a), 0, GREEN.z - LOOP.rz * Math.cos(a));
 const loopAngle = (x: number, z: number) => Math.atan2((x - GREEN.x) / LOOP.rx, -(z - GREEN.z) / LOOP.rz);
 const lot = (id: TownId) => TOWN_LOTS.find((l) => l.id === id)!;
@@ -30,17 +31,8 @@ const lotAt = (id: TownId, lx: number, lz: number) => { const L = lot(id), c = M
 /** Just in front of a lot's door step, on the green side. */
 const doorStep = (id: TownId) => lotAt(id, 0, lot(id).d / 2 + 1.5);
 
-const PALETTE: FigureLook[] = [
-  { skin: '#E8C0A0', hair: '#5A3A22', primary: '#7A4A3A', secondary: '#E8D8B8', boots: '#3A2A1E', accent: '#C9A36B', hairStyle: 'short' },
-  { skin: '#C89070', hair: '#1E1A18', primary: '#3E5A44', secondary: '#D8C8A0', boots: '#2A221C', accent: '#8A6A3A', hairStyle: 'long', skirt: true },
-  { skin: '#F0D0B8', hair: '#C8A060', primary: '#5A4A7A', secondary: '#E0D0C0', boots: '#2E2A30', accent: '#B8935A', hairStyle: 'topknot' },
-  { skin: '#A87050', hair: '#2A2420', primary: '#8A6A3A', secondary: '#F0E0C0', boots: '#3A2E22', accent: '#6A4A2A', hairStyle: 'cap' },
-  { skin: '#E0B090', hair: '#8A4A2A', primary: '#4A6A8A', secondary: '#E8E0D0', boots: '#2A2A2E', accent: '#C9A36B', hairStyle: 'hood' },
-  { skin: '#D8A880', hair: '#B8B0A0', primary: '#6A3A3A', secondary: '#D8C8A8', boots: '#3A2A1E', accent: '#A88A5A', hairStyle: 'bald', build: 1.2 },
-  { skin: '#F2D6C0', hair: '#3A2A1E', primary: '#7A6A3A', secondary: '#E8D8B0', boots: '#2E241C', accent: '#5A7A4A', hairStyle: 'spiky' },
-];
 
-interface Brain { route: THREE.Vector3[]; i: number; wait: number; at: TownId | null; talkT: number; face: number | null; turn: number }
+interface Brain { route: THREE.Vector3[]; i: number; wait: number; at: TownId | null; talkT: number; face: number | null; turn: number; speed: number; linger: number; idlePose: Pose | null }
 
 export class Townsfolk {
   readonly folk: Folk[] = [];
@@ -54,14 +46,18 @@ export class Townsfolk {
     this.group.name = 'townsfolk';
     scene.add(this.group);
     let n = 0;
-    const add = (name: string, role: FolkRole, pos: THREE.Vector3, yaw: number, height = 1.62 + (n % 3) * 0.08) => {
-      const root = buildFigure(PALETTE[n % PALETTE.length], height);
+    // Trait rolls: a new crowd every time the game loads (height, build, skin, hair, clothes, pace, habit).
+    const run = (Math.random() * 2 ** 31) | 0;
+    const add = (name: string, role: FolkRole, pos: THREE.Vector3, yaw: number) => {
+      const r = rollTownsfolk(seedOf(run, n));
+      const root = buildFigure(r.look, r.height);
       root.position.copy(pos); root.rotation.y = yaw; root.name = 'folk:' + name;
       const f: Folk = { id: 'folk:' + n++, name, role, root, speed: 0, talking: false, pose: null, active: true };
       root.userData.folk = f;
       this.group.add(root);
       this.folk.push(f);
-      this.brains.set(f, { route: [], i: 0, wait: 1 + (n % 4), at: null, talkT: (n % 3) * 1.1, face: null, turn: yaw });
+      this.brains.set(f, { route: [], i: 0, wait: 1 + (n % 4), at: null, talkT: (n % 3) * 1.1, face: null, turn: yaw, speed: r.speed, linger: r.wait, idlePose: r.idlePose });
+      root.userData.traits = r.v;
       return f;
     };
     const face = (a: THREE.Vector3, b: THREE.Vector3) => Math.atan2(b.x - a.x, b.z - a.z);
@@ -139,16 +135,18 @@ export class Townsfolk {
     const p = f.root.position;
     if (b.i >= b.route.length) {
       f.speed = 0;
+      f.pose = b.idlePose;   // a habit: some read at every door
       if (b.face !== null) f.root.rotation.y = turnToward(f.root.rotation.y, b.face, dt * 4);
       if ((b.wait -= dt) > 0) return;
       // Pick another door and plan: out to the loop, round it the short way, in to the door.
       const others = TOWN_LOTS.filter((l) => l.id !== b.at), next = others[Math.floor(Math.random() * others.length)].id;
       b.route = route(p, doorStep(next));
-      b.i = 0; b.at = next; b.wait = 3 + Math.random() * 4;
+      b.i = 0; b.at = next; b.wait = Math.max(0.5, 3 + Math.random() * 4 + b.linger);
+      f.pose = null;
       const L = lot(next); b.face = L.ry + Math.PI;   // at the door, face it (lots face the green)
     }
-    const goal = b.route[b.i], dx = goal.x - p.x, dz = goal.z - p.z, d = Math.hypot(dx, dz), step = WALK_SPEED * dt;
-    f.speed = WALK_SPEED;
+    const goal = b.route[b.i], dx = goal.x - p.x, dz = goal.z - p.z, d = Math.hypot(dx, dz), step = b.speed * dt;
+    f.speed = b.speed;
     f.root.rotation.y = turnToward(f.root.rotation.y, Math.atan2(dx, dz), dt * 6);
     if (d <= step) { p.set(goal.x, 0, goal.z); b.i++; }
     else { p.x += dx / d * step; p.z += dz / d * step; }
