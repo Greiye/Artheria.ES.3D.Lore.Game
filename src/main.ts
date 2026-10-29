@@ -60,7 +60,8 @@ import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel, buildScreen } from './cinema';
-import { TOWN_NAMES, GATE, WELL, TOWN_LOTS, type TownId } from './world/town';
+import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
+import { BRIDGES, riverX } from './world/river';
 import { Townsfolk } from './world/townsfolk';
 import { NightLights } from './world/nightlights';
 import { Ambience, type Zone } from './ambience';
@@ -1343,11 +1344,12 @@ function openCinema() { enterForge(); cinema.open(); }
 cinema.onVideo = (v) => { const p = reelScreen.position; audio.attachMedia(v, 'cinema', p.x, p.y, p.z, 24); };
 let fireOut: AudioNode | null = null;
 campfire.out = () => (fireOut ??= audio.spatial('campfire', world.stations.campfire.position.x, 0.8, world.stations.campfire.position.z, 26, 'music'));
-// v0.06 T2: ambience zones. Birdsong in a spread of trees, the well's water, the smithy's hammer, chatter at the store.
+// v0.06 T2: ambience zones. Birdsong in a spread of trees, the fountain's and the river's water, the smithy's hammer, chatter at the store.
 const lotFront = (id: TownId, out: number) => { const L = TOWN_LOTS.find((l) => l.id === id)!; return { x: L.x + Math.sin(L.ry) * (L.d / 2 + out), z: L.z + Math.cos(L.ry) * (L.d / 2 + out) }; };
 const zones: Zone[] = [];
 for (const [x, z] of world.trees) if (zones.length < 8 && Math.hypot(x, z) < 46 && zones.every((q) => Math.hypot(q.x - x, q.z - z) > 18)) zones.push({ name: `birds:${zones.length}`, kind: 'birds', x, y: 5, z, range: 15 });
-zones.push({ name: 'well', kind: 'water', x: WELL.x, y: 0.5, z: WELL.z, range: 9 });
+zones.push({ name: 'fountain', kind: 'water', x: FOUNTAIN.x, y: 0.8, z: FOUNTAIN.z, range: 9 });
+for (const b of BRIDGES) zones.push({ name: `river:${b.z}`, kind: 'water', x: riverX(b.z), y: 0.2, z: b.z, range: 14 });
 { const s = lotFront('smithy', 0.5); zones.push({ name: 'forge', kind: 'forge', x: s.x, y: 1, z: s.z, range: 16 }); }
 { const s = lotFront('shop', 2.3); zones.push({ name: 'chatter', kind: 'chatter', x: s.x, y: 1.5, z: s.z, range: 11 }); }
 const ambience = new Ambience(zones);
