@@ -114,12 +114,12 @@ export class FigureAnim {
     const k = w.pose;
     B.root.rotation.set(0, 0, 0); B.root.position.set(0, 0, 0);
     if (k < 0.002) return;
-    const H = this.rest.hips.y / 0.72, pt = this.poseT;   // figure height unit (hips at 0.72 of 1.75 m, src/world/figure.ts RIG)
+    const H = this.rest.hips.y / 0.93, pt = this.poseT;   // figure height unit (hips at 0.93 of 1.75 m, src/world/figure.ts RIG)
     const L = THREE.MathUtils.lerp;
     const set = (b: BoneName, x: number, y = 0, z = 0) => { const r = B[b].rotation; r.set(L(r.x, x, k), L(r.y, y, k), L(r.z, z, k)); };
     if (this.pose === 'stance' || this.pose === 'punch') {
       set('thighN', -0.95, 0, -0.5); set('thighP', -0.95, 0, 0.5); set('shinN', 1.05); set('shinP', 1.05);
-      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.2 * H, k);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.24 * H, k);
       set('spine', 0.05); set('head', -0.05);
       if (this.pose === 'stance') { set('armN', 0.35, 0, -0.15); set('armP', 0.35, 0, 0.15); set('foreN', -1.8); set('foreP', -1.8); }
       else {
@@ -130,7 +130,7 @@ export class FigureAnim {
       }
     } else if (this.pose === 'hang') {
       // Upside down from the bar by the knees; curl up toward the knees and back down.
-      B.root.rotation.z = Math.PI * k; B.root.position.y = (2.3 + 0.4 * H) * k;   // knees hooked over the bar (2.3 m)
+      B.root.rotation.z = Math.PI * k; B.root.position.y = (2.3 + 0.49 * H) * k;   // knees hooked over the bar (2.3 m)
       const c = 0.5 - 0.5 * Math.cos(pt * 2.2);
       set('thighN', 0); set('thighP', 0); set('shinN', 1.7); set('shinP', 1.7);
       set('spine', -1.25 * c); set('head', -0.4 * c);
@@ -144,13 +144,13 @@ export class FigureAnim {
     } else if (this.pose === 'sit') {
       // On a log seat (about 0.4 m): thighs level, shins down, forearms on the knees, a slow sway to the music.
       set('thighN', -1.45, 0, -0.12); set('thighP', -1.45, 0, 0.12); set('shinN', 1.5); set('shinP', 1.5);
-      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.31 * H, k);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.39 * H, k);
       set('spine', 0.16, Math.sin(pt * 1.4) * 0.05); set('head', 0.08 + Math.sin(pt * 1.4 + 0.6) * 0.04);
       set('armN', -0.7, 0, -0.1); set('armP', -0.7, 0, 0.1); set('foreN', -0.75); set('foreP', -0.75);
     } else if (this.pose === 'kneel') {
       // On the bedroll: knees down, sitting back on the heels, head bowed.
       set('thighN', -0.2, 0, -0.08); set('thighP', -0.2, 0, 0.08); set('shinN', 1.75); set('shinP', 1.75);
-      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.36 * H, k);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.5 * H, k);
       set('spine', 0.22); set('head', 0.35);
       set('armN', -0.45, 0, -0.05); set('armP', -0.45, 0, 0.05); set('foreN', -0.5); set('foreP', -0.5);
     } else if (this.pose === 'smith') {
