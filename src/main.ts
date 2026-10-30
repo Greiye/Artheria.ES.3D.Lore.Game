@@ -203,7 +203,13 @@ ui.innerHTML = `
   </div>
   <div id="vignette"></div>
   <div id="sleepFade"></div>
-  <div id="rotateHint">⟳ Turn your phone sideways to play</div>
+  <div id="rotateAsk" role="dialog" aria-label="Turn your phone sideways">
+    <div class="ra-phone" aria-hidden="true"></div>
+    <p>Turn your phone sideways</p>
+    <span>Artheria plays in landscape.</span>
+    <button id="rotateTurn" class="primary hidden">Turn it for me</button>
+    <button id="rotateOk" class="secondary">Play upright anyway</button>
+  </div>
   <div id="readHint">⟳ Turn your phone upright to scroll the pages</div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
@@ -455,7 +461,7 @@ async function begin() {
   audio.water(false);
   setView('overhead');                          // v0.06 M7: every Begin starts in the overhead camera
   setState('play');                             // in the world immediately, even before lock resolves
-  if (wantWhatsNew && !whatsNew.shown) { enterForge(); whatsNew.open(() => leaveForge()); }   // v0.06 M6: once a session
+  // Mike 2026-10-30: Begin goes straight into the game. What's new moved to Extras (it read as a menu in the way).
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
     // Android: go fullscreen. iPhone Safari has no element fullscreen; Add to Home Screen does it.
@@ -1688,7 +1694,7 @@ const extras = new Extras(() => { setState('title'); focusMenu(1); });
 extras.onWrite = () => { extras.el.classList.add('hidden'); openEditor(); };   // v0.06: Write lore moved from the main menu to Extras
 // v0.06 M6: What's new, once per session on Begin. Automated test browsers skip it unless a test asks.
 const whatsNew = new WhatsNew(promptOfTheDay());
-const wantWhatsNew = (() => { try { return !navigator.webdriver || localStorage.getItem('gametool.whatsnew') === 'on'; } catch { return !navigator.webdriver; } })();
+extras.onWhatsNew = () => { extras.el.classList.add('hidden'); whatsNew.open(() => { extras.open(); focusMenu(0); }); };
 $('openExtras').addEventListener('click', () => { show('title', false); extras.open(); focusMenu(0); });
 
 // Pause → Controls: rebind the keyboard. Click a key, then press the new one (Esc cancels).
@@ -1831,6 +1837,28 @@ const touch: TouchControls | null = new TouchControls(hooks);
 const gamepad = new GamepadControls(hooks, () => settings.sensitivity);
 gamepad.onFamily = () => syncGlyphs();
 document.body.dataset.input = inputMode;
+// Mike 2026-10-30: from the very first screen, a phone held upright is asked to turn sideways. The card goes away
+// by itself in landscape; "Play upright anyway" keeps it away for this session. Where the browser can lock the
+// orientation (Android, in fullscreen), "Turn it for me" does it.
+{
+  type Lockable = ScreenOrientation & { lock?: (o: string) => Promise<void> };
+  const canLock = !!document.documentElement.requestFullscreen && typeof (screen.orientation as Lockable | undefined)?.lock === 'function';
+  if (canLock) $('rotateTurn').classList.remove('hidden');
+  // Automated test browsers skip it (their phone viewports are upright) unless a test asks: localStorage gametool.rotateask = 'on'.
+  try { if (sessionStorage.getItem('gametool.upright') === 'ok' || (navigator.webdriver && localStorage.getItem('gametool.rotateask') !== 'on')) document.body.dataset.upright = 'ok'; }
+  catch { if (navigator.webdriver) document.body.dataset.upright = 'ok'; }
+  $('rotateOk').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.body.dataset.upright = 'ok';
+    try { sessionStorage.setItem('gametool.upright', 'ok'); } catch { /* private mode */ }
+  });
+  $('rotateTurn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+      .then(() => (screen.orientation as Lockable).lock?.('landscape'))
+      .catch(() => undefined);
+  });
+}
 
 // ---------- keyboard (F2.1) ----------
 const MOVE: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'sprint'];

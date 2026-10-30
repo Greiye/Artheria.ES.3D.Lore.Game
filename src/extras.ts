@@ -27,6 +27,8 @@ export class Extras {
   index = 0;
   /** v0.06: Write lore lives here now (the main menu is Begin, Extras, Options). */
   onWrite = () => {};
+  /** Mike 2026-10-30: What's new opens from here (it no longer pops up on Begin). */
+  onWhatsNew = () => {};
   private seeking = false;   // a smooth scroll we started is still on its way
 
   constructor(private onClose: () => void) {
@@ -41,6 +43,7 @@ export class Extras {
       else if (b.dataset.go) this.go(this.index + Number(b.dataset.go));
       else if (b.dataset.act === 'back') this.back();
       else if (b.dataset.act === 'write') this.onWrite();
+      else if (b.dataset.act === 'whatsnew') this.onWhatsNew();
     });
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
@@ -57,6 +60,7 @@ export class Extras {
         <button class="primary" data-tab="inspirations">Inspirations</button>
         <button class="secondary" data-tab="evolution">Evolution of the game</button>
         <button class="secondary" id="writeLoreTitle" data-act="write">Write lore</button>
+        <button class="secondary" id="whatsNewBtn" data-act="whatsnew">What's new</button>
         ${back}</div>`;
     } else if (tab === 'inspirations') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Inspirations</h1>

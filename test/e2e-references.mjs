@@ -118,8 +118,9 @@ const mErr = [];
 mp.on('pageerror', (e) => mErr.push(e.message));
 await mp.goto(`http://127.0.0.1:${server.address().port}/` + path.basename(file));
 await mp.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
+await until(mp, () => (window.__gametool.animators.get('witch')?.mixer.time ?? 0) > 0.3, null, 30000);   // measured as the game shows her, idling
 const models = await G(mp, async () => { const g = window.__gametool; await g.modelsReady; const pack = await g.forestPack;
-  const size = (id) => { const h = g.loadedModels.get(id); if (!h) return 0; g.animators.get(id)?.update(0.05); h.updateWorldMatrix(true, true); h.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); } }); const b = new g.Box3().setFromObject(h); return +(b.max.y - b.min.y).toFixed(2); };   // skinned bounds follow the bones
+  const size = (id) => { const h = g.loadedModels.get(id); if (!h) return 0; h.updateWorldMatrix(true, true); h.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); } }); const b = new g.Box3().setFromObject(h); return +(b.max.y - b.min.y).toFixed(2); };   // skinned bounds follow the bones
   let witchTris = 0; g.loadedModels.get('witch')?.traverse((o) => { if (o.isMesh) witchTris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
   const big = []; pack?.mesh.traverse((o) => { if (o.isMesh && o.material.map) { const i = o.material.map.image; if (i.width > 512 || i.height > 512) big.push(i.width + 'x' + i.height); } });
   return { witch: size('witch'), witchAnim: g.animators.get('witch')?.current, witchTris, witchHidden: !g.world.standees.witch.visible, sword: size('sword'),
@@ -132,6 +133,24 @@ const credits = await G(page, () => { const g = window.__gametool; g.extras.open
 check('Extras credits Quaternius (CC0) and 99.Miles (CC BY 4.0)', /Quaternius/.test(credits) && /CC0/.test(credits) && /99\.Miles/.test(credits) && /CC BY 4\.0/.test(credits));
 check('No page errors with the models loaded', mErr.length === 0, mErr.slice(0, 3).join(' | '));
 server.close();
+
+// ---------- Mike 2026-10-30: a phone held upright is asked to turn sideways from the first screen ----------
+const phone = async (w, h) => {
+  const c = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+  await c.addInitScript(() => localStorage.setItem('gametool.rotateask', 'on'));
+  const pg = await c.newPage();
+  await pg.goto('file://' + file);
+  await pg.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
+  return pg;
+};
+const up = await phone(390, 844);
+const shownUp = await G(up, () => getComputedStyle(document.getElementById('rotateAsk')).display !== 'none');
+await up.tap('#rotateOk');
+const gone = await G(up, () => getComputedStyle(document.getElementById('rotateAsk')).display === 'none');
+const side = await phone(844, 390);
+const shownSide = await G(side, () => getComputedStyle(document.getElementById('rotateAsk')).display !== 'none');
+check('Upright phone: "Turn your phone sideways" shows at start; "Play upright anyway" dismisses it; sideways it never shows', shownUp && gone && !shownSide, JSON.stringify({ shownUp, gone, shownSide }));
+await up.context().close(); await side.context().close();
 
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
