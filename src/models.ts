@@ -73,6 +73,13 @@ export async function fillSlot(slot: ModelSlot): Promise<boolean> {
   if (!availableModels.has(slot.id)) return false;
   const model = await loadModel(slot.id);
   if (!model) return false;
+  // A model with clips is measured in its idle pose (what the player sees), and skinned meshes through their
+  // bones (the Quaternius rigs scale the armature 100×), so the pose and world matrices must be current first.
+  const clips = model.userData.clips as THREE.AnimationClip[] | undefined;
+  const animator = clips?.length ? new Animator(model, clips) : null;
+  animator?.update(0);
+  model.updateMatrixWorld(true);
+  model.traverse((o) => { const sm = o as THREE.SkinnedMesh; if (sm.isSkinnedMesh) { sm.skeleton.update(); sm.computeBoundingBox(); } });   // bone matrices, normally refreshed at render
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
   const k = size.y > 1e-6 ? slot.height / size.y : 1;
@@ -90,8 +97,7 @@ export async function fillSlot(slot: ModelSlot): Promise<boolean> {
   slot.placeholder.visible = false;
   slot.placeholder.userData.replacedBy = holder;
   loadedModels.set(slot.id, holder);
-  const clips = model.userData.clips as THREE.AnimationClip[] | undefined;
-  if (clips?.length) animators.set(slot.id, new Animator(model, clips));
+  if (animator) animators.set(slot.id, animator);
   return true;
 }
 

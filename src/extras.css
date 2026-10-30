@@ -15,3 +15,8 @@
 .evo-nav { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .evo-nav button { min-width: 48px; font-size: 22px; }
 .evo-count { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* References review: asset credits under the Inspirations list. */
+.credits-head { font-size: 1rem; margin: 1.2rem 0 0.4rem; }
+.asset-credits { margin: 0 0 1rem; padding-left: 1.1rem; text-align: left; line-height: 1.45; font-size: 0.9rem; }
+.asset-credits a { color: inherit; }

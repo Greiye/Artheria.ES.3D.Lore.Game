@@ -82,27 +82,29 @@ check('v0.06 P1 keyboard: arrows move, → opens Sound, ← / → step the slide
   JSON.stringify({ onSound, inSound, m0, m1, muted, m2, backOut }));
 await G(page, () => { const g = window.__gametool; g.settings.audio.muteMaster = false; g.audio.setMuted('master', false); });
 
-// ---------- M6 What's new, M7 overhead start ----------
-await page.click('#begin');
-const wn = await until(page, () => window.__gametool.state === 'forge' && !document.querySelector('#whatsNew').classList.contains('hidden'), null, 6000);
+// ---------- Begin goes straight in (Mike 2026-10-30), What's new from Extras, M7 overhead start ----------
+const beginBig = await G(page, () => { const h = (id) => document.getElementById(id).getBoundingClientRect().height, f = (id) => parseFloat(getComputedStyle(document.getElementById(id)).fontSize);
+  return f('begin') > f('openExtras') && f('begin') > f('openSettingsTitle') && h('begin') > h('openExtras'); });
+check('Begin is the biggest option on the start menu', beginBig);
+await page.click('#openExtras');
+await page.click('#whatsNewBtn');
+const wn = await until(page, () => window.__gametool.state === 'title' && !document.querySelector('#whatsNew').classList.contains('hidden'), null, 6000);
 const notes = await G(page, () => [...document.querySelectorAll('#whatsNew .wn-ver')].map((d) => ({ v: d.dataset.v, open: d.open, n: d.querySelector('.wn-body').textContent.length })));
 const prompt = await G(page, () => document.querySelector('#whatsNew #dailyPrompt').textContent === window.__gametool.dailyPrompt);
-check('v0.06 M6 Begin shows What\'s new: v0.06 open on top, v0.05…v0.01 collapsed, from CHANGELOG.md; today\'s prompt at the foot', wn && notes[0]?.v === '0.06' && notes[0].open && notes[0].n > 200 && ['0.05', '0.04', '0.03', '0.02', '0.01'].every((v) => notes.some((n) => n.v === v && !n.open)) && prompt, JSON.stringify(notes));
+check('v0.06 M6 Extras → What\'s new: v0.06 open on top, v0.05…v0.01 collapsed, from CHANGELOG.md; today\'s prompt at the foot', wn && notes[0]?.v === '0.06' && notes[0].open && notes[0].n > 200 && ['0.05', '0.04', '0.03', '0.02', '0.01'].every((v) => notes.some((n) => n.v === v && !n.open)) && prompt, JSON.stringify(notes));
 await page.click('#whatsNew .wn-ver[data-v="0.05"] summary');
 const older = await until(page, () => /Quick Dungeon/.test(document.querySelector('#whatsNew .wn-ver[data-v="0.05"] .wn-body').textContent), null, 3000);
 check('v0.06 M6 an older version opens on tap (v0.05 lists the Quick Dungeon)', older);
 await G(page, () => document.querySelector('#whatsNew button.primary').focus());
 await page.keyboard.press('Enter');
-const played = await until(page, () => window.__gametool.state === 'play' && document.querySelector('#whatsNew').classList.contains('hidden'), null, 4000);
-const view = await G(page, () => ({ view: window.__gametool.settings.view, third: window.__gametool.player.thirdPerson, step: window.__gametool.rig.step }));
-check('v0.06 M7 Enter dismisses it; play starts in the overhead camera even though first person was saved', played && view.view === 'overhead' && view.third && view.step === 2, JSON.stringify(view));
+const backToExtras = await until(page, () => document.querySelector('#whatsNew').classList.contains('hidden') && !document.getElementById('extras').classList.contains('hidden'), null, 4000);
 await page.keyboard.press('Escape');
-await until(page, () => window.__gametool.state === 'pause');
-await page.click('#quitToMenu');
-await until(page, () => window.__gametool.state === 'title');
+await until(page, () => document.getElementById('extras').classList.contains('hidden'), null, 3000);
+check('Closing What\'s new returns to Extras', backToExtras);
 await page.click('#begin');
-const once = await until(page, () => window.__gametool.state === 'play', null, 4000) && await G(page, () => document.querySelector('#whatsNew').classList.contains('hidden'));
-check('v0.06 M6 What\'s new does not come back in the same session', once);
+const played = await until(page, () => window.__gametool.state === 'play', null, 4000) && await G(page, () => document.querySelector('#whatsNew').classList.contains('hidden') && document.getElementById('extras').classList.contains('hidden'));
+const view = await G(page, () => ({ view: window.__gametool.settings.view, third: window.__gametool.player.thirdPerson, step: window.__gametool.rig.step }));
+check('Begin goes straight into the game (no What\'s new, no Extras); M7 it starts in the overhead camera though first person was saved', played && view.view === 'overhead' && view.third && view.step === 2, JSON.stringify(view));
 
 // ---------- W5, W6, P3 ----------
 const hud = await G(page, () => ({ status: !!document.querySelector('#status'), top: (() => { const e = document.querySelector('#prompt'), h = e.classList.contains('hidden'); e.classList.remove('hidden'); const t = e.getBoundingClientRect().top / innerHeight; if (h) e.classList.add('hidden'); return t; })() }));

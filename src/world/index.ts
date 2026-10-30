@@ -9,7 +9,7 @@ import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
 import { buildTown, townClear, TOWN_LOTS, type Town } from './town';
-import { buildRiver, riverClear, type River } from './river';
+import { buildRiver, riverClear, WINDMILL, type River } from './river';
 import { buildKavik } from './kavik';
 
 // Rebuild R2 (docs/vision.md, docs/rebuild-plan.md): the start glade in the new look.
@@ -344,6 +344,20 @@ export function buildWorld(): World {
   place('natalie', buildFigure({ art: 'natalie', skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
   // Phase D (B12): Magister Greer, Aralon's wizard-trader (half the time a rooster), by the coach road (Mike's pick for the Curio Pedlar).
   place('pedlar', buildFigure({ art: 'pedlar', skin: '#F2EEE6', hair: '#F2EEE6', primary: '#4A3A7A', secondary: '#5A4A8A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'round', feature: '#E0A020', marks: '#C8423A', build: 1.1 }, 1.6), -7.8, -5.4, 0.9, 0.4);
+  // References review models (CC0, Quaternius): public/models/witch.glb and sword.glb replace these placeholders.
+  // The Witch (a placeholder NPC, role name only) keeps the windmill on the far bank.
+  place('witch', buildFigure({ skin: '#E8C8A8', hair: '#1E1A22', primary: '#5A3A7A', secondary: '#C9A23A', boots: '#3A2A1E', accent: '#C9A23A', hairStyle: 'long', dress: true }, 1.7), WINDMILL.x + 3.4, WINDMILL.z - 1.4, Math.PI / 2 + 0.3, 0.35);
+  // A display sword stood on a stone block in front of the smithy.
+  { const L = TOWN_LOTS.find((l) => l.id === 'smithy')!, c = Math.cos(L.ry), sn = Math.sin(L.ry), lx = -L.w / 2 + 0.6, lz = L.d / 2 + 0.8;
+    const x = L.x + lx * c + lz * sn, z = L.z - lx * sn + lz * c;
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.5), tex('stone')); block.position.set(x, 0.15, z); block.rotation.y = L.ry; scene.add(block);
+    const sw = new THREE.Group(), steel = new THREE.MeshLambertMaterial({ color: '#B8BCC2' }), grip = new THREE.MeshLambertMaterial({ color: '#4A3222' });
+    for (const [w, h, d, y, m] of [[0.07, 0.72, 0.02, 0.36, steel], [0.26, 0.04, 0.05, 0.74, steel], [0.04, 0.2, 0.04, 0.86, grip], [0.07, 0.06, 0.06, 0.99, steel]] as const) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.y = y; sw.add(b);
+    }
+    sw.userData.height = 1.02;
+    place('sword', sw, x, z, L.ry, 0.3);
+    sw.position.y = 0.3; }
   const natalieTarget = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
   natalieTarget.name = 'natalie';
   natalieTarget.position.set(NAT.x, 0.9, NAT.z);

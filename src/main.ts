@@ -62,7 +62,8 @@ import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel, buildScreen } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
-import { BRIDGES, riverX } from './world/river';
+import { BRIDGES, riverX, riverClear } from './world/river';
+import { plantForestPack } from './world/forestPack';
 import { Townsfolk } from './world/townsfolk';
 import { NightLights } from './world/nightlights';
 import { Ambience, type Zone } from './ambience';
@@ -160,6 +161,9 @@ const modelSlots: ModelSlot[] = [
   ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number })),
   { id: 'player', placeholder: player.body.children[0], parent: player.body, height: controls.eyeHeight + 0.1, faceYaw: Math.PI },
 ];
+// References review: the 99.Miles forest tree pack (public/models/forest-trees.glb) dresses the hills, clear of
+// the river and the coach road out to the gate.
+const forestPack = plantForestPack(world.scene, world.heightAt, (x, z) => riverClear(x, z, 1) || (x < -36 && Math.abs(z - GATE.z) < 5));
 const modelsReady = fillSlots(modelSlots).then((r) => {
   // The nub only marks "forward" on the capsule; a real model shows its own front.
   if (loadedModels.has('player')) player.body.children[1].visible = false;
@@ -199,7 +203,13 @@ ui.innerHTML = `
   </div>
   <div id="vignette"></div>
   <div id="sleepFade"></div>
-  <div id="rotateHint">⟳ Turn your phone sideways to play</div>
+  <div id="rotateAsk" role="dialog" aria-label="Turn your phone sideways">
+    <div class="ra-phone" aria-hidden="true"></div>
+    <p>Turn your phone sideways</p>
+    <span>Artheria plays in landscape.</span>
+    <button id="rotateTurn" class="primary hidden">Turn it for me</button>
+    <button id="rotateOk" class="secondary">Play upright anyway</button>
+  </div>
   <div id="readHint">⟳ Turn your phone upright to scroll the pages</div>
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
@@ -451,7 +461,7 @@ async function begin() {
   audio.water(false);
   setView('overhead');                          // v0.06 M7: every Begin starts in the overhead camera
   setState('play');                             // in the world immediately, even before lock resolves
-  if (wantWhatsNew && !whatsNew.shown) { enterForge(); whatsNew.open(() => leaveForge()); }   // v0.06 M6: once a session
+  // Mike 2026-10-30: Begin goes straight into the game. What's new moved to Extras (it read as a menu in the way).
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
     // Android: go fullscreen. iPhone Safari has no element fullscreen; Add to Home Screen does it.
@@ -1684,7 +1694,7 @@ const extras = new Extras(() => { setState('title'); focusMenu(1); });
 extras.onWrite = () => { extras.el.classList.add('hidden'); openEditor(); };   // v0.06: Write lore moved from the main menu to Extras
 // v0.06 M6: What's new, once per session on Begin. Automated test browsers skip it unless a test asks.
 const whatsNew = new WhatsNew(promptOfTheDay());
-const wantWhatsNew = (() => { try { return !navigator.webdriver || localStorage.getItem('gametool.whatsnew') === 'on'; } catch { return !navigator.webdriver; } })();
+extras.onWhatsNew = () => { extras.el.classList.add('hidden'); whatsNew.open(() => { extras.open(); focusMenu(0); }); };
 $('openExtras').addEventListener('click', () => { show('title', false); extras.open(); focusMenu(0); });
 
 // Pause → Controls: rebind the keyboard. Click a key, then press the new one (Esc cancels).
@@ -1827,6 +1837,28 @@ const touch: TouchControls | null = new TouchControls(hooks);
 const gamepad = new GamepadControls(hooks, () => settings.sensitivity);
 gamepad.onFamily = () => syncGlyphs();
 document.body.dataset.input = inputMode;
+// Mike 2026-10-30: from the very first screen, a phone held upright is asked to turn sideways. The card goes away
+// by itself in landscape; "Play upright anyway" keeps it away for this session. Where the browser can lock the
+// orientation (Android, in fullscreen), "Turn it for me" does it.
+{
+  type Lockable = ScreenOrientation & { lock?: (o: string) => Promise<void> };
+  const canLock = !!document.documentElement.requestFullscreen && typeof (screen.orientation as Lockable | undefined)?.lock === 'function';
+  if (canLock) $('rotateTurn').classList.remove('hidden');
+  // Automated test browsers skip it (their phone viewports are upright) unless a test asks: localStorage gametool.rotateask = 'on'.
+  try { if (sessionStorage.getItem('gametool.upright') === 'ok' || (navigator.webdriver && localStorage.getItem('gametool.rotateask') !== 'on')) document.body.dataset.upright = 'ok'; }
+  catch { if (navigator.webdriver) document.body.dataset.upright = 'ok'; }
+  $('rotateOk').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.body.dataset.upright = 'ok';
+    try { sessionStorage.setItem('gametool.upright', 'ok'); } catch { /* private mode */ }
+  });
+  $('rotateTurn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+      .then(() => (screen.orientation as Lockable).lock?.('landscape'))
+      .catch(() => undefined);
+  });
+}
 
 // ---------- keyboard (F2.1) ----------
 const MOVE: Action[] = ['forward', 'left', 'back', 'right', 'walk', 'sprint'];
@@ -2193,4 +2225,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

@@ -14,6 +14,12 @@ const INSPIRATIONS: { name: string; note: string }[] = [
   { name: 'Little Miguel', note: 'Confiding in me your interest in game dev.' },
 ];
 
+// References review: third-party models in public/models/ and their licences (also public/models/CREDITS.md).
+const ASSET_CREDITS: { what: string; who: string; licence: string; href?: string; note?: string }[] = [
+  { what: 'Witch (rig and animations) and Sword', who: 'Quaternius', licence: 'CC0', href: 'https://quaternius.com', note: 'Witch simplified for phones.' },
+  { what: 'Low Poly Forest Tree Pack', who: '99.Miles', licence: 'CC BY 4.0', href: 'https://sketchfab.com/3d-models/low-poly-forest-tree-pack-5ff5a51e74324845a4e4905f182dfb2b', note: 'Textures resized to 512 px; unused maps removed.' },
+];
+
 export class Extras {
   readonly el: HTMLDivElement;
   tab: 'menu' | 'inspirations' | 'evolution' = 'menu';
@@ -21,6 +27,8 @@ export class Extras {
   index = 0;
   /** v0.06: Write lore lives here now (the main menu is Begin, Extras, Options). */
   onWrite = () => {};
+  /** Mike 2026-10-30: What's new opens from here (it no longer pops up on Begin). */
+  onWhatsNew = () => {};
   private seeking = false;   // a smooth scroll we started is still on its way
 
   constructor(private onClose: () => void) {
@@ -35,6 +43,7 @@ export class Extras {
       else if (b.dataset.go) this.go(this.index + Number(b.dataset.go));
       else if (b.dataset.act === 'back') this.back();
       else if (b.dataset.act === 'write') this.onWrite();
+      else if (b.dataset.act === 'whatsnew') this.onWhatsNew();
     });
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
@@ -51,10 +60,13 @@ export class Extras {
         <button class="primary" data-tab="inspirations">Inspirations</button>
         <button class="secondary" data-tab="evolution">Evolution of the game</button>
         <button class="secondary" id="writeLoreTitle" data-act="write">Write lore</button>
+        <button class="secondary" id="whatsNewBtn" data-act="whatsnew">What's new</button>
         ${back}</div>`;
     } else if (tab === 'inspirations') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Inspirations</h1>
         <div class="insp-list">${INSPIRATIONS.map((p) => `<figure class="insp"><figcaption>${escapeHtml(p.name)}</figcaption><blockquote>${escapeHtml(p.note)}</blockquote></figure>`).join('')}</div>
+        <h2 class="credits-head">Asset credits</h2>
+        <ul class="asset-credits">${ASSET_CREDITS.map((c) => `<li><b>${escapeHtml(c.what)}</b> by ${c.href ? `<a href="${escapeHtml(c.href)}" target="_blank" rel="noopener">${escapeHtml(c.who)}</a>` : escapeHtml(c.who)}, ${c.licence === 'CC BY 4.0' ? '<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>' : escapeHtml(c.licence)}.${c.note ? ` <span class="fine">${escapeHtml(c.note)}</span>` : ''}</li>`).join('')}</ul>
         ${back}</div>`;
     } else {
       this.el.innerHTML = `<div class="card evo-card"><div class="eyebrow">Extras · Evolution of the game</div>
