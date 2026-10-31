@@ -21,6 +21,7 @@ import { GamepadControls } from './input/gamepad';
 import type { State, InputMode, GameHooks } from './input/hooks';
 import { loadGitHub, saveGitHub, loadAuthor, saveAuthor, slugify, buildMarkdown, publishToGitHub, downloadMarkdown } from './editor';
 import { loadCharacter, saveCharacter, type Character } from './character';
+import { reading } from './reading';
 import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
@@ -246,6 +247,11 @@ ui.innerHTML = `
       <label class="field">Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
+      <h4>Comfort</h4>
+      <label>Text size <output id="textSizeOut"></output><input id="textSize" type="range" min="85" max="150" step="5"></label>
+      <label>Reading speed <output id="readSpeedOut"></output><input id="readSpeed" type="range" min="0.5" max="2" step="0.25"></label>
+      <label class="check"><input id="lefty" type="checkbox"> Left-handed (touch: move on the right, buttons on the left)</label>
+      <label>Touch button size <output id="buttonSizeOut"></output><input id="buttonSize" type="range" min="75" max="150" step="5"></label>
       <h4>Your hero</h4>
       <button id="editCharacter" class="secondary hidden">Character</button>
       <button id="openCharacterForge" class="secondary">Character forge</button>
@@ -835,6 +841,7 @@ const paidFor = new Set<string>();
 function earn(n: number, why: string, once?: string) {
   if (once) { if (paidFor.has(once)) return; paidFor.add(once); }
   inventory.give(CROWN, n);
+  haptics.play('pickup');
   toast(`+${n} ◎ ${why}`, 2400);
 }
 let marginCount = loadMargins().length;
@@ -1155,7 +1162,7 @@ function openDescend() {
 // v0.05 §6: the Quick Dungeon, a menu-only run picked from the trapdoor.
 const quick = new QuickDungeon();
 quick.carvings = () => shrineLines.map((e) => ({ line: e.body.replace(/^#.*$/gm, '').replace(/[*_>[\]]/g, '').trim().split(/(?<=[.!?])\s+/)[0], title: e.title, credit: e.credit_as }));
-quick.onReward = (r) => { if (r.crowns) inventory.give(CROWN, r.crowns); for (const [id, n] of r.items) inventory.give(id, n); };
+quick.onReward = (r) => { if (r.crowns) inventory.give(CROWN, r.crowns); for (const [id, n] of r.items) inventory.give(id, n); haptics.play('pickup'); };
 quick.onFinish = (seed, end) => {
   const d = delves[seed] ?? (delves[seed] = { theme: quick.graph!.theme, at: new Date().toISOString().slice(0, 10) });
   if (end !== 'fled' && d.quick !== 'won') { d.quick = end; saveDelves(); }
@@ -1176,7 +1183,7 @@ const goblins = new Goblins(world.scene, {
   aiming: () => crossbow.ads,
   hurt: (dmg, by, slow) => {
     if (!inDungeon || delveHp <= 0) return;
-    delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('land');
+    delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt');
     if (slow) slowT = Math.max(slowT, slow);
     if (delveHp <= 0) {
       exitDungeon();
@@ -1186,14 +1193,14 @@ const goblins = new Goblins(world.scene, {
   },
   steal: () => { const n = Math.min(2, inventory.count('bolt')); if (n) inventory.take('bolt', n); return n; },
   loot: (f, crowns, bolts) => {
-    inventory.give(CROWN, crowns); if (bolts) inventory.give('bolt', bolts);
+    inventory.give(CROWN, crowns); if (bolts) inventory.give('bolt', bolts); haptics.play('pickup');
     toast(`${f.v.display} drops ${crowns} crown${crowns > 1 ? 's' : ''}${bolts ? ` and ${bolts} bolt${bolts > 1 ? 's' : ''}` : ''}.`, 2600);
   },
   say: (t) => toast(t, 2600),
 });
 crossbow.targets = (from, dir, len) => {
   const h = goblins.list.length ? goblins.hitTest(from, dir, len) : null;
-  return h && { dist: h.dist, hit: (dmg, d) => goblins.shoot(h.foe, dmg, d) };
+  return h && { dist: h.dist, hit: (dmg, d) => { haptics.play('hit'); return goblins.shoot(h.foe, dmg, d); } };
 };
 function spawnGoblins() {
   goblins.clear(); delveHp = DELVE_HP; slowT = 0;
@@ -1279,7 +1286,7 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
     if (s.kind === 'chest') {
       if (d.chest) { toast('Empty. You already took what was here.'); return; }
       d.chest = true; saveDelves();
-      inventory.give('trinket', 1);
+      inventory.give('trinket', 1); haptics.play('pickup');
       toast(`A trinket from below (I: inventory). Magister Greer would love to hear its story.`, 4500);
       return;
     }
@@ -1549,7 +1556,7 @@ function activate() {
   else if (lookingAt === 'library' && libraryHit) useLibrary(libraryHit);
   else if (lookingAt === 'bolt') {
     const b = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange);
-    if (b) { crossbow.pickUp(b); toast('Bolt recovered', 1200); }
+    if (b) { crossbow.pickUp(b); haptics.play('pickup'); toast('Bolt recovered', 1200); }
   }
 }
 
@@ -1821,6 +1828,9 @@ const hooks: GameHooks = {
   resume: () => { if (state === 'pause') closePauseMenu(); else void resumePlay(); },
   activate,
   lookingAtBook: () => lookingAt !== null,
+  useVerb: () => (lookingAt !== null ? promptVerb.textContent : null),
+  openMap: () => openMap(),
+  openJournal: () => openCasebook(),
   advanceDialogue: () => dialogue.press(),
   closeInventory,
   openInventory,
@@ -2021,6 +2031,10 @@ function syncMenu() {
   fov.value = String(settings.fov); $('fovOut').textContent = settings.fov + '°';
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
   $<HTMLInputElement>('haptics').checked = settings.haptics;
+  $<HTMLInputElement>('lefty').checked = settings.lefty;
+  $<HTMLInputElement>('buttonSize').value = String(settings.buttonSize); $('buttonSizeOut').textContent = settings.buttonSize + '%';
+  $<HTMLInputElement>('textSize').value = String(settings.textSize); $('textSizeOut').textContent = settings.textSize + '%';
+  $<HTMLInputElement>('readSpeed').value = String(settings.readSpeed); $('readSpeedOut').textContent = settings.readSpeed + '×';
   $<HTMLSelectElement>('viewSel').value = settings.view;
   $<HTMLSelectElement>('charsSel').value = settings.chars;
   presetSel.value = settings.preset;
@@ -2052,6 +2066,23 @@ $<HTMLInputElement>('haptics').addEventListener('change', (e) => {
 });
 haptics.setEnabled(settings.haptics);
 haptics.setMode(inputMode);
+// UX pass (Mike 2026-10-31): comfort settings take effect at once.
+function applyComfort() {
+  const root = document.documentElement.style;
+  root.setProperty('--tb', String(settings.buttonSize / 100));
+  root.setProperty('--text-k', String(settings.textSize / 100));
+  reading.speed = settings.readSpeed;
+  if (touch) touch.lefty = settings.lefty;
+  if (settings.lefty) document.body.dataset.lefty = '1'; else delete document.body.dataset.lefty;
+}
+applyComfort();
+for (const id of ['lefty', 'buttonSize', 'textSize', 'readSpeed'] as const) {
+  $<HTMLInputElement>(id).addEventListener(id === 'lefty' ? 'change' : 'input', (e) => {
+    const el = e.target as HTMLInputElement;
+    if (id === 'lefty') settings.lefty = el.checked; else settings[id] = Number(el.value);
+    saveSettings(settings); applyComfort(); syncMenu();
+  });
+}
 document.body.dataset.pad = 'xbox';
 renderPadMap('xbox');
 const charsSel = $<HTMLSelectElement>('charsSel');

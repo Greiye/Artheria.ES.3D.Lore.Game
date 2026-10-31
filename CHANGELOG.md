@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### UX pass 1: comfort and thumbs (Mike 2026-10-31)
+- **Thumb zones:** Map, Journal, Bag and Menu sit in one row in the top-right corner, one tap each. Camera −/+ and the torch move to the opposite top corner. Every touch button is at least 44 px.
+- **One context button:** next to the face buttons, it says what it will do (Talk to Natalie, Enter the Library, Read, Pick up bolt…) and shows only when there's something to do.
+- **Floating joystick:** a faint "Move" ring shows where it appears. It still spawns wherever the thumb lands.
+- **Pause → Gameplay → Comfort:** Left-handed (the joystick moves right, the buttons move left), Touch button size (75–150%), Text size (85–150%, for dialogue, books and Natalie's tellings) and Reading speed (0.5–2×, for dialogue typing and the telling).
+- **Haptics:** a buzz on pickups (crowns, bolts, loot), on hits and when you're hurt. This works on Android and controllers; iPhone Safari has no vibration API.
+- **Two taps deep:** Map, Journal and Bag take one tap, and every options group takes two. New `test/e2e-ux.mjs`.
+
 ### iPhone pass (Mike 2026-10-31)
 - Text boxes are 16px on phones, so iPhone Safari no longer zooms the page in when you tap one.
 - The "Turn your phone sideways" card tells iPhone players how to switch off Rotation Lock (iPhones can't be turned by the page).
