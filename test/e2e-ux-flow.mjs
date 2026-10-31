@@ -61,7 +61,7 @@ async function open(init) {
   if (await G(page, () => window.__gametool.state) === 'play') await page.keyboard.press('Escape');
   await until(page, () => window.__gametool.state === 'pause', null, 3000);
   const j = await G(page, () => ({ h: document.querySelector('#pause h1').textContent, pages: [...document.querySelectorAll('#pause .pause-page')].map((b) => b.textContent) }));
-  check('The pause menu is the journal, ending with its pages: Casebook, Map, Bag, Phrasebook (B16), Who you are (B25)', j.h === 'Journal' && j.pages.join() === 'Casebook,Map,Bag,Phrasebook,Who you are', JSON.stringify(j));
+  check('The pause menu is the journal, ending with its pages: Casebook, Map, Bag, Phrasebook (B16), Skills book (B19), Who you are (B25)', j.h === 'Journal' && j.pages.join() === 'Casebook,Map,Bag,Phrasebook,Skills book,Who you are', JSON.stringify(j));
   await page.screenshot({ path: path.join(shots, 'ux-8-journal.png') });
   await page.click('#pgCasebook');
   check('Journal → Casebook opens it', await until(page, () => window.__gametool.casebook.isOpen, null, 3000));

@@ -55,6 +55,8 @@ import { buildCeilings, roofOver, ROOFED } from './world/ceilings';
 import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
 import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
 import './spanish/caravan.css';
+import { buildSkillTable, SkillsPanel, SkillsBook, SKILL_TABLE } from './skills/skills';
+import './skills/skills.css';
 import './dojo/dojo.css';
 import { drawSketch, loadSketches } from './writing/sketch';
 import { Dungeon } from './dungeon/dungeon';
@@ -258,6 +260,7 @@ ui.innerHTML = `
       <button id="pgMap" class="pause-item pause-page">Map</button>
       <button id="pgBag" class="pause-item pause-page">Bag</button>
       <button id="pgPhrases" class="pause-item pause-page">Phrasebook</button>
+      <button id="pgSkills" class="pause-item pause-page">Skills book</button>
       <button id="pgSelf" class="pause-item pause-page">Who you are</button>
       <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
       <p class="fine">Settings are saved in this browser.</p>
@@ -863,7 +866,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -1287,6 +1290,8 @@ const livingMap = new LivingMap(() => {
   if (bd.length) m.push({ x: world.stations.campfire.position.x, z: world.stations.campfire.position.z + 1.6, label: `“${bd[0].title}” sung here`, kind: 'song' });
   const n = Object.keys(delves).length;
   if (n) m.push({ x: TRAPDOOR.x, z: TRAPDOOR.z, label: `${n} seed${n > 1 ? 's' : ''} delved`, kind: 'delve' });
+  const nCards = Object.keys(skills.st.cards).length;
+  m.push({ x: SKILL_TABLE.x, z: SKILL_TABLE.z, label: nCards ? `${nCards} skill card${nCards > 1 ? 's' : ''}` : 'Practice table', kind: 'place' });
   m.push({ x: CARAVAN.x, z: CARAVAN.z - 3, label: caravan.st.done.length ? `Caravan: ${caravan.st.phrases.length} phrases` : 'A caravan camps here', kind: 'place' });
   if (dojo.st.done.length) m.push({ x: DOJO.x, z: DOJO.z + 3.4, label: `${dojo.st.done.length} drill${dojo.st.done.length > 1 ? 's' : ''} done`, kind: 'place' });
   return m;
@@ -1342,6 +1347,22 @@ function openCaravan(id: string) {
 }
 for (const f of caravanFolk) interactables.push({ obj: f.hit, verb: () => f.talk.verb, act: () => openCaravan(f.id), when: () => !inDungeon });
 const phrasebook = new Phrasebook(caravan, () => leaveForge());
+// ---------- B19: real-skill mini games at the practice table by the dojo mats; cards go in the Skills book ----------
+const skillTable = buildSkillTable(world.scene, world.colliders, world.heightAt);
+const skills = new SkillsPanel((s) => earn(s.reward, `${s.name} card`, 'skill:' + s.id), () => leaveForge());
+function openSkills() {
+  if (state !== 'play') return;
+  enterForge();
+  const { x, z } = SKILL_TABLE;
+  player.spawn(new THREE.Vector3(x - 1.1, 0, z), Math.PI / 2);
+  stationPose = 'read';
+  rig.setShot(innerHeight > innerWidth ? { pos: new THREE.Vector3(x - 3.2, 2.6, z), look: new THREE.Vector3(x, 0.6, z), fov: 50 }
+    : { pos: new THREE.Vector3(x - 3.4, 2.1, z + 1.6), look: new THREE.Vector3(x - 0.6, 0.8, z - 0.9), fov: 44 });
+  skills.open();
+}
+interactables.push({ obj: skillTable, verb: () => 'Practise a real skill', act: () => openSkills(), when: () => !inDungeon });
+const skillsBook = new SkillsBook(skills, () => leaveForge());
+function openSkillsBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); skillsBook.open(); }
 function openPhrasebook() { if (state !== 'play' && state !== 'pause') return; enterForge(); phrasebook.open(); }
 interactables.push({ obj: trapHit, verb: () => 'Open the trapdoor', act: () => openDescend(), when: () => !inDungeon });
 const shrineLines = lore.entries.filter((e) => e.type === 'lore' && e.body.length > 80);
@@ -1803,6 +1824,7 @@ $('quitToMenu').addEventListener('click', () => quitToMenu());
 // UX pass: the pause menu is your journal; its last pages are the casebook, the map and the bag.
 $('pgCasebook').addEventListener('click', () => openCasebook());
 $('pgPhrases').addEventListener('click', () => openPhrasebook());   // B16
+$('pgSkills').addEventListener('click', () => openSkillsBook());   // B19
 $('pgSelf').addEventListener('click', () => openCharCreate('pause'));   // B25: optional, reached only from the Journal
 $('pgMap').addEventListener('click', () => openMap());
 $('pgBag').addEventListener('click', () => { setState('play'); openInventory(); });
@@ -2413,4 +2435,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
