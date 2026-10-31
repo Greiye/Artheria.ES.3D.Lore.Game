@@ -147,10 +147,11 @@ const up = await phone(390, 844);
 const shownUp = await G(up, () => getComputedStyle(document.getElementById('rotateAsk')).display !== 'none');
 await up.tap('#rotateOk');
 const gone = await G(up, () => getComputedStyle(document.getElementById('rotateAsk')).display === 'none');
+await up.context().close();   // one phone page at a time: two software-rendered pages slow each other's boot past the timeout
 const side = await phone(844, 390);
 const shownSide = await G(side, () => getComputedStyle(document.getElementById('rotateAsk')).display !== 'none');
 check('Upright phone: "Turn your phone sideways" shows at start; "Play upright anyway" dismisses it; sideways it never shows', shownUp && gone && !shownSide, JSON.stringify({ shownUp, gone, shownSide }));
-await up.context().close(); await side.context().close();
+await side.context().close();
 
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();

@@ -21,6 +21,9 @@ import { GamepadControls } from './input/gamepad';
 import type { State, InputMode, GameHooks } from './input/hooks';
 import { loadGitHub, saveGitHub, loadAuthor, saveAuthor, slugify, buildMarkdown, publishToGitHub, downloadMarkdown } from './editor';
 import { loadCharacter, saveCharacter, type Character } from './character';
+import { reading } from './reading';
+import { Purse } from './purse';
+import { Coach } from './coach';
 import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
@@ -70,7 +73,7 @@ import { Ambience, type Zone } from './ambience';
 import { Intro } from './intro';
 import { Extras } from './extras';
 import { WhatsNew } from './whatsnew';
-import { loadGame, saveGame } from './save';
+import { loadGame, saveGame, clearGame } from './save';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
 
@@ -121,12 +124,16 @@ app.appendChild(renderer.domElement);
 const canvas = renderer.domElement;
 
 const camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.05, 200);
-window.addEventListener('resize', () => {
+// iPhone (Mike 2026-10-31): Safari's address bar grows and shrinks without always firing a window resize, so the
+// canvas also follows the visual viewport, the part of the page that's actually on screen.
+const fitView = () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   post?.setSize(window.innerWidth, window.innerHeight);
-});
+};
+window.addEventListener('resize', fitView);
+window.visualViewport?.addEventListener('resize', fitView);
 
 const loaderBar = document.querySelector<HTMLElement>('#loader i');
 const progress = (pct: number) => { if (loaderBar) loaderBar.style.width = pct + '%'; };
@@ -142,7 +149,11 @@ world.setFoliage(FOLIAGE[settings.preset]);
 const nightLights = new NightLights(world.scene, world.lanterns, world.town.windows);
 nightLights.setMax(settings.preset === 'low' ? 2 : 4);
 nightLights.setTime(world.time);
-const setWorldTime = (t: TimeOfDay) => { world.setTime(t); nightLights.setTime(t); };
+// UX pass (Mike 2026-10-31): no clock. The sky shows the hour, and the bell in the library spire tolls when it
+// changes: three for morning, two for sunset, one for nightfall.
+const BELL_TOLLS: Record<TimeOfDay, number> = { day: 3, sunset: 2, night: 1 };
+const tollBell = (t: TimeOfDay) => { const L = TOWN_LOTS.find((l) => l.id === 'library')!; audio.bell(BELL_TOLLS[t], audio.spatial('bell', L.x, 12, L.z, 140)); };
+const setWorldTime = (t: TimeOfDay, toll = false) => { world.setTime(t); nightLights.setTime(t); if (toll) tollBell(t); };
 post = new Post(renderer, world.scene, camera);
 post.setSize(window.innerWidth, window.innerHeight);
 post.setEnabled(settings.postFx);
@@ -155,7 +166,9 @@ player.zoomBy = (d) => stepView(rig.zoomBy(d));   // pinch / right stick: steps 
 rig.update(0);
 world.scene.add(player.body);
 const torch = new Torch(world.scene, camera, player);   // v0.04
-const heldBook = new HeldBook(player);   // v0.04: the 'read' pose holds an open book (shelf reader)
+const heldBook = new HeldBook(player);
+const purse = new Purse(player);   // UX pass: crowns hang at the hip
+let purseSteps = 0;   // every third footstep the purse clinks   // v0.04: the 'read' pose holds an open book (shelf reader)
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
 const modelSlots: ModelSlot[] = [
   ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number })),
@@ -184,10 +197,12 @@ ui.innerHTML = `
   <div id="title" class="screen">
     <nav class="menu-list" aria-label="Main menu">
       <button id="begin" class="menu-item">Begin</button>
+      <button id="newGame" class="menu-item hidden">New game</button>
       <button id="openExtras" class="menu-item">Extras</button>
       <button id="openSettingsTitle" class="menu-item">Options</button>
     </nav>
     <p id="saveNote" class="fine hidden"></p>
+    <p id="homeTip" class="hidden">For fullscreen with no address bar: tap Share <b>⬆</b>, then <b>Add to Home Screen</b>, and play from the new icon.<button id="homeTipClose" aria-label="Hide this tip">✕</button></p>
     <span id="versionLabel" class="menu-version"></span>
   </div>
   <div id="padStatus" aria-live="polite"></div>
@@ -207,6 +222,7 @@ ui.innerHTML = `
     <div class="ra-phone" aria-hidden="true"></div>
     <p>Turn your phone sideways</p>
     <span>Artheria plays in landscape.</span>
+    <span id="rotateIos" class="hidden">If it doesn't turn, swipe down from the top-right corner and switch off Rotation Lock.</span>
     <button id="rotateTurn" class="primary hidden">Turn it for me</button>
     <button id="rotateOk" class="secondary">Play upright anyway</button>
   </div>
@@ -216,18 +232,25 @@ ui.innerHTML = `
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>
-    <div id="delveHp" class="hidden"></div>
+    <div id="delveHp" class="hidden sr-only" aria-live="polite"></div>
+    <div id="hurtEdge" aria-hidden="true"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
+    <div id="autosaved" aria-live="polite">✒ Saved</div>
+    <div id="coach" class="hidden" aria-live="polite"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
   <div id="pause" class="screen hidden">
     <nav class="pause-side side-panel" aria-label="Pause menu">
-      <h1>Paused</h1>
+      <h1>Journal</h1>
       <button id="resume" class="pause-item">Resume</button>
       <button class="pause-item" data-group="gameplay">Gameplay</button>
       <button class="pause-item" data-group="graphics">Graphics</button>
       <button class="pause-item" data-group="sound">Sound</button>
       <button class="pause-item" data-group="controls">Controls</button>
+      <span class="pause-rule" aria-hidden="true"></span>
+      <button id="pgCasebook" class="pause-item pause-page">Casebook</button>
+      <button id="pgMap" class="pause-item pause-page">Map</button>
+      <button id="pgBag" class="pause-item pause-page">Bag</button>
       <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
       <p class="fine">Settings are saved in this browser.</p>
     </nav>
@@ -240,6 +263,11 @@ ui.innerHTML = `
       <label class="field">Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
+      <h4>Comfort</h4>
+      <label>Text size <output id="textSizeOut"></output><input id="textSize" type="range" min="85" max="150" step="5"></label>
+      <label>Reading speed <output id="readSpeedOut"></output><input id="readSpeed" type="range" min="0.5" max="2" step="0.25"></label>
+      <label class="check"><input id="lefty" type="checkbox"> Left-handed (touch: move on the right, buttons on the left)</label>
+      <label>Touch button size <output id="buttonSizeOut"></output><input id="buttonSize" type="range" min="75" max="150" step="5"></label>
       <h4>Your hero</h4>
       <button id="editCharacter" class="secondary hidden">Character</button>
       <button id="openCharacterForge" class="secondary">Character forge</button>
@@ -542,6 +570,7 @@ function openGroup(g: string | null) {
   document.querySelectorAll<HTMLElement>('#pause [data-group]').forEach((b) => b.classList.toggle('on', b.dataset.group === g));
   $('resume').textContent = pauseFrom === 'title' ? 'Back' : 'Resume';
   show('quitToMenu', pauseFrom !== 'title');
+  document.querySelectorAll<HTMLElement>('#pause .pause-page, #pause .pause-rule').forEach((e) => e.classList.toggle('hidden', pauseFrom === 'title'));   // UX pass: no journal pages before a game
 }
 document.querySelectorAll<HTMLButtonElement>('#pause [data-group]').forEach((b) => b.addEventListener('click', () => {
   openGroup(pauseGroup === b.dataset.group ? null : b.dataset.group!);
@@ -581,6 +610,8 @@ $('relockBtn').addEventListener('click', () => void resumePlay());
 // ---------- F3 dialogue + inventory ----------
 const dialogue = new DialogueBox();
 const inventory = new Inventory();
+// UX pass: the purse at the hip shows the crowns; coins jingle as they drop in.
+inventory.onChange = () => { const c = inventory.count(CROWN); if (c > purse.crowns && begun) audio.coins(Math.min(6, 2 + c - purse.crowns)); purse.set(c); };
 inventory.root.querySelector('.inv-close')!.addEventListener('click', () => closeInventory());
 // ---------- F4 crossbow ----------
 world.scene.add(camera);   // the first-person crossbow rides on the camera
@@ -666,6 +697,7 @@ function animate(dt: number) {
   if (landed) haptics.play('land');
   torch.update(dt, !player.thirdPerson);
   heldBook.set(state === 'book' && reader.isOpen);
+  purse.update(dt);
   if (player.pos.y > 3.3 && !player.airborne) earn(5, 'a purse left on the lookout', 'lookout');
   if (quickTimer > 0 && (quickTimer -= dt) <= 0) $('quick').classList.add('hidden');
   if (player.vaults !== lastVaults) { lastVaults = player.vaults; haptics.play('jump'); }
@@ -717,7 +749,7 @@ let forgeFrom: State = 'play';
 function setPlayerLook(c: ForgeCharacter) {
   const fig = player.setLook(c.look, c.height);
   torch.attach();
-  heldBook.attach();
+  heldBook.attach(); purse.attach();
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
 }
@@ -829,6 +861,7 @@ const paidFor = new Set<string>();
 function earn(n: number, why: string, once?: string) {
   if (once) { if (paidFor.has(once)) return; paidFor.add(once); }
   inventory.give(CROWN, n);
+  haptics.play('pickup');
   toast(`+${n} ◎ ${why}`, 2400);
 }
 let marginCount = loadMargins().length;
@@ -901,7 +934,8 @@ function findClue(id: string) {
   saveQuest(quest);
   questProps.sync(quest.clues);
   audio.pageTurn();
-  toast(`Clue: ${c.name}. ${c.text} (J: casebook)`, 6000);
+  toast(`Clue: ${c.name}. ${c.text}`, 6000);
+  setTimeout(() => hint(`That goes in the casebook. Look it over with ${keyName('casebook')}.`, '(J: casebook)', 2600), 1800);
   setTimeout(() => earn(2, 'found'), 6200);
   if (companion.prefs.follow) setTimeout(() => companion.say(c.natalie, { key: 'clue:' + id, force: true }), 1800);
   if (quest.clues.length === QUEST.minClues && quest.stage === 'clues') setTimeout(() => companion.say(QUEST.natalie.hintReady, { key: 'ready', force: true }), 7000);
@@ -913,7 +947,7 @@ interactables.push({ obj: questProps.leadHit, verb: () => 'Follow the blue light
   const th = quest.theory!, end = ending(th);
   quest.stage = 'done'; saveQuest(quest);
   questProps.showLead(null);
-  afterDialogue = () => { toast("Natalie finished her field note. Read it in the casebook (J).", 5000); void resumePlay(); };
+  afterDialogue = () => { hint(`My field note's done. It's in the casebook: ${keyName('casebook')}.`, 'Natalie finished her field note. Read it in the casebook (J).', 5000); void resumePlay(); };
   talkTo('natalie', questProps.leadHit.position, { speaker: 'Natalie Bourbon', start: 'f1', nodes: {
     f1: { text: end.find, next: 'f2' },
     f2: { text: QUEST.natalie.found, next: 'f3' },
@@ -970,6 +1004,7 @@ let natalieWas: { x: number; z: number; ry: number } | null = null;
 let satAtFire = false;
 function openCampfire() {
   satAtFire = true;
+  autoSave();   // UX pass: sitting at the fire saves
   enterForge();
   const f0 = world.stations.campfire.position;
   takeStation(new THREE.Vector3(f0.x + 1.5, 0, f0.z + 0.3).addScaledVector(new THREE.Vector3(1, 0, 0.2).normalize(), -0.05), f0, 'sit');   // v0.06 S1: on the log seat
@@ -1007,11 +1042,13 @@ function sleep(onBedroll = false) {
   fade.classList.add('on');
   setTimeout(() => {
     const next = NEXT_TIME[world.time];
-    setWorldTime(next);
+    setWorldTime(next, true);
+    autoSave();
     fade.classList.remove('on');
     sleeping = false;
     if (stationPose === 'kneel') stationPose = null;
-    toast(next === 'night' ? 'You wake at nightfall. Light your torch (T).' : `You wake at ${WAKE_AT[next]}.`, 2600);
+    if (next === 'night') hint(`Nightfall already. Light your torch: ${keyName('torch')}.`, 'You wake at nightfall. Light your torch (T).', 2600);
+    else toast(`You wake at ${WAKE_AT[next]}.`, 2600);
   }, 1100);
 }
 interactables.push({ obj: world.stations.bedroll, verb: () => satAtFire ? `Sleep until ${WAKE_AT[NEXT_TIME[world.time]]}` : 'Bedroll (sit by the fire first)',
@@ -1149,7 +1186,7 @@ function openDescend() {
 // v0.05 §6: the Quick Dungeon, a menu-only run picked from the trapdoor.
 const quick = new QuickDungeon();
 quick.carvings = () => shrineLines.map((e) => ({ line: e.body.replace(/^#.*$/gm, '').replace(/[*_>[\]]/g, '').trim().split(/(?<=[.!?])\s+/)[0], title: e.title, credit: e.credit_as }));
-quick.onReward = (r) => { if (r.crowns) inventory.give(CROWN, r.crowns); for (const [id, n] of r.items) inventory.give(id, n); };
+quick.onReward = (r) => { if (r.crowns) inventory.give(CROWN, r.crowns); for (const [id, n] of r.items) inventory.give(id, n); haptics.play('pickup'); };
 quick.onFinish = (seed, end) => {
   const d = delves[seed] ?? (delves[seed] = { theme: quick.graph!.theme, at: new Date().toISOString().slice(0, 10) });
   if (end !== 'fled' && d.quick !== 'won') { d.quick = end; saveDelves(); }
@@ -1170,7 +1207,7 @@ const goblins = new Goblins(world.scene, {
   aiming: () => crossbow.ads,
   hurt: (dmg, by, slow) => {
     if (!inDungeon || delveHp <= 0) return;
-    delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('land');
+    delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt');
     if (slow) slowT = Math.max(slowT, slow);
     if (delveHp <= 0) {
       exitDungeon();
@@ -1180,14 +1217,14 @@ const goblins = new Goblins(world.scene, {
   },
   steal: () => { const n = Math.min(2, inventory.count('bolt')); if (n) inventory.take('bolt', n); return n; },
   loot: (f, crowns, bolts) => {
-    inventory.give(CROWN, crowns); if (bolts) inventory.give('bolt', bolts);
+    inventory.give(CROWN, crowns); if (bolts) inventory.give('bolt', bolts); haptics.play('pickup');
     toast(`${f.v.display} drops ${crowns} crown${crowns > 1 ? 's' : ''}${bolts ? ` and ${bolts} bolt${bolts > 1 ? 's' : ''}` : ''}.`, 2600);
   },
   say: (t) => toast(t, 2600),
 });
 crossbow.targets = (from, dir, len) => {
   const h = goblins.list.length ? goblins.hitTest(from, dir, len) : null;
-  return h && { dist: h.dist, hit: (dmg, d) => goblins.shoot(h.foe, dmg, d) };
+  return h && { dist: h.dist, hit: (dmg, d) => { haptics.play('hit'); return goblins.shoot(h.foe, dmg, d); } };
 };
 function spawnGoblins() {
   goblins.clear(); delveHp = DELVE_HP; slowT = 0;
@@ -1201,11 +1238,17 @@ function spawnGoblins() {
   }
 }
 const delveHpEl = document.getElementById('delveHp')!;
+// UX pass (Mike 2026-10-31): your health shows on you, not as a counter. Below half, the edges of your sight redden
+// and you breathe hard; below 40% you limp. The old line stays for screen readers (and tests), off screen.
+let breathT = 0;
 function updateDelve(dt: number) {
-  if (!inDungeon) { delveHpEl.classList.add('hidden'); return; }
+  if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); return; }
   if (state === 'play') goblins.update(dt);
-  slowT = Math.max(0, slowT - dt); player.speedMul = slowT > 0 ? 0.55 : 1;
+  const frac = delveHp / DELVE_HP;
+  slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1);
   hurtFlash = Math.max(0, hurtFlash - dt);
+  document.body.style.setProperty('--hurt', (Math.max(0, 1 - frac * 1.6) * 0.85 + hurtFlash * 1.4).toFixed(2));
+  if (frac <= 0.5 && state === 'play' && (breathT -= dt) <= 0) { audio.breath(); breathT = 1.2 + frac * 2.4; }
   delveHpEl.classList.remove('hidden');
   delveHpEl.classList.toggle('hit', hurtFlash > 0);
   const t = `♥ ${delveHp}/${DELVE_HP}${slowT > 0 ? ' · slowed' : ''} · goblins ${goblins.alive.length}`;
@@ -1273,8 +1316,8 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
     if (s.kind === 'chest') {
       if (d.chest) { toast('Empty. You already took what was here.'); return; }
       d.chest = true; saveDelves();
-      inventory.give('trinket', 1);
-      toast(`A trinket from below (I: inventory). Magister Greer would love to hear its story.`, 4500);
+      inventory.give('trinket', 1); haptics.play('pickup');
+      hint(`A trinket from below! Into the bag with it (${keyName('bag')}). Magister Greer would love its story.`, 'A trinket from below (I: inventory). Magister Greer would love to hear its story.', 4500);
       return;
     }
     if (s.kind === 'shrine') {
@@ -1347,6 +1390,8 @@ const townAct: Record<TownId, () => void> = {
   shop: () => openShop(),
   inn: () => { if (!inDungeon) sleep(); },
 };
+// UX pass: every door you go through saves the game.
+for (const id of Object.keys(townAct) as TownId[]) { const go = townAct[id]; townAct[id] = () => { go(); autoSave(); }; }
 for (const id of Object.keys(townAct) as TownId[]) {
   interactables.push({ obj: world.town.doors[id], verb: () => id === 'inn' ? `Rent a bed until ${WAKE_AT[NEXT_TIME[world.time]]}` : `Enter the ${TOWN_NAMES[id]}`, act: () => townAct[id]() });
 }
@@ -1462,6 +1507,21 @@ function syncLock() {
   show('nolock', !lockSupported && wantLock());
 }
 let toastTimer = 0;
+// UX pass (Mike 2026-10-31): tutorial hints are spoken by Natalie when she's with you, in her own words, naming the
+// key or button for how you're playing. Without her near (or with her quiet), the hint is the usual toast.
+const KEY_NAMES: Record<'casebook' | 'bag' | 'torch', Record<InputMode, string>> = {
+  casebook: { mouse: 'J', touch: 'the Journal button', pad: 'Menu, then Gameplay' },
+  bag: { mouse: 'I', touch: 'the Bag button', pad: 'View' },
+  torch: { mouse: 'T', touch: 'the flame button', pad: 'hold the D-pad down' },
+};
+const keyName = (k: keyof typeof KEY_NAMES) => KEY_NAMES[k][inputMode];
+let lastHint = '';
+function hint(natalie: string, plain: string, ms = 3600) {
+  const near = companion.prefs.follow && !companion.prefs.quiet && !inDungeon && companion.pos.distanceTo(player.pos) < 14;
+  if (near && companion.say(natalie, { force: true })) { lastHint = 'natalie'; return; }
+  lastHint = 'toast';
+  toast(plain, ms);
+}
 function toast(msg: string, ms = 3000) {
   const el = $('toast');
   el.textContent = msg;
@@ -1477,7 +1537,8 @@ dialogue.onAction = (a) => {
     if (givenOnce.has(a)) return;
     givenOnce.add(a);
     inventory.give(id, Number(n) || 1);
-    toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1} (I: inventory)`);
+    toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1}`);
+    setTimeout(() => hint(`It's in your bag now. ${keyName('bag')} opens it.`, '(I: inventory)', 2600), 1800);
   } else if (verb === 'unlock' && id === 'library_door') {
     world.openDoor();
   } else if (verb === 'quest' && id === 'start') {
@@ -1538,12 +1599,13 @@ function closeInventory() { if (state === 'inventory') void resumePlay(); }
 function activate() {
   if (state !== 'play') return;
   player.syncNow(); camera.updateMatrixWorld(); updateTarget();
+  if (lookingAt !== null) coach.used();
   if (lookingAt === 'natalie') talkToNatalie();
   else if (lookingAt === 'thing') lookingAtThing?.act();
   else if (lookingAt === 'library' && libraryHit) useLibrary(libraryHit);
   else if (lookingAt === 'bolt') {
     const b = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange);
-    if (b) { crossbow.pickUp(b); toast('Bolt recovered', 1200); }
+    if (b) { crossbow.pickUp(b); haptics.play('pickup'); toast('Bolt recovered', 1200); }
   }
 }
 
@@ -1659,10 +1721,47 @@ function toMenu(note: string) {
   setState('title');
   audio.water(true);
   const n = $('saveNote'); n.textContent = note; n.classList.remove('hidden');
+  refreshTitle();
   focusMenu(0);
 }
-function quitToMenu() { const ok = snapshot(true); toMenu(ok ? 'Saved. Begin carries on where you left off.' : "Couldn't save on this device (storage is blocked)."); }
+// UX pass (Mike 2026-10-31): auto-save at every door and campfire (and after a sleep), so quitting never loses
+// much. A quill mark in the corner says so.
+let autosaves = 0, autosaveTimer = 0;
+function autoSave() {
+  if (!inWorld || inDungeon || !snapshot(true)) return;
+  autosaves++;
+  const el = $('autosaved'); el.classList.add('on');
+  clearTimeout(autosaveTimer); autosaveTimer = window.setTimeout(() => el.classList.remove('on'), 1600);
+  refreshTitle();
+}
+// UX pass: a save shows "Continue" on the main menu, with "New game" under it (tap twice to start over).
+function refreshTitle() {
+  const has = !!loadGame();
+  $('begin').textContent = has ? 'Continue' : 'Begin';
+  $('newGame').classList.toggle('hidden', !has);
+  $('newGame').textContent = 'New game';
+}
+let newGameArmed = 0;
+$('newGame').addEventListener('click', () => {
+  if (Date.now() - newGameArmed > 4000) { newGameArmed = Date.now(); $('newGame').textContent = 'Tap again to start over'; return; }
+  newGameArmed = 0;
+  clearGame();
+  for (const [id] of [...inventory.counts]) inventory.counts.set(id, 0);
+  inventory.render(); purse.set(0);
+  begun = false;
+  refreshTitle();
+  void begin();
+});
+refreshTitle();
+// UX pass: the first-minute coach. Test browsers skip it unless localStorage gametool.coachtest = 'on'.
+const coach = new Coach($('coach'));
+try { if (navigator.webdriver && localStorage.getItem('gametool.coachtest') !== 'on') coach.enabled = false; } catch { if (navigator.webdriver) coach.enabled = false; }
+function quitToMenu() { const ok = snapshot(true); toMenu(ok ? 'Saved. Continue carries on where you left off.' : "Couldn't save on this device (storage is blocked)."); }
 $('quitToMenu').addEventListener('click', () => quitToMenu());
+// UX pass: the pause menu is your journal; its last pages are the casebook, the map and the bag.
+$('pgCasebook').addEventListener('click', () => openCasebook());
+$('pgMap').addEventListener('click', () => openMap());
+$('pgBag').addEventListener('click', () => { setState('play'); openInventory(); });
 // The exit gate: walking through asks whether to retire (save the bag and hour, then back to the menu).
 let gateOpen = false;
 function gateCheck() {
@@ -1815,6 +1914,9 @@ const hooks: GameHooks = {
   resume: () => { if (state === 'pause') closePauseMenu(); else void resumePlay(); },
   activate,
   lookingAtBook: () => lookingAt !== null,
+  useVerb: () => (lookingAt !== null ? promptVerb.textContent : null),
+  openMap: () => openMap(),
+  openJournal: () => openCasebook(),
   advanceDialogue: () => dialogue.press(),
   closeInventory,
   openInventory,
@@ -1845,6 +1947,7 @@ document.body.dataset.input = inputMode;
   type Lockable = ScreenOrientation & { lock?: (o: string) => Promise<void> };
   const canLock = !!document.documentElement.requestFullscreen && typeof (screen.orientation as Lockable | undefined)?.lock === 'function';
   if (canLock) $('rotateTurn').classList.remove('hidden');
+  else $('rotateIos').classList.remove('hidden');   // iPhone: no lock, so point at Control Centre's rotation lock
   // Automated test browsers skip it (their phone viewports are upright) unless a test asks: localStorage gametool.rotateask = 'on'.
   try { if (sessionStorage.getItem('gametool.upright') === 'ok' || (navigator.webdriver && localStorage.getItem('gametool.rotateask') !== 'on')) document.body.dataset.upright = 'ok'; }
   catch { if (navigator.webdriver) document.body.dataset.upright = 'ok'; }
@@ -1858,6 +1961,23 @@ document.body.dataset.input = inputMode;
     document.documentElement.requestFullscreen({ navigationUI: 'hide' })
       .then(() => (screen.orientation as Lockable).lock?.('landscape'))
       .catch(() => undefined);
+  });
+}
+
+// iPhone (Mike 2026-10-31): Safari won't let a page hide its address bar, but a Home Screen icon opens the game
+// fullscreen (manifest display: fullscreen). iPhone/iPad Safari outside that gets a one-line tip on the title screen
+// until it's closed. Test browsers skip it unless localStorage gametool.hometip = 'on'.
+{
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const installed = (navigator as Navigator & { standalone?: boolean }).standalone === true || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+  let show = ios && !installed;
+  try { if (localStorage.getItem('gametool.hometip') === 'off' || (navigator.webdriver && localStorage.getItem('gametool.hometip') !== 'on')) show = false; }
+  catch { if (navigator.webdriver) show = false; }
+  if (show) $('homeTip').classList.remove('hidden');
+  $('homeTipClose').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('homeTip').classList.add('hidden');
+    try { localStorage.setItem('gametool.hometip', 'off'); } catch { /* private mode */ }
   });
 }
 
@@ -1997,6 +2117,10 @@ function syncMenu() {
   fov.value = String(settings.fov); $('fovOut').textContent = settings.fov + '°';
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
   $<HTMLInputElement>('haptics').checked = settings.haptics;
+  $<HTMLInputElement>('lefty').checked = settings.lefty;
+  $<HTMLInputElement>('buttonSize').value = String(settings.buttonSize); $('buttonSizeOut').textContent = settings.buttonSize + '%';
+  $<HTMLInputElement>('textSize').value = String(settings.textSize); $('textSizeOut').textContent = settings.textSize + '%';
+  $<HTMLInputElement>('readSpeed').value = String(settings.readSpeed); $('readSpeedOut').textContent = settings.readSpeed + '×';
   $<HTMLSelectElement>('viewSel').value = settings.view;
   $<HTMLSelectElement>('charsSel').value = settings.chars;
   presetSel.value = settings.preset;
@@ -2028,6 +2152,23 @@ $<HTMLInputElement>('haptics').addEventListener('change', (e) => {
 });
 haptics.setEnabled(settings.haptics);
 haptics.setMode(inputMode);
+// UX pass (Mike 2026-10-31): comfort settings take effect at once.
+function applyComfort() {
+  const root = document.documentElement.style;
+  root.setProperty('--tb', String(settings.buttonSize / 100));
+  root.setProperty('--text-k', String(settings.textSize / 100));
+  reading.speed = settings.readSpeed;
+  if (touch) touch.lefty = settings.lefty;
+  if (settings.lefty) document.body.dataset.lefty = '1'; else delete document.body.dataset.lefty;
+}
+applyComfort();
+for (const id of ['lefty', 'buttonSize', 'textSize', 'readSpeed'] as const) {
+  $<HTMLInputElement>(id).addEventListener(id === 'lefty' ? 'change' : 'input', (e) => {
+    const el = e.target as HTMLInputElement;
+    if (id === 'lefty') settings.lefty = el.checked; else settings[id] = Number(el.value);
+    saveSettings(settings); applyComfort(); syncMenu();
+  });
+}
 document.body.dataset.pad = 'xbox';
 renderPadMap('xbox');
 const charsSel = $<HTMLSelectElement>('charsSel');
@@ -2150,7 +2291,7 @@ function frame() {
       const moving = MOVE_ACTIONS.some((a) => player.held.has(a)) || Math.hypot(player.analog.x, player.analog.y) > 0.05;
       if (moving && !player.sneaking) {
         stepTimer -= SIM_STEP;
-        if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); if (player.thirdPerson && player.speed() > controls.speeds.walk) dust.burst(footAt()); }
+        if (stepTimer <= 0) { audio.footstep(); if (purse.crowns > 0 && ++purseSteps % 3 === 0) audio.coins(1); stepTimer = 2.2 / Math.max(1, player.speed()); if (player.thirdPerson && player.speed() > controls.speeds.walk) dust.burst(footAt()); }
       } else stepTimer = 0;
     }
     rig.update(dt);   // R3: camera follows this frame's simulation before anything aims along it
@@ -2161,8 +2302,9 @@ function frame() {
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     crossbow.update(dt);
     touch?.update();
+    coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
-  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
+  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); $('coach').classList.add('hidden'); }
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
   audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);
@@ -2226,4 +2368,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

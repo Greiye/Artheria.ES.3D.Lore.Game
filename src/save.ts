@@ -15,3 +15,5 @@ export function loadGame(): SaveGame | null {
 export function saveGame(s: Omit<SaveGame, 'v' | 'at'>): boolean {
   try { localStorage.setItem(KEY, JSON.stringify({ v: 1, at: Date.now(), ...s })); return true; } catch { return false; }
 }
+/** UX pass: "New game" on the main menu forgets the save. */
+export function clearGame(): void { try { localStorage.removeItem(KEY); } catch { /* blocked */ } }

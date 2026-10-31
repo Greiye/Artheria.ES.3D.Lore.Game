@@ -20,6 +20,11 @@ export interface Settings {
   chars: 'hybrid' | 'sprite';   // restyle S2c: 3D bodies with pixel faces (default) or RO-style pixel sprites
   lastPage: number;
   haptics: boolean;    // v0.04: controller rumble / phone vibration
+  // UX pass (Mike 2026-10-31): comfort and reading
+  lefty: boolean;       // touch: joystick on the right, buttons on the left
+  buttonSize: number;   // touch buttons, 75-150 (%)
+  textSize: number;     // dialogue, books and tellings, 85-150 (%)
+  readSpeed: number;    // dialogue typing and Natalie's telling, 0.5-2 (x)
   // F1.1 graphics
   preset: Preset;
   renderScale: number; // 50-100 (%)
@@ -47,6 +52,7 @@ const firstPreset: Preset = typeof matchMedia === 'function' && matchMedia('(poi
 const defaults: Settings = {
   schemaVersion: 2,
   sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true,
+  lefty: false, buttonSize: 100, textSize: 100, readSpeed: 1,
   preset: firstPreset, ...PRESETS[firstPreset], autoQuality: true,
   audio: { ...defaultAudio },
 };
@@ -87,6 +93,10 @@ export function loadSettings(): Settings {
       view: s.view === 'first' || s.view === 'shoulder' ? s.view : 'overhead',   // pre-v0.05 'follow' becomes overhead
       chars: s.chars === 'sprite' ? 'sprite' : 'hybrid',
       haptics: bool(s.haptics, true),
+      lefty: bool(s.lefty, false),
+      buttonSize: clamp(s.buttonSize, 75, 150, 100),
+      textSize: clamp(s.textSize, 85, 150, 100),
+      readSpeed: clamp(s.readSpeed, 0.5, 2, 1),
       lastPage: Number.isInteger(s.lastPage) && (s.lastPage as number) >= 0 ? (s.lastPage as number) : 0,
       preset,
       renderScale: clamp(s.renderScale, 50, 100, PRESETS[preset].renderScale),

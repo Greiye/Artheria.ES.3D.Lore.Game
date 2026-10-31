@@ -6,11 +6,17 @@ import { haptics } from './haptics';
 // Left side: floating joystick (small push = walk, full push = run).
 // Right side: drag to look. Buttons: Jump, Sneak, Sprint (hold), View, camera −/+, Read (when aimed at the
 // book), Menu. v0.04: landscape first, face buttons in a controller's diamond, a buzz on each press.
+// UX pass (Mike 2026-10-31): thumb zones. One context button beside the face buttons names what it will do
+// (Talk / Read / Open ...); Map, Journal, Bag and Menu sit in a row in the top corner, one tap each; a faint
+// ring shows where the joystick appears; Left-handed mirrors it all and Button size scales it (Pause > Gameplay).
 export class TouchControls {
   readonly root: HTMLDivElement;
   private base: HTMLDivElement;
   private knob: HTMLDivElement;
   private readBtn: HTMLButtonElement;
+  private ghost: HTMLDivElement;
+  /** Pause > Gameplay > Left-handed: the joystick takes the right side, the buttons the left. */
+  lefty = false;
   private stickId: number | null = null;
   private stickOrigin = { x: 0, y: 0 };
   private looks = new Map<number, { x: number; y: number }>();
@@ -20,10 +26,15 @@ export class TouchControls {
     this.root.id = 'touch';
     this.root.innerHTML = `
       <div class="t-zone"></div>
+      <div class="t-ghost" aria-hidden="true"><span>Move</span></div>
       <div class="t-base hidden"><div class="t-knob"></div></div>
-      <button class="t-btn t-menu" data-act="menu" aria-label="Menu">☰</button>
-      <button class="t-btn t-read hidden" data-act="read">Use</button>
-      <button class="t-btn t-inv" data-act="inventory" aria-label="Inventory">Bag</button>
+      <div class="t-row">
+        <button class="t-btn" data-act="map" aria-label="Map">Map</button>
+        <button class="t-btn" data-act="journal" aria-label="Journal">Journal</button>
+        <button class="t-btn t-inv" data-act="inventory" aria-label="Inventory">Bag</button>
+        <button class="t-btn t-menu" data-act="menu" aria-label="Menu">☰</button>
+      </div>
+      <button class="t-btn t-read t-use hidden" data-act="read">Use</button>
       <div class="t-bow hidden">
         <button class="t-btn" data-act="bow">Bow</button>
         <button class="t-btn" data-act="reload">Reload</button>
@@ -45,6 +56,7 @@ export class TouchControls {
     this.base = this.root.querySelector('.t-base')!;
     this.knob = this.root.querySelector('.t-knob')!;
     this.readBtn = this.root.querySelector('.t-read')!;
+    this.ghost = this.root.querySelector('.t-ghost')!;
     const zone = this.root.querySelector('.t-zone') as HTMLDivElement;
 
     zone.addEventListener('pointerdown', (e) => this.down(e));
@@ -70,6 +82,8 @@ export class TouchControls {
         else if (act === 'read') this.g.activate();
         else if (act === 'menu') this.g.pause();
         else if (act === 'inventory') this.g.openInventory();
+        else if (act === 'map') this.g.openMap();
+        else if (act === 'journal') this.g.openJournal();
         else if (act === 'bow') { if (this.g.crossbow.equipped) this.g.crossbow.unequip(); else this.g.crossbow.equip(); }
         else if (act === 'reload') this.g.crossbow.pressReload();
         else if (act === 'fire') this.g.fire();
@@ -88,12 +102,14 @@ export class TouchControls {
     e.preventDefault();
     this.g.setMode('touch');
     (e.target as Element).setPointerCapture(e.pointerId);
-    if (e.clientX < window.innerWidth * 0.45 && this.stickId === null) {
+    const stickSide = this.lefty ? e.clientX > window.innerWidth * 0.55 : e.clientX < window.innerWidth * 0.45;
+    if (stickSide && this.stickId === null) {
       this.stickId = e.pointerId;
       this.stickOrigin = { x: e.clientX, y: e.clientY };
       this.base.style.left = e.clientX + 'px';
       this.base.style.top = e.clientY + 'px';
       this.base.classList.remove('hidden');
+      this.ghost.classList.add('hidden');
       this.setKnob(0, 0);
     } else {
       this.looks.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -125,6 +141,7 @@ export class TouchControls {
     if (e.pointerId === this.stickId) {
       this.stickId = null;
       this.base.classList.add('hidden');
+      this.ghost.classList.remove('hidden');
       this.g.player.analog.x = this.g.player.analog.y = 0;
     }
     this.looks.delete(e.pointerId);
@@ -134,7 +151,9 @@ export class TouchControls {
 
   // Called every frame by main.
   update() {
-    this.readBtn.classList.toggle('hidden', !(this.g.state() === 'play' && this.g.lookingAtBook()));
+    const verb = this.g.state() === 'play' ? this.g.useVerb() : null;
+    this.readBtn.classList.toggle('hidden', !verb);
+    if (verb && this.readBtn.textContent !== verb) this.readBtn.textContent = verb;
     const sneak = this.root.querySelector('[data-act="sneak"]')!;
     sneak.classList.toggle('latched', this.g.player.sneaking);
     const cb = this.g.crossbow;   // F4: crossbow buttons once Natalie has handed it over

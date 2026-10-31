@@ -1,4 +1,5 @@
 import './telling.css';
+import { reading } from '../reading';
 
 // v0.05 §5: Natalie tells a lore page by the fire, with kinetic type. Writers tag the page with plain markdown and
 // the renderer turns the tags into delivery (Mike, 2026-10-28):
@@ -125,7 +126,7 @@ export class TellingView {
 
   private step() {
     const now = performance.now();
-    this.clock += Math.min(250, now - this.last);
+    this.clock += Math.min(250, now - this.last) * reading.speed;
     this.last = now;
     while (!this.done && this.clock >= this.beats[this.shown].wait) { this.clock -= this.beats[this.shown].wait; this.reveal(true); }
   }

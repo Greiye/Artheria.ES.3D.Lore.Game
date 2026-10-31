@@ -7,6 +7,38 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### UX pass 3: flow (Mike 2026-10-31)
+- **Continue on the main menu:** with a save, the top item reads Continue (still the biggest), with New game under it. New game asks for a second tap, then starts over at the coach with an empty bag.
+- **Auto-save:** every door you go through, sitting at the campfire and waking from sleep all save. A quill mark ("✒ Saved") shows for a moment in the corner.
+- **The pause menu is your journal:** a stitched leather cover titled Journal. Its last pages are the Casebook, the Map and the Bag, one tap each from it.
+- **Teach by doing:** in the first minute, one short line at a time tells you how to walk, then look, then (once something is in reach) use. It's worded for keys, thumbs or a pad, and each line goes as soon as you've done it, once per device. (Begin already goes straight into play, #30.)
+- New `test/e2e-ux-flow.mjs`.
+
+### UX pass 2: the world shows it, not the HUD (Mike 2026-10-31)
+- **The map is paper in your hands:** a tilted sheet held at its lower corners, with the world still in view behind it.
+- **Status on the body:**
+  - Crowns hang at your hip as a leather purse. It fills out as they come in, bobs and jingles when coins drop in, and clinks as you walk.
+  - In the dungeon, the health counter is gone from the screen. Hurt reddens the edges of your sight and flares when you're hit; below half health you breathe hard, and below 40% you limp. The old line is still read out to screen readers.
+- **Directions from the town:** a fingerpost where the lane meets the green has one arm per building, smoke rises from every chimney, and windows stay lit at night. There are no floating markers.
+- **Natalie speaks the tutorial hints** when she's with you, in her own words, naming the key or button for how you play: J or the Journal button, I or the Bag button, the torch. Without her near, they're the usual toast.
+- **No clock:** the sky shows the hour, and the library spire's bell tolls when it changes (three in the morning, two at sunset, one at nightfall), placed in the world like the other sounds.
+- New `test/e2e-ux-world.mjs`.
+
+### UX pass 1: comfort and thumbs (Mike 2026-10-31)
+- **Thumb zones:** Map, Journal, Bag and Menu sit in one row in the top-right corner, one tap each. Camera −/+ and the torch move to the opposite top corner. Every touch button is at least 44 px.
+- **One context button:** next to the face buttons, it says what it will do (Talk to Natalie, Enter the Library, Read, Pick up bolt…) and shows only when there's something to do.
+- **Floating joystick:** a faint "Move" ring shows where it appears. It still spawns wherever the thumb lands.
+- **Pause → Gameplay → Comfort:** Left-handed (the joystick moves right, the buttons move left), Touch button size (75–150%), Text size (85–150%, for dialogue, books and Natalie's tellings) and Reading speed (0.5–2×, for dialogue typing and the telling).
+- **Haptics:** a buzz on pickups (crowns, bolts, loot), on hits and when you're hurt. This works on Android and controllers; iPhone Safari has no vibration API.
+- **Two taps deep:** Map, Journal and Bag take one tap, and every options group takes two. New `test/e2e-ux.mjs`.
+
+### iPhone pass (Mike 2026-10-31)
+- Text boxes are 16px on phones, so iPhone Safari no longer zooms the page in when you tap one.
+- The "Turn your phone sideways" card tells iPhone players how to switch off Rotation Lock (iPhones can't be turned by the page).
+- Safari won't let a page hide its address bar. On iPhone and iPad, a small tip on the title screen explains Share → Add to Home Screen, which opens the game fullscreen. ✕ hides it for good.
+- The canvas follows the visible part of the screen as Safari's bars grow and shrink, and book pages size by the visible height (`dvh`).
+- New `test/e2e-iphone.mjs` (iPhone 13 size) with screenshots.
+
 ### Character creation rolled back (Mike 2026-10-31)
 - New players no longer get the "who are you" form (name, motivation, secret) on their first Begin. On iPhone it brought up the keyboard before play. Begin always goes straight into the game, and Pause → Character is hidden. The form stays in the code for backlog B25, when it returns as its own optional step.
 

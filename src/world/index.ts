@@ -8,6 +8,7 @@ import { buildFigure, buildCoach } from './figure';
 import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
+import { buildSmoke, type Smoke } from './smoke';
 import { buildTown, townClear, TOWN_LOTS, type Town } from './town';
 import { buildRiver, riverClear, WINDMILL, type River } from './river';
 import { buildKavik } from './kavik';
@@ -36,6 +37,7 @@ export interface World {
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
   town: Town;                    // v0.04: the storybook town (src/world/town.ts)
+  smoke: Smoke;                  // UX pass: chimney smoke (src/world/smoke.ts)
   river: River;                  // references review: the river, its bridges and the windmill (src/world/river.ts)
   heightAt(x: number, z: number): number;   // v0.04 hills: ground height
   stations: { mirror: THREE.Object3D; anvil: THREE.Object3D; banner: THREE.Object3D; campfire: THREE.Object3D; bedroll: THREE.Object3D };   // Phase B forges + C sketchbook: E opens them
@@ -302,6 +304,7 @@ export function buildWorld(): World {
 
   const town = buildTown(scene, B, tex, colliders);   // v0.04
   const river = buildRiver(scene, B, tex, colliders);   // references review (Willowbrook)
+  const smoke = buildSmoke(scene, town.chimneys);   // UX pass
   const statics = B.flush(scene, 'static');
   statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
 
@@ -436,6 +439,7 @@ export function buildWorld(): World {
     stations,
     town,
     river,
+    smoke,
     trees,
     lanterns: [...town.lanterns, ...libLanterns],
     heightAt,
@@ -463,6 +467,7 @@ export function buildWorld(): World {
       if (doorAngle !== targetAngle) { doorAngle = Math.min(targetAngle, doorAngle + 0.03); hinge.rotation.y = doorAngle; }
       wind.value = t;
       river.update(t);
+      smoke.update(t);
       sky.update(t, camera);
     },
     setShadows(on: boolean) {

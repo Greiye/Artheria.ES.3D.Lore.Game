@@ -3,11 +3,12 @@
 // v0.05: choices are also D-pad / arrow / W-S friendly: one is highlighted, up/down move it, A / E / Enter pick it.
 // Scripts are content/dialogue/*.json (§6.7); actions are handed back to the game (F3.4).
 import { randomPrompt } from './prompts';
+import { reading } from './reading';
 
 export interface DialogueNode { text: string; next?: string; choices?: { text: string; next: string }[]; actions?: string[]; end?: boolean }
 export interface DialogueScript { speaker: string; start: string; nodes: Record<string, DialogueNode> }
 
-const CPS = 40;   // F3.1 typewriter speed, characters per second
+const CPS = 40;   // F3.1 typewriter speed, characters per second (times Reading speed)
 
 export class DialogueBox {
   readonly root: HTMLDivElement;
@@ -68,7 +69,7 @@ export class DialogueBox {
     for (const a of n.actions ?? []) this.onAction(a);
     cancelAnimationFrame(this.timer);
     const tick = () => {
-      this.shown = Math.min(this.full.length, Math.floor((performance.now() - this.startedAt) / 1000 * CPS));
+      this.shown = Math.min(this.full.length, Math.floor((performance.now() - this.startedAt) / 1000 * CPS * reading.speed));
       this.textEl.textContent = this.full.slice(0, this.shown);
       if (this.typing) this.timer = requestAnimationFrame(tick);
       else this.revealed();

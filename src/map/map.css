@@ -12,3 +12,14 @@
 @media (max-width: 700px) { .map-card { grid-template-columns: 1fr; } #mpCanvas { width: calc(100vw - 56px); } }
 #mpText { font: 14px var(--ui); color: var(--parchment); background: rgba(122,125,128,.12); border: 1px solid var(--stone-d); border-radius: 6px; padding: 8px 10px; }
 #mpText:focus { outline: none; border-color: var(--rune); }
+
+/* UX pass (Mike 2026-10-31): the map is a sheet of paper in your hands, not a screen. The world stays in view
+   behind it, the sheet tilts a little, and two hands hold its lower corners. */
+.map-screen { background: rgba(12,14,12,.28); }
+.map-card { position: relative; transform: rotate(-1.2deg); overflow: visible; background: rgba(36,26,16,.9); }
+#mpCanvas { border: 7px solid #E6D3A8; border-radius: 3px; box-shadow: 0 10px 30px rgba(0,0,0,.5), inset 0 0 18px rgba(120,90,40,.35); }
+.map-card::before, .map-card::after { content: ''; position: absolute; bottom: -26px; width: 92px; height: 70px; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 40%, #C99A72 0 55%, #A87A55 70%, transparent 72%);
+  border-radius: 46px 46px 40px 40px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
+.map-card::before { left: -18px; transform: rotate(18deg); }
+.map-card::after { right: -18px; transform: rotate(-18deg); }
