@@ -504,3 +504,10 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 .pause-rule { display: block; height: 1px; margin: 8px 12px; background: linear-gradient(90deg, rgba(226,181,103,.5), transparent); }
 .pause-page { font-style: italic; }
 
+/* B21: the wiki (reading room lectern and Extras → Wiki). */
+#wiki .wk-card { width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+#wiki .wk-body { font-size: calc(16px * var(--text-k, 1)); line-height: 1.55; }
+#wiki .wk-body a, #wiki .wk-src a { color: #E8C878; }
+#wiki .wk-index { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#wiki .wk-index button { width: 100%; text-align: left; min-height: 44px; }
+#wiki .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }

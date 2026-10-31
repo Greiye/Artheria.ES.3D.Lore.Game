@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.07,
 Mike 2026-10-28; batch B 2026-10-31). Spec doc v0.06.
 
+### v0.07 changelog, part 5: the wiki in the game (B21, Mike 2026-10-31)
+- The game's [GitHub wiki](https://github.com/Greiye/Artheria.ES.3D.Lore.Game/wiki) is now inside the game. Each build pulls the wiki pages into `content/wiki/` and bakes them into the page, so they read offline and the game never calls GitHub while you play. With no network, the build keeps the last pulled copy.
+- Read it at the reading room lectern, just inside the Ruined Library, or from Extras → Wiki on the main menu. Links between wiki pages stay in the game; web links open in a new tab.
+- Editing a wiki page now republishes the game: the deploy workflow also runs on wiki edits.
+- Only public lore goes on the wiki. A page marked `<!-- private -->`, or named starting with "DM" or "_", is never pulled.
+
 ### v0.07 changelog, part 4: real skills (B19, Mike 2026-10-31)
 - A practice table stands beside the dojo mats, with rope, a first-aid tin and kindling. Using it teaches three real skills by doing: knots (square knot, bowline), first aid (a small cut, a small burn) and fire craft (lay and light a fire; put it out: drown, stir, feel).
 - Each skill has two short rounds. In some you tap the steps in the right order; a step out of order gets a hint. In others you tap everything that helps; a wrong pick says why (for example, no ice on a burn).
