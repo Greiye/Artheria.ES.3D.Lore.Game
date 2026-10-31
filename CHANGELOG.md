@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### Character creation rolled back (Mike 2026-10-31)
+- New players no longer get the "who are you" form (name, motivation, secret) on their first Begin. On iPhone it brought up the keyboard before play. Begin always goes straight into the game, and Pause → Character is hidden. The form stays in the code for backlog B25, when it returns as its own optional step.
+
 ### Phone start and Begin (after v0.06, Mike 2026-10-30)
 - A phone held upright gets a "Turn your phone sideways" card from the very first screen. It goes away by itself once the phone is sideways. "Play upright anyway" hides it for the session, and on Android "Turn it for me" goes fullscreen and locks landscape. It replaces the small in-game hint.
 - Begin goes straight into the game. The What's new window no longer opens on Begin; it's under Extras → What's new.
