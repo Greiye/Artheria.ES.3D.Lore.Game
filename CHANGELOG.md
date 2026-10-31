@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.07,
 Mike 2026-10-28; batch B 2026-10-31). Spec doc v0.06.
 
+### v0.07 changelog, part 3: the Spanish caravan (B16, Mike 2026-10-31)
+- A caravan camps beside the coach road, west of the glade: a wagon, a mule, a cooking fire and a frame of shawls. Its three people (la cocinera, la tejedora, el arriero) speak only Spanish and are never translated.
+- Talking to one opens a short conversation. Each line comes with a picture cue, a gesture to read, and "🔊 Otra vez" to hear it again (a Spanish voice, where the browser has one). Answer by picking a Spanish reply or by writing one (accents, capitals and ¡! don't matter). A reply that makes no sense gets "¿Cómo?" or "No te entiendo." and is struck out.
+- Getting through a conversation pays a few crowns, once. The cook asks your name and uses your hero's name (B25).
+- Journal → Phrasebook lists every line you got through, in Spanish, with a box for what you think it means. The game never fills it in. The living map marks the caravan.
+
 ### v0.07 changelog, part 2: profiles (B24, Mike 2026-10-31)
 - Three profiles on one device. Each keeps its own hero, save, bag, writing, map, casebook and progress. Settings, key bindings and the GitHub token are shared and never part of a profile.
 - The main menu shows which profile is loaded ("Profile: Rill"). Tap it to see all three: play another, start an empty one, export, import, or clear (clear needs a second tap).

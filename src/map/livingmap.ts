@@ -16,7 +16,7 @@ export class LivingMap {
   pins: Pin[] = [];
   private canvas!: HTMLCanvasElement;
 
-  constructor(private marks: () => Mark[], private player: () => { x: number; z: number; yaw: number }, private onClose: () => void, private author: () => string) {
+  constructor(readonly marks: () => Mark[], private player: () => { x: number; z: number; yaw: number }, private onClose: () => void, private author: () => string) {
     try {
       const s = JSON.parse(localStorage.getItem(KEY) ?? 'null') as MapState | null;
       if (s?.fog) for (let i = 0; i < G * G; i++) this.seen[i] = (parseInt(s.fog[i >> 2] ?? '0', 16) >> (i & 3)) & 1;
