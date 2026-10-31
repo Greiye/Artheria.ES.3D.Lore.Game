@@ -35,7 +35,7 @@ import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
 import { FigureAnim, BodyAnim, type AnimInput, type Pose } from './anim/procedural';
 import { Dust } from './fx/dust';
-import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
+import { CharacterForge, loadForge, renameForge, type ForgeCharacter } from './forge/character';
 import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
 import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
 import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sketch';
@@ -253,6 +253,7 @@ ui.innerHTML = `
       <button id="pgCasebook" class="pause-item pause-page">Casebook</button>
       <button id="pgMap" class="pause-item pause-page">Map</button>
       <button id="pgBag" class="pause-item pause-page">Bag</button>
+      <button id="pgSelf" class="pause-item pause-page">Who you are</button>
       <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
       <p class="fine">Settings are saved in this browser.</p>
     </nav>
@@ -271,7 +272,7 @@ ui.innerHTML = `
       <label class="check"><input id="lefty" type="checkbox"> Left-handed (touch: move on the right, buttons on the left)</label>
       <label>Touch button size <output id="buttonSizeOut"></output><input id="buttonSize" type="range" min="75" max="150" step="5"></label>
       <h4>Your hero</h4>
-      <button id="editCharacter" class="secondary hidden">Character</button>
+      <button id="editCharacter" class="secondary">Who you are (optional)</button>
       <button id="openCharacterForge" class="secondary">Character forge</button>
       <button id="openWeaponForge" class="secondary">Weapon forge</button>
       <button id="openSketchbook" class="secondary">Sketchbook</button>
@@ -328,9 +329,9 @@ ui.innerHTML = `
   <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>
   <div id="charcreate" class="screen hidden">
     <div class="card">
-      <div class="eyebrow">Before you set out</div>
+      <div class="eyebrow">Journal · optional</div>
       <h1>Who are you?</h1>
-      <p class="lead">Three quick questions. Change your answers anytime from the pause menu.</p>
+      <p class="lead">Nothing here is needed to play. Your name shows on your casebook, your hero and the credits. Change it anytime from the Journal or the tailor's mirror.</p>
       <label class="field">Character name<input id="ccName" type="text" maxlength="40" placeholder="e.g. Rill of the Dais"></label>
       <label class="field">What does your character want more than anything? <span class="hint">optional</span>
         <textarea id="ccMotivation" rows="2" placeholder="Revenge, a cure, a crown, to be forgiven..."></textarea>
@@ -339,8 +340,8 @@ ui.innerHTML = `
         <textarea id="ccSecret" rows="2" placeholder="A secret, a rumor, a prophecy..."></textarea>
       </label>
       <div class="row">
-        <button id="ccSkip">Skip for now</button>
-        <button id="ccBegin" class="primary">Begin</button>
+        <button id="ccSkip">Close</button>
+        <button id="ccBegin" class="primary">Save</button>
       </div>
     </div>
   </div>
@@ -515,11 +516,12 @@ function openCharCreate(from: State) {
   ccFrom = from;
   ccName.value = character.name; ccMotivation.value = character.motivation; ccSecret.value = character.secret;
   setState('charcreate');
-  ccName.focus();
+  if (inputMode !== 'touch') ccName.focus();   // B25: never pop the phone keyboard uninvited
 }
 function closeCharCreate() {
   character = { name: ccName.value.trim(), motivation: ccMotivation.value.trim(), secret: ccSecret.value.trim(), created: true };
   saveCharacter(character);
+  renameForge(character.name);   // B25: the forge and the form share one name
   if (ccFrom === 'title') void begin();
   else setState(ccFrom);
 }
@@ -919,6 +921,7 @@ const casebook = new Casebook(() => quest, (th: Theory) => {
   questProps.showLead(th.where);
   companion.say(support(quest, th) >= 2 ? QUEST.natalie.supported : QUEST.natalie.leap, { force: true });
 }, () => leaveForge(), loreWords, forgeAuthor);
+casebook.owner = () => character.name;
 function openCasebook() {
   if (state !== 'play' && state !== 'pause' && state !== 'dialogue') return;
   enterForge();
@@ -1763,6 +1766,7 @@ function quitToMenu() { const ok = snapshot(true); toMenu(ok ? 'Saved. Continue 
 $('quitToMenu').addEventListener('click', () => quitToMenu());
 // UX pass: the pause menu is your journal; its last pages are the casebook, the map and the bag.
 $('pgCasebook').addEventListener('click', () => openCasebook());
+$('pgSelf').addEventListener('click', () => openCharCreate('pause'));   // B25: optional, reached only from the Journal
 $('pgMap').addEventListener('click', () => openMap());
 $('pgBag').addEventListener('click', () => { setState('play'); openInventory(); });
 // The exit gate: walking through asks whether to retire (save the bag and hour, then back to the menu).

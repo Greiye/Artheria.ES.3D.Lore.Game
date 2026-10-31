@@ -48,7 +48,16 @@ async function newPage() {
   await page.waitForTimeout(300);
   check('Esc opens the pause menu', (await G(page, () => window.__gametool.state)) === 'pause');
   await page.click('[data-group="gameplay"]');
-  check('B25 rollback: Pause > Gameplay has no "Character" button', !(await page.isVisible('#editCharacter')));
+  check('B25: Pause > Gameplay offers the optional "Who you are" form', await page.isVisible('#editCharacter'));
+  await page.click('[data-group="gameplay"]');   // close the group again
+  check('B25: the Journal lists "Who you are" as a page', await page.isVisible('#pgSelf'));
+  await page.click('#pgSelf');
+  check('B25: the Journal page opens the form', (await G(page, () => window.__gametool.state)) === 'charcreate');
+  await page.fill('#ccName', 'Rill');
+  await page.click('#ccBegin');
+  check('B25: Save returns to the Journal and keeps the name', (await G(page, () => window.__gametool.state)) === 'pause' && (await G(page, () => window.__gametool.character.name)) === 'Rill');
+  await page.click('#pgCasebook');
+  check('B25: the casebook carries the hero\'s name', /Casebook of Rill/.test(await page.textContent('.casebook-panel .eyebrow').catch(() => '')));
   check('Character creation: no console/page errors', errors.length === 0, errors.join(' | '));
   await ctx.close();
 }

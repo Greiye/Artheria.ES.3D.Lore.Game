@@ -4,8 +4,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 
 ## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
-Mike 2026-10-28). Spec doc v0.06.
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.07,
+Mike 2026-10-28; batch B 2026-10-31). Spec doc v0.06.
+
+### v0.07 changelog, part 1: who you are (B25, Mike 2026-10-31)
+- Character creation is back, as an optional step. Begin still goes straight into play and never asks who you are.
+- The Journal (pause menu) has a "Who you are" page, also under Gameplay → Your hero. It holds your name, what you want most, and one secret about the world. Close leaves it blank; nothing needs filling in.
+- On a phone the form never opens the keyboard by itself.
+- Your name heads the casebook ("Casebook of …"), names your hero in the credits, and stays the same as the name at the tailor's mirror. Change it in either place.
+- `VERSION` is 0.07.
 
 ### Torn clothes (Mike 2026-10-31)
 - In the dungeon your clothes show how hurt you are. As health drops they darken with grime, and rips open one at a time from 75% down (chest, thigh, back, sleeve, other thigh, side) as health drops. Back above ground they're mended. The hero's figure gets its own material, so other figures stay clean. Code in `src/wear.ts`; the check is in `test/e2e-ux-world.mjs`.

@@ -49,6 +49,11 @@ export function loadForge(name = ''): ForgeCharacter {
     return { ...d, ...c, look: { ...d.look, ...(c.look ?? {}) }, height: typeof c.height === 'number' ? c.height : d.height };
   } catch { return defaultForge(name); }
 }
+// B25: the Journal's "Who are you?" form and the mirror share one name. Only touches a forge already saved.
+export function renameForge(name: string): void {
+  try { if (!localStorage.getItem(KEY)) return; } catch { return; }
+  const c = loadForge(name); c.name = name; saveForge(c);
+}
 function saveForge(c: ForgeCharacter): void {
   try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* private mode / quota */ }
 }
