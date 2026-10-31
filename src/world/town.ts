@@ -123,6 +123,10 @@ export interface Town {
   lanterns: THREE.Vector3[];
   /** The lit-window material (brighter at night). */
   windows: THREE.MeshBasicMaterial;
+  /** UX pass: the top of every chimney (smoke rises from these; src/world/smoke.ts). */
+  chimneys: THREE.Vector3[];
+  /** UX pass: the fingerpost where the lane meets the green, one arm per building. */
+  fingerpost: THREE.Vector3;
 }
 
 export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[]): Town {
@@ -131,7 +135,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const tint = (t: TexName, color: string) => tinted.get(t + color) ?? (tinted.set(t + color, new THREE.MeshLambertMaterial({ map: pixelTexture(t), color })), tinted.get(t + color)!);
   const glow = new THREE.MeshBasicMaterial({ color: '#F2C27A' });
   const lanternMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#FFC878').multiplyScalar(1.7) });
-  const lanterns: THREE.Vector3[] = [];
+  const lanterns: THREE.Vector3[] = [], chimneys: THREE.Vector3[] = [];
   const doors = {} as Record<TownId, THREE.Object3D>;
   const local = (L: Spot) => { const c = Math.cos(L.ry), s = Math.sin(L.ry); return (lx: number, y: number, lz: number) => V(L.x + lx * c + lz * s, y, L.z - lx * s + lz * c); };
 
@@ -176,6 +180,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
       const cx = (li % 2 ? 1 : -1) * half * 0.42, roofY = top + RISE * (1 - Math.abs(cx) / half), lean = (li % 3 - 1) * 0.07;
       B.add(tex('bricks'), new THREE.BoxGeometry(0.7, 1.7, 0.7), at(cx, roofY + 0.45, -Dt * 0.18), undefined, L.ry, 0, lean);
       B.add(tex('stone'), new THREE.BoxGeometry(0.9, 0.16, 0.9), at(cx - Math.sin(lean) * 0.85, roofY + 1.32, -Dt * 0.18), undefined, L.ry, 0, lean);
+      chimneys.push(at(cx - Math.sin(lean) * 0.9, roofY + 1.45, -Dt * 0.18));
     }
     // Timber frame: corner posts, a mid rail and a top rail on the front.
     for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) B.add(wood, new THREE.BoxGeometry(0.24, WALL, 0.24), at(x, PLINTH + WALL / 2, z), undefined, L.ry);
@@ -195,6 +200,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     }
     if (L.id === 'smithy') {   // a stone chimney for the forge
       B.add(tex('bricks'), new THREE.BoxGeometry(0.9, 2.6, 0.9), at(-W / 2 + 1.2, PLINTH + WALL + 1.5, -1.2), undefined, L.ry);
+      chimneys.push(at(-W / 2 + 1.2, PLINTH + WALL + 2.85, -1.2));
       B.add(tex('stone'), new THREE.BoxGeometry(1.4, 0.3, 1.4), at(W / 2 + 0.9, 0.15, D / 2 - 0.6), undefined, L.ry);   // quench trough
       const q = at(W / 2 + 0.9, 0, D / 2 - 0.6); colliders.push({ kind: 'circle', x: q.x, z: q.z, r: 0.8, top: 0.3 });
     }
@@ -232,6 +238,17 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   }
   B.box(tex('wood'), V(GATE.x, 3.2, GATE.z), 0.34, 0.3, GATE.half * 2 + 1.4);
   for (const dz of [-0.9, 0.9]) B.box(tex('wood'), V(GATE.x, 2.95, GATE.z + dz), 0.05, 0.4, 0.05);   // sign chains
+  // UX pass (Mike 2026-10-31): a fingerpost where the lane meets the green, one arm pointing at each building, so the
+  // town gives directions instead of floating markers. The arms reuse the building signs' atlas.
+  const lane = SPOTS.get('lane')!, fx = lane.x + (G.x - lane.x) * 0.16, fz = lane.z + (G.z - lane.z) * 0.16;
+  const fingerpost = V(fx, 0, fz);
+  B.box(tex('wood'), V(fx, 1.75, fz), 0.18, 3.5, 0.18);
+  B.add(tex('wood'), new THREE.ConeGeometry(0.16, 0.3, 4), V(fx, 3.62, fz));
+  colliders.push({ kind: 'circle', x: fx, z: fz, r: 0.2 });
+  LOTS.forEach((L, i) => {
+    const dx = L.x - fx, dz = L.z - fz, a = Math.atan2(-dz, dx);
+    signs.push(signUV(new THREE.PlaneGeometry(1.25, 0.31), i, LOTS.length + 1).translate(0.72, 0, 0).rotateY(a).translate(fx, 3.3 - i * 0.29, fz));
+  });
   const gs = signUV(new THREE.PlaneGeometry(2.8, 0.7), LOTS.length, LOTS.length + 1);   // the atlas's last sign
   signs.push(gs.rotateY(Math.PI / 2).translate(GATE.x + 0.2, 2.45, GATE.z));
   const signMesh = new THREE.Mesh(mergeGeometries(signs), new THREE.MeshBasicMaterial({ map: signAtlas([...LOTS.map((l) => [`${ICONS[l.id]}  ${TOWN_NAMES[l.id]}`]), ['Temporary Exit -', 'Mind the dust']]), side: THREE.DoubleSide }));
@@ -267,7 +284,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const shopkeeperHit = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
   shopkeeperHit.position.copy(sa(2.0, 0.9, shop.d / 2 + 2.55)); shopkeeperHit.rotation.y = shop.ry; shopkeeperHit.name = 'shopkeeper';
   scene.add(shopkeeperHit);
-  return { doors, shopkeeper, shopkeeperHit, cinema: cin, lanterns, windows: glow };
+  return { doors, shopkeeper, shopkeeperHit, cinema: cin, lanterns, windows: glow, chimneys, fingerpost };
 }
 
 // ---------- Style pass 2: storybook dressing (window boxes, pots, awnings, barrels, a well, bunting) ----------

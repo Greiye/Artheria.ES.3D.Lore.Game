@@ -351,6 +351,36 @@ class AudioEngine {
     }
     this.noise('sfx', 0.06, 300, 1, 0.3, 0.7, out);
   }
+  // UX pass (Mike 2026-10-31): the town bell tells the hour instead of a clock; coins jingle in the purse; ragged
+  // breathing when hurt. `lastBell` is for tests.
+  lastBell = 0;
+  /** `n` tolls of a big bronze bell (inharmonic partials, long decay) into `out`, 2.2 s apart. */
+  bell(n: number, out?: AudioNode | null): boolean {
+    this.lastBell = n;
+    if (!this.ensure() || !this.ctx || !this.bus) return false;
+    const ctx = this.ctx, dest = out ?? this.bus.sfx;
+    for (let k = 0; k < n; k++) {
+      const t = ctx.currentTime + 0.05 + k * 2.2;
+      for (const [m, a, d] of [[0.5, 0.1, 4.5], [1, 0.16, 3.6], [1.19, 0.08, 2.8], [1.5, 0.06, 2.2], [2.0, 0.05, 1.6], [2.74, 0.03, 1.0]] as const) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = 196 * m;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0008, t + d);
+        o.connect(g).connect(dest); o.start(t); o.stop(t + d + 0.05);
+      }
+    }
+    return true;
+  }
+  coins(n = 3): void {
+    if (!this.ensure() || !this.ctx) return;
+    const ctx = this.ctx;
+    for (let i = 0; i < n; i++) {
+      const t = ctx.currentTime + 0.01 + i * 0.05 + Math.random() * 0.03, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = 2600 + Math.random() * 1600;
+      g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      o.connect(g).connect(this.bus!.sfx); o.start(t); o.stop(t + 0.14);
+    }
+  }
+  breath(): void { this.noise('sfx', 0.55, 900, 0.7, 0.16, 0.8); }
   /** Townsfolk talking: a few syllables of voiced, wordless babble (formant-filtered buzz). */
   murmur(out: AudioNode, pitch = 1): void {
     if (!this.ctx) return;

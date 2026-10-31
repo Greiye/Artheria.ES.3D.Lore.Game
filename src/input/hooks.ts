@@ -18,6 +18,9 @@ export interface GameHooks {
   resume(): void;
   activate(): void;          // E / A / Read button: open the book if aimed at it
   lookingAtBook(): boolean;   // true when E would do something (book or Natalie)
+  useVerb(): string | null;   // UX pass: what E / the touch Use button would do here ("Talk to Natalie", "Read", ...)
+  openMap(): void;
+  openJournal(): void;
   advanceDialogue(): void;    // F3.1 (gamepad A)
   closeInventory(): void;
   openInventory(): void;
