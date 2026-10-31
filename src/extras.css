@@ -20,3 +20,14 @@
 .credits-head { font-size: 1rem; margin: 1.2rem 0 0.4rem; }
 .asset-credits { margin: 0 0 1rem; padding-left: 1.1rem; text-align: left; line-height: 1.45; font-size: 0.9rem; }
 .asset-credits a { color: inherit; }
+
+/* B24 profiles */
+.prof-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.prof { border: 1px solid rgba(232,216,180,.25); border-radius: 8px; padding: 8px 10px; }
+.prof.on { border-color: #E8C878; box-shadow: 0 0 0 1px rgba(232,200,120,.35) inset; }
+.prof-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.prof-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.prof-acts button { min-height: 40px; padding: 4px 12px; }
+.prof-note { color: #E8C878; }
+.prof-acts button { width: auto; flex: 1 1 auto; margin: 0; }
+.extras-card .prof-list { max-height: 52vh; overflow-y: auto; }

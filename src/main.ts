@@ -35,6 +35,7 @@ import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
 import { FigureAnim, BodyAnim, type AnimInput, type Pose } from './anim/procedural';
 import { Dust } from './fx/dust';
+import { activeSlot, slotInfo, slotLabel } from './profiles';
 import { CharacterForge, loadForge, renameForge, type ForgeCharacter } from './forge/character';
 import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
 import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
@@ -200,6 +201,7 @@ ui.innerHTML = `
     <nav class="menu-list" aria-label="Main menu">
       <button id="begin" class="menu-item">Begin</button>
       <button id="newGame" class="menu-item hidden">New game</button>
+      <button id="openProfiles" class="menu-item">Profiles</button>
       <button id="openExtras" class="menu-item">Extras</button>
       <button id="openSettingsTitle" class="menu-item">Options</button>
     </nav>
@@ -1746,6 +1748,8 @@ function refreshTitle() {
   $('begin').textContent = has ? 'Continue' : 'Begin';
   $('newGame').classList.toggle('hidden', !has);
   $('newGame').textContent = 'New game';
+  const p = slotInfo(activeSlot());
+  $('openProfiles').textContent = `Profile: ${slotLabel(p)}`;   // B24: which of the three is loaded
 }
 let newGameArmed = 0;
 $('newGame').addEventListener('click', () => {
@@ -1803,6 +1807,7 @@ extras.onWrite = () => { extras.el.classList.add('hidden'); openEditor(); };   /
 const whatsNew = new WhatsNew(promptOfTheDay());
 extras.onWhatsNew = () => { extras.el.classList.add('hidden'); whatsNew.open(() => { extras.open(); focusMenu(0); }); };
 $('openExtras').addEventListener('click', () => { show('title', false); extras.open(); focusMenu(0); });
+$('openProfiles').addEventListener('click', () => { show('title', false); extras.open('profiles'); focusMenu(0); });   // B24
 
 // Pause → Controls: rebind the keyboard. Click a key, then press the new one (Esc cancels).
 let rebinding: Action | null = null;
