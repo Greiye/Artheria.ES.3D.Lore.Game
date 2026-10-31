@@ -7,6 +7,16 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### UX pass 2: the world shows it, not the HUD (Mike 2026-10-31)
+- **The map is paper in your hands:** a tilted sheet held at its lower corners, with the world still in view behind it.
+- **Status on the body:**
+  - Crowns hang at your hip as a leather purse. It fills out as they come in, bobs and jingles when coins drop in, and clinks as you walk.
+  - In the dungeon, the health counter is gone from the screen. Hurt reddens the edges of your sight and flares when you're hit; below half health you breathe hard, and below 40% you limp. The old line is still read out to screen readers.
+- **Directions from the town:** a fingerpost where the lane meets the green has one arm per building, smoke rises from every chimney, and windows stay lit at night. There are no floating markers.
+- **Natalie speaks the tutorial hints** when she's with you, in her own words, naming the key or button for how you play: J or the Journal button, I or the Bag button, the torch. Without her near, they're the usual toast.
+- **No clock:** the sky shows the hour, and the library spire's bell tolls when it changes (three in the morning, two at sunset, one at nightfall), placed in the world like the other sounds.
+- New `test/e2e-ux-world.mjs`.
+
 ### UX pass 1: comfort and thumbs (Mike 2026-10-31)
 - **Thumb zones:** Map, Journal, Bag and Menu sit in one row in the top-right corner, one tap each. Camera −/+ and the torch move to the opposite top corner. Every touch button is at least 44 px.
 - **One context button:** next to the face buttons, it says what it will do (Talk to Natalie, Enter the Library, Read, Pick up bolt…) and shows only when there's something to do.

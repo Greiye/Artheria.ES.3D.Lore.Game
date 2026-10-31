@@ -479,3 +479,9 @@ body[data-lefty] .t-ghost { left: auto; right: calc(70px + env(safe-area-inset-r
 }
 body[data-input="touch"] #status { left: calc(16px + env(safe-area-inset-left)); top: calc(70px + env(safe-area-inset-top)); }
 body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + env(safe-area-inset-right)); }
+
+/* ---------- UX pass (Mike 2026-10-31): status on the body ---------- */
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; border: 0 !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* --hurt (0-1+) reddens the edges of your sight as you're hurt, and flares when you're hit. */
+#hurtEdge { position: absolute; inset: 0; pointer-events: none; opacity: min(1, var(--hurt, 0));
+  background: radial-gradient(ellipse at 50% 50%, rgba(120,10,6,0) 45%, rgba(120,10,6,.55) 85%, rgba(80,0,0,.8) 100%); transition: opacity .15s; }

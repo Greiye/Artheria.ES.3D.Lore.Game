@@ -22,6 +22,7 @@ import type { State, InputMode, GameHooks } from './input/hooks';
 import { loadGitHub, saveGitHub, loadAuthor, saveAuthor, slugify, buildMarkdown, publishToGitHub, downloadMarkdown } from './editor';
 import { loadCharacter, saveCharacter, type Character } from './character';
 import { reading } from './reading';
+import { Purse } from './purse';
 import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
@@ -147,7 +148,11 @@ world.setFoliage(FOLIAGE[settings.preset]);
 const nightLights = new NightLights(world.scene, world.lanterns, world.town.windows);
 nightLights.setMax(settings.preset === 'low' ? 2 : 4);
 nightLights.setTime(world.time);
-const setWorldTime = (t: TimeOfDay) => { world.setTime(t); nightLights.setTime(t); };
+// UX pass (Mike 2026-10-31): no clock. The sky shows the hour, and the bell in the library spire tolls when it
+// changes: three for morning, two for sunset, one for nightfall.
+const BELL_TOLLS: Record<TimeOfDay, number> = { day: 3, sunset: 2, night: 1 };
+const tollBell = (t: TimeOfDay) => { const L = TOWN_LOTS.find((l) => l.id === 'library')!; audio.bell(BELL_TOLLS[t], audio.spatial('bell', L.x, 12, L.z, 140)); };
+const setWorldTime = (t: TimeOfDay, toll = false) => { world.setTime(t); nightLights.setTime(t); if (toll) tollBell(t); };
 post = new Post(renderer, world.scene, camera);
 post.setSize(window.innerWidth, window.innerHeight);
 post.setEnabled(settings.postFx);
@@ -160,7 +165,9 @@ player.zoomBy = (d) => stepView(rig.zoomBy(d));   // pinch / right stick: steps 
 rig.update(0);
 world.scene.add(player.body);
 const torch = new Torch(world.scene, camera, player);   // v0.04
-const heldBook = new HeldBook(player);   // v0.04: the 'read' pose holds an open book (shelf reader)
+const heldBook = new HeldBook(player);
+const purse = new Purse(player);   // UX pass: crowns hang at the hip
+let purseSteps = 0;   // every third footstep the purse clinks   // v0.04: the 'read' pose holds an open book (shelf reader)
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
 const modelSlots: ModelSlot[] = [
   ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number })),
@@ -223,7 +230,8 @@ ui.innerHTML = `
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>
-    <div id="delveHp" class="hidden"></div>
+    <div id="delveHp" class="hidden sr-only" aria-live="polite"></div>
+    <div id="hurtEdge" aria-hidden="true"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
@@ -593,6 +601,8 @@ $('relockBtn').addEventListener('click', () => void resumePlay());
 // ---------- F3 dialogue + inventory ----------
 const dialogue = new DialogueBox();
 const inventory = new Inventory();
+// UX pass: the purse at the hip shows the crowns; coins jingle as they drop in.
+inventory.onChange = () => { const c = inventory.count(CROWN); if (c > purse.crowns && begun) audio.coins(Math.min(6, 2 + c - purse.crowns)); purse.set(c); };
 inventory.root.querySelector('.inv-close')!.addEventListener('click', () => closeInventory());
 // ---------- F4 crossbow ----------
 world.scene.add(camera);   // the first-person crossbow rides on the camera
@@ -678,6 +688,7 @@ function animate(dt: number) {
   if (landed) haptics.play('land');
   torch.update(dt, !player.thirdPerson);
   heldBook.set(state === 'book' && reader.isOpen);
+  purse.update(dt);
   if (player.pos.y > 3.3 && !player.airborne) earn(5, 'a purse left on the lookout', 'lookout');
   if (quickTimer > 0 && (quickTimer -= dt) <= 0) $('quick').classList.add('hidden');
   if (player.vaults !== lastVaults) { lastVaults = player.vaults; haptics.play('jump'); }
@@ -729,7 +740,7 @@ let forgeFrom: State = 'play';
 function setPlayerLook(c: ForgeCharacter) {
   const fig = player.setLook(c.look, c.height);
   torch.attach();
-  heldBook.attach();
+  heldBook.attach(); purse.attach();
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
 }
@@ -914,7 +925,8 @@ function findClue(id: string) {
   saveQuest(quest);
   questProps.sync(quest.clues);
   audio.pageTurn();
-  toast(`Clue: ${c.name}. ${c.text} (J: casebook)`, 6000);
+  toast(`Clue: ${c.name}. ${c.text}`, 6000);
+  setTimeout(() => hint(`That goes in the casebook. Look it over with ${keyName('casebook')}.`, '(J: casebook)', 2600), 1800);
   setTimeout(() => earn(2, 'found'), 6200);
   if (companion.prefs.follow) setTimeout(() => companion.say(c.natalie, { key: 'clue:' + id, force: true }), 1800);
   if (quest.clues.length === QUEST.minClues && quest.stage === 'clues') setTimeout(() => companion.say(QUEST.natalie.hintReady, { key: 'ready', force: true }), 7000);
@@ -926,7 +938,7 @@ interactables.push({ obj: questProps.leadHit, verb: () => 'Follow the blue light
   const th = quest.theory!, end = ending(th);
   quest.stage = 'done'; saveQuest(quest);
   questProps.showLead(null);
-  afterDialogue = () => { toast("Natalie finished her field note. Read it in the casebook (J).", 5000); void resumePlay(); };
+  afterDialogue = () => { hint(`My field note's done. It's in the casebook: ${keyName('casebook')}.`, 'Natalie finished her field note. Read it in the casebook (J).', 5000); void resumePlay(); };
   talkTo('natalie', questProps.leadHit.position, { speaker: 'Natalie Bourbon', start: 'f1', nodes: {
     f1: { text: end.find, next: 'f2' },
     f2: { text: QUEST.natalie.found, next: 'f3' },
@@ -1020,11 +1032,12 @@ function sleep(onBedroll = false) {
   fade.classList.add('on');
   setTimeout(() => {
     const next = NEXT_TIME[world.time];
-    setWorldTime(next);
+    setWorldTime(next, true);
     fade.classList.remove('on');
     sleeping = false;
     if (stationPose === 'kneel') stationPose = null;
-    toast(next === 'night' ? 'You wake at nightfall. Light your torch (T).' : `You wake at ${WAKE_AT[next]}.`, 2600);
+    if (next === 'night') hint(`Nightfall already. Light your torch: ${keyName('torch')}.`, 'You wake at nightfall. Light your torch (T).', 2600);
+    else toast(`You wake at ${WAKE_AT[next]}.`, 2600);
   }, 1100);
 }
 interactables.push({ obj: world.stations.bedroll, verb: () => satAtFire ? `Sleep until ${WAKE_AT[NEXT_TIME[world.time]]}` : 'Bedroll (sit by the fire first)',
@@ -1214,11 +1227,17 @@ function spawnGoblins() {
   }
 }
 const delveHpEl = document.getElementById('delveHp')!;
+// UX pass (Mike 2026-10-31): your health shows on you, not as a counter. Below half, the edges of your sight redden
+// and you breathe hard; below 40% you limp. The old line stays for screen readers (and tests), off screen.
+let breathT = 0;
 function updateDelve(dt: number) {
-  if (!inDungeon) { delveHpEl.classList.add('hidden'); return; }
+  if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); return; }
   if (state === 'play') goblins.update(dt);
-  slowT = Math.max(0, slowT - dt); player.speedMul = slowT > 0 ? 0.55 : 1;
+  const frac = delveHp / DELVE_HP;
+  slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1);
   hurtFlash = Math.max(0, hurtFlash - dt);
+  document.body.style.setProperty('--hurt', (Math.max(0, 1 - frac * 1.6) * 0.85 + hurtFlash * 1.4).toFixed(2));
+  if (frac <= 0.5 && state === 'play' && (breathT -= dt) <= 0) { audio.breath(); breathT = 1.2 + frac * 2.4; }
   delveHpEl.classList.remove('hidden');
   delveHpEl.classList.toggle('hit', hurtFlash > 0);
   const t = `♥ ${delveHp}/${DELVE_HP}${slowT > 0 ? ' · slowed' : ''} · goblins ${goblins.alive.length}`;
@@ -1287,7 +1306,7 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
       if (d.chest) { toast('Empty. You already took what was here.'); return; }
       d.chest = true; saveDelves();
       inventory.give('trinket', 1); haptics.play('pickup');
-      toast(`A trinket from below (I: inventory). Magister Greer would love to hear its story.`, 4500);
+      hint(`A trinket from below! Into the bag with it (${keyName('bag')}). Magister Greer would love its story.`, 'A trinket from below (I: inventory). Magister Greer would love to hear its story.', 4500);
       return;
     }
     if (s.kind === 'shrine') {
@@ -1475,6 +1494,21 @@ function syncLock() {
   show('nolock', !lockSupported && wantLock());
 }
 let toastTimer = 0;
+// UX pass (Mike 2026-10-31): tutorial hints are spoken by Natalie when she's with you, in her own words, naming the
+// key or button for how you're playing. Without her near (or with her quiet), the hint is the usual toast.
+const KEY_NAMES: Record<'casebook' | 'bag' | 'torch', Record<InputMode, string>> = {
+  casebook: { mouse: 'J', touch: 'the Journal button', pad: 'Menu, then Gameplay' },
+  bag: { mouse: 'I', touch: 'the Bag button', pad: 'View' },
+  torch: { mouse: 'T', touch: 'the flame button', pad: 'hold the D-pad down' },
+};
+const keyName = (k: keyof typeof KEY_NAMES) => KEY_NAMES[k][inputMode];
+let lastHint = '';
+function hint(natalie: string, plain: string, ms = 3600) {
+  const near = companion.prefs.follow && !companion.prefs.quiet && !inDungeon && companion.pos.distanceTo(player.pos) < 14;
+  if (near && companion.say(natalie, { force: true })) { lastHint = 'natalie'; return; }
+  lastHint = 'toast';
+  toast(plain, ms);
+}
 function toast(msg: string, ms = 3000) {
   const el = $('toast');
   el.textContent = msg;
@@ -1490,7 +1524,8 @@ dialogue.onAction = (a) => {
     if (givenOnce.has(a)) return;
     givenOnce.add(a);
     inventory.give(id, Number(n) || 1);
-    toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1} (I: inventory)`);
+    toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1}`);
+    setTimeout(() => hint(`It's in your bag now. ${keyName('bag')} opens it.`, '(I: inventory)', 2600), 1800);
   } else if (verb === 'unlock' && id === 'library_door') {
     world.openDoor();
   } else if (verb === 'quest' && id === 'start') {
@@ -2205,7 +2240,7 @@ function frame() {
       const moving = MOVE_ACTIONS.some((a) => player.held.has(a)) || Math.hypot(player.analog.x, player.analog.y) > 0.05;
       if (moving && !player.sneaking) {
         stepTimer -= SIM_STEP;
-        if (stepTimer <= 0) { audio.footstep(); stepTimer = 2.2 / Math.max(1, player.speed()); if (player.thirdPerson && player.speed() > controls.speeds.walk) dust.burst(footAt()); }
+        if (stepTimer <= 0) { audio.footstep(); if (purse.crowns > 0 && ++purseSteps % 3 === 0) audio.coins(1); stepTimer = 2.2 / Math.max(1, player.speed()); if (player.thirdPerson && player.speed() > controls.speeds.walk) dust.burst(footAt()); }
       } else stepTimer = 0;
     }
     rig.update(dt);   // R3: camera follows this frame's simulation before anything aims along it
@@ -2281,4 +2316,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, tollBell, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
