@@ -499,8 +499,7 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 /* The main menu: Continue when there's a save, New game under it. */
 #title #newGame { font-size: clamp(16px, 2.6vmin, 20px); }
 /* The pause menu is your journal: a leather cover with a stitched edge, a spine shadow, and its last pages. */
-#pause .pause-side { background: linear-gradient(90deg, #2A1A10, #3A2416 70%, #2E1C12); box-shadow: inset -14px 0 18px -10px rgba(0,0,0,.7);
-  outline: 2px dashed rgba(201,163,107,.45); outline-offset: -8px; }
-#pause .pause-panel:not(.hidden) { background: linear-gradient(90deg, rgba(30,20,12,.94), rgba(44,30,18,.9)); box-shadow: inset 14px 0 18px -10px rgba(0,0,0,.7); }
+#pause .pause-side { box-shadow: inset -14px 0 18px -10px rgba(0,0,0,.7); outline: 2px dashed rgba(201,163,107,.45); outline-offset: -8px; }
+#pause .pause-panel:not(.hidden) { box-shadow: inset 14px 0 18px -10px rgba(0,0,0,.7); }
 .pause-rule { display: block; height: 1px; margin: 8px 12px; background: linear-gradient(90deg, rgba(226,181,103,.5), transparent); }
 .pause-page { font-style: italic; }

@@ -570,6 +570,7 @@ function openGroup(g: string | null) {
   document.querySelectorAll<HTMLElement>('#pause [data-group]').forEach((b) => b.classList.toggle('on', b.dataset.group === g));
   $('resume').textContent = pauseFrom === 'title' ? 'Back' : 'Resume';
   show('quitToMenu', pauseFrom !== 'title');
+  document.querySelectorAll<HTMLElement>('#pause .pause-page, #pause .pause-rule').forEach((e) => e.classList.toggle('hidden', pauseFrom === 'title'));   // UX pass: no journal pages before a game
 }
 document.querySelectorAll<HTMLButtonElement>('#pause [data-group]').forEach((b) => b.addEventListener('click', () => {
   openGroup(pauseGroup === b.dataset.group ? null : b.dataset.group!);
