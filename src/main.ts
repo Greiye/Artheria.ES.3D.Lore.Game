@@ -241,7 +241,7 @@ ui.innerHTML = `
       <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
       <h4>Your hero</h4>
-      <button id="editCharacter" class="secondary">Character</button>
+      <button id="editCharacter" class="secondary hidden">Character</button>
       <button id="openCharacterForge" class="secondary">Character forge</button>
       <button id="openWeaponForge" class="secondary">Weapon forge</button>
       <button id="openSketchbook" class="secondary">Sketchbook</button>
@@ -509,7 +509,8 @@ $('openMap').addEventListener('click', () => openMap());
 
 $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
-  if (!character.created) { openCharCreate('title'); return; }
+  // 2026-10-31 (Mike): character creation is rolled back (backlog B25). Begin always goes straight into play;
+  // the form and its Pause > Character button stay in the code, hidden, until it returns as its own step.
   void begin();
 });
 

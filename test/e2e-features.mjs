@@ -31,57 +31,24 @@ async function newPage() {
   return { ctx, page, errors };
 }
 
-// ---------- Character creation (feature 3) ----------
+// ---------- Character creation (feature 3): rolled back 2026-10-31, backlog B25 ----------
+// A brand-new player (no saved character) goes straight into play: no "who are you" form, no keyboard.
 {
   const { ctx, page, errors } = await newPage();
   await page.waitForTimeout(400);
   await page.click('#begin');
-  await page.waitForTimeout(150);
-  check('First click opens character creation (not play)', (await G(page, () => window.__gametool.state)) === 'charcreate');
-
-  await page.fill('#ccName', 'Rill of the Dais');
-  await page.fill('#ccMotivation', 'To find the Stagecoach before it finds her.');
-  await page.fill('#ccSecret', 'The rune dais hums louder on a new moon.');
-  await page.click('#ccBegin');
-  await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 });
-  check('Begin after filling the form enters play', (await G(page, () => window.__gametool.state)) === 'play');
-  check('Character is saved with the entered name', (await G(page, () => window.__gametool.character.name)) === 'Rill of the Dais');
-  await page.screenshot({ path: path.join(shots, 'f1-character-creation.png') });
-
-  // Same sandbox file:// reload flake as above (docs/assumptions.md #30) — retry with the
-  // known-good value restored, rather than failing the app over a test-container quirk.
-  const charBefore = await G(page, () => localStorage.getItem('gametool.character'));
-  let charName;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    await page.reload();
-    await page.waitForFunction(() => window.__gametool);
-    await page.waitForTimeout(300);
-    charName = await G(page, () => window.__gametool.character.name);
-    if (charName === 'Rill of the Dais') break;
-    await page.evaluate((c) => { if (c) localStorage.setItem('gametool.character', c); }, charBefore);
-  }
-  check('Character persists after reload', charName === 'Rill of the Dais');
-  await page.click('#begin');
-  await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 });
-  check('Returning player: click goes straight to play (not asked again)', (await G(page, () => window.__gametool.state)) === 'play');
+  await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 }).catch(() => {});
+  check('B25 rollback: a new player\'s first Begin goes straight into play (no character form)', (await G(page, () => window.__gametool.state)) === 'play');
+  check('B25 rollback: the character form never showed and nothing has focus in a text box',
+    await G(page, () => document.getElementById('charcreate').classList.contains('hidden') && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? '')));
   await page.waitForTimeout(600); // let the async pointer-lock request settle before releasing it below
-
   await page.evaluate(() => document.exitPointerLock());
   await page.waitForTimeout(150);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   check('Esc opens the pause menu', (await G(page, () => window.__gametool.state)) === 'pause');
   await page.click('[data-group="gameplay"]');
-  await page.click('#editCharacter');
-  await page.waitForTimeout(150);
-  check('"Character" button in the pause menu reopens the form', (await G(page, () => window.__gametool.state)) === 'charcreate');
-  check('Form is pre-filled with the existing answers', (await page.inputValue('#ccName')) === 'Rill of the Dais');
-  await page.fill('#ccName', 'Rill, Reborn');
-  await page.click('#ccBegin');
-  await page.waitForTimeout(150);
-  check('Editing from the pause menu returns to pause (does not restart play)', (await G(page, () => window.__gametool.state)) === 'pause');
-  check('Edited name is saved', (await G(page, () => window.__gametool.character.name)) === 'Rill, Reborn');
-
+  check('B25 rollback: Pause > Gameplay has no "Character" button', !(await page.isVisible('#editCharacter')));
   check('Character creation: no console/page errors', errors.length === 0, errors.join(' | '));
   await ctx.close();
 }
