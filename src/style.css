@@ -485,3 +485,22 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 /* --hurt (0-1+) reddens the edges of your sight as you're hurt, and flares when you're hit. */
 #hurtEdge { position: absolute; inset: 0; pointer-events: none; opacity: min(1, var(--hurt, 0));
   background: radial-gradient(ellipse at 50% 50%, rgba(120,10,6,0) 45%, rgba(120,10,6,.55) 85%, rgba(80,0,0,.8) 100%); transition: opacity .15s; }
+
+/* ---------- UX pass (Mike 2026-10-31): flow ---------- */
+/* Auto-save: a quill mark in the corner for a moment. */
+#autosaved { position: absolute; left: calc(16px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); padding: 4px 10px; border-radius: 4px;
+  background: rgba(20,16,12,.6); color: #E8D8B4; font: italic 13px Georgia, var(--serif); opacity: 0; transition: opacity .4s; pointer-events: none; }
+#autosaved.on { opacity: 1; }
+/* The first-minute coach: one line low in the middle, in the words of what you're holding. */
+#coach { position: absolute; left: 50%; bottom: calc(22% + env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 8px 16px; border-radius: 20px;
+  background: rgba(20,16,12,.7); border: 1px solid rgba(226,181,103,.6); color: #FFF1C8; font: 600 15px var(--ui); white-space: nowrap; pointer-events: none;
+  animation: coachIn .5s ease; }
+@keyframes coachIn { from { opacity: 0; transform: translate(-50%, 8px); } }
+/* The main menu: Continue when there's a save, New game under it. */
+#title #newGame { font-size: clamp(16px, 2.6vmin, 20px); }
+/* The pause menu is your journal: a leather cover with a stitched edge, a spine shadow, and its last pages. */
+#pause .pause-side { background: linear-gradient(90deg, #2A1A10, #3A2416 70%, #2E1C12); box-shadow: inset -14px 0 18px -10px rgba(0,0,0,.7);
+  outline: 2px dashed rgba(201,163,107,.45); outline-offset: -8px; }
+#pause .pause-panel:not(.hidden) { background: linear-gradient(90deg, rgba(30,20,12,.94), rgba(44,30,18,.9)); box-shadow: inset 14px 0 18px -10px rgba(0,0,0,.7); }
+.pause-rule { display: block; height: 1px; margin: 8px 12px; background: linear-gradient(90deg, rgba(226,181,103,.5), transparent); }
+.pause-page { font-style: italic; }

@@ -23,6 +23,7 @@ import { loadGitHub, saveGitHub, loadAuthor, saveAuthor, slugify, buildMarkdown,
 import { loadCharacter, saveCharacter, type Character } from './character';
 import { reading } from './reading';
 import { Purse } from './purse';
+import { Coach } from './coach';
 import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
@@ -72,7 +73,7 @@ import { Ambience, type Zone } from './ambience';
 import { Intro } from './intro';
 import { Extras } from './extras';
 import { WhatsNew } from './whatsnew';
-import { loadGame, saveGame } from './save';
+import { loadGame, saveGame, clearGame } from './save';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph, type PadFamily } from './input/glyphs';
 
@@ -196,6 +197,7 @@ ui.innerHTML = `
   <div id="title" class="screen">
     <nav class="menu-list" aria-label="Main menu">
       <button id="begin" class="menu-item">Begin</button>
+      <button id="newGame" class="menu-item hidden">New game</button>
       <button id="openExtras" class="menu-item">Extras</button>
       <button id="openSettingsTitle" class="menu-item">Options</button>
     </nav>
@@ -233,16 +235,22 @@ ui.innerHTML = `
     <div id="delveHp" class="hidden sr-only" aria-live="polite"></div>
     <div id="hurtEdge" aria-hidden="true"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
+    <div id="autosaved" aria-live="polite">✒ Saved</div>
+    <div id="coach" class="hidden" aria-live="polite"></div>
     <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
   </div>
   <div id="pause" class="screen hidden">
     <nav class="pause-side side-panel" aria-label="Pause menu">
-      <h1>Paused</h1>
+      <h1>Journal</h1>
       <button id="resume" class="pause-item">Resume</button>
       <button class="pause-item" data-group="gameplay">Gameplay</button>
       <button class="pause-item" data-group="graphics">Graphics</button>
       <button class="pause-item" data-group="sound">Sound</button>
       <button class="pause-item" data-group="controls">Controls</button>
+      <span class="pause-rule" aria-hidden="true"></span>
+      <button id="pgCasebook" class="pause-item pause-page">Casebook</button>
+      <button id="pgMap" class="pause-item pause-page">Map</button>
+      <button id="pgBag" class="pause-item pause-page">Bag</button>
       <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
       <p class="fine">Settings are saved in this browser.</p>
     </nav>
@@ -995,6 +1003,7 @@ let natalieWas: { x: number; z: number; ry: number } | null = null;
 let satAtFire = false;
 function openCampfire() {
   satAtFire = true;
+  autoSave();   // UX pass: sitting at the fire saves
   enterForge();
   const f0 = world.stations.campfire.position;
   takeStation(new THREE.Vector3(f0.x + 1.5, 0, f0.z + 0.3).addScaledVector(new THREE.Vector3(1, 0, 0.2).normalize(), -0.05), f0, 'sit');   // v0.06 S1: on the log seat
@@ -1033,6 +1042,7 @@ function sleep(onBedroll = false) {
   setTimeout(() => {
     const next = NEXT_TIME[world.time];
     setWorldTime(next, true);
+    autoSave();
     fade.classList.remove('on');
     sleeping = false;
     if (stationPose === 'kneel') stationPose = null;
@@ -1379,6 +1389,8 @@ const townAct: Record<TownId, () => void> = {
   shop: () => openShop(),
   inn: () => { if (!inDungeon) sleep(); },
 };
+// UX pass: every door you go through saves the game.
+for (const id of Object.keys(townAct) as TownId[]) { const go = townAct[id]; townAct[id] = () => { go(); autoSave(); }; }
 for (const id of Object.keys(townAct) as TownId[]) {
   interactables.push({ obj: world.town.doors[id], verb: () => id === 'inn' ? `Rent a bed until ${WAKE_AT[NEXT_TIME[world.time]]}` : `Enter the ${TOWN_NAMES[id]}`, act: () => townAct[id]() });
 }
@@ -1586,6 +1598,7 @@ function closeInventory() { if (state === 'inventory') void resumePlay(); }
 function activate() {
   if (state !== 'play') return;
   player.syncNow(); camera.updateMatrixWorld(); updateTarget();
+  if (lookingAt !== null) coach.used();
   if (lookingAt === 'natalie') talkToNatalie();
   else if (lookingAt === 'thing') lookingAtThing?.act();
   else if (lookingAt === 'library' && libraryHit) useLibrary(libraryHit);
@@ -1707,10 +1720,47 @@ function toMenu(note: string) {
   setState('title');
   audio.water(true);
   const n = $('saveNote'); n.textContent = note; n.classList.remove('hidden');
+  refreshTitle();
   focusMenu(0);
 }
-function quitToMenu() { const ok = snapshot(true); toMenu(ok ? 'Saved. Begin carries on where you left off.' : "Couldn't save on this device (storage is blocked)."); }
+// UX pass (Mike 2026-10-31): auto-save at every door and campfire (and after a sleep), so quitting never loses
+// much. A quill mark in the corner says so.
+let autosaves = 0, autosaveTimer = 0;
+function autoSave() {
+  if (!inWorld || inDungeon || !snapshot(true)) return;
+  autosaves++;
+  const el = $('autosaved'); el.classList.add('on');
+  clearTimeout(autosaveTimer); autosaveTimer = window.setTimeout(() => el.classList.remove('on'), 1600);
+  refreshTitle();
+}
+// UX pass: a save shows "Continue" on the main menu, with "New game" under it (tap twice to start over).
+function refreshTitle() {
+  const has = !!loadGame();
+  $('begin').textContent = has ? 'Continue' : 'Begin';
+  $('newGame').classList.toggle('hidden', !has);
+  $('newGame').textContent = 'New game';
+}
+let newGameArmed = 0;
+$('newGame').addEventListener('click', () => {
+  if (Date.now() - newGameArmed > 4000) { newGameArmed = Date.now(); $('newGame').textContent = 'Tap again to start over'; return; }
+  newGameArmed = 0;
+  clearGame();
+  for (const [id] of [...inventory.counts]) inventory.counts.set(id, 0);
+  inventory.render(); purse.set(0);
+  begun = false;
+  refreshTitle();
+  void begin();
+});
+refreshTitle();
+// UX pass: the first-minute coach. Test browsers skip it unless localStorage gametool.coachtest = 'on'.
+const coach = new Coach($('coach'));
+try { if (navigator.webdriver && localStorage.getItem('gametool.coachtest') !== 'on') coach.enabled = false; } catch { if (navigator.webdriver) coach.enabled = false; }
+function quitToMenu() { const ok = snapshot(true); toMenu(ok ? 'Saved. Continue carries on where you left off.' : "Couldn't save on this device (storage is blocked)."); }
 $('quitToMenu').addEventListener('click', () => quitToMenu());
+// UX pass: the pause menu is your journal; its last pages are the casebook, the map and the bag.
+$('pgCasebook').addEventListener('click', () => openCasebook());
+$('pgMap').addEventListener('click', () => openMap());
+$('pgBag').addEventListener('click', () => { setState('play'); openInventory(); });
 // The exit gate: walking through asks whether to retire (save the bag and hour, then back to the menu).
 let gateOpen = false;
 function gateCheck() {
@@ -2251,8 +2301,9 @@ function frame() {
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     crossbow.update(dt);
     touch?.update();
+    coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
-  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); }
+  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); $('coach').classList.add('hidden'); }
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
   audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);
@@ -2316,4 +2367,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, tollBell, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

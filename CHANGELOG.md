@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### UX pass 3: flow (Mike 2026-10-31)
+- **Continue on the main menu:** with a save, the top item reads Continue (still the biggest), with New game under it. New game asks for a second tap, then starts over at the coach with an empty bag.
+- **Auto-save:** every door you go through, sitting at the campfire and waking from sleep all save. A quill mark ("✒ Saved") shows for a moment in the corner.
+- **The pause menu is your journal:** a stitched leather cover titled Journal. Its last pages are the Casebook, the Map and the Bag, one tap each from it.
+- **Teach by doing:** in the first minute, one short line at a time tells you how to walk, then look, then (once something is in reach) use. It's worded for keys, thumbs or a pad, and each line goes as soon as you've done it, once per device. (Begin already goes straight into play, #30.)
+- New `test/e2e-ux-flow.mjs`.
+
 ### UX pass 2: the world shows it, not the HUD (Mike 2026-10-31)
 - **The map is paper in your hands:** a tilted sheet held at its lower corners, with the world still in view behind it.
 - **Status on the body:**
