@@ -8,7 +8,7 @@ One merged entry for the roadmap work. The corner label shows the current build 
 Mike 2026-10-28). Spec doc v0.06.
 
 ### Torn clothes (Mike 2026-10-31)
-- In the dungeon your clothes show how hurt you are. Below 75% health they darken with grime, and rips open one at a time (chest, thigh, back, sleeve, other thigh, side) as health drops. Back above ground they're mended. The hero's figure gets its own material, so other figures stay clean. Code in `src/wear.ts`; the check is in `test/e2e-ux-world.mjs`.
+- In the dungeon your clothes show how hurt you are. As health drops they darken with grime, and rips open one at a time from 75% down (chest, thigh, back, sleeve, other thigh, side) as health drops. Back above ground they're mended. The hero's figure gets its own material, so other figures stay clean. Code in `src/wear.ts`; the check is in `test/e2e-ux-world.mjs`.
 
 ### UX pass 3: flow (Mike 2026-10-31)
 - **Continue on the main menu:** with a save, the top item reads Continue (still the biggest), with New game under it. New game asks for a second tap, then starts over at the coach with an empty bag.
