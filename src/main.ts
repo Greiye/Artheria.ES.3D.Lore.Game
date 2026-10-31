@@ -23,6 +23,7 @@ import { loadGitHub, saveGitHub, loadAuthor, saveAuthor, slugify, buildMarkdown,
 import { loadCharacter, saveCharacter, type Character } from './character';
 import { reading } from './reading';
 import { Purse } from './purse';
+import { Wear } from './wear';
 import { Coach } from './coach';
 import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
@@ -168,6 +169,7 @@ world.scene.add(player.body);
 const torch = new Torch(world.scene, camera, player);   // v0.04
 const heldBook = new HeldBook(player);
 const purse = new Purse(player);   // UX pass: crowns hang at the hip
+const wear = new Wear(player);   // UX pass: clothes tear as you're hurt in the dungeon
 let purseSteps = 0;   // every third footstep the purse clinks   // v0.04: the 'read' pose holds an open book (shelf reader)
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
 const modelSlots: ModelSlot[] = [
@@ -749,7 +751,7 @@ let forgeFrom: State = 'play';
 function setPlayerLook(c: ForgeCharacter) {
   const fig = player.setLook(c.look, c.height);
   torch.attach();
-  heldBook.attach(); purse.attach();
+  heldBook.attach(); purse.attach(); wear.attach(); wear.set(wear.level);
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
 }
@@ -1242,9 +1244,10 @@ const delveHpEl = document.getElementById('delveHp')!;
 // and you breathe hard; below 40% you limp. The old line stays for screen readers (and tests), off screen.
 let breathT = 0;
 function updateDelve(dt: number) {
-  if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); return; }
+  if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); if (wear.level) wear.set(0); return; }
   if (state === 'play') goblins.update(dt);
   const frac = delveHp / DELVE_HP;
+  wear.set(1 - frac);
   slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1);
   hurtFlash = Math.max(0, hurtFlash - dt);
   document.body.style.setProperty('--hurt', (Math.max(0, 1 - frac * 1.6) * 0.85 + hurtFlash * 1.4).toFixed(2));
@@ -2368,4 +2371,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

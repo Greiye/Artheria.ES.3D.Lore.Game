@@ -116,7 +116,7 @@ export type BoneName = typeof BONES[number];
 // [parent, pivot] per bone, in metres for a 1.75 m figure. N = the figure's -X side, P = its +X side.
 // Realistic proportions (Mike 2026-10-29, after the Kavik preview): about 7.5 heads tall, hips at 0.93, knees at 0.49,
 // shoulders at 1.42, the neck pivot at 1.5.
-const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> = {
+export const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> = {
   root: [null, [0, 0, 0]], hips: ['root', [0, 0.93, 0]], spine: ['hips', [0, 0.98, 0]], head: ['spine', [0, 1.5, 0]],
   armN: ['spine', [-0.19, 1.42, 0]], foreN: ['armN', [-0.22, 1.13, 0]], armP: ['spine', [0.19, 1.42, 0]], foreP: ['armP', [0.22, 1.13, 0]],
   thighN: ['hips', [-0.09, 0.9, 0]], shinN: ['thighN', [-0.095, 0.49, 0]], thighP: ['hips', [0.09, 0.9, 0]], shinP: ['thighP', [0.095, 0.49, 0]],
