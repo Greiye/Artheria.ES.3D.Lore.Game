@@ -15,6 +15,7 @@ function theoryMarkdown(th: Theory, author: string): string {
 }
 
 export class Casebook {
+  owner: () => string = () => '';   // B25: the hero's name from the Journal (blank = just "Casebook")
   readonly el: HTMLDivElement;
   private pick: Partial<Record<Axis, string>> = {};
   private text = '';
@@ -106,7 +107,7 @@ export class Casebook {
     }
     this.el.innerHTML = `
       <div class="forge-panel casebook-panel">
-        <div class="eyebrow">Casebook · J</div>
+        <div class="eyebrow">${this.owner() ? `Casebook of ${escapeHtml(this.owner())}` : 'Casebook'} · J</div>
         <h2>${escapeHtml(q.title)}</h2>
         <p class="fine">${escapeHtml(q.intro)}</p>
         <h4>Clues · ${s.clues.length} of ${q.clues.length}</h4>
