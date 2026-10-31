@@ -59,7 +59,7 @@ kbd { display: inline-block; min-width: 1.6em; text-align: center; padding: 1px 
 .book { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; align-content: center; gap: 10px;
   /* R3: lighter scrim + blur so the framed reading shot of the lectern shows behind the pages. */
   background: rgba(20,24,21,.58); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); padding: 16px; }
-.spread { --pw: min(46vw, 560px, calc((100vh - 90px) * .68)); position: relative; display: flex; perspective: 1800px;
+.spread { --pw: min(46vw, 560px, calc((100dvh - 90px) * .68)); position: relative; display: flex; perspective: 1800px;
   padding: 14px; border-radius: 10px; background: var(--wood); box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 0 0 3px #6b4730; }
 .page { position: relative; width: var(--pw); height: calc(var(--pw) * var(--ratio, 1.38)); background: var(--parchment); color: var(--ink);
   padding: 34px 34px 40px; overflow: hidden; }
@@ -203,6 +203,8 @@ button.secondary:hover { border-color: var(--rune); color: var(--parchment); }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--stone-l); }
 .field input, .field textarea { font: 14px var(--ui); color: var(--parchment); background: rgba(122,125,128,.12);
   border: 1px solid var(--stone-d); border-radius: 6px; padding: 8px 10px; resize: vertical; }
+/* iPhone Safari zooms the page in on any text box under 16px; on touch screens they're all 16px. */
+@media (pointer: coarse) { input:not([type=range]):not([type=checkbox]), textarea, select { font-size: 16px !important; } }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--rune); }
 .field .hint { color: var(--stone); font-weight: 400; font-size: 11px; }
 #eMsg { min-height: 1.4em; color: var(--rune); }
@@ -362,6 +364,12 @@ select { background: #EFE3C4; color: #2A1A0C; border: 1px solid var(--gold-d); b
 /* Mike 2026-10-30: Begin is the biggest option on the start menu. */
 #title #begin { font-size: clamp(30px, 5.4vmin, 46px); min-width: 280px; min-height: 60px; color: #FFF1C8; }
 #title .menu-list { top: 50%; gap: 2px; }
+#title #homeTip { position: absolute; left: calc(16px + env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top));
+  width: min(380px, calc(50vw - 32px)); box-sizing: border-box; margin: 0; padding: 8px 40px 8px 12px; border-radius: 10px;
+  background: rgba(20,16,12,.82); border: 1px solid var(--stone-d); color: #E8D8B4; font-size: 13px; line-height: 1.35; }
+@media (orientation: portrait) { #title #homeTip { width: calc(100vw - 32px); } }
+#title #homeTip button { position: absolute; top: 4px; right: 4px; width: 36px; height: 36px; margin: 0; padding: 0;
+  background: none; border: 0; color: inherit; font-size: 16px; }
 #title #saveNote { position: absolute; left: 16px; right: 16px; top: calc(56% + 170px); text-align: center; color: #E8D8B4; text-shadow: 0 1px 2px #000; }
 .menu-version { position: absolute; left: calc(16px + env(safe-area-inset-left)); bottom: calc(10px + env(safe-area-inset-bottom)); font-size: 12px; color: rgba(239,227,196,.6); }
 @media (prefers-reduced-motion: reduce) { .menu-list { animation: none; } }

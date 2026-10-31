@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.06,
 Mike 2026-10-28). Spec doc v0.06.
 
+### iPhone pass (Mike 2026-10-31)
+- Text boxes are 16px on phones, so iPhone Safari no longer zooms the page in when you tap one.
+- The "Turn your phone sideways" card tells iPhone players how to switch off Rotation Lock (iPhones can't be turned by the page).
+- Safari won't let a page hide its address bar. On iPhone and iPad, a small tip on the title screen explains Share → Add to Home Screen, which opens the game fullscreen. ✕ hides it for good.
+- The canvas follows the visible part of the screen as Safari's bars grow and shrink, and book pages size by the visible height (`dvh`).
+- New `test/e2e-iphone.mjs` (iPhone 13 size) with screenshots.
+
 ### Character creation rolled back (Mike 2026-10-31)
 - New players no longer get the "who are you" form (name, motivation, secret) on their first Begin. On iPhone it brought up the keyboard before play. Begin always goes straight into the game, and Pause → Character is hidden. The form stays in the code for backlog B25, when it returns as its own optional step.
 

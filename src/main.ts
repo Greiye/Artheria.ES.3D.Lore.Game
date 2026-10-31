@@ -121,12 +121,16 @@ app.appendChild(renderer.domElement);
 const canvas = renderer.domElement;
 
 const camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.05, 200);
-window.addEventListener('resize', () => {
+// iPhone (Mike 2026-10-31): Safari's address bar grows and shrinks without always firing a window resize, so the
+// canvas also follows the visual viewport, the part of the page that's actually on screen.
+const fitView = () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   post?.setSize(window.innerWidth, window.innerHeight);
-});
+};
+window.addEventListener('resize', fitView);
+window.visualViewport?.addEventListener('resize', fitView);
 
 const loaderBar = document.querySelector<HTMLElement>('#loader i');
 const progress = (pct: number) => { if (loaderBar) loaderBar.style.width = pct + '%'; };
@@ -188,6 +192,7 @@ ui.innerHTML = `
       <button id="openSettingsTitle" class="menu-item">Options</button>
     </nav>
     <p id="saveNote" class="fine hidden"></p>
+    <p id="homeTip" class="hidden">For fullscreen with no address bar: tap Share <b>⬆</b>, then <b>Add to Home Screen</b>, and play from the new icon.<button id="homeTipClose" aria-label="Hide this tip">✕</button></p>
     <span id="versionLabel" class="menu-version"></span>
   </div>
   <div id="padStatus" aria-live="polite"></div>
@@ -207,6 +212,7 @@ ui.innerHTML = `
     <div class="ra-phone" aria-hidden="true"></div>
     <p>Turn your phone sideways</p>
     <span>Artheria plays in landscape.</span>
+    <span id="rotateIos" class="hidden">If it doesn't turn, swipe down from the top-right corner and switch off Rotation Lock.</span>
     <button id="rotateTurn" class="primary hidden">Turn it for me</button>
     <button id="rotateOk" class="secondary">Play upright anyway</button>
   </div>
@@ -1845,6 +1851,7 @@ document.body.dataset.input = inputMode;
   type Lockable = ScreenOrientation & { lock?: (o: string) => Promise<void> };
   const canLock = !!document.documentElement.requestFullscreen && typeof (screen.orientation as Lockable | undefined)?.lock === 'function';
   if (canLock) $('rotateTurn').classList.remove('hidden');
+  else $('rotateIos').classList.remove('hidden');   // iPhone: no lock, so point at Control Centre's rotation lock
   // Automated test browsers skip it (their phone viewports are upright) unless a test asks: localStorage gametool.rotateask = 'on'.
   try { if (sessionStorage.getItem('gametool.upright') === 'ok' || (navigator.webdriver && localStorage.getItem('gametool.rotateask') !== 'on')) document.body.dataset.upright = 'ok'; }
   catch { if (navigator.webdriver) document.body.dataset.upright = 'ok'; }
@@ -1858,6 +1865,23 @@ document.body.dataset.input = inputMode;
     document.documentElement.requestFullscreen({ navigationUI: 'hide' })
       .then(() => (screen.orientation as Lockable).lock?.('landscape'))
       .catch(() => undefined);
+  });
+}
+
+// iPhone (Mike 2026-10-31): Safari won't let a page hide its address bar, but a Home Screen icon opens the game
+// fullscreen (manifest display: fullscreen). iPhone/iPad Safari outside that gets a one-line tip on the title screen
+// until it's closed. Test browsers skip it unless localStorage gametool.hometip = 'on'.
+{
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const installed = (navigator as Navigator & { standalone?: boolean }).standalone === true || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+  let show = ios && !installed;
+  try { if (localStorage.getItem('gametool.hometip') === 'off' || (navigator.webdriver && localStorage.getItem('gametool.hometip') !== 'on')) show = false; }
+  catch { if (navigator.webdriver) show = false; }
+  if (show) $('homeTip').classList.remove('hidden');
+  $('homeTipClose').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('homeTip').classList.add('hidden');
+    try { localStorage.setItem('gametool.hometip', 'off'); } catch { /* private mode */ }
   });
 }
 
