@@ -503,3 +503,4 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 #pause .pause-panel:not(.hidden) { box-shadow: inset 14px 0 18px -10px rgba(0,0,0,.7); }
 .pause-rule { display: block; height: 1px; margin: 8px 12px; background: linear-gradient(90deg, rgba(226,181,103,.5), transparent); }
 .pause-page { font-style: italic; }
+

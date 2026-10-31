@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.07,
 Mike 2026-10-28; batch B 2026-10-31). Spec doc v0.06.
 
+### v0.07 changelog, part 4: real skills (B19, Mike 2026-10-31)
+- A practice table stands beside the dojo mats, with rope, a first-aid tin and kindling. Using it teaches three real skills by doing: knots (square knot, bowline), first aid (a small cut, a small burn) and fire craft (lay and light a fire; put it out: drown, stir, feel).
+- Each skill has two short rounds. In some you tap the steps in the right order; a step out of order gets a hint. In others you tap everything that helps; a wrong pick says why (for example, no ice on a burn).
+- Finishing a skill earns its card, and a few crowns the first time. Journal → Skills book keeps the cards. "I've done this for real" stamps a card on the honour system.
+- As at the dojo, a safety note comes first: these are beginner basics, not training or medical advice, and in an emergency you call for help first. Each skill has its own safety line, such as only lighting fires with an adult and where fires are allowed.
+
 ### v0.07 changelog, part 3: the Spanish caravan (B16, Mike 2026-10-31)
 - A caravan camps beside the coach road, west of the glade: a wagon, a mule, a cooking fire and a frame of shawls. Its three people (la cocinera, la tejedora, el arriero) speak only Spanish and are never translated.
 - Talking to one opens a short conversation. Each line comes with a picture cue, a gesture to read, and "🔊 Otra vez" to hear it again (a Spanish voice, where the browser has one). Answer by picking a Spanish reply or by writing one (accents, capitals and ¡! don't matter). A reply that makes no sense gets "¿Cómo?" or "No te entiendo." and is struck out.

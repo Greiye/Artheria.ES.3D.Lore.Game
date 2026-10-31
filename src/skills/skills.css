@@ -1,0 +1,18 @@
+/* B19: the practice table and the Skills book. */
+.skills-panel h5 { margin: 8px 0 2px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--stone); }
+.sk-list { display: flex; flex-direction: column; gap: 8px; }
+.sk-pick { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; text-align: left; align-items: center; min-height: 56px; }
+.sk-pick .sk-icon { grid-row: span 2; font-size: 28px; }
+.sk-pick .fine { grid-column: 2; }
+.sk-got { color: #9BD08A; font-size: 12px; }
+.sk-steps { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.sk-steps button { text-align: left; min-height: 44px; font-size: 15px; line-height: 1.35; }
+.sk-steps button.ok { border-color: #9BD08A; color: #CFEAC4; opacity: .85; }
+.sk-steps button.no { border-color: #C86A5A; color: #F0B0A0; opacity: .6; text-decoration: line-through; }
+.sk-done { margin: 4px 0; padding-left: 1.4em; font-size: 14px; line-height: 1.4; color: #CFEAC4; }
+.sk-note { background: rgba(200,106,90,.15); border-left: 3px solid #C86A5A; padding: 6px 10px; border-radius: 4px; font-size: 14px; }
+.sk-card { border: 1px solid rgba(232,200,120,.45); border-radius: 8px; padding: 8px 12px; margin: 8px 0; background: rgba(232,200,120,.06); }
+.sk-card.locked { opacity: .55; border-style: dashed; }
+.sk-card-head { display: flex; gap: 8px; align-items: center; font-size: 17px; }
+.sk-card ul { margin: 6px 0; padding-left: 1.2em; font-size: 14px; line-height: 1.4; }
+.sk-real { margin-left: auto; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: #3E7A3A; color: #fff; }

@@ -3,8 +3,20 @@
 // Usage: npm run build && node test/e2e-boot.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import path from 'node:path';
+import http from 'node:http';
+import fs from 'node:fs';
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
+// Served over http rather than file://: Chromium can drop a file:// page's localStorage across a reload, which made
+// the save-and-continue checks below fail now and then (on CI too). An http origin keeps its storage.
+const root = path.dirname(file), MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.webm': 'video/webm', '.glb': 'model/gltf-binary', '.svg': 'image/svg+xml' };
+const server = http.createServer((req, res) => {
+  const p = path.join(root, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+  if (!p.startsWith(root) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { 'content-type': MIME[path.extname(p)] ?? 'application/octet-stream' }); fs.createReadStream(p).pipe(res);
+});
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+const pageUrl = `http://127.0.0.1:${server.address().port}/${path.basename(file)}`;
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
@@ -24,7 +36,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.goto('file://' + file);
+await page.goto(pageUrl);
 await page.waitForFunction(() => window.__gametool);
 
 // ---------- boot ----------
@@ -78,7 +90,7 @@ check('v0.05 §3.1 pause → "Save and return to the menu" saves and shows the m
 await page.reload();
 await page.waitForFunction(() => window.__gametool);
 const before = await G(page, () => ({ save: !!localStorage.getItem('gametool.save'), state: window.__gametool.state, intro: !!document.querySelector('#intro'), loader: !!document.querySelector('#loader') }));
-// file:// storage can drop across a reload, so the intro may run again: skip through it to the menu.
+// If the intro runs again anyway, skip through it to the menu.
 for (let k = 0; k < 40 && !(await G(page, () => window.__gametool.intro && !window.__gametool.intro.active)); k++) { await page.keyboard.press('KeyQ'); await page.waitForTimeout(150); }
 await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play');
