@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.07,
 Mike 2026-10-28; batch B 2026-10-31). Spec doc v0.06.
 
+### v0.07 changelog, part 2: profiles (B24, Mike 2026-10-31)
+- Three profiles on one device. Each keeps its own hero, save, bag, writing, map, casebook and progress. Settings, key bindings and the GitHub token are shared and never part of a profile.
+- The main menu shows which profile is loaded ("Profile: Rill"). Tap it to see all three: play another, start an empty one, export, import, or clear (clear needs a second tap).
+- Export saves one profile as a JSON file. Import loads a file into any slot, to keep a copy or move a game to another device. Nothing is stored online.
+
 ### v0.07 changelog, part 1: who you are (B25, Mike 2026-10-31)
 - Character creation is back, as an optional step. Begin still goes straight into play and never asks who you are.
 - The Journal (pause menu) has a "Who you are" page, also under Gameplay → Your hero. It holds your name, what you want most, and one secret about the world. Close leaves it blank; nothing needs filling in.

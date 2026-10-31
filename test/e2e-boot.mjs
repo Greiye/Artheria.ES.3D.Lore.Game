@@ -37,7 +37,7 @@ check('v0.05 §2.1 title: carved stone wall drifting (pan + zoom), the logo, the
 await page.keyboard.press('KeyQ');
 const menu = await until(page, () => document.querySelector('#intro')?.classList.contains('menu') && window.__gametool.state === 'title' && !document.querySelector('#title').classList.contains('hidden'), null, 4000);
 const kept = await G(page, () => { const i = document.querySelector('#intro'); return { logo: getComputedStyle(i.querySelector('.logo')).opacity, wall: getComputedStyle(i).opacity, card: !!document.querySelector('#title .card'), items: [...document.querySelectorAll('#title .menu-list button')].filter((b) => b.offsetParent).map((b) => b.textContent) }; });
-check('v0.06 M3–M5 any key keeps the title (wall + logo) and fades in a borderless Begin / Extras / Options list; no welcome window', menu && kept.logo === '1' && kept.wall === '1' && !kept.card && kept.items.join() === 'Begin,Extras,Options', JSON.stringify(kept));
+check('v0.06 M3–M5 any key keeps the title (wall + logo) and fades in a borderless Begin / Profile / Extras / Options list (B24); no welcome window', menu && kept.logo === '1' && kept.wall === '1' && !kept.card && /^Begin,Profile: [^,]+,Extras,Options$/.test(kept.items.join()), JSON.stringify(kept));
 await G(page, () => localStorage.removeItem('gametool.intro'));   // later loads in this test skip the intro
 const note = await G(page, () => document.querySelector('#versionNote').textContent);
 check('v0.05 §1.1 version notice on the menu (and says it was updated)', note === 'Tales of Artheria v0.07 | Updated from v0.04', note);
