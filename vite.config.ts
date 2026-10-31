@@ -52,6 +52,15 @@ function cinemaClips() {
     return { id, title: meta[id]?.title ?? id.replace(/[-_]+/g, ' '), credit: meta[id]?.credit ?? '', sound: meta[id]?.sound ?? true, webm: src('webm')! };
   });
 }
+// B21: the wiki pages pulled into content/wiki/ by scripts/pull-wiki.mjs (Home first, then A to Z).
+function wikiPages() {
+  const dir = 'content/wiki';
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
+    const slug = f.slice(0, -3);
+    return { slug, title: slug.replace(/-/g, ' '), md: fs.readFileSync(`${dir}/${f}`, 'utf8') };
+  }).sort((a, b) => (a.slug === 'Home' ? -1 : b.slug === 'Home' ? 1 : a.title.localeCompare(b.title)));
+}
 // Files too big to inline ship beside the page: copied into dist/<url>/ on build and served from <dir>/ in dev.
 function shipDir(name: string, dir: string, url: string, ext: RegExp, mime: (f: string) => string): Plugin {
   return {
@@ -96,6 +105,7 @@ export default defineConfig({
     __BUILD_ID__: JSON.stringify(BUILD_ID),
     __CINEMA__: JSON.stringify(cinemaClips()),
     __EVOLUTION__: JSON.stringify(evolutionShots()),
+    __WIKI__: JSON.stringify(wikiPages()),
     __MODEL_IDS__: JSON.stringify(fs.existsSync('public/models') ? fs.readdirSync('public/models').filter((f) => f.endsWith('.glb')).map((f) => f.slice(0, -4)) : []),
   },
 });

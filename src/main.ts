@@ -55,6 +55,7 @@ import { buildCeilings, roofOver, ROOFED } from './world/ceilings';
 import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
 import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
 import './spanish/caravan.css';
+import { WikiPanel, buildWikiLectern } from './wiki';
 import { buildSkillTable, SkillsPanel, SkillsBook, SKILL_TABLE } from './skills/skills';
 import './skills/skills.css';
 import './dojo/dojo.css';
@@ -866,7 +867,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); if (state === 'forge') wiki.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -1363,6 +1364,11 @@ function openSkills() {
 interactables.push({ obj: skillTable, verb: () => 'Practise a real skill', act: () => openSkills(), when: () => !inDungeon });
 const skillsBook = new SkillsBook(skills, () => leaveForge());
 function openSkillsBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); skillsBook.open(); }
+// ---------- B21: the GitHub wiki, pulled at build time, read at the reading room lectern in the Ruined Library ----------
+const wiki = new WikiPanel();
+const wikiLectern = buildWikiLectern(library.group, world.colliders);
+function openWiki() { if (state !== 'play') return; enterForge(); wiki.open(() => leaveForge(), 'library'); }
+interactables.push({ obj: wikiLectern, verb: () => 'Read the wiki', act: () => openWiki(), when: () => !inDungeon });
 function openPhrasebook() { if (state !== 'play' && state !== 'pause') return; enterForge(); phrasebook.open(); }
 interactables.push({ obj: trapHit, verb: () => 'Open the trapdoor', act: () => openDescend(), when: () => !inDungeon });
 const shrineLines = lore.entries.filter((e) => e.type === 'lore' && e.body.length > 80);
@@ -1861,6 +1867,7 @@ extras.onWrite = () => { extras.el.classList.add('hidden'); openEditor(); };   /
 // v0.06 M6: What's new, once per session on Begin. Automated test browsers skip it unless a test asks.
 const whatsNew = new WhatsNew(promptOfTheDay());
 extras.onWhatsNew = () => { extras.el.classList.add('hidden'); whatsNew.open(() => { extras.open(); focusMenu(0); }); };
+extras.onWiki = () => { extras.el.classList.add('hidden'); wiki.open(() => { extras.open(); focusMenu(0); }, 'menu'); focusMenu(0); };   // B21
 $('openExtras').addEventListener('click', () => { show('title', false); extras.open(); focusMenu(0); });
 $('openProfiles').addEventListener('click', () => { show('title', false); extras.open('profiles'); focusMenu(0); });   // B24
 
@@ -1889,6 +1896,7 @@ renderKeyBinds();
 // Menus without a mouse: arrow keys / D-pad move between buttons, Enter / A presses, Esc / B goes back.
 function menuButtons(where: 'side' | 'panel' = 'side'): HTMLElement[] {
   if (whatsNew.isOpen) return [...whatsNew.el.querySelectorAll<HTMLElement>('summary, button.primary')];
+  if (wiki.isOpen) return [...wiki.el.querySelectorAll<HTMLElement>('button')];
   if (state === 'pause' && !gateOpen) {
     const root = where === 'panel' && pauseGroup ? $('pause').querySelector(`[data-panel="${pauseGroup}"]`) : $('pause').querySelector('.pause-side');
     return root ? [...root.querySelectorAll<HTMLElement>('button, input, select')].filter((b) => b.offsetParent !== null && !(b as HTMLButtonElement).disabled) : [];
@@ -1906,6 +1914,7 @@ function menuInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boole
   if (extras.isOpen && dir === 'back') { extras.back(); if (extras.isOpen) focusMenu(0); return true; }
   if (gateOpen && dir === 'back') { gateNo(); return true; }
   if (whatsNew.isOpen && dir === 'back') { whatsNew.close(); return true; }
+  if (wiki.isOpen && state !== 'forge' && dir === 'back') { wiki.back(); if (wiki.isOpen) focusMenu(0); return true; }
   if (state === 'pause' && !gateOpen) return pauseInput(dir);
   const bs = menuButtons();
   if (!bs.length) return false;
@@ -1955,7 +1964,7 @@ window.addEventListener('keydown', (e) => {
   campfire.input(dir);
 }, true);
 window.addEventListener('keydown', (e) => {
-  if (e.repeat || !(state === 'title' || extras.isOpen || gateOpen || whatsNew.isOpen) || (e.target as HTMLElement)?.closest?.('input, textarea')) return;
+  if (e.repeat || !(state === 'title' || extras.isOpen || gateOpen || whatsNew.isOpen || (wiki.isOpen && state !== 'forge')) || (e.target as HTMLElement)?.closest?.('input, textarea')) return;
   if (extras.isOpen && extras.handleKey(e.code)) { e.preventDefault(); if (extras.isOpen) focusMenu(0); return; }
   const dir = ({ ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Escape: 'back' } as const)[e.code as 'ArrowUp'];
   if (dir && menuInput(dir)) e.preventDefault();
@@ -1997,7 +2006,7 @@ const hooks: GameHooks = {
   stepCamera: (n) => stepView(n),
   toggleTorch: () => toggleTorch(),
   quickSwap: (h) => quickSwap(h),
-  menuActive: () => !!intro?.active || extras.isOpen || gateOpen || telling.isOpen || quick.isOpen || whatsNew.isOpen || campfire.isOpen,
+  menuActive: () => !!intro?.active || extras.isOpen || gateOpen || telling.isOpen || quick.isOpen || whatsNew.isOpen || (wiki.isOpen && state !== 'forge') || campfire.isOpen,
   menu: (d) => menuInput(d),
   bandPad: (i) => { if (campfire.isOpen && campfire.section === 'play' && !telling.isOpen) campfire.pad(i); },
   forgeStick: (x, y) => { if (weaponForge.isOpen) turnWeapon(x * 0.06, y * 0.04); },
@@ -2435,4 +2444,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

@@ -36,6 +36,8 @@ export class Extras {
   onWrite = () => {};
   /** Mike 2026-10-30: What's new opens from here (it no longer pops up on Begin). */
   onWhatsNew = () => {};
+  /** B21: the wiki, baked in at build time. */
+  onWiki = () => {};
   private seeking = false;   // a smooth scroll we started is still on its way
 
   constructor(private onClose: () => void) {
@@ -51,6 +53,7 @@ export class Extras {
       else if (b.dataset.act === 'back') this.back();
       else if (b.dataset.act === 'write') this.onWrite();
       else if (b.dataset.act === 'whatsnew') this.onWhatsNew();
+      else if (b.dataset.act === 'wiki') this.onWiki();
       else if (b.dataset.act?.startsWith('p')) this.profileAct(b.dataset.act, Number(b.dataset.slot));
     });
   }
@@ -96,6 +99,7 @@ export class Extras {
         <button class="secondary" id="profilesBtn" data-tab="profiles">Profiles</button>
         <button class="secondary" id="writeLoreTitle" data-act="write">Write lore</button>
         <button class="secondary" id="whatsNewBtn" data-act="whatsnew">What's new</button>
+        <button class="secondary" id="wikiBtn" data-act="wiki">Wiki</button>
         ${back}</div>`;
     } else if (tab === 'profiles') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Profiles</h1>
