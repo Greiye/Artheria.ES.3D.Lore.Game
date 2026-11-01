@@ -172,7 +172,7 @@ function cardHtml(s: Skill, c: CardState | undefined): string {
 /** The Journal's Skills book: one card per skill learned; the rest say where to learn them. */
 export class SkillsBook {
   readonly el: HTMLDivElement;
-  constructor(private panel: SkillsPanel, private onClose: () => void) {
+  constructor(private panel: SkillsPanel, private onClose: () => void, private extra: () => string = () => '') {
     this.el = document.createElement('div');
     this.el.id = 'skillsBook';
     this.el.className = 'forge hidden';
@@ -190,6 +190,7 @@ export class SkillsBook {
         <h2>Skills book</h2>
         <p class="fine">${Object.keys(cards).length} of ${SKILLS.length} skills learned.</p>
         ${SKILLS.map((s) => cards[s.id] ? cardHtml(s, cards[s.id]) : `<div class="sk-card locked"><div class="sk-card-head"><span>${s.icon}</span><b>${escapeHtml(s.name)}</b></div><p class="fine">Not learned yet. Practise it at the table by the dojo mats.</p></div>`).join('')}
+        ${this.extra()}
         <div class="forge-actions"><button class="secondary" id="sbClose">Close</button></div>
       </div>`;
   }

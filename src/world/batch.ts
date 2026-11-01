@@ -83,7 +83,7 @@ export class Batch {
     this.add(mat, new THREE.BoxGeometry(w, h, d), pos, undefined, ry);
   }
 
-  flush(scene: THREE.Scene, name: string): THREE.Mesh[] {
+  flush(scene: THREE.Object3D, name: string): THREE.Mesh[] {
     const out: THREE.Mesh[] = [];
     this.parts.forEach((list, mat) => {
       const merged = mergeGeometries(list, false);

@@ -27,7 +27,8 @@ export function buildSwordModel(): THREE.Group {
     const o = new THREE.Mesh(geo, m); o.position.y = y; o.castShadow = true; o.raycast = () => {}; if (name) o.name = name; g.add(o); return o;
   };
   part(new THREE.BoxGeometry(0.055, 0.68, 0.014), steel, 0.46, 'blade');
-  part(new THREE.BoxGeometry(0.012, 0.68, 0.018), edge, 0.46);        // the fuller's bright line
+  part(new THREE.BoxGeometry(0.012, 0.68, 0.018), edge, 0.46, 'edge');   // the fuller's bright line
+  steel.userData.steel = true; edge.userData.edge = true;
   const tip = part(new THREE.ConeGeometry(0.039, 0.12, 4), steel, 0.86); tip.scale.z = 0.36; tip.rotation.y = Math.PI / 4;
   part(new THREE.BoxGeometry(0.24, 0.035, 0.05), brass, 0.105);      // cross-guard
   part(new THREE.CylinderGeometry(0.019, 0.022, 0.17, 6), grip, 0.0);
@@ -79,6 +80,18 @@ export class Sword {
     this.held.position.set(-0.03, -0.3, 0.05);
     this.held.rotation.set(Math.PI / 2, 0, 0);   // forearm hanging: the blade points forward
   }
+  /** B17: dull and rusty steel shows on the blade (held and first-person): greyer when dull, brown when rusty. */
+  setCondition(sharp: number, rust: number) {
+    const base = new THREE.Color('#C4C8CE'), dull = new THREE.Color('#7E8084'), rusty = new THREE.Color('#8A4E2A');
+    const c = base.clone().lerp(dull, (1 - sharp) * 0.8).lerp(rusty, rust * 0.75);
+    for (const root of [this.held, this.viewmodel]) root.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.MeshLambertMaterial | undefined;
+      if (m?.userData?.steel) m.color.copy(c);
+      if (m?.userData?.edge) o.visible = sharp > 0.55;
+    });
+    this.condition = { sharp, rust };
+  }
+  condition = { sharp: 1, rust: 0 };
   get owned() { return this.inventory.count('sword') > 0; }
   get swinging() { return this.t >= 0; }
   /** 0..1 through the swing, or null (for the animator). */

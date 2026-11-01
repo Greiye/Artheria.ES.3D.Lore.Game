@@ -29,6 +29,8 @@ export class Crossbow {
   loaded = false;
   ads = false;
   bonusNextShot = false;
+  /** B17: a frayed string throws bolts slower (1 = a sound string). */
+  power = 1;
   reload: ReloadState = { active: false };
   lastReloadOutcome: 'normal' | 'fast' | 'jam' | null = null;
   readonly bolts: Bolt[] = [];
@@ -87,7 +89,7 @@ export class Crossbow {
     const hitbox = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.5), new THREE.MeshBasicMaterial({ visible: false }));
     mesh.add(hitbox);
     this.scene.add(mesh);
-    this.bolts.push({ mesh, origin: start.clone(), vel: dir.multiplyScalar(BOLT_SPEED), stuck: false, age: 0, damage: this.bonusNextShot ? 2 : 1, hitbox });
+    this.bolts.push({ mesh, origin: start.clone(), vel: dir.multiplyScalar(BOLT_SPEED * this.power), stuck: false, age: 0, damage: this.bonusNextShot ? 2 : 1, hitbox });
     this.bonusNextShot = false;
     this.onFire();
     this.onChange();
