@@ -163,6 +163,8 @@ export class CharacterForge {
         <section><h4>Hair</h4>${this.chips('hairStyle', HAIR_STYLES)}${this.swatches('hair', HAIR)}</section>
         <section><h4>Outfit</h4><h5>Dress / vest, cap &amp; trousers</h5>${this.swatches('primary', PALETTE)}<h5>Shirt</h5>${this.swatches('secondary', PALETTE)}
           <h5>Boots</h5>${this.swatches('boots', ['#6B4428', '#4A2E1E', '#2B2A24', '#8A5A32', '#3A4A5A'])}<h5>Belt &amp; trim</h5>${this.swatches('accent', PALETTE)}
+        </section>
+        <section><h4>Extras</h4>
           <label class="check"><input type="checkbox" id="fgSkirt"${l.skirt ? ' checked' : ''}> Coat tails / robe</label>
           <label class="check"><input type="checkbox" id="fgDress"${l.dress ? ' checked' : ''}> Bell dress</label>
           <label class="check"><input type="checkbox" id="fgPlatform"${l.platform ? ' checked' : ''}> Platform boots</label>
