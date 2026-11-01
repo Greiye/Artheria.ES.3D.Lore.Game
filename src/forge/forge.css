@@ -1,24 +1,40 @@
 /* Phase B forges (B4 character, B5 weapon) + B6 dice + the curated submit sheet. */
 .forge { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
-.forge-panel { pointer-events: auto; position: absolute; left: 0; top: 0; bottom: 0; width: min(380px, 100vw); overflow-y: auto;
-  padding: 18px 18px 28px; background: linear-gradient(90deg, rgba(30,36,32,.96), rgba(30,36,32,.88)); border-right: 1px solid var(--stone-d);
-  box-shadow: 8px 0 30px rgba(0,0,0,.35); }
-.forge-panel h2 { font-family: var(--serif); margin: 2px 0 10px; font-size: 26px; }
-.forge-panel h4 { margin: 14px 0 6px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--rune); }
-.forge-panel h5 { margin: 8px 0 4px; font-size: 11px; color: var(--stone-l); font-weight: 600; }
-.forge-panel section { border-top: 1px solid rgba(164,167,166,.18); padding-top: 4px; }
-.forge-panel .fine { font-size: 12px; color: var(--stone-l); margin: 6px 0; }
+/* B27 + B29 (Mike 2026-11-01): station panels sit on the RIGHT and are compact, so a whole panel shows at once without
+   scrolling; the camera shifts the station into the space on the left (main.ts, panelShift). Sizes follow the screen
+   height, so a phone held sideways gets the same layout, smaller. */
+.forge-panel { pointer-events: auto; position: absolute; right: 0; top: 0; bottom: 0; width: min(340px, 100vw); overflow-y: auto; box-sizing: border-box;
+  padding: clamp(8px, 1.6vh, 14px) 14px clamp(8px, 1.8vh, 16px); background: linear-gradient(270deg, rgba(30,36,32,.96), rgba(30,36,32,.88)); border-left: 1px solid var(--stone-d);
+  box-shadow: -8px 0 30px rgba(0,0,0,.35); font-size: clamp(12px, 1.9vh, 14px); line-height: 1.35; }
+.forge-panel h2 { font-family: var(--serif); margin: 0 0 clamp(4px, 1vh, 8px); font-size: clamp(17px, 3vh, 22px); line-height: 1.15; }
+.forge-panel h3 { font-size: clamp(14px, 2.3vh, 17px); margin: clamp(4px, 1vh, 8px) 0 4px; }
+.forge-panel h4 { margin: clamp(6px, 1.2vh, 10px) 0 4px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--rune); }
+.forge-panel h5 { margin: 6px 0 3px; font-size: 11px; color: var(--stone-l); font-weight: 600; }
+.forge-panel p { margin: clamp(3px, .8vh, 6px) 0; }
+.forge-panel section { border-top: 1px solid rgba(164,167,166,.18); padding-top: 2px; }
+.forge-panel button { font-size: clamp(12px, 1.9vh, 14px); }
+.forge-panel button.primary { padding: clamp(6px, 1.2vh, 10px) 14px; }
+.forge-panel button.secondary { padding: clamp(4px, .9vh, 7px) 12px; margin-top: clamp(4px, .8vh, 8px); }
+.forge-panel .eyebrow { font-size: 11px; }
+/* Tabs for panels split into sections (src/ui/fit-panel.ts). */
+.fp-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+.fp-tab { flex: 1 1 auto; padding: 5px 8px; font-size: 12px; background: rgba(239,227,196,.06); color: var(--parchment); border: 1px solid var(--stone-d); border-radius: 6px; }
+.fp-tab.on { border-color: var(--rune); background: rgba(63,224,232,.16); }
+.fp-tabbed > section { border-top: 0; }
+.fp-tabbed > section > h4 { display: none; }
+.fp-hide { display: none !important; }
+.forge-panel .fine { font-size: 11.5px; color: var(--stone-l); margin: 4px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { background: rgba(239,227,196,.06); color: var(--parchment); border: 1px solid var(--stone-d); padding: 6px 10px; font-size: 13px; text-transform: capitalize; }
+.chip { background: rgba(239,227,196,.06); color: var(--parchment); border: 1px solid var(--stone-d); padding: clamp(3px, .7vh, 6px) 9px; font-size: 12.5px; text-transform: capitalize; }
 .chip.on { border-color: var(--rune); background: rgba(63,224,232,.14); }
 .swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.sw { width: 26px; height: 26px; padding: 0; border: 2px solid rgba(0,0,0,.35); border-radius: 5px; image-rendering: pixelated; }
+.sw { width: 24px; height: 24px; padding: 0; border: 2px solid rgba(0,0,0,.35); border-radius: 5px; image-rendering: pixelated; }
 .sw.on { border-color: var(--parchment); box-shadow: 0 0 0 2px var(--rune); }
 .swatches input[type=color] { width: 30px; height: 28px; padding: 0; border: 1px dashed var(--stone-l); background: none; border-radius: 5px; }
 .slider { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; align-items: center; font-size: 13px; margin: 6px 0; }
 .slider span { color: var(--stone-l); font-size: 12px; }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-top: 8px; }
-.forge-actions { display: flex; gap: 10px; margin-top: 18px; }
+.forge-actions { display: flex; gap: 8px; margin-top: 10px; }
 .forge-actions button { flex: 1; margin: 0; }
 .dice-row { margin-top: 8px; }
 .dice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
@@ -35,14 +51,25 @@
   color: var(--parchment); font: 600 14px var(--ui); text-decoration: none; cursor: pointer; }
 .submit-actions .btn:first-child { background: var(--rune); color: var(--shadow); border: 0; }
 .submit-actions .ghost { background: transparent; color: var(--stone-l); }
-@media (max-width: 600px) { .forge-panel { top: 40vh; width: 100vw; border-right: 0; border-top: 1px solid var(--stone-d); } }
+@media (max-width: 600px) { .forge-panel { top: 40vh; width: 100vw; border-left: 0; border-top: 1px solid var(--stone-d); box-shadow: 0 -8px 30px rgba(0,0,0,.35); } }
 
 /* v0.04 general store */
 .shop-line { font-family: var(--serif); font-style: italic; color: var(--parchment); margin: 0 0 10px; }
-.shop-purse { font-size: 18px; color: #F2C94C; margin-bottom: 4px; }
-.shop-row { display: flex; justify-content: space-between; gap: 10px; width: 100%; margin: 4px 0; padding: 10px 12px; border-radius: 8px;
+.shop-purse { font-size: 16px; color: #F2C94C; margin-bottom: 4px; }
+.shop-row { display: flex; justify-content: space-between; gap: 8px; width: 100%; margin: 3px 0; padding: clamp(4px, .9vh, 8px) 10px; border-radius: 7px;
   border: 1px solid var(--stone-d); background: rgba(255,255,255,.04); color: var(--parchment); font: inherit; cursor: pointer; text-align: left; }
 .shop-row:disabled { opacity: .45; cursor: default; }
 .shop-row.sundry { opacity: .62; filter: saturate(.35); font-size: .92em; }
 .shop-sundry-head { margin: 14px 0 4px; color: var(--parchment); opacity: .7; font-weight: normal; font-style: italic; }
 @media (hover: hover) { .shop-row:not(:disabled):hover { background: rgba(63,224,232,.14); } }
+
+/* B27: sundries in two columns so the whole store fits without scrolling. */
+.shop-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 4px; }
+.shop-grid .shop-row { margin: 2px 0; padding: 4px 7px; font-size: 12px; }
+/* B27: a phone held sideways (short screen): one-line text boxes (they still scroll inside), tighter field spacing. */
+@media (max-height: 500px) and (min-width: 601px) {
+  .forge-panel textarea { height: 2.2em; min-height: 0; resize: none; }
+  .forge-panel .field { margin: 3px 0; gap: 2px 8px; display: grid; grid-template-columns: minmax(0, 36%) 1fr; align-items: center; }
+  .forge-panel .field > :is(input, textarea, select) { grid-column: 2; grid-row: 1 / span 2; }
+  .forge-panel .fine { margin: 2px 0; }
+}

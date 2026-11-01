@@ -181,19 +181,19 @@ export class CampfirePanel {
       <div class="cf-ballad"><h3>${escapeHtml(this.ballad.title)}</h3>${this.ballad.verses.map((v) => `<p>${v.map(escapeHtml).join('<br>')}</p>`).join('')}</div>
       <div class="forge-actions"><button class="secondary" id="cfPlay">Play the tune</button><button class="${shelved ? 'secondary' : 'primary'}" id="cfShelf">${shelved ? 'On the shelf ✓' : 'Put it on the shelf'}</button></div>
       <div class="forge-actions"><button class="secondary" id="cfSubmit">Submit…</button><button class="secondary" id="cfAgain">Tell it again</button></div>`
-      : `
+      : `<div class="fp-group"><section>
       <h4>Your tune</h4>
       <div class="chips">${INSTRUMENTS.map((i) => `<button class="chip${i === this.tune.instrument ? ' on' : ''}" data-inst="${i}">${i}</button>`).join('')}</div>
       <div class="cf-grid"></div>
       <label class="slider"><span>Slow</span><input id="cfBpm" type="range" min="60" max="180" step="5" value="${this.tune.bpm}"><span><output id="cfBpmOut">${this.tune.bpm}</output> bpm</span></label>
       <div class="forge-actions"><button class="secondary" id="cfPlay">▶ Play</button><button class="secondary" id="cfClearTune">Clear</button></div>
-      <h4>Tell it to the bard</h4>
+      </section><section><h4>Tell it to the bard</h4>
       ${saved.length ? `<label class="field">Pick up where another ballad left off<select id="cfChain"><option value="">(start fresh)</option>${saved.map((x) => `<option value="${x.id}"${x.id === this.chain ? ' selected' : ''}>${escapeHtml(x.title)}</option>`).join('')}</select></label>` : ''}
       ${PROMPTS.map(([k, q, ph], i) => `
         <label class="field">${q}<textarea data-turn="${k}" rows="2" maxlength="400" placeholder="${ph}">${escapeHtml(this.telling[k])}</textarea></label>
         ${nat[i] ? `<p class="cf-natalie">Natalie: “${escapeHtml(nat[i])}”</p>` : ''}`).join('')}
       <label class="field">Title<input id="cfTitle" type="text" maxlength="60" value="${escapeHtml(this.title)}" placeholder="The Ballad of the Ruined Library"></label>
-      <div class="forge-actions"><button class="primary" id="cfBard">Hand it to the bard</button></div>`;
+      <div class="forge-actions"><button class="primary" id="cfBard">Hand it to the bard</button></div></section></div>`;   // B27: two tabs
     const bodies: Record<FireSection, string> = {
       sleep: `<p class="fine">You've sat by the fire, so the bedroll is yours. The camp keeps watch.</p>
         <div class="forge-actions"><button class="primary" id="cfSleep">${escapeHtml(this.sleepLabel())}</button></div>`,
@@ -215,7 +215,7 @@ export class CampfirePanel {
         <div class="eyebrow">Campfire · the bard</div>
         <h2>By the fire</h2>
         ${SECTIONS.map(([id, icon, name]) => `<div class="cf-item${this.section === id ? ' open' : ''}">
-          <button class="cf-sec" data-sec="${id}" aria-expanded="${this.section === id}"><span class="cf-ico" aria-hidden="true">${icon}</span>${name}</button>
+          <button class="cf-sec" data-sec="${id}" title="${name}" aria-expanded="${this.section === id}"><span class="cf-ico" aria-hidden="true">${icon}</span>${name}</button>
           ${this.section === id ? `<div class="cf-body">${bodies[id]}</div>` : ''}</div>`).join('')}
       </div>`;
     this.renderGrid();

@@ -66,7 +66,7 @@ export class ShopPanel {
       <h4>Buy</h4>
       ${STOCK.map((w, i) => row(w, i)).join('')}
       <h4 class="shop-sundry-head">Sundries</h4>
-      ${SUNDRIES.map((w, i) => row(w, STOCK.length + i, ' sundry')).join('')}
+      <div class="shop-grid">${SUNDRIES.map((w, i) => row(w, STOCK.length + i, ' sundry')).join('')}</div>
       <h4>Sell</h4>
       ${sells.length ? sells.map((id) => `<button class="shop-row" data-sell="${id}"><span>${ITEMS[id].icon} ${ITEMS[id].name} (${this.inv.count(id)})</span><span>+◎ ${BUYS[id]}</span></button>`).join('') : '<p class="fine">Nothing I buy. Curios from below fetch a good price.</p>'}
       <p class="fine">Crowns come from finds and from writing: margin notes, banner sketches, ballads and lore pages all pay.</p>
