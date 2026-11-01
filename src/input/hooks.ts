@@ -1,6 +1,7 @@
 import type { Book } from '../book';
 import type { Player } from '../player';
 import type { Crossbow } from '../crossbow';
+import type { Sword } from '../sword';
 
 export type State = 'title' | 'play' | 'book' | 'pause' | 'resume' | 'editor' | 'charcreate' | 'dialogue' | 'inventory' | 'forge';
 export type InputMode = 'mouse' | 'touch' | 'pad';
@@ -13,6 +14,9 @@ export interface GameHooks {
   crossbow: Crossbow;
   fire(): void;
   hasCrossbow(): boolean;
+  sword: Sword;               // v0.08
+  hasSword(): boolean;
+  weaponSwap(): void;         // v0.08: right hand: hands → sword → crossbow
   begin(): void;
   pause(): void;
   resume(): void;

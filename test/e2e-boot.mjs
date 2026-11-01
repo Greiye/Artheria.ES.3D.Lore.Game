@@ -5,6 +5,7 @@ import { chromium } from 'playwright-core';
 import path from 'node:path';
 import http from 'node:http';
 import fs from 'node:fs';
+const VERSION = /VERSION = '([^']+)'/.exec(fs.readFileSync('src/version.ts', 'utf8'))[1];
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
 // Served over http rather than file://: Chromium can drop a file:// page's localStorage across a reload, which made
@@ -52,7 +53,7 @@ const kept = await G(page, () => { const i = document.querySelector('#intro'); r
 check('v0.06 M3–M5 any key keeps the title (wall + logo) and fades in a borderless Begin / Profile / Extras / Options list (B24); no welcome window', menu && kept.logo === '1' && kept.wall === '1' && !kept.card && /^Begin,Profile: [^,]+,Extras,Options$/.test(kept.items.join()), JSON.stringify(kept));
 await G(page, () => localStorage.removeItem('gametool.intro'));   // later loads in this test skip the intro
 const note = await G(page, () => document.querySelector('#versionNote').textContent);
-check('v0.05 §1.1 version notice on the menu (and says it was updated)', note === 'Tales of Artheria v0.07 | Updated from v0.04', note);
+check('v0.05 §1.1 version notice on the menu (and says it was updated)', note === `Tales of Artheria v${VERSION} | Updated from v0.04`, note);
 check('v0.05 §2.2 main menu: Begin, Options, Extras', await page.isVisible('#begin') && (await page.textContent('#openSettingsTitle')) === 'Options' && await page.isVisible('#openExtras'));
 await page.keyboard.press('ArrowDown');
 const focus = await G(page, () => document.activeElement?.id);

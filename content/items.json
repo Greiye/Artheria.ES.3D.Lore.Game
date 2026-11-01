@@ -6,6 +6,11 @@
       "icon": "⌖",
       "note": "Natalie's Archer won't be needing it tonight. Mind the reload."
     },
+    "sword": {
+      "name": "Practice Sword",
+      "icon": "⚔",
+      "note": "The smith's practice blade, from the stand outside the smithy. Click / RT / Swing to cut; three in a row ends in a heavy blow."
+    },
     "trinket": {
       "name": "Trinket from below",
       "icon": "◈",

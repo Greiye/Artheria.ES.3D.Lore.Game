@@ -84,7 +84,7 @@ export class TouchControls {
         else if (act === 'inventory') this.g.openInventory();
         else if (act === 'map') this.g.openMap();
         else if (act === 'journal') this.g.openJournal();
-        else if (act === 'bow') { if (this.g.crossbow.equipped) this.g.crossbow.unequip(); else this.g.crossbow.equip(); }
+        else if (act === 'bow') this.g.weaponSwap();   // v0.08: hands → sword → crossbow
         else if (act === 'reload') this.g.crossbow.pressReload();
         else if (act === 'fire') this.g.fire();
         else if (act === 'aim') this.g.crossbow.setADS(!this.g.crossbow.ads);
@@ -158,8 +158,15 @@ export class TouchControls {
     sneak.classList.toggle('latched', this.g.player.sneaking);
     const cb = this.g.crossbow;   // F4: crossbow buttons once Natalie has handed it over
     const bow = this.root.querySelector('.t-bow')!;
-    bow.classList.toggle('hidden', !(this.g.state() === 'play' && (cb.equipped || this.hasBow())));
-    bow.querySelectorAll('[data-act="fire"], [data-act="reload"], [data-act="aim"]').forEach((b) => b.classList.toggle('hidden', !cb.equipped));
+    const sw = this.g.sword;   // v0.08: the same Fire button swings the sword
+    bow.classList.toggle('hidden', !(this.g.state() === 'play' && (cb.equipped || sw.equipped || this.hasBow() || this.g.hasSword())));
+    bow.querySelectorAll('[data-act="reload"], [data-act="aim"]').forEach((b) => b.classList.toggle('hidden', !cb.equipped));
+    const fire = bow.querySelector<HTMLElement>('[data-act="fire"]')!;
+    fire.classList.toggle('hidden', !cb.equipped && !sw.equipped);
+    const fl = sw.equipped ? 'Swing' : 'Fire';
+    if (fire.textContent !== fl) fire.textContent = fl;
+    const wb = bow.querySelector<HTMLElement>('[data-act="bow"]')!, wl = cb.equipped ? 'Bow' : sw.equipped ? 'Sword' : 'Hands';
+    if (wb.textContent !== wl) wb.textContent = wl;
     this.root.querySelector('[data-act="aim"]')!.classList.toggle('latched', cb.ads);
     const ads = cb.ads ? '1' : '0';
     if (document.body.dataset.ads !== ads) document.body.dataset.ads = ads;   // v0.06 U2: fewer buttons while aiming
