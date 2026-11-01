@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.08,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01). Spec doc v0.06.
 
+### v0.08 changelog, part 2: gear care (B17, Mike 2026-11-01)
+- Gear now wears with use, and never breaks. Each sword hit dulls the edge a little. Fighting with the sword below the library leaves the blade spotted with rust. Every bolt you loose frays the crossbow string.
+- Worn gear does less. A dull or rusty sword cuts for less, down to 1 a hit, and a frayed string throws bolts slower (the ammo line says "string frayed"). It shows on the sword: the steel turns grey when dull and brown when rusty, and the bright edge line goes.
+- The smith keeps a grindstone outside the smithy: "Care for your gear". A knife-safety note comes first. Then there are three jobs:
+  - **Sharpen:** eight strokes on the whetstone. Hold Lift (or Space) to keep the blade's angle in the gold 15–20° band; let go and it tips flat. Each clean stroke brings the edge back.
+  - **Clean and oil:** tap the steps in order to take the rust off.
+  - **Restring the crossbow:** tap the steps in order to get full power back.
+- Doing all three once earns the Gear care card, with real sharpening, oiling and bow-string basics, plus a few crowns. Journal → Skills book shows it. The living map marks the grindstone.
+
 ### v0.08 changelog, part 1: the sword (Mike 2026-11-01)
 - A practice sword stands on the block outside the smithy. "Take the practice sword" puts it in your bag and your right hand; the stand stays empty after.
 - Draw it with 3, or cycle the right hand with Q / D-pad right (hands, sword, crossbow), or tap the weapon button on touch. 2 puts it away.

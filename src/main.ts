@@ -30,6 +30,8 @@ import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
 import { Crossbow, ZONE } from './crossbow';
 import { Sword } from './sword';
+import { GearPanel, buildGrindstone, grindstonePos, gearCardHtml, swordSharpness, bowPower, GEAR_CARD } from './gear/gear';
+import './gear/gear.css';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
 import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
@@ -631,14 +633,14 @@ inventory.root.querySelector('.inv-close')!.addEventListener('click', () => clos
 // ---------- F4 crossbow ----------
 world.scene.add(camera);   // the first-person crossbow rides on the camera
 const crossbow = new Crossbow(world.scene, camera, player, inventory, world.solids, () => rig.playFov);
-crossbow.onFire = () => audio.crossbowTwang();
+crossbow.onFire = () => { audio.crossbowTwang(); gear.wearString(); };
 crossbow.onReloadClick = () => audio.reloadClick();
 // v0.08 (Mike 2026-11-01): the smith's practice sword. Swing it at goblins (src/sword.ts).
 const sword = new Sword(camera, player, inventory);
 sword.onSwing = (heavy) => { audio.swordSwish(heavy); haptics.play('tap'); };
-sword.onHit = (_n, heavy) => { audio.swordHit(heavy); haptics.play('hit'); hitStop = heavy ? 0.09 : 0.05; };
+sword.onHit = (n, heavy) => { gear.wearSword(n); audio.swordHit(heavy); haptics.play('hit'); hitStop = heavy ? 0.09 : 0.05; };
 sword.onChange = () => { if (sword.equipped && crossbow.equipped) crossbow.unequip(); };
-let hitStop = 0;   // a few frames' pause on a hit, for weight
+let hitStop = 0, swordHitsAtEntry = 0;   // a few frames' pause on a hit, for weight
 const ammoText = $('ammoText'), reloadBar = $('reloadBar'), reloadFill = reloadBar.querySelector<HTMLElement>('.fill')!;
 reloadBar.querySelector<HTMLElement>('.zone')!.style.cssText = `left:${ZONE.start * 100}%;width:${(ZONE.end - ZONE.start) * 100}%`;
 function updateAmmoHud() {
@@ -646,7 +648,7 @@ function updateAmmoHud() {
   if (!crossbow.equipped) return;
   const r = crossbow.reload;
   const st = r.active ? (r.mode === 'jam' ? 'JAMMED' : r.mode === 'fast' ? 'Perfect!' : 'Reloading… R in the bright zone') : crossbow.loaded ? (crossbow.bonusNextShot ? 'Loaded · 2× damage' : 'Loaded') : 'Empty · R to reload';
-  const t = `Bolts ${inventory.count('bolt')} · ${st}`;
+  const t = `Bolts ${inventory.count('bolt')} · ${st}${crossbow.power < 1 ? ' · string frayed' : ''}`;
   if (ammoText.textContent !== t) ammoText.textContent = t;
   show('reloadBar', r.active);
   if (r.active) reloadFill.style.width = Math.min(100, (r.t / (r.mode === 'normal' ? 2 : r.total)) * 100) + '%';
@@ -904,7 +906,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); if (state === 'forge') wiki.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); gear.close(); if (state === 'forge') wiki.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -1191,7 +1193,7 @@ function enterDungeon(seed: number) {
   fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
   player.spawn(dungeon.entrance(), dungeon.entranceYaw());
   if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
-  inDungeon = true;
+  inDungeon = true; swordHitsAtEntry = sword.hits;
   spawnGoblins();
   delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
   saveDelves();
@@ -1200,6 +1202,7 @@ function enterDungeon(seed: number) {
 }
 function exitDungeon() {
   if (!inDungeon) return;
+  if (sword.hits > swordHitsAtEntry) { gear.rustSword(); toast('Goblin blood and cellar damp: your blade is spotting with rust. The smith\'s oil will fix it.', 3600); }   // B17
   inDungeon = false;
   const set = new Set(dungeon.colliders);
   for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1);
@@ -1331,6 +1334,7 @@ const livingMap = new LivingMap(() => {
   const n = Object.keys(delves).length;
   if (n) m.push({ x: TRAPDOOR.x, z: TRAPDOOR.z, label: `${n} seed${n > 1 ? 's' : ''} delved`, kind: 'delve' });
   const nCards = Object.keys(skills.st.cards).length;
+  m.push({ x: GRIND.x, z: GRIND.z, label: 'Grindstone', kind: 'place' });   // B17
   m.push({ x: SKILL_TABLE.x, z: SKILL_TABLE.z, label: nCards ? `${nCards} skill card${nCards > 1 ? 's' : ''}` : 'Practice table', kind: 'place' });
   m.push({ x: CARAVAN.x, z: CARAVAN.z - 3, label: caravan.st.done.length ? `Caravan: ${caravan.st.phrases.length} phrases` : 'A caravan camps here', kind: 'place' });
   if (dojo.st.done.length) m.push({ x: DOJO.x, z: DOJO.z + 3.4, label: `${dojo.st.done.length} drill${dojo.st.done.length > 1 ? 's' : ''} done`, kind: 'place' });
@@ -1401,7 +1405,31 @@ function openSkills() {
   skills.open();
 }
 interactables.push({ obj: skillTable, verb: () => 'Practise a real skill', act: () => openSkills(), when: () => !inDungeon });
-const skillsBook = new SkillsBook(skills, () => leaveForge());
+// ---------- B17: gear care at the smith's grindstone (sharpen, clean and oil, restring) ----------
+const gear = new GearPanel(() => leaveForge());
+gear.has = { sword: () => sword.owned, crossbow: () => inventory.count('crossbow') > 0 };
+function applyGear() { const g = gear.st; sword.sharpness = swordSharpness(g); sword.setCondition(g.sharp, g.rust); crossbow.power = bowPower(g); }
+gear.onChange = applyGear;
+gear.onCard = () => earn(4, 'Gear care card', 'skill:gear');
+gear.onStroke = (good) => { audio.grind(good); haptics.play(good ? 'tap' : 'jam'); };
+applyGear();
+const GRIND = grindstonePos(TOWN_LOTS.find((l) => l.id === 'smithy')!);
+const grind = buildGrindstone(world.scene, world.colliders, GRIND, world.heightAt(GRIND.x, GRIND.z));
+function openGear() {
+  if (state !== 'play') return;
+  enterForge();
+  const f = new THREE.Vector3(Math.sin(GRIND.ry), 0, Math.cos(GRIND.ry)), r = new THREE.Vector3(Math.cos(GRIND.ry), 0, -Math.sin(GRIND.ry));
+  const at = new THREE.Vector3(GRIND.x, 0, GRIND.z).addScaledVector(f, 0.9).addScaledVector(r, 0.3);
+  player.spawn(at, Math.atan2(f.x, f.z));
+  stationPose = 'smith';
+  const look = new THREE.Vector3(GRIND.x, 0.8, GRIND.z).addScaledVector(r, 0.4);
+  rig.setShot(innerHeight > innerWidth ? { pos: look.clone().addScaledVector(f, 3.4).setY(2.6), look, fov: 50 }
+    : { pos: look.clone().addScaledVector(f, 2.6).addScaledVector(r, -2.2).setY(2.0), look: look.clone().addScaledVector(r, -0.9), fov: 44 });
+  gear.open();
+}
+interactables.push({ obj: grind.hit, verb: () => 'Care for your gear', act: () => openGear(), when: () => !inDungeon });
+const skillsBook = new SkillsBook(skills, () => leaveForge(), () => gear.st.card ? gearCardHtml(gear.st)
+  : `<div class="sk-card locked"><div class="sk-card-head"><span>${GEAR_CARD.icon}</span><b>${GEAR_CARD.title}</b></div><p class="fine">Not learned yet. The smith teaches it at the grindstone outside the smithy.</p></div>`);
 function openSkillsBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); skillsBook.open(); }
 // ---------- B21: the GitHub wiki, pulled at build time, read at the reading room lectern in the Ruined Library ----------
 const wiki = new WikiPanel();
@@ -2434,6 +2462,7 @@ function frame() {
   nightLights.update(dt, player.pos.x, player.pos.z, clock.elapsedTime, camera);
   ambience.on = state !== 'title' && !inDungeon;
   if (ambience.on) ambience.update(dt); else ambience.stopAll();
+  gear.update(dt); if (gear.isOpen && gear.job === 'sharpen') grind.wheel.rotation.z += dt * 7;   // B17
   animate(dt);
   updateAmmoHud();
   updateDelve(dt);
@@ -2491,4 +2520,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

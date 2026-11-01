@@ -1,0 +1,17 @@
+/* B17: gear care at the grindstone. Reuses the skills panel look (.sk-*), plus condition bars and the angle gauge. */
+.g-bar { display: grid; grid-template-columns: 56px 1fr 60px; gap: 8px; align-items: center; font-size: 13px; margin: 4px 0; }
+.g-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+.g-fill { height: 100%; background: linear-gradient(90deg, #C86A5A, #E8C878 55%, #9BD08A); }
+.g-word { color: var(--stone, #B9B2A4); font-size: 12px; }
+.g-gauge { position: relative; height: 130px; margin: 8px 0 4px; border-radius: 8px; background: rgba(0,0,0,.25); overflow: hidden; }
+.g-band { position: absolute; left: 24px; bottom: 22px; width: 220px; height: 220px; transform: translateY(50%);
+  background: conic-gradient(at 0% 50%, transparent calc((90 - var(--hi)) * 1deg), rgba(232,200,120,.55) calc((90 - var(--hi)) * 1deg), rgba(232,200,120,.55) calc((90 - var(--lo)) * 1deg), transparent calc((90 - var(--lo)) * 1deg)); }
+.g-stone { position: absolute; left: 14px; right: 14px; bottom: 12px; height: 10px; border-radius: 3px; background: #7C776E; }
+.g-needle { position: absolute; left: 24px; bottom: 22px; width: 190px; height: 6px; margin-bottom: -3px; border-radius: 3px; background: linear-gradient(90deg, #4A3222 0 18%, #C4C8CE 18%); transform-origin: 0 50%; transition: background .1s; }
+.g-gauge.in .g-needle { background: linear-gradient(90deg, #4A3222 0 18%, #F2E2A8 18%); box-shadow: 0 0 8px rgba(242,226,168,.7); }
+#gAngle { position: absolute; right: 12px; top: 8px; font-size: 22px; font-variant-numeric: tabular-nums; }
+.g-strokebar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; }
+.g-stroke { height: 100%; width: 0; background: #E8C878; }
+.g-hold { width: 100%; min-height: 56px; font-size: 18px; margin-top: 6px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.sk-pick[disabled] { opacity: .45; }
+.sk-note.g-ok { background: rgba(155,208,138,.15); border-left-color: #9BD08A; }

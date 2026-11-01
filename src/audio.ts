@@ -416,6 +416,8 @@ class AudioEngine {
   // v0.08 sword: an airy swish (lower and longer for the heavy cut), and a dull chop when it lands.
   swordSwish(heavy = false): void { this.noise('sfx', heavy ? 0.22 : 0.15, heavy ? 900 : 1300, 2, 0.32, heavy ? 0.8 : 1.15); }
   swordHit(heavy = false): void { this.noise('sfx', 0.08, heavy ? 280 : 420, 3, 0.55, 0.7); }
+  // B17: steel on the whetstone: a clean hiss for a good stroke, a scratchy one for a bad.
+  grind(good = true): void { this.noise('sfx', 0.35, good ? 2600 : 1200, good ? 3 : 1, 0.22, good ? 1 : 0.8); }
   goblinMurmur(): void { this.noise('sfx', 0.3, 400, 1, 0.25); }
 }
 
