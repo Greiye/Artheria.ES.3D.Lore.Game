@@ -126,7 +126,7 @@ await G(page, () => window.__gametool.openCampfire());
 await until(page, () => window.__gametool.campfire.isOpen);
 await shot(page, 'campfire-list');
 const list = await G(page, () => ({ items: [...document.querySelectorAll('#campfire .cf-sec')].map((b) => b.textContent.trim()), open: [...document.querySelectorAll('#campfire .cf-item.open')].length, icons: document.querySelectorAll('#campfire .cf-sec .cf-ico').length }));
-check('v0.06 C1 the campfire is a list of big icon buttons: Sleep, Play along, Hear a tale, Tell a tale, Leave; one open', list.items.map((t) => t.slice(1).trim()).join() === 'Sleep,Play along,Hear a tale,Tell a tale,Leave' && list.open === 1 && list.icons === 5, JSON.stringify(list));
+check('v0.06 C1 the campfire is a list of big icon buttons: Sleep, Play along, Cook (B18), Hear a tale, Tell a tale, Leave; one open', list.items.map((t) => t.replace(/^[^A-Za-z]+/, '').trim()).join() === 'Sleep,Play along,Cook,Hear a tale,Tell a tale,Leave' && list.open === 1 && list.icons === 6, JSON.stringify(list));
 await G(page, () => { document.activeElement?.blur(); window.__gametool.menuInput('down'); });   // focus Sleep
 await G(page, () => window.__gametool.menuInput('ok'));
 const sleepOpen = await G(page, () => ({ sec: window.__gametool.campfire.section, open: document.querySelectorAll('#campfire .cf-item.open').length, btn: document.querySelector('#cfSleep')?.textContent, focus: document.activeElement?.id }));

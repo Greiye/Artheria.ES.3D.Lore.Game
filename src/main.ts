@@ -32,6 +32,8 @@ import { Crossbow, ZONE } from './crossbow';
 import { Sword } from './sword';
 import { GearPanel, buildGrindstone, grindstonePos, gearCardHtml, swordSharpness, bowPower, GEAR_CARD } from './gear/gear';
 import './gear/gear.css';
+import { CookPanel, RecipeBook } from './cooking/cooking';
+import { BUFFS } from './cooking/recipes';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
 import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
@@ -265,6 +267,7 @@ ui.innerHTML = `
       <button id="pgBag" class="pause-item pause-page">Bag</button>
       <button id="pgPhrases" class="pause-item pause-page">Phrasebook</button>
       <button id="pgSkills" class="pause-item pause-page">Skills book</button>
+      <button id="pgRecipes" class="pause-item pause-page">Recipe book</button>
       <button id="pgSelf" class="pause-item pause-page">Who you are</button>
       <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
       <p class="fine">Settings are saved in this browser.</p>
@@ -906,7 +909,7 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); campfire.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); gear.close(); if (state === 'forge') wiki.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); cook.close(); campfire.close(); recipeBook.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); gear.close(); if (state === 'forge') wiki.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -1067,6 +1070,15 @@ function openCampfire() {
   n.position.set(f.x - 0.7, 0, f.z - 2.3); n.rotation.y = Math.atan2(f.x - n.position.x, f.z - n.position.z);
   campfire.open();
 }
+// ---------- B18: cooking at the campfire; the Recipe book in the Journal ----------
+const cook = new CookPanel(() => { if (state === 'forge') campfire.el.classList.remove('hidden'); });   // back to the fire
+cook.author = () => forgeAuthor();
+cook.onLearn = (r) => earn(3, `${r.name} recipe`, 'recipe:' + r.id);
+cook.onEat = (b) => { haptics.play('pickup'); toast(`🍽 ${BUFFS[b].name}: ${BUFFS[b].text}`, 3600); };
+campfire.onCook = () => { campfire.el.classList.add('hidden'); cook.open(); };
+const recipeBook = new RecipeBook(cook, () => leaveForge());
+function openRecipeBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); recipeBook.open(); }
+let sturdy = false;   // B18: a "well fed" delve
 const campfireClosed = campfire.onClose;
 // v0.06 C3: the band's note keys show pad buttons while a controller is in use, and swap back live.
 const NOTE_BUTTONS = (() => { const B = controls.gamepad.buttons; return [B.reload, B.jump, B.zoomIn, B.zoomOut, B.aim, B.fire]; })();
@@ -1193,7 +1205,7 @@ function enterDungeon(seed: number) {
   fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
   player.spawn(dungeon.entrance(), dungeon.entranceYaw());
   if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
-  inDungeon = true; swordHitsAtEntry = sword.hits;
+  inDungeon = true; swordHitsAtEntry = sword.hits; sturdy = cook.consume('sturdy');
   spawnGoblins();
   delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
   saveDelves();
@@ -1210,7 +1222,7 @@ function exitDungeon() {
   const fog = world.scene.fog as THREE.Fog;
   if (savedFog) { fog.color.copy(savedFog.color); fog.near = savedFog.near; fog.far = savedFog.far; (world.scene.background as THREE.Color).copy(savedFog.bg); }
   dungeon.group.visible = false; dungeon.hideSpots();
-  goblins.clear(); slowT = 0; player.speedMul = 1;
+  goblins.clear(); slowT = 0; player.speedMul = 1; sturdy = false;
   player.spawn(TRAPDOOR.clone().add(new THREE.Vector3(0, 0, 1.6)), 0);
   if (companion.prefs.follow) natalieRoot().position.copy(TRAPDOOR).add(new THREE.Vector3(1.4, 0, 1.4));
 }
@@ -1261,6 +1273,7 @@ const goblins = new Goblins(world.scene, {
   aiming: () => crossbow.ads,
   hurt: (dmg, by, slow) => {
     if (!inDungeon || delveHp <= 0) return;
+    if (sturdy) dmg = Math.max(1, dmg - 1);   // B18: well fed
     delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt');
     if (slow) slowT = Math.max(slowT, slow);
     if (delveHp <= 0) {
@@ -1283,7 +1296,7 @@ crossbow.targets = (from, dir, len) => {
   return h && { dist: h.dist, hit: (dmg, d) => { haptics.play('hit'); return goblins.shoot(h.foe, dmg, d); } };
 };
 function spawnGoblins() {
-  goblins.clear(); delveHp = DELVE_HP; slowT = 0;
+  goblins.clear(); delveHp = DELVE_HP + (cook.consume('hearty') ? 3 : 0); slowT = 0;   // B18: a hearty meal
   const L = dungeon.layout!, run = (Math.random() * 2 ** 31) | 0;
   // One per room by depth, two in the nest (its first with a bigger budget); at most MAX_FOES.
   const rooms = L.rooms.filter((r) => r.tag !== 'entrance').sort((a, b) => (a.tag === 'nest' ? -1 : b.tag === 'nest' ? 1 : a.depth - b.depth));
@@ -1300,7 +1313,7 @@ let breathT = 0;
 function updateDelve(dt: number) {
   if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); if (wear.level) wear.set(0); return; }
   if (state === 'play') { if (hitStop > 0) hitStop -= dt; else goblins.update(dt); }   // v0.08: a beat's pause on a sword hit
-  const frac = delveHp / DELVE_HP;
+  const frac = Math.min(1, delveHp / DELVE_HP);
   wear.set(1 - frac);
   slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1);
   hurtFlash = Math.max(0, hurtFlash - dt);
@@ -1901,6 +1914,7 @@ $('quitToMenu').addEventListener('click', () => quitToMenu());
 $('pgCasebook').addEventListener('click', () => openCasebook());
 $('pgPhrases').addEventListener('click', () => openPhrasebook());   // B16
 $('pgSkills').addEventListener('click', () => openSkillsBook());   // B19
+$('pgRecipes').addEventListener('click', () => openRecipeBook());   // B18
 $('pgSelf').addEventListener('click', () => openCharCreate('pause'));   // B25: optional, reached only from the Journal
 $('pgMap').addEventListener('click', () => openMap());
 $('pgBag').addEventListener('click', () => { setState('play'); openInventory(); });
@@ -2462,7 +2476,7 @@ function frame() {
   nightLights.update(dt, player.pos.x, player.pos.z, clock.elapsedTime, camera);
   ambience.on = state !== 'title' && !inDungeon;
   if (ambience.on) ambience.update(dt); else ambience.stopAll();
-  gear.update(dt); if (gear.isOpen && gear.job === 'sharpen') grind.wheel.rotation.z += dt * 7;   // B17
+  gear.update(dt); cook.update(dt); player.buffMul = cook.buff === 'quick' ? 1.1 : 1; if (gear.isOpen && gear.job === 'sharpen') grind.wheel.rotation.z += dt * 7;   // B17
   animate(dt);
   updateAmmoHud();
   updateDelve(dt);
@@ -2520,4 +2534,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

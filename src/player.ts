@@ -105,12 +105,14 @@ export class Player {
   // Speed rules (F2 table): run by default; Shift = walk; Caps Lock flips the default; Alt = sprint.
   /** Slows (a snare, a diseased goblin's bite) scale every speed; 1 = none. */
   speedMul = 1;
+  /** B18: a meal buff (Light on your feet). */
+  buffMul = 1;
   speed(): number {
     const s = controls.speeds;
-    if (this.sneaking) return s.sneak * this.speedMul;
-    if (this.held.has('sprint')) return s.sprint * this.speedMul;
+    if (this.sneaking) return s.sneak * this.speedMul * this.buffMul;
+    if (this.held.has('sprint')) return s.sprint * this.speedMul * this.buffMul;
     const running = this.settings.alwaysRun !== this.held.has('walk');
-    return (running ? s.run : s.walk) * this.speedMul;
+    return (running ? s.run : s.walk) * this.speedMul * this.buffMul;
   }
 
   update(dt: number) {

@@ -7,6 +7,21 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.08,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01). Spec doc v0.06.
 
+### v0.08 changelog, part 3: cooking (B18, Mike 2026-11-01)
+- The campfire has a new item: Cook. "Cook a meal" opens the camp kitchen over the fire. A kitchen-safety note comes first: cook for real only with an adult, wash your hands, and check for allergies.
+- There are three real recipes, simple enough to cook at home: lentejas (lentil soup, la cocinera's from the caravan), pan flatbread, and baked apples.
+- Each recipe takes three stages:
+  - **Prep:** tap the steps in order. A step out of order gets a hint.
+  - **The fire:** pick the heat (embers, steady flame, roaring) and take the dish off when the doneness bar is in the gold band. Too hot and it burns; the note says what heat the dish wants and why.
+  - **Finish:** season it or let it cool.
+- Every recipe has its own safety line.
+- Eating it with the camp gives a small buff, one meal at a time:
+  - Lentejas are **Hearty**: your next trip below starts with 3 extra hearts.
+  - Flatbread makes you **Light on your feet**: 10% faster for 3 minutes.
+  - Baked apples leave you **Well fed**: goblin hits do 1 less damage on your next trip below.
+- Cooking a recipe the first time pays a few crowns.
+- Journal → Recipe book writes out every recipe you've cooked in full: ingredients, method and safety. "Write your own recipe" turns yours into a lore file to submit.
+
 ### v0.08 changelog, part 2: gear care (B17, Mike 2026-11-01)
 - Gear now wears with use, and never breaks. Each sword hit dulls the edge a little. Fighting with the sword below the library leaves the blade spotted with rust. Every bolt you loose frays the crossbow string.
 - Worn gear does less. A dull or rusty sword cuts for less, down to 1 a hit, and a frayed string throws bolts slower (the ammo line says "string frayed"). It shows on the sword: the steel turns grey when dull and brown when rusty, and the bright edge line goes.

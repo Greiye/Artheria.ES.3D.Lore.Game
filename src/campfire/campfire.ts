@@ -24,9 +24,9 @@ const PLAYABLE: { kind: PlayKind; label: string; item?: string; pads: number }[]
 ];
 const PENTA = [60, 62, 64, 67, 69, 72], PAD_NAMES = ['C', 'D', 'E', 'G', 'A', 'C′'];
 // v0.06 C1: the panel is a list of big buttons, one open at a time, Sleep first.
-export type FireSection = 'sleep' | 'play' | 'hear' | 'tell' | 'leave';
+export type FireSection = 'sleep' | 'play' | 'cook' | 'hear' | 'tell' | 'leave';
 const SECTIONS: [FireSection, string, string][] = [
-  ['sleep', '☾', 'Sleep'], ['play', '♫', 'Play along'], ['hear', '❦', 'Hear a tale'], ['tell', '✒', 'Tell a tale'], ['leave', '⇠', 'Leave'],
+  ['sleep', '☾', 'Sleep'], ['play', '♫', 'Play along'], ['cook', '🍲', 'Cook'], ['hear', '❦', 'Hear a tale'], ['tell', '✒', 'Tell a tale'], ['leave', '⇠', 'Leave'],
 ];
 
 export class CampfirePanel {
@@ -39,6 +39,8 @@ export class CampfirePanel {
   /** v0.04: items the player owns (for the instruments), and where "Write lore" goes. Set by main. */
   owned: () => string[] = () => [];
   onWriteLore: () => void = () => {};
+  /** B18: open the camp kitchen (main shows the cook panel over the fire). */
+  onCook: () => void = () => {};
   /** v0.05 §5: lore Natalie can tell, and what happens when you ask for one. Set by main. */
   tales: () => { id: string; title: string }[] = () => [];
   onTell: (id: string) => void = () => {};
@@ -111,6 +113,7 @@ export class CampfirePanel {
     else if (b.id === 'cfGuide') { audio.band.guide = !audio.band.guide; this.render(); }
     else if (b.id === 'cfTell') { const sel = this.el.querySelector<HTMLSelectElement>('#cfTale'); if (sel?.value) this.onTell(sel.value); }
     else if (b.id === 'cfWriteLore') { this.close(); this.onWriteLore(); }
+    else if (b.id === 'cfCook') this.onCook();
     else if (d.inst) { this.tune.instrument = d.inst as Instrument; this.saveTune(); this.render(); }
     else if (b.id === 'cfPlay') this.play();
     else if (b.id === 'cfClearTune') { this.tune.steps = Array(8).fill(0); this.saveTune(); this.renderGrid(); }
@@ -203,6 +206,8 @@ export class CampfirePanel {
       tell: `<p class="fine">Tell Natalie a tale, a place or a person; she writes it down as a lore page for the library.</p>
         <div class="forge-actions"><button class="secondary" id="cfWriteLore">✒ Write lore with Natalie</button></div>
         <p class="fine">Or tell her what happened, and the bard sings it back to your tune.</p>${body}`,
+      cook: `<p class="fine">The camp's pot and pan hang over the fire. Cook a real recipe and eat it with the camp: a good meal sets you up for the road.</p>
+        <div class="forge-actions"><button class="primary" id="cfCook">🍲 Cook a meal</button></div>`,
       leave: `<div class="forge-actions"><button class="secondary" id="cfClose">Leave the fire</button></div>`,
     };
     this.el.innerHTML = `
