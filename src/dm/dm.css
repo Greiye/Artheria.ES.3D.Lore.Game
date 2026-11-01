@@ -1,0 +1,38 @@
+/* B20: the DM view. A full-screen planning tool over the game, in the menus' palette. */
+.dm { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: #14100C; color: #F4EEDD; font: 14px/1.4 system-ui, sans-serif; }
+.dm.hidden { display: none; }
+.dm .fine { font-size: 12px; opacity: .75; margin: 4px 0; }
+.dm-gate { margin: auto; max-width: 420px; padding: 24px; }
+.dm-gate h1 { margin: 4px 0 8px; font-size: 24px; }
+.dm .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; margin: 6px 0; }
+.dm input, .dm textarea, .dm select { font: inherit; font-size: 13px; background: rgba(255,255,255,.06); color: inherit; border: 1px solid rgba(232,200,120,.35); border-radius: 4px; padding: 4px 6px; }
+.dm textarea { resize: vertical; }
+.dm .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+.dm button { font-size: 13px; padding: 5px 10px; }
+.dm .chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.dm .chip { border-radius: 14px; background: rgba(255,255,255,.07); color: inherit; border: 1px solid rgba(232,200,120,.3); }
+.dm .chip.on, .dm button.on { background: #E8C878; color: #1E1810; }
+.dm-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid rgba(232,200,120,.25); }
+.dm-head .row { margin: 0 0 0 auto; }
+.dm-main { flex: 1; display: flex; min-height: 0; }
+.dm-stage { flex: 1; overflow: auto; position: relative; }
+.dm-side { width: 320px; overflow-y: auto; padding: 8px 12px; border-left: 1px solid rgba(232,200,120,.25); }
+.dm-side h3 { margin: 4px 0 6px; font-size: 15px; }
+.dm-side h4 { margin: 8px 0 2px; font-size: 13px; color: #E8C878; }
+.dm-edit { border-top: 1px solid rgba(255,255,255,.1); margin-top: 8px; padding-top: 4px; }
+.dm-xz { display: flex; gap: 6px; } .dm-xz .field { flex: 1; } .dm-xz input { width: 100%; box-sizing: border-box; }
+#dmCanvas { display: block; margin: 12px auto; width: min(100%, calc(100vh - 90px)); aspect-ratio: 1; cursor: crosshair; border: 1px solid rgba(232,200,120,.3); }
+.dm-graph { position: relative; min-width: 100%; min-height: 100%; }
+#dmEdges { position: absolute; left: 0; top: 0; pointer-events: none; }
+.dm-edge { fill: none; stroke: #E8C878; stroke-width: 1.6; opacity: .75; }
+.dm-edge.cond { stroke-dasharray: 5 4; }
+.dm-elabel { fill: #F4EEDD; font-size: 10px; text-anchor: middle; }
+.dm-node { position: absolute; width: 200px; height: 70px; box-sizing: border-box; padding: 5px 8px; overflow: hidden; background: #2A2118; border: 1px solid rgba(232,200,120,.45); border-radius: 6px; cursor: grab; user-select: none; touch-action: none; }
+.dm-node.sel { border-color: #F2C94C; box-shadow: 0 0 0 2px rgba(242,201,76,.4); }
+.dm-node.start { border-left: 4px solid #9BD08A; }
+.dm-node.end { border-bottom: 3px solid #C8423A; }
+.dm-id { display: block; font-size: 10px; opacity: .6; }
+.dm-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; }
+.dm-choice { display: grid; grid-template-columns: 1fr 70px auto; gap: 4px; margin: 4px 0; padding: 4px; background: rgba(255,255,255,.04); border-radius: 4px; }
+.dm-choice input[data-f$=".if"] { grid-column: 1 / 3; font-size: 12px; }
+@media (max-width: 760px) { .dm-main { flex-direction: column; } .dm-side { width: auto; max-height: 45vh; border-left: 0; border-top: 1px solid rgba(232,200,120,.25); } }

@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.08,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01). Spec doc v0.06.
 
+### v0.08 changelog, part 4: DM view (B20, Mike 2026-11-01)
+- Add `?dm` to the game's address to open the DM view. It's a planning tool over the game, not part of play, and it sits behind a passphrase. The code holds only the phrase's SHA-256 hash. This keeps it out of players' way; it is not security, since the site and its code are public.
+- Part III (the DM-private lore) is never loaded or shipped.
+- **Map:** a top-down plan of the glade and town (the library, the nine town buildings, the fountain). Click to drop pins: NPC, door, dungeon seed (rolled automatically), kit piece or note. Each pin gets a label, position and notes.
+- **Quest graph:** dialogue and quest nodes drawn as a graph. Each node has a line, a "then" link or choices, and actions (one per line: `give:item:n`, `crowns:n`, `flag:name`, `unlock:door`, `quest:start`). A choice can carry a condition (`has:crossbow`, `flag:x`), drawn as a dashed link. Drag nodes to arrange them, link them, and set the start node. "Load from the game" opens Natalie's real dialogue as a graph.
+- Everything saves on this device, outside the player profiles. "Export JSON" writes the pins, every graph, and each graph in the game's own dialogue format (`content/dialogue/*.json`) for merging by hand. "Import…" restores an export.
+- Test: `test/e2e-dm.mjs`.
+
 ### v0.08 changelog, part 3: cooking (B18, Mike 2026-11-01)
 - The campfire has a new item: Cook. "Cook a meal" opens the camp kitchen over the fire. A kitchen-safety note comes first: cook for real only with an adult, wash your hands, and check for allergies.
 - There are three real recipes, simple enough to cook at home: lentejas (lentil soup, la cocinera's from the caravan), pan flatbread, and baked apples.
