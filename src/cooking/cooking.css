@@ -1,0 +1,11 @@
+/* B18: the camp kitchen and the Recipe book. Reuses the skills panel look (.sk-*). */
+.ck-bar { position: relative; height: 26px; margin: 10px 0 6px; border-radius: 6px; background: rgba(255,255,255,.1); overflow: hidden; }
+.ck-band { position: absolute; top: 0; bottom: 0; left: var(--lo); width: calc(var(--hi) - var(--lo)); background: rgba(232,200,120,.35); border-left: 2px solid #E8C878; border-right: 2px solid #E8C878; }
+.ck-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #E0B070, #B8602F 70%, #3A2418); opacity: .85; }
+.ck-bar.in .ck-fill { box-shadow: 0 0 10px rgba(242,226,168,.8); }
+#ckDone { position: absolute; right: 8px; top: 3px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ck-good { background: rgba(155,208,138,.15); border-left: 3px solid #9BD08A; padding: 6px 10px; border-radius: 4px; font-size: 14px; }
+.ck-buff { background: rgba(232,200,120,.12); border-left: 3px solid #E8C878; padding: 6px 10px; border-radius: 4px; font-size: 14px; }
+.ck-card h5 { margin: 8px 0 2px; }
+.ck-card ol { margin: 4px 0; padding-left: 1.3em; font-size: 14px; line-height: 1.4; }
+.cook-panel .chips button[disabled] { opacity: .5; }
