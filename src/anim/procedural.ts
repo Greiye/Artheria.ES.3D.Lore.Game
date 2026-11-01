@@ -13,6 +13,9 @@ export interface AnimInput {
   landed?: boolean;       // true for the one frame the figure touches down
   look?: { yaw: number; pitch: number } | null;   // head target relative to the body, radians
   pose?: Pose | null;     // Phase F (B14): a dojo drill takes over the whole body; v0.04: 'read' while a book is open
+  sword?: boolean;        // v0.08: a sword in the right hand (guard)
+  swing?: number | null;  // v0.08: 0..1 through a sword cut
+  combo?: number;         // v0.08: 1 forehand, 2 backhand, 3 heavy overhead
 }
 // v0.06 S1 station poses: sit (campfire), smith (anvil), mirror (tailor), write (desk / scriptorium), kneel (bedroll).
 // v0.06 T4: the cinema band plays: fiddle, drum and pipe.
@@ -27,7 +30,7 @@ const smooth = (cur: number, target: number, rate: number, dt: number) => cur + 
 export class FigureAnim {
   private phase = 0;
   private t = Math.random() * 10;   // de-sync idle breathing between figures
-  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0 };
+  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0, sword: 0 };
   private pose: Pose = 'stance';
   private poseT = 0;
   private head = { yaw: 0, pitch: 0 };
@@ -96,6 +99,23 @@ export class FigureAnim {
     aN = THREE.MathUtils.lerp(aN, -1.25, w.aim); aP = THREE.MathUtils.lerp(aP, -1.45, w.aim);
     fN = THREE.MathUtils.lerp(fN, -0.5, w.aim); fP = THREE.MathUtils.lerp(fP, -0.15, w.aim);
     zN = THREE.MathUtils.lerp(zN, 0.35, w.aim); zP = THREE.MathUtils.lerp(zP, -0.15, w.aim);
+    // v0.08 sword: a guard with the blade forward; a cut winds up and sweeps across the body (the third overhead).
+    w.sword = smooth(w.sword, i.sword ? 1 : 0, 12, dt);
+    if (w.sword > 0.01) {
+      aN = THREE.MathUtils.lerp(aN, -0.5 + s * 0.15 * loco, w.sword); fN = THREE.MathUtils.lerp(fN, -0.95, w.sword); zN = THREE.MathUtils.lerp(zN, 0.05, w.sword);
+    }
+    if (i.swing != null) {
+      const k = i.swing, heavy = i.combo === 3, flip = i.combo === 2 ? -1 : 1, L = THREE.MathUtils.lerp;
+      const e = (x: number) => x * x * (3 - 2 * x);
+      const a = e(Math.min(1, k / 0.3)), b = e(THREE.MathUtils.clamp((k - 0.3) / 0.25, 0, 1)), c = e(THREE.MathUtils.clamp((k - 0.55) / 0.45, 0, 1));
+      const W = heavy ? { a: -2.8, z: 0.1, f: -0.7, sy: 0, sx: -0.15 } : { a: -1.7, z: flip > 0 ? -1.0 : 0.7, f: -1.2, sy: 0.45 * flip, sx: 0 };
+      const C = heavy ? { a: -0.45, z: 0.1, f: -0.1, sy: 0, sx: 0.3 } : { a: -1.25, z: flip > 0 ? 0.75 : -0.9, f: -0.15, sy: -0.55 * flip, sx: 0.1 };
+      const R = { a: aN, z: zN, f: fN, sy: 0, sx: 0 };
+      const at = (key: keyof typeof R) => L(L(L(R[key], W[key], a), C[key], b), R[key], c);
+      aN = at('a'); zN = at('z'); fN = at('f');
+      B.spine.rotation.y += at('sy'); B.spine.rotation.x += at('sx');
+      aP = L(aP, -0.4, 1 - c); zP = L(zP, 0.45, 1 - c);   // the free arm swings out for balance
+    }
     // Airborne: arms rise for balance.
     B.armN.rotation.set(aN - 0.4 * w.air, 0, zN - 0.5 * w.air);
     B.armP.rotation.set(aP - 0.4 * w.air, 0, zP + 0.5 * w.air);

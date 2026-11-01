@@ -20,6 +20,7 @@ export const controls = {
     map: ['KeyM'],                          // Phase F (B7): the living map
     equipCrossbow: ['Digit1'],              // F4.1 (§5: 1/2 crossbow/hands)
     equipHands: ['Digit2'],
+    equipSword: ['Digit3'],                 // v0.08 the practice sword
     reload: ['KeyR'],                       // F4.3 active reload
     torch: ['KeyT'],                        // v0.04 torch
     close: ['Tab'],                         // close book / back
@@ -93,7 +94,7 @@ export const REBINDABLE: [Action, string][] = [
   ['forward', 'Forward'], ['back', 'Back'], ['left', 'Left'], ['right', 'Right'], ['jump', 'Jump'], ['sneak', 'Sneak'],
   ['walk', 'Walk (hold)'], ['sprint', 'Sprint (hold)'], ['activate', 'Use · talk · read'], ['pov', 'Camera view'], ['shoulder', 'Swap shoulder / weapon'],
   ['torch', 'Torch'], ['inventory', 'Bag'], ['journal', 'Casebook'], ['map', 'Map'],
-  ['equipCrossbow', 'Crossbow'], ['equipHands', 'Hands'], ['reload', 'Reload'],
+  ['equipCrossbow', 'Crossbow'], ['equipHands', 'Hands'], ['equipSword', 'Sword'], ['reload', 'Reload'],
 ];
 const BINDS_KEY = 'gametool.keys';
 try {

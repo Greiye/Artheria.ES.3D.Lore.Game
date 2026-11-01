@@ -4,8 +4,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 
 ## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.07,
-Mike 2026-10-28; batch B 2026-10-31). Spec doc v0.06.
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.08,
+Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01). Spec doc v0.06.
+
+### v0.08 changelog, part 1: the sword (Mike 2026-11-01)
+- A practice sword stands on the block outside the smithy. "Take the practice sword" puts it in your bag and your right hand; the stand stays empty after.
+- Draw it with 3, or cycle the right hand with Q / D-pad right (hands, sword, crossbow), or tap the weapon button on touch. 2 puts it away.
+- Swing with a click, RT, or the touch Swing button. A cut hits every goblin in a short arc in front of you. It does 2 damage, flashes the goblin red, knocks it back, and staggers it so it can't hit back at once. Keep swinging for a three-cut combo (forehand, backhand, then a heavy overhead cut for 3). The heavy cut goes through a pot lid; a light cut can be turned.
+- In the follow views a cut turns you toward the nearest goblin within reach. In first person the sword sits at the right of the screen and sweeps across it.
+- Each cut has a swish, each hit has a thud, rumble on a controller, and a short pause.
 
 ### v0.07 changelog, part 5: the wiki in the game (B21, Mike 2026-10-31)
 - The game's [GitHub wiki](https://github.com/Greiye/Artheria.ES.3D.Lore.Game/wiki) is now inside the game. Each build pulls the wiki pages into `content/wiki/` and bakes them into the page, so they read offline and the game never calls GitHub while you play. With no network, the build keeps the last pulled copy.

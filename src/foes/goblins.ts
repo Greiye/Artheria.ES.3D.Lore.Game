@@ -9,6 +9,7 @@ import { buildGoblin, goblinStats, damageRoll, RARITY_COLOUR, type GoblinStats }
 // thieves grab bolts and run, ambushers wait crouched, archers keep their distance, trappers set snares, pack leaders
 // shout (+1 damage nearby while they live), mimics dodge while you aim. Bolts hurt them; their loot uses the economy.
 export const MAX_FOES = 6;
+const HURT = new THREE.Color('#FF3020');
 const SIGHT = 13, ALERT_RADIUS = 10, SEP = 0.55;
 
 export interface FoeWorld {
@@ -31,6 +32,8 @@ export interface Foe {
   v: Variant; st: GoblinStats; root: THREE.Group; anim: FigureAnim;
   hp: number; state: State; t: number; cd: number; windup: number; alerted: boolean;
   stolen: number; caught: number; traps: number; called: boolean; dodge: number; deadT: number; tag: THREE.Sprite; speedNow: number;
+  /** v0.08 sword: seconds left of the red hit flash, and the goblin's own body materials to tint. */
+  hurtT: number; mats: { m: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial; base: THREE.Color }[];
 }
 interface Shot { mesh: THREE.Mesh; vel: THREE.Vector3; dmg: number; by: Foe; bomb: boolean; fuse: number; landed: boolean }
 interface Snare { mesh: THREE.Mesh; die: string; by: Foe }
@@ -81,7 +84,13 @@ export class Goblins {
     const root = buildGoblin(v), st = goblinStats(v);
     root.position.copy(at); root.rotation.y = yaw; root.name = 'goblin:' + v.display;
     const f: Foe = { v, st, root, anim: new FigureAnim(root.userData.rig as FigureRig), hp: st.hp, state: st.behaviour === 'ambusher' ? 'hidden' : 'idle', t: 0, cd: 1, windup: 0,
-      alerted: false, stolen: 0, caught: 0, traps: st.trap ? 2 : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0 };
+      alerted: false, stolen: 0, caught: 0, traps: st.trap ? 2 : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0, hurtT: 0, mats: [] };
+    // Its own copy of the body materials, so one goblin can flash red without the others.
+    const rig = root.userData.rig as FigureRig | undefined;
+    if (rig?.mesh) {
+      const own = (m: THREE.Material) => { const c = m.clone() as THREE.MeshLambertMaterial; if ('color' in c && c.color) f.mats.push({ m: c, base: c.color.clone() }); return c; };
+      rig.mesh.material = Array.isArray(rig.mesh.material) ? rig.mesh.material.map(own) : own(rig.mesh.material);
+    }
     f.tag = nameTag(f); drawTag(f);
     f.tag.position.y = st.height * 1.18 + 0.15; root.add(f.tag);
     root.userData.foe = f;
@@ -124,6 +133,30 @@ export class Goblins {
     if (f.st.behaviour === 'mimic') f.dodge = 0.8;   // shot at: it ducks aside
     if (f.hp <= 0) this.kill(f);
     return true;
+  }
+
+  /** v0.08 sword: a cut from `from` facing `fwd` (unit, flat). Every goblin inside the arc is hurt, staggered and
+   *  knocked back. A pot lid can turn a light cut it faces; the heavy third cut goes through. Returns those hit. */
+  slash(from: THREE.Vector3, fwd: THREE.Vector3, reach: number, arc: number, dmg: number, heavy: boolean): Foe[] {
+    const out: Foe[] = [], cosArc = Math.cos(arc), dir = new THREE.Vector3();
+    for (const f of this.list) {
+      if (f.state === 'dead') continue;
+      const p = f.root.position, dx = p.x - from.x, dz = p.z - from.z, d = Math.hypot(dx, dz);
+      const r = 0.28 * f.st.width * (f.st.height / 0.95);
+      if (d - r > reach || (d > 0.3 && (dx * fwd.x + dz * fwd.z) / d < cosArc)) continue;
+      if (d > 1e-4) dir.set(dx / d, 0, dz / d); else dir.copy(fwd);
+      const facing = this.tmp.set(Math.sin(f.root.rotation.y), 0, Math.cos(f.root.rotation.y));
+      if (f.st.block && !heavy && facing.dot(dir) < -0.5 && Math.random() < 0.35) { this.w.say(`${f.v.display} catches the blade on a pot lid.`); this.alert(f); f.hurtT = 0.05; continue; }
+      f.hp -= Math.max(1, dmg - f.st.armour);
+      f.hurtT = 0.18;
+      drawTag(f);
+      this.alert(f);
+      f.windup = 0; f.cd = Math.max(f.cd, heavy ? 0.9 : 0.55);   // staggered: no hitting back straight away
+      this.step(f, dir.x, dir.z, heavy ? 0.9 : 0.4, 1);         // knocked back (walls stop it)
+      if (f.hp <= 0) this.kill(f);
+      out.push(f);
+    }
+    return out;
   }
 
   private kill(f: Foe) {
@@ -170,6 +203,11 @@ export class Goblins {
   update(dt: number) {
     const P = this.w.player;
     for (const f of this.list) {
+      if (f.mats.length && (f.hurtT > 0 || f.mats[0].m.color.r !== f.mats[0].base.r)) {
+        f.hurtT = Math.max(0, f.hurtT - dt);
+        const k = Math.min(1, f.hurtT / 0.12);
+        for (const { m, base } of f.mats) m.color.copy(base).lerp(HURT, k * 0.7);
+      }
       if (f.state === 'dead') {
         f.deadT += dt;
         f.root.rotation.x = Math.max(-Math.PI / 2, -f.deadT * 5);   // topples backwards

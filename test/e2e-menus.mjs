@@ -91,7 +91,7 @@ await page.click('#whatsNewBtn');
 const wn = await until(page, () => window.__gametool.state === 'title' && !document.querySelector('#whatsNew').classList.contains('hidden'), null, 6000);
 const notes = await G(page, () => [...document.querySelectorAll('#whatsNew .wn-ver')].map((d) => ({ v: d.dataset.v, open: d.open, n: d.querySelector('.wn-body').textContent.length })));
 const prompt = await G(page, () => document.querySelector('#whatsNew #dailyPrompt').textContent === window.__gametool.dailyPrompt);
-check('v0.06 M6 Extras → What\'s new: current version (v0.07) open on top, v0.06…v0.01 collapsed, from CHANGELOG.md; today\'s prompt at the foot', wn && notes[0]?.v === '0.07' && notes[0].open && notes[0].n > 200 && ['0.06', '0.05', '0.04', '0.03', '0.02', '0.01'].every((v) => notes.some((n) => n.v === v && !n.open)) && prompt, JSON.stringify(notes));
+check('v0.06 M6 Extras → What\'s new: current version (v0.08) open on top, v0.07…v0.01 collapsed, from CHANGELOG.md; today\'s prompt at the foot', wn && notes[0]?.v === '0.08' && notes[0].open && notes[0].n > 200 && ['0.07', '0.06', '0.05', '0.04', '0.03', '0.02', '0.01'].every((v) => notes.some((n) => n.v === v && !n.open)) && prompt, JSON.stringify(notes));
 await page.click('#whatsNew .wn-ver[data-v="0.05"] summary');
 const older = await until(page, () => /Quick Dungeon/.test(document.querySelector('#whatsNew .wn-ver[data-v="0.05"] .wn-body').textContent), null, 3000);
 check('v0.06 M6 an older version opens on tap (v0.05 lists the Quick Dungeon)', older);

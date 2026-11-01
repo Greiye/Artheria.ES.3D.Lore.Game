@@ -29,6 +29,7 @@ import { promptOfTheDay } from './prompts';
 import { DialogueBox, type DialogueScript } from './dialogue';
 import { Inventory, ITEMS } from './inventory';
 import { Crossbow, ZONE } from './crossbow';
+import { Sword } from './sword';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
 import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
@@ -330,6 +331,7 @@ ui.innerHTML = `
         <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
         <tr><td>F</td><td>Camera: first person / shoulder / overhead</td><td>Wheel</td><td>Camera in / out</td></tr>
         <tr><td>Q</td><td>Swap shoulder (or weapon)</td><td>T</td><td>Torch</td></tr>
+        <tr><td>1 · 2 · 3</td><td>Crossbow · hands · sword</td><td>Click</td><td>Fire · swing the sword</td></tr>
       </table>
       <div class="padmap" data-padmap></div>
       <div id="keyBinds"></div>
@@ -415,7 +417,7 @@ function setMode(m: InputMode) {
 const PAD_MAP: [side: 'l' | 'r', button: number | string, what: string][] = [
   ['l', 6, 'Aim (crossbow)'], ['l', 4, 'Camera in · page back'], ['l', 'Left stick', 'Move · click: sprint'],
   ['l', 12, 'Swap shoulder · weapon'], ['l', 14, 'Quick swap: left hand (torch)'], ['l', 13, 'Hold: torch'], ['l', 8, 'Bag'],
-  ['r', 7, 'Fire'], ['r', 15, 'Quick swap: right hand'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
+  ['r', 7, 'Fire · swing'], ['r', 15, 'Quick swap: right hand'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
   ['r', 0, 'Use · talk · read'], ['r', 'Right stick', 'Look · click: change camera'], ['r', 9, 'Pause'],
 ];
 function renderPadMap(fam: PadFamily) {
@@ -631,6 +633,12 @@ world.scene.add(camera);   // the first-person crossbow rides on the camera
 const crossbow = new Crossbow(world.scene, camera, player, inventory, world.solids, () => rig.playFov);
 crossbow.onFire = () => audio.crossbowTwang();
 crossbow.onReloadClick = () => audio.reloadClick();
+// v0.08 (Mike 2026-11-01): the smith's practice sword. Swing it at goblins (src/sword.ts).
+const sword = new Sword(camera, player, inventory);
+sword.onSwing = (heavy) => { audio.swordSwish(heavy); haptics.play('tap'); };
+sword.onHit = (_n, heavy) => { audio.swordHit(heavy); haptics.play('hit'); hitStop = heavy ? 0.09 : 0.05; };
+sword.onChange = () => { if (sword.equipped && crossbow.equipped) crossbow.unequip(); };
+let hitStop = 0;   // a few frames' pause on a hit, for weight
 const ammoText = $('ammoText'), reloadBar = $('reloadBar'), reloadFill = reloadBar.querySelector<HTMLElement>('.fill')!;
 reloadBar.querySelector<HTMLElement>('.zone')!.style.cssText = `left:${ZONE.start * 100}%;width:${(ZONE.end - ZONE.start) * 100}%`;
 function updateAmmoHud() {
@@ -645,14 +653,40 @@ function updateAmmoHud() {
   reloadBar.classList.toggle('jam', r.active && r.mode === 'jam');
 }
 function fire() {
+  if (state === 'play' && sword.equipped) { sword.swing(); return; }
   if (state !== 'play' || !crossbow.equipped) return;
   if (crossbow.fire()) { haptics.play('fire'); return; }
   if (!crossbow.loaded && !crossbow.reloading) toast(inventory.count('bolt') ? 'Empty: press R to reload' : 'No bolts left. Pick spent ones up with E.', 1800);
 }
 function equip(on: boolean) {
   if (on && !crossbow.equip()) { toast('You have no crossbow yet.', 1800); return; }
-  if (!on) crossbow.unequip();
+  if (on && sword.equipped) sword.unequip();
+  if (!on) { crossbow.unequip(); if (sword.equipped) sword.unequip(); }
 }
+function equipSword() {
+  if (!sword.equip()) { toast('No sword yet. The smith keeps a practice sword on the stand outside the smithy.', 2600); return; }
+  if (crossbow.equipped) crossbow.unequip();
+}
+// The practice sword on its stand in front of the smithy: take it once; the stand stays empty after.
+const standSword = world.standees.sword;
+const swordHit = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.4, 0.8), new THREE.MeshBasicMaterial({ visible: false }));
+swordHit.position.copy(standSword.position).setY(0.7); swordHit.name = 'sword-stand';
+world.scene.add(swordHit);
+interactables.push({ obj: swordHit, verb: () => 'Take the practice sword', act: () => takeSword(), when: () => !sword.owned && !inDungeon });
+function syncStandSword() {
+  const r = standSword.userData.replacedBy as THREE.Object3D | undefined, here = !sword.owned;
+  if (r) r.visible = here; else standSword.visible = here;
+}
+function takeSword() {
+  if (sword.owned) return;
+  inventory.give('sword', 1); haptics.play('pickup'); syncStandSword();
+  equipSword(); showQuick();
+  const how = inputMode === 'mouse' ? 'Click to swing, and keep clicking for a three-cut combo. 3 or Q draws it, 2 puts it away.'
+    : inputMode === 'pad' ? 'RT swings, and keep pressing for a three-cut combo. D-pad right changes weapon.'
+    : 'Tap Swing, and keep tapping for a three-cut combo. The weapon button changes what you hold.';
+  hint(`The smith won't miss that practice sword for a night. ${how}`, `Practice sword taken. ${how}`, 5200);
+}
+
 // R3: the crossbow is aimed in first person (viewmodel); putting it away restores the previous view.
 // Watched per frame so keyboard, touch and gamepad equips all behave the same.
 let viewBeforeCrossbow: boolean | null = null;
@@ -711,6 +745,7 @@ function animate(dt: number) {
   torch.update(dt, !player.thirdPerson);
   heldBook.set(state === 'book' && reader.isOpen);
   purse.update(dt);
+  syncStandSword();
   if (player.pos.y > 3.3 && !player.airborne) earn(5, 'a purse left on the lookout', 'lookout');
   if (quickTimer > 0 && (quickTimer -= dt) <= 0) $('quick').classList.add('hidden');
   if (player.vaults !== lastVaults) { lastVaults = player.vaults; haptics.play('jump'); }
@@ -719,9 +754,11 @@ function animate(dt: number) {
   dust.update(dt, camera);
   const mine: AnimInput = {
     speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
+    sword: sword.equipped, swing: sword.progress, combo: sword.combo,
     airborne: player.airborne, landed, pose: dojo.pose ?? stationPose ?? (state === 'book' ? 'read' : null),
     look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
   };
+  sword.held.visible = sword.equipped && !mine.pose;   // put away at a station or a drill
   for (const [id, p] of puppets) {
     const input = id === 'player' ? (player.body.visible ? mine : null) : npcInput(id, p.root);
     if (!input) continue;
@@ -761,7 +798,7 @@ const forgeAuthor = () => loadAuthor() || character.name;
 let forgeFrom: State = 'play';
 function setPlayerLook(c: ForgeCharacter) {
   const fig = player.setLook(c.look, c.height);
-  torch.attach();
+  torch.attach(); sword.attach();
   heldBook.attach(); purse.attach(); wear.attach(); wear.set(wear.level);
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
@@ -1236,6 +1273,8 @@ const goblins = new Goblins(world.scene, {
   },
   say: (t) => toast(t, 2600),
 });
+sword.foes = () => goblins.alive.map((f) => f.root.position);
+sword.slash = (c) => goblins.slash(c.from, c.fwd, c.reach, c.arc, c.damage, c.heavy).length;
 crossbow.targets = (from, dir, len) => {
   const h = goblins.list.length ? goblins.hitTest(from, dir, len) : null;
   return h && { dist: h.dist, hit: (dmg, d) => { haptics.play('hit'); return goblins.shoot(h.foe, dmg, d); } };
@@ -1257,7 +1296,7 @@ const delveHpEl = document.getElementById('delveHp')!;
 let breathT = 0;
 function updateDelve(dt: number) {
   if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); if (wear.level) wear.set(0); return; }
-  if (state === 'play') goblins.update(dt);
+  if (state === 'play') { if (hitStop > 0) hitStop -= dt; else goblins.update(dt); }   // v0.08: a beat's pause on a sword hit
   const frac = delveHp / DELVE_HP;
   wear.set(1 - frac);
   slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1);
@@ -1514,14 +1553,14 @@ function syncCrossbowView() {
   if (crossbow.equipped && viewBeforeCrossbow === null) { viewBeforeCrossbow = player.thirdPerson; player.thirdPerson = false; syncLock(); }
   else if (!crossbow.equipped && viewBeforeCrossbow !== null) { player.thirdPerson = viewBeforeCrossbow; viewBeforeCrossbow = null; if (player.thirdPerson) player.pitch = 0; syncLock(); }
   document.body.dataset.view = player.thirdPerson ? 'follow' : 'first';
-  if (rig.inShot) crossbow.viewmodel.visible = false;   // a framed dialogue/reading shot shows the player, not the held crossbow
+  if (rig.inShot) { crossbow.viewmodel.visible = false; sword.viewmodel.visible = false; }   // a framed dialogue/reading shot shows the player, not the held crossbow
 }
 // v0.04 Skyrim-style quick swap: the D-pad's left / right cycle what each hand holds (left: nothing or the
 // torch; right: hands or the crossbow), with a short HUD line saying what's in each hand.
 let quickTimer = 0;
 function showQuick() {
   const el = $('quick');
-  el.innerHTML = `<span>◀ ${torch.lit ? 'Torch' : 'Empty'}</span><span>${crossbow.equipped ? 'Crossbow' : 'Hands'} ▶</span>`;
+  el.innerHTML = `<span>◀ ${torch.lit ? 'Torch' : 'Empty'}</span><span>${crossbow.equipped ? 'Crossbow' : sword.equipped ? 'Sword' : 'Hands'} ▶</span>`;
   el.classList.remove('hidden');
   quickTimer = 1.6;
 }
@@ -1534,7 +1573,10 @@ function toggleTorch() {
 function quickSwap(hand: 'left' | 'right') {
   if (state !== 'play') return;
   if (hand === 'left') { toggleTorch(); return; }
+  // v0.08: the right hand cycles hands → sword → crossbow → hands, skipping what you don't have.
   if (crossbow.equipped) crossbow.unequip();
+  else if (sword.equipped) { sword.unequip(); if (inventory.count('crossbow') > 0) crossbow.equip(); }
+  else if (sword.owned) equipSword();
   else if (inventory.count('crossbow') > 0) crossbow.equip();
   haptics.play('tap');
   showQuick();
@@ -1999,6 +2041,9 @@ const hooks: GameHooks = {
   crossbow,
   fire,
   hasCrossbow: () => inventory.count('crossbow') > 0,
+  sword,
+  hasSword: () => sword.owned,
+  weaponSwap: () => quickSwap('right'),
   toggleRun: () => toggleRun(),
   toggleView: () => cycleView(),
   shoulderSwap: () => shoulderSwap(),
@@ -2098,8 +2143,9 @@ window.addEventListener('keydown', (e) => {
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
   if (actionFor(e.code, ['map']) && !e.repeat) { openMap(); return; }
   if (!e.repeat) {
-    const w = actionFor(e.code, ['equipCrossbow', 'equipHands', 'reload']);
+    const w = actionFor(e.code, ['equipCrossbow', 'equipHands', 'equipSword', 'reload']);
     if (w === 'equipCrossbow') { equip(true); return; }
+    if (w === 'equipSword') { if (state === 'play') { equipSword(); showQuick(); } return; }
     if (w === 'equipHands') { equip(false); return; }
     if (w === 'reload') { crossbow.pressReload(); return; }
   }
@@ -2131,7 +2177,7 @@ window.addEventListener('mousedown', (e) => {
     mouseHeld = true;
     cursor.downX = e.clientX; cursor.downY = e.clientY; cursor.dragged = false;
     if (wantLock() && lockSupported && !document.pointerLockElement && e.target === canvas) void requestLock();   // first person: a click takes the pointer
-    if (crossbow.equipped && (e.target === canvas || document.pointerLockElement)) fire();   // F4.1 LMB fires
+    if ((crossbow.equipped || sword.equipped) && (e.target === canvas || document.pointerLockElement)) fire();   // F4.1 LMB fires; v0.08 LMB swings
   }
   if (e.button === 2) { rightHeld = true; crossbow.setADS(true); }   // F4.1 RMB aims; in the follow view RMB-drag turns the camera
 });
@@ -2139,7 +2185,7 @@ window.addEventListener('mouseup', (e) => {
   if (e.button === 0) {
     mouseHeld = false;
     // S1: a click (not a drag) on something within reach uses it.
-    if (state === 'play' && e.target === canvas && player.thirdPerson && !crossbow.equipped && !cursor.dragged && hovering) activate();
+    if (state === 'play' && e.target === canvas && player.thirdPerson && !crossbow.equipped && !sword.equipped && !cursor.dragged && hovering) activate();
   }
   if (e.button === 2) { rightHeld = false; crossbow.setADS(false); }
 });
@@ -2377,6 +2423,7 @@ function frame() {
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     crossbow.update(dt);
+    sword.update(dt);
     touch?.update();
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
@@ -2444,4 +2491,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
