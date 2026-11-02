@@ -12,7 +12,7 @@ export const MAX_FOES = 6;
 const HURT = new THREE.Color('#FF3020');
 const SIGHT = 13, ALERT_RADIUS = 10, SEP = 0.55;
 
-export interface FoeWorld {
+interface FoeWorld {
   /** Can a goblin stand at (x, z)? */
   walkable(x: number, z: number): boolean;
   /** The player's feet, and whether they're aiming the crossbow. */
@@ -28,7 +28,7 @@ export interface FoeWorld {
 }
 
 type State = 'idle' | 'hidden' | 'chase' | 'back' | 'flee' | 'dead';
-export interface Foe {
+interface Foe {
   v: Variant; st: GoblinStats; root: THREE.Group; anim: FigureAnim;
   hp: number; state: State; t: number; cd: number; windup: number; alerted: boolean;
   stolen: number; caught: number; traps: number; called: boolean; dodge: number; deadT: number; tag: THREE.Sprite; speedNow: number;

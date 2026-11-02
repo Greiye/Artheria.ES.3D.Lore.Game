@@ -8,7 +8,7 @@ import type { PaintKind, Tile } from '../tex/paintedAtlas';
 // The goblin archetype (docs/trait-roll-tables.md §3). Lore (public): three feet tall, green, nimble, creative with
 // what they use as weapons, clever with traps; some learned the bow by watching adventurers; the Daemonic Goblin
 // Disease leaves growths, blackened horns and red eyes. A variant is rebuilt from { archetype, seed } alone.
-export const GOBLIN_ARCH = GOBLIN as unknown as Archetype;
+const GOBLIN_ARCH = GOBLIN as unknown as Archetype;
 export const rollGoblin = (seed: number, budget?: number) => roll(GOBLIN_ARCH, seed, { budget });
 
 export interface GoblinStats {
@@ -56,7 +56,7 @@ const KIT: [string, PaintKind][] = [['#2A2A1E', 'hair'], ['#26261b', 'hair'], ['
   ['#8A1E1E', 'cloth'], ['#2A2024', 'cloth'], ['#C8B898', 'cloth'], ['#3A5A3A', 'cloth'], ['#C83A2A', 'cloth'], ['#1A1418', 'cloth'], ['#1A1614', 'cloth'],
   ['#9A8A74', 'cloth'], ['#A8322A', 'cloth'], ['#D9D8CC', 'cloth'], ['#E8E0C8', 'cloth'], ['#E8E0D0', 'cloth'],
   ['#6AB4FF', 'cloth'], ['#7AD07A', 'cloth'], ['#E8F0F8', 'cloth'], ['#FFB040', 'cloth'], ['#FFD27A', 'cloth'], ['#E0302A', 'cloth'], ['#E8C83A', 'cloth']];
-export const GOBLIN_PALETTE: { tiles: Tile[]; size: number } = { size: 256, tiles: [
+const GOBLIN_PALETTE: { tiles: Tile[]; size: number } = { size: 256, tiles: [
   ...SKINS.flatMap((c) => [{ color: c, kind: 'skin' as const }, { color: SKIN_DARK(c, 0.7), kind: 'leather' as const }, { color: SKIN_DARK(c, 0.85), kind: 'leather' as const }]),
   ...RAGS.map((c) => ({ color: c, kind: 'cloth' as const })),
   ...KIT.map(([color, kind]) => ({ color, kind })),

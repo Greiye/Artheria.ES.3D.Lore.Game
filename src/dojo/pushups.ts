@@ -1,14 +1,15 @@
+import { storeSet } from '../store';
 // B26 (Mike 2026-11-01): the camera counts real push-ups. Opt-in only. MediaPipe Pose Lite runs on the device; no
 // frame is stored or sent anywhere. The library, its WebAssembly and the model ship beside the page (dist/pose/,
 // ~15 MB) and are only fetched the first time the camera is switched on.
 // A rep: the elbow (shoulder-elbow-wrist, whichever arm the camera sees better) bends past DOWN, then straightens
 // past UP, at least MIN_GAP seconds after the last rep. Knee push-ups count the same way.
 
-export const DOWN = 95, UP = 150, MIN_GAP = 0.4;
+const DOWN = 95, UP = 150, MIN_GAP = 0.4;
 const KEY = 'gametool.pushups';
 
 /** Up/down state machine on the elbow angle. Starts expecting the arms straight. */
-export class RepCounter {
+class RepCounter {
   phase: 'up' | 'down' = 'up';
   reps = 0;
   private last = -Infinity;
@@ -32,7 +33,7 @@ const ARMS = [[11, 13, 15], [12, 14, 16]] as const;   // left / right: shoulder,
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
 
 /** The elbow angle of the arm the camera sees better, or null if neither arm is clear enough. */
-export function elbowAngle(lm: Pt[] | undefined, world?: Pt[]): number | null {
+function elbowAngle(lm: Pt[] | undefined, world?: Pt[]): number | null {
   if (!lm || lm.length < 17) return null;
   const vis = (i: number) => lm[i].visibility ?? 1;
   const score = ARMS.map((a) => Math.min(...a.map(vis)));
@@ -46,7 +47,7 @@ export function elbowAngle(lm: Pt[] | undefined, world?: Pt[]): number | null {
   return (Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by + az * bz) / d))) * 180) / Math.PI;
 }
 
-export interface Totals { day: string; today: number; total: number; best: number }
+interface Totals { day: string; today: number; total: number; best: number }
 const today = () => new Date().toLocaleDateString('en-CA');
 export function loadTotals(): Totals {
   try {
@@ -59,7 +60,7 @@ export function loadTotals(): Totals {
 export function addReps(n: number): Totals {
   const t = loadTotals();
   t.today += n; t.total += n; t.best = Math.max(t.best, t.today);
-  try { localStorage.setItem(KEY, JSON.stringify(t)); } catch { /* blocked */ }
+  storeSet(KEY, JSON.stringify(t));
   return t;
 }
 
@@ -77,7 +78,7 @@ async function loadMediaPipe(): Promise<Landmarker> {
   try { return await make('GPU'); } catch { return await make('CPU'); }
 }
 
-export type CamStatus = 'off' | 'asking' | 'loading' | 'looking' | 'tracking' | 'error';
+type CamStatus = 'off' | 'asking' | 'loading' | 'looking' | 'tracking' | 'error';
 
 /** The camera overlay: preview with a skeleton, an always-visible "Camera on" pill, and Stop. */
 export class PushupCam {

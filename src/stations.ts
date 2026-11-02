@@ -1,7 +1,7 @@
 // Every station panel registers here when it's built, so "close everything" (leaving a station, opening the pause
 // menu, going back to the main menu) can't miss a new one. Closing runs newest first, like a stack: a panel opened on
 // top of another (cooking over the campfire, the telling over the campfire) closes before the one under it.
-export interface Closable { close(): void }
+interface Closable { close(): void }
 const all: Closable[] = [];
 
 /** Register a station panel; returns it, so `const x = station(new XPanel(...))`. */

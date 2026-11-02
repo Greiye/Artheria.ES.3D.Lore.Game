@@ -1,4 +1,5 @@
 import data from '../../content/quest/missing-party.json';
+import { storeSet } from '../store';
 
 // B2 story seed: "Where did Natalie's party go?". Clues are found in the world; the player writes a
 // theory (free text + who / where / why tags) and the theory decides where the lead appears and how
@@ -19,7 +20,7 @@ export function loadQuest(): QuestState {
   } catch { /* blocked or corrupt */ }
   return { stage: 'none', clues: [] };
 }
-export function saveQuest(s: QuestState) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* blocked */ } }
+export function saveQuest(s: QuestState) { storeSet(KEY, JSON.stringify(s)); }
 
 export const clueById = (id: string) => data.clues.find((c) => c.id === id);
 export const tagLabel = (axis: Axis, v: string) => (data.tags[axis] as Record<string, string>)[v] ?? v;

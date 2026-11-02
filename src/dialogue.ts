@@ -16,7 +16,7 @@ declare const __PORTRAITS__: string[];
 const PORTRAIT_FILES: string[] = typeof __PORTRAITS__ === 'undefined' ? [] : __PORTRAITS__;
 export const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 /** The portrait file for a speaker id and mood, or null for the placeholder. */
-export function portraitFile(id: string, mood?: string): string | null {
+function portraitFile(id: string, mood?: string): string | null {
   const find = (base: string) => PORTRAIT_FILES.find((f) => f.replace(/\.[a-z]+$/i, '').toLowerCase() === base);
   return (mood && find(`${id}-${slug(mood)}`)) || find(id) || null;
 }

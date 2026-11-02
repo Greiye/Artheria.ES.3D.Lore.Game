@@ -20,7 +20,7 @@ export const riverClear = (x: number, z: number, pad: number) =>
 
 let water: THREE.CanvasTexture | null = null;
 /** Painted ripples on slate blue, wrapped so they can scroll. */
-export function waterTexture(): THREE.CanvasTexture {
+function waterTexture(): THREE.CanvasTexture {
   if (water) return water;
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d')!, R = rng(4141);

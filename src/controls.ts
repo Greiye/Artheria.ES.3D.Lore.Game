@@ -1,3 +1,4 @@
+import { storeSet } from './store';
 // F2.2: every binding and speed lives here. Remapping a key is a one-line change.
 // Values are KeyboardEvent.code strings (layout-independent physical keys).
 // D3: Skyrim PC defaults; browser-unsafe keys remapped (Ctrl -> C for sneak, see F2 table).
@@ -104,7 +105,7 @@ try {
 const saveBinds = () => {
   const out: Partial<Record<Action, string>> = {};
   for (const [a] of REBINDABLE) if (binds[a][0] !== controls.keys[a][0]) out[a] = binds[a][0];
-  try { localStorage.setItem(BINDS_KEY, JSON.stringify(out)); } catch { /* blocked */ }
+  storeSet(BINDS_KEY, JSON.stringify(out));
 };
 /** Put `code` on `action` (its main key). A key already on another rebindable action swaps over to it. */
 export function bindKey(action: Action, code: string) {

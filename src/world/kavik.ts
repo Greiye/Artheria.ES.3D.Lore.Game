@@ -13,7 +13,7 @@ import { FACE } from '../render/headArt';
 const SKIN = '#8C5EC4', CLOTH = '#D6C29A', DARK = '#4A3448', OBI = '#8A3A7A', LEATHER = '#3E2A3A',
   HAIR = '#5A3A2A', HORN = '#C8A8E0', SOLE = '#6A4A38', WRAP = '#352838';
 /** The look his drawn face is made from (glowing pink eyes; infernling: dark lips). */
-export const KAVIK_LOOK: FigureLook = { skin: SKIN, hair: HAIR, primary: CLOTH, secondary: CLOTH, boots: WRAP, eyes: '#FF8AE8', species: 'infernling' };
+const KAVIK_LOOK: FigureLook = { skin: SKIN, hair: HAIR, primary: CLOTH, secondary: CLOTH, boots: WRAP, eyes: '#FF8AE8', species: 'infernling' };
 
 // Bone pivots in metres for a 1.85 m figure (realistic: hips at 0.95, knees at 0.52, shoulders at 1.49).
 const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> = {

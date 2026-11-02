@@ -13,7 +13,7 @@ import type { FigureLook } from '../world/figure';
 // here in code, in "head units" (1 u = one head diameter = U_PX pixels).
 
 const U_PX = 40;
-export const SHEET = { w: 2.4, h: 2.6, top: 1.0 };   // frame size in head units; head centre 1.0 u below the top
+const SHEET = { w: 2.4, h: 2.6, top: 1.0 };   // frame size in head units; head centre 1.0 u below the top
 // Realistic figures' face quad: the part of a face cell it shows (head units), centred FACE.drop u below the head's
 // centre. The cell is 2.4 × 2.6 u, so this is its middle 1.2 × 1.2 u: eyes, brows, nose line and mouth.
 // `split` is where the eye strip ends and the mouth strip starts, as a fraction of the face from its top.
@@ -21,7 +21,7 @@ export const FACE = { w: 1.2, h: 1.2, drop: 0.15, split: 0.65 };
 const FW = Math.round(SHEET.w * U_PX), FH = Math.round(SHEET.h * U_PX);   // 96 × 104 px cells
 const EXPRESSIONS = ['neutral', 'blink', 'talk-a', 'talk-b'];   // whole-face rows when a sheet has no JSON
 export const EYES = ['open', 'blink', 'happy', 'angry', 'surprised', 'sad', 'wink', 'half'] as const;
-export const MOUTHS = ['neutral', 'smile', 'frown', 'open', 'grit', 'talk-a', 'talk-b'] as const;
+const MOUTHS = ['neutral', 'smile', 'frown', 'open', 'grit', 'talk-a', 'talk-b'] as const;
 /** The six expressions, as an eye row and a mouth row. Talking swaps the mouth and blinking the eyes on top. */
 export const EXPRESSION: Record<string, { eyes: string; mouth: string }> = {
   neutral: { eyes: 'open', mouth: 'neutral' }, happy: { eyes: 'happy', mouth: 'smile' }, angry: { eyes: 'angry', mouth: 'grit' },

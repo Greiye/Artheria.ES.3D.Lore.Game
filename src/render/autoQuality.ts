@@ -1,7 +1,7 @@
 // References review (the idea behind Edelweiss's Optimizer.js, CC0; no code taken): watch the real time between
 // drawn frames and step quality down when the game can't hold its target, then back up once it has had headroom
 // for a while. Each step only scales what the player picked in Settings; it never rewrites their settings.
-export interface QualityStep { scale: number; shadows: boolean; foliage: number; folk: 'low' | 'full' }
+interface QualityStep { scale: number; shadows: boolean; foliage: number; folk: 'low' | 'full' }
 export const STEPS: QualityStep[] = [
   { scale: 1, shadows: true, foliage: 1, folk: 'full' },
   { scale: 0.85, shadows: true, foliage: 1, folk: 'full' },

@@ -4,9 +4,9 @@ import { mulberry32 } from '../dungeon/gen';
 // src/data/traits/) gives many variants. Each table is a die and rows covering result ranges, so the weights read
 // like a printed tabletop table. Rows carry tags, requires/excludes, a threat cost against the archetype's budget,
 // and optional links to other tables. The player never sees the dice, only the result.
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
-export type Mods = Record<string, number | string | boolean>;
-export interface Row {
+type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+type Mods = Record<string, number | string | boolean>;
+interface Row {
   range: [number, number]; id: string; label?: string; rarity?: Rarity; tags?: string[];
   requires?: string[]; excludes?: string[]; threat?: number; mods?: Mods; epithet?: string;
   roll?: string;                         // also roll on this table
@@ -14,7 +14,7 @@ export interface Row {
   limits?: Record<string, string[]>;     // a later table may only pick rows carrying one of these tags
   socket?: string;
 }
-export interface Table { die: string; rows: Row[]; times?: number }
+interface Table { die: string; rows: Row[]; times?: number }
 export interface Archetype {
   archetype: string;
   base: { height: number; hp: number; speed: number; budget: number };

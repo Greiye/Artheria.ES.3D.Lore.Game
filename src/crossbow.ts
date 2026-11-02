@@ -22,7 +22,7 @@ const BOLT_MAT = new THREE.MeshLambertMaterial({ color: 0xD9D8CC });
 const ADS_FOV_DROP = 15;              // F4.1
 
 export interface Bolt { mesh: THREE.Mesh; origin: THREE.Vector3; vel: THREE.Vector3; stuck: boolean; age: number; damage: number; hitbox: THREE.Mesh }
-export type ReloadState = { active: false } | { active: true; t: number; mode: 'normal' | 'fast' | 'jam'; total: number };
+type ReloadState = { active: false } | { active: true; t: number; mode: 'normal' | 'fast' | 'jam'; total: number };
 
 export class Crossbow {
   equipped = false;

@@ -38,7 +38,7 @@ const PHASES: Record<TimeOfDay, Phase> = {
     zenith: '#050918', upper: '#0E1834', horizon: '#222C48', glow: '#3A4668', fog: '#0E1426', shafts: 0, disc: '#DCE6FF', stars: 1 },
 };
 
-export interface Sky {
+interface Sky {
   sun: THREE.DirectionalLight;
   sunDir: THREE.Vector3;
   shafts: THREE.Group;

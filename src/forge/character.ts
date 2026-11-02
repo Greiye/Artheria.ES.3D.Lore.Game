@@ -8,6 +8,7 @@ import { FEATURE, GOTHIC_LOOK } from '../world/figure';
 import { ConstraintDice, rollText, type DieKind, type Roll } from './dice';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 import { SKILLS } from '../skills/content';
+import { storeSet } from '../store';
 
 export interface ForgeCharacter { look: FigureLook; height: number; name: string; backstory: string; roll?: Roll | null }
 
@@ -51,7 +52,7 @@ export function loadForge(name = ''): ForgeCharacter {
   } catch { return defaultForge(name); }
 }
 function saveForge(c: ForgeCharacter): void {
-  try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* private mode / quota */ }
+  storeSet(KEY, JSON.stringify(c));
 }
 
 // "key=value; key=value" so the lore file stays readable and the frontmatter parser needs no JSON.

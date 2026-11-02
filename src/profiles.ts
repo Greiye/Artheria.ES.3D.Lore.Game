@@ -1,3 +1,4 @@
+import { storeSet } from './store';
 // B24 save slots and profiles (Mike 2026-10-31): three profiles on this device, no cloud. A profile is
 // everything the game keeps under "gametool.*" except the device's own settings (below). The live profile's
 // data stays in the live keys the game already reads; the other two wait in "gametool~slot.N". Switching
@@ -9,10 +10,10 @@ const SLOT = (i: number) => `gametool~slot.${i}`;
 /** Device-wide, never part of a profile (and never exported: the GitHub token lives here). */
 const SHARED = new Set(['settings', 'keys', 'intro', 'version', 'hometip', 'upright', 'rotateask', 'github', 'coached', 'coachtest', 'autoq']
   .map((k) => `gametool.${k}`));
-export const isProfileKey = (k: string) => k.startsWith('gametool.') && !SHARED.has(k);
+const isProfileKey = (k: string) => k.startsWith('gametool.') && !SHARED.has(k);
 
 type Data = Record<string, string>;
-export interface SlotInfo { slot: number; active: boolean; empty: boolean; name: string; savedAt: number | null }
+interface SlotInfo { slot: number; active: boolean; empty: boolean; name: string; savedAt: number | null }
 
 function readJSON<T>(k: string, fallback: T): T {
   try { const v = localStorage.getItem(k); return v ? JSON.parse(v) as T : fallback; } catch { return fallback; }
@@ -21,7 +22,7 @@ export function activeSlot(): number {
   const n = readJSON<{ active?: number }>(META, {}).active;
   return typeof n === 'number' && n >= 0 && n < SLOTS ? n : 0;
 }
-function setActive(i: number) { try { localStorage.setItem(META, JSON.stringify({ active: i })); } catch { /* blocked */ } }
+function setActive(i: number) { storeSet(META, JSON.stringify({ active: i })); }
 
 function liveData(): Data {
   const out: Data = {};
@@ -33,7 +34,7 @@ function liveData(): Data {
   } catch { /* blocked */ }
   return out;
 }
-export function slotData(i: number): Data { return i === activeSlot() ? liveData() : readJSON<Data>(SLOT(i), {}); }
+function slotData(i: number): Data { return i === activeSlot() ? liveData() : readJSON<Data>(SLOT(i), {}); }
 
 function nameOf(d: Data): string {
   const tryName = (k: string) => { try { const v = JSON.parse(d[k] ?? 'null'); return typeof v?.name === 'string' ? v.name.trim() : ''; } catch { return ''; } };
@@ -71,7 +72,7 @@ export function clearSlot(i: number): void {
   } catch { /* blocked */ }
 }
 
-export interface ProfileFile { game: 'Tales of Artheria'; kind: 'profile'; v: 1; name: string; exported: string; data: Data }
+interface ProfileFile { game: 'Tales of Artheria'; kind: 'profile'; v: 1; name: string; exported: string; data: Data }
 export function exportSlot(i: number): ProfileFile {
   return { game: 'Tales of Artheria', kind: 'profile', v: 1, name: slotLabel(slotInfo(i)), exported: new Date().toISOString(), data: slotData(i) };
 }

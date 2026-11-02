@@ -2,7 +2,7 @@
 // F1.2: four buses (Master/Music/SFX/Dialogue), each exactly one GainNode, 0-100 + mute.
 // Browsers require a user gesture before an AudioContext makes sound, so resume() is called
 // from the title screen's "Click to begin" handler.
-export type Bus = 'master' | 'music' | 'sfx' | 'dialogue';
+type Bus = 'master' | 'music' | 'sfx' | 'dialogue';
 export type PlayKind = 'hum' | 'clap' | 'whistle' | 'drum' | 'lute' | 'violin' | 'ocarina';
 /** v0.05 band: one note of a stem, at `beat` (0–15) of the 4-bar loop, `len` beats long. */
 export interface BandNote { beat: number; midi: number; len: number; vel?: number }

@@ -8,9 +8,9 @@ import './whatsnew.css';
 // drifts: the current version is open at the top, every older version is a bar you can open. In the merged
 // "Unreleased" block a section belongs to the version named by the next "vX.YY" heading below it (style and
 // leanness passes shipped inside a version round); sections below the last one are the v0.03 round.
-export interface VersionNotes { version: string; sections: { title: string; body: string }[] }
+interface VersionNotes { version: string; sections: { title: string; body: string }[] }
 
-export function parseChangelog(md: string, current = VERSION): VersionNotes[] {
+function parseChangelog(md: string, current = VERSION): VersionNotes[] {
   const out: VersionNotes[] = [];
   const blocks = md.replace(/\r\n?/g, '\n').split(/^## /m).slice(1);
   for (const block of blocks) {

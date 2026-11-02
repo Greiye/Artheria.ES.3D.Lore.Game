@@ -8,18 +8,18 @@ import * as THREE from 'three';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
 
-export const SWING = 0.42;          // seconds per swing
-export const STRIKE = 0.15;         // when in the swing the blade connects
-export const REACH = 1.75;          // metres from your feet to the tip, plus the goblin's own radius
-export const ARC = 1.05;            // half-angle of the cut (about 60° each side)
-export const COMBO_WINDOW = 0.55;   // seconds after a swing ends for the next to chain
-export const DAMAGE = [2, 2, 3];    // per swing of the combo, before armour and sharpness
+const SWING = 0.42;          // seconds per swing
+const STRIKE = 0.15;         // when in the swing the blade connects
+const REACH = 1.75;          // metres from your feet to the tip, plus the goblin's own radius
+const ARC = 1.05;            // half-angle of the cut (about 60° each side)
+const COMBO_WINDOW = 0.55;   // seconds after a swing ends for the next to chain
+const DAMAGE = [2, 2, 3];    // per swing of the combo, before armour and sharpness
 const ASSIST = 1.75;                // follow view: turn toward a goblin up to ~100° off your facing
 
-export interface Slash { from: THREE.Vector3; fwd: THREE.Vector3; reach: number; arc: number; damage: number; heavy: boolean }
+interface Slash { from: THREE.Vector3; fwd: THREE.Vector3; reach: number; arc: number; damage: number; heavy: boolean }
 
 /** A low-poly arming sword, grip at the origin, blade along +Y (about 0.95 m long). */
-export function buildSwordModel(): THREE.Group {
+function buildSwordModel(): THREE.Group {
   const g = new THREE.Group();
   const steel = new THREE.MeshLambertMaterial({ color: '#C4C8CE' }), edge = new THREE.MeshLambertMaterial({ color: '#E8ECF0' });
   const grip = new THREE.MeshLambertMaterial({ color: '#4A3222' }), brass = new THREE.MeshLambertMaterial({ color: '#B08A3E' });

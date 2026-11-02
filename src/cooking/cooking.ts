@@ -1,16 +1,17 @@
 import { escapeHtml, entryMarkdown, openSubmitSheet } from '../submit';
 import { RECIPES, COOK_DISCLAIMER, HEAT_LABEL, HEAT_RATE, BUFFS, QUICK_MS, type Recipe, type Heat, type Buff } from './recipes';
 import './cooking.css';
+import { storeSet } from '../store';
 
 // B18 (Mike 2026-11-01): cook at the campfire. Pick a recipe, tap the prep steps in order, put it on the fire at the
 // heat you choose and take it off when the doneness bar is in the gold band, then finish it. A good dish is eaten with
 // the camp (a small buff, one meal at a time) and goes in the Recipe book (Journal) with the real recipe to cook at
 // home. A kitchen-safety note comes first. Players can write their own recipe and submit it as lore.
 const KEY = 'gametool.cooking';
-export interface CookState { ack: boolean; learned: Partial<Record<Recipe['id'], number>>; meal: { buff: Buff; at: number } | null }
+interface CookState { ack: boolean; learned: Partial<Record<Recipe['id'], number>>; meal: { buff: Buff; at: number } | null }
 type Stage = 'prep' | 'fire' | 'finish' | 'done';
 
-export function loadCooking(): CookState {
+function loadCooking(): CookState {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (v) return { ack: !!v.ack, learned: v.learned && typeof v.learned === 'object' ? v.learned : {}, meal: v.meal ?? null }; } catch { /* blocked */ }
   return { ack: false, learned: {}, meal: null };
 }
@@ -40,7 +41,7 @@ export class CookPanel {
     this.el.addEventListener('click', (e) => this.click(e));
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
-  save() { try { localStorage.setItem(KEY, JSON.stringify(this.st)); } catch { /* blocked */ } }
+  save() { storeSet(KEY, JSON.stringify(this.st)); }
   open() { this.st = loadCooking(); this.recipe = null; this.note = ''; this.render(); this.el.classList.remove('hidden'); }
   close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.recipe = null; this.heat = null; this.onClose(); }
 
@@ -170,7 +171,7 @@ export class CookPanel {
   }
 }
 
-export function recipeHtml(r: Recipe): string {
+function recipeHtml(r: Recipe): string {
   return `<div class="sk-card ck-card"><div class="sk-card-head"><span>${r.icon}</span><b>${escapeHtml(r.name)}</b></div>
     <p class="fine">Serves ${escapeHtml(r.serves)} · ${escapeHtml(r.time)}. ${escapeHtml(r.from)}</p>
     <h5>You need</h5><ul>${r.ingredients.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>

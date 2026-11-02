@@ -18,7 +18,7 @@ const THEME: Record<Theme, { floor: string; wall: string; torch: string; liquid:
 };
 const cellToWorld = (x: number, y: number, out = new THREE.Vector3()) => out.set(ORIGIN.x + (x - N / 2) * CELL + CELL / 2, 0, ORIGIN.z + (y - N / 2) * CELL + CELL / 2);
 
-export interface DungeonSpot { kind: 'stairs' | 'chest' | 'shrine' | 'nest'; room: Room; hit: THREE.Mesh }
+interface DungeonSpot { kind: 'stairs' | 'chest' | 'shrine' | 'nest'; room: Room; hit: THREE.Mesh }
 
 export class Dungeon {
   readonly group = new THREE.Group();

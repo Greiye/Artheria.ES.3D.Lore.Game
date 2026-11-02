@@ -6,6 +6,7 @@ import type { Collider } from '../world/index';
 import { rollTownsfolk } from '../traits/townsfolk';
 import { escapeHtml } from '../submit';
 import { TALKS, type Talk, type Line } from './talks';
+import { storeSet } from '../store';
 
 // B16 (Mike 2026-10-31): a Spanish-speaking caravan camped beside the coach road, west of the glade. Its three
 // people (role names only) speak Spanish and are never translated. You answer by picking a Spanish reply or by
@@ -13,10 +14,10 @@ import { TALKS, type Talk, type Line } from './talks';
 // phrasebook, where you write down what you think it means (the game never tells you).
 export const CARAVAN = { x: -20, z: 1.8 };
 const KEY = 'gametool.spanish';
-export interface Phrase { es: string; who: string; note: string }
+interface Phrase { es: string; who: string; note: string }
 interface SpanishState { step: Record<string, number>; done: string[]; phrases: Phrase[]; write: boolean }
 
-export interface CaravanFolk { id: string; talk: Talk; root: THREE.Group; hit: THREE.Mesh; stand: THREE.Vector3 }
+interface CaravanFolk { id: string; talk: Talk; root: THREE.Group; hit: THREE.Mesh; stand: THREE.Vector3 }
 
 export function buildCaravan(scene: THREE.Scene, colliders: Collider[], heightAt: (x: number, z: number) => number): CaravanFolk[] {
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -74,7 +75,7 @@ export function buildCaravan(scene: THREE.Scene, colliders: Collider[], heightAt
 
 /** Lower case, no accents, no ¡¿!?.,; so "¡Sí, claro!" and "si claro" match. */
 export const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[¡¿!?.,;:"'()]/g, ' ').replace(/\s+/g, ' ').trim();
-export function accepts(line: Line, typed: string): boolean {
+function accepts(line: Line, typed: string): boolean {
   const t = ` ${norm(typed)} `;
   if (t.trim().length < 2) return false;
   if ((line.wrongTyped ?? []).some((w) => t.includes(` ${norm(w)} `))) return false;
@@ -118,7 +119,7 @@ export class CaravanPanel {
       return { step: v.step && typeof v.step === 'object' ? v.step : {}, done: Array.isArray(v.done) ? v.done : [], phrases: Array.isArray(v.phrases) ? v.phrases : [], write: !!v.write };
     } catch { return { step: {}, done: [], phrases: [], write: false }; }
   }
-  save() { try { localStorage.setItem(KEY, JSON.stringify(this.st)); } catch { /* blocked */ } }
+  save() { storeSet(KEY, JSON.stringify(this.st)); }
   get isOpen() { return !this.el.classList.contains('hidden'); }
   get talking() { return this.isOpen && !!this.talk; }
 

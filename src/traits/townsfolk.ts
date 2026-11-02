@@ -5,8 +5,8 @@ import type { Pose } from '../anim/procedural';
 
 // Townsfolk crowds from the same roll engine (docs/trait-roll-tables.md §4). Key NPCs (Natalie, the Pedlar, the
 // shopkeeper) stay hand-made; only the placeholder crowd rolls.
-export const FOLK_ARCH = FOLK as unknown as Archetype;
-export interface FolkRoll { v: Variant; look: FigureLook; height: number; speed: number; wait: number; idlePose: Pose | null }
+const FOLK_ARCH = FOLK as unknown as Archetype;
+interface FolkRoll { v: Variant; look: FigureLook; height: number; speed: number; wait: number; idlePose: Pose | null }
 
 export function rollTownsfolk(seed: number): FolkRoll {
   const v = roll(FOLK_ARCH, seed), m = v.mods;

@@ -6,6 +6,7 @@ import type { Collider } from '../world/index';
 import type { Pose } from '../anim/procedural';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 import { PushupCam, addReps, loadTotals } from './pushups';
+import { storeSet } from '../store';
 
 // B14 dojo: follow-along training. Your own character demonstrates each drill on the mats; the panel
 // gives your real-life, beginner-safe version. Risky moves (hanging upside down, punching water) are
@@ -68,7 +69,7 @@ export class DojoPanel {
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
   get pose(): Pose | null { return this.isOpen && this.st.ack ? this.drill.pose as Pose : null; }
-  private save() { try { localStorage.setItem(KEY, JSON.stringify(this.st)); } catch { /* blocked */ } }
+  private save() { storeSet(KEY, JSON.stringify(this.st)); }
   open() { this.count = 0; this.running = false; this.render(); this.el.classList.remove('hidden'); this.onDrill(this.st.ack ? this.drill : null); }
   close() { if (!this.isOpen) return; this.running = false; this.cam.stop(); this.el.classList.add('hidden'); this.onDrill(null); this.onClose(); }
 

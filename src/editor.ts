@@ -1,3 +1,4 @@
+import { storeSet } from './store';
 // Backlog item promoted 2026-10-18: write a lore entry from inside the game and publish it
 // straight to GitHub (Contents API) — no git, no npm, no local file juggling. If no publish
 // token is set up yet, the entry downloads as a .md file instead, for manual upload.
@@ -7,7 +8,7 @@
 const GH_KEY = 'gametool.github';
 const AUTHOR_KEY = 'gametool.author';
 
-export interface GitHubConfig { owner: string; repo: string; branch: string; token: string }
+interface GitHubConfig { owner: string; repo: string; branch: string; token: string }
 
 export function loadGitHub(): GitHubConfig {
   try {
@@ -24,14 +25,14 @@ export function loadGitHub(): GitHubConfig {
 }
 
 export function saveGitHub(c: GitHubConfig): void {
-  try { localStorage.setItem(GH_KEY, JSON.stringify(c)); } catch { /* private mode / quota */ }
+  storeSet(GH_KEY, JSON.stringify(c));
 }
 
 export function loadAuthor(): string {
   try { return localStorage.getItem(AUTHOR_KEY) ?? ''; } catch { return ''; }
 }
 export function saveAuthor(name: string): void {
-  try { localStorage.setItem(AUTHOR_KEY, name); } catch { /* ignore */ }
+  storeSet(AUTHOR_KEY, name);
 }
 
 // Mirrors build-lore.mjs's filename convention: a plain, URL-safe slug of the title.
@@ -56,7 +57,7 @@ export function buildMarkdown(title: string, contributor: string, tags: string[]
   return `---\ntitle: ${title}\ncontributor: ${contributor}\ncredit_as: ${contributor}\ncreated: ${created}\ntags: ${tagLine}\ntype: lore\n---\n${body.trim()}\n`;
 }
 
-export type PublishResult = { ok: true; actionsUrl: string } | { ok: false; error: string };
+type PublishResult = { ok: true; actionsUrl: string } | { ok: false; error: string };
 
 export async function publishToGitHub(cfg: GitHubConfig, slug: string, markdown: string, title: string): Promise<PublishResult> {
   if (!cfg.owner || !cfg.repo || !cfg.token) {

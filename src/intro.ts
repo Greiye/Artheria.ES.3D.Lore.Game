@@ -7,7 +7,7 @@ import './intro.css';
 // backdrop until Begin, and again whenever you return to the menu.
 // Browsers keep sound locked until the first input, so on a cold load the splash jingle is skipped and the
 // water starts with that first input; it keeps running under the main menu until Begin.
-export type IntroPhase = 'splash' | 'title' | 'done';
+type IntroPhase = 'splash' | 'title' | 'done';
 
 const BOOK_SWORD = `<svg viewBox="0 0 120 120" aria-hidden="true">
   <g class="bk">

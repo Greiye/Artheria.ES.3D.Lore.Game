@@ -96,6 +96,7 @@ import { WhatsNew } from './whatsnew';
 import { loadGame, saveGame, clearGame } from './save';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph } from './input/glyphs';
+import { storeSet } from './store';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -759,7 +760,7 @@ const lecternDesk = deskFor(book), readerDesk = deskFor(reader);
 const otherDesks = (d: MarginDesk) => { (d === lecternDesk ? readerDesk : lecternDesk).reload(); };
 refreshMarginsInWorld();
 const sketchPad = station(new SketchPad(
-  (s: Sketch) => { stampBanner(world.bannerCloth, s); try { localStorage.setItem('gametool.banner', s.id); } catch { /* blocked */ } toast(`"${s.name}" is pinned to the writing desk.`); earn(3, 'for a banner sketch', 'sketch:' + s.id); },
+  (s: Sketch) => { stampBanner(world.bannerCloth, s); storeSet('gametool.banner', s.id); toast(`"${s.name}" is pinned to the writing desk.`); earn(3, 'for a banner sketch', 'sketch:' + s.id); },
   () => leaveForge(), forgeAuthor));
 stampBanner(world.bannerCloth, (() => { try { return sketchById(localStorage.getItem('gametool.banner') ?? '') ?? DEFAULT_SKETCH; } catch { return DEFAULT_SKETCH; } })());
 function openSketchbook(frame: 'banner' | 'body' = 'banner') {
@@ -783,7 +784,7 @@ companion.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
 ($('companionQuiet') as HTMLInputElement).checked = companion.prefs.quiet;
 $('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
 const seen = (() => { try { return JSON.parse(localStorage.getItem('gametool.seen') ?? '[]') as string[]; } catch { return [] as string[]; } })();
-function markSeen(id: string) { if (!seen.includes(id)) { seen.push(id); try { localStorage.setItem('gametool.seen', JSON.stringify(seen)); } catch { /* blocked */ } } }
+function markSeen(id: string) { if (!seen.includes(id)) { seen.push(id); storeSet('gametool.seen', JSON.stringify(seen)); } }
 const casebook = station(new Casebook(() => quest, (th: Theory) => {
   quest.theory = th; quest.stage = 'lead'; saveQuest(quest);
   questProps.showLead(th.where);
@@ -1011,7 +1012,7 @@ let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number
 // The follow camera stays under the dungeon ceiling, and (v0.06 W2) under the library's and gallery's while the player is inside.
 rig.ceiling = (x, z) => { if (inDungeon) return 2.9; const r = roofOver(player.pos.x, player.pos.z); return r && roofOver(x, z, 1) === r ? r.y - 0.3 : Infinity; };
 const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; quick?: 'won' | 'lost'; at: string }>; } catch { return {}; } })();
-const saveDelves = () => { try { localStorage.setItem('gametool.delves', JSON.stringify(delves)); } catch { /* blocked */ } };
+const saveDelves = () => { storeSet('gametool.delves', JSON.stringify(delves)); };
 function enterDungeon(seed: number) {
   const L = dungeon.build(seed);
   dungeon.group.visible = true;
@@ -1943,7 +1944,7 @@ document.body.dataset.input = inputMode;
   $('homeTipClose').addEventListener('click', (e) => {
     e.stopPropagation();
     $('homeTip').classList.add('hidden');
-    try { localStorage.setItem('gametool.hometip', 'off'); } catch { /* private mode */ }
+    storeSet('gametool.hometip', 'off');
   });
 }
 

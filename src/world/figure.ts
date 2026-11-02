@@ -121,13 +121,11 @@ export const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> 
   armN: ['spine', [-0.19, 1.42, 0]], foreN: ['armN', [-0.22, 1.13, 0]], armP: ['spine', [0.19, 1.42, 0]], foreP: ['armP', [0.22, 1.13, 0]],
   thighN: ['hips', [-0.09, 0.9, 0]], shinN: ['thighN', [-0.095, 0.49, 0]], thighP: ['hips', [0.09, 0.9, 0]], shinP: ['thighP', [0.095, 0.49, 0]],
 };
-/** Hips height as a fraction of the figure's height (poses scale their offsets by it). */
-export const HIPS_AT = RIG.hips[1][1] / 1.75;
 /** The head in metres for a 1.75 m figure: centre height and skull size. */
-export const HEAD = { y: 1.625, w: 0.165, h: 0.215, d: 0.195 };
+const HEAD = { y: 1.625, w: 0.165, h: 0.215, d: 0.195 };
 export interface FigureRig { bones: Record<BoneName, THREE.Bone>; rest: Record<BoneName, THREE.Vector3>; mesh: THREE.SkinnedMesh }
 /** Named attach points that ride the bones (trait props, later .glb props). Positions in metres for a 1.75 m figure. */
-export const SOCKETS: Record<string, [BoneName, number, number, number]> = {
+const SOCKETS: Record<string, [BoneName, number, number, number]> = {
   head_top: ['head', 0, 1.74, 0], face: ['head', 0, 1.64, 0.1], neck: ['spine', 0, 1.47, 0.05], chest: ['spine', 0, 1.3, 0.11],
   back: ['spine', 0, 1.25, -0.12], hip_l: ['hips', 0.15, 0.95, 0], hip_r: ['hips', -0.15, 0.95, 0], hand_r: ['foreN', -0.24, 0.84, 0], hand_l: ['foreP', 0.24, 0.84, 0],
 };

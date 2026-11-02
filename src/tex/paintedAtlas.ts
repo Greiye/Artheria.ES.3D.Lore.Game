@@ -10,7 +10,7 @@ import { rng } from './pixel';
 
 export type PaintKind = 'cloth' | 'skin' | 'hair' | 'leather' | 'metal';
 export interface Tile { color: string; kind: PaintKind }
-export interface Atlas { texture: THREE.CanvasTexture; rect(color: string): [number, number, number, number] }
+interface Atlas { texture: THREE.CanvasTexture; rect(color: string): [number, number, number, number] }
 
 const DEFAULT = 512, PAD = 3;
 const cache = new Map<string, Atlas>();

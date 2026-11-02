@@ -48,7 +48,7 @@ function zoomToFit(p: HTMLElement) {
   }
 }
 
-export function fitPanel(p: HTMLElement): void {
+function fitPanel(p: HTMLElement): void {
   const key = keyOf(p);
   tabify(p, p, key);
   p.querySelectorAll<HTMLElement>('.fp-group').forEach((g, i) => tabify(p, g, `${key}#${i}`));
@@ -58,8 +58,6 @@ export function fitPanel(p: HTMLElement): void {
 /** Open a panel on a given tab next time it's drawn; `key` is its eyebrow text. */
 export function setPanelTab(key: string, i: number): void { openTab.set(key, i); }
 
-/** Which tab a panel shows (tests). */
-export function panelTab(p: HTMLElement): number { return openTab.get(keyOf(p)) ?? 0; }
 
 let queued = false;
 function sweep() {
