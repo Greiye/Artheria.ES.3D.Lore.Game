@@ -383,7 +383,8 @@ body[data-state="title"] #padStatus, body[data-state="pause"] #padStatus { displ
 
 /* P3: side panels fade from opaque at their edge toward the middle of the screen. */
 :root { --side-a: rgba(36,25,15,.97); --side-b: rgba(36,25,15,.62); }
-.side-panel, body .forge-panel { background: linear-gradient(90deg, var(--side-a), var(--side-b)); }
+.side-panel { background: linear-gradient(90deg, var(--side-a), var(--side-b)); }
+body .forge-panel { background: linear-gradient(270deg, var(--side-a), var(--side-b)); }   /* B29: station panels are on the right */
 .side-panel.right { background: linear-gradient(270deg, var(--side-a), var(--side-b)); }
 
 /* P1: Skyrim-style pause: sidebar of groups on the left, the open group's options beside it. */

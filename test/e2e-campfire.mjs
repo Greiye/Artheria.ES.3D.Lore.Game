@@ -62,6 +62,7 @@ const secs = await G(page, () => window.__gametool.campfire.play());
 check('B11 Play schedules the tune on the music bus', secs > 1, `${secs} s`);
 
 // ---------- telling + ballad ----------
+await page.click('#campfire .fp-tab[data-fp="1"]');   // B27: "Your tune" and "Tell it to the bard" are two tabs
 await page.fill('#campfire [data-turn=start]', 'We came up the paved road at dusk, and Natalie would not go in.');
 await page.fill('#campfire [data-turn=middle]', 'Inside, a bitten string. A page with a tooth hole.');
 await page.fill('#campfire [data-turn=end]', 'The blue light led to the ditch, and the Swordsman was alive.');

@@ -78,6 +78,7 @@ import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel, buildScreen } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
 import { DmView, type Place } from './dm/dm';
+import { watchPanels } from './ui/fit-panel';
 import { BRIDGES, riverX, riverClear } from './world/river';
 import { plantForestPack } from './world/forestPack';
 import { Townsfolk } from './world/townsfolk';
@@ -811,11 +812,26 @@ function setPlayerLook(c: ForgeCharacter) {
 }
 try { if (localStorage.getItem('gametool.forge.character')) setPlayerLook(loadForge(character.name)); } catch { /* storage blocked: default look */ }
 // v0.06 S1–S2: at a station the avatar takes the station's pose, and the camera frames the whole station and the
-// avatar, then sways slowly a few degrees clockwise and back (none with reduced motion). The panel covers the left
+// avatar, then sways slowly a few degrees clockwise and back (none with reduced motion). The panel covers the right (B29; framed as if on the left, then panelShift slides the view)
 // of the screen (the bottom on a narrow phone, src/forge/forge.css), so the station is fitted into the rest.
-let stationPose: Pose | null = null;
-let stationView: { focus: THREE.Vector3; pos: THREE.Vector3; look: THREE.Vector3; fov: number; t: number; shot: Shot | null } | null = null;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let stationPose: Pose | null = null;
+// B29 (Mike 2026-11-01): station panels sit on the right. Every station shot was framed with the subject centred in
+// the space beside the panel; the camera's view window slides right by the panel's width so that space is on the left.
+// Narrow phones put the panel along the bottom, so there's no shift there.
+watchPanels();
+let panelOff = 0;
+function panelShift(dt: number) {
+  let want = 0;
+  if (state === 'forge' && innerWidth > 600) {
+    const p = [...document.querySelectorAll<HTMLElement>('.forge-panel')].find((e) => e.getClientRects().length);
+    if (p) want = p.getBoundingClientRect().width;
+  }
+  panelOff = reducedMotion.matches || Math.abs(want - panelOff) < 0.5 ? want : THREE.MathUtils.lerp(panelOff, want, 1 - Math.pow(0.0005, Math.min(dt, 0.25)));
+  if (panelOff < 0.5) { if (camera.view?.enabled) camera.clearViewOffset(); return; }
+  camera.setViewOffset(innerWidth, innerHeight, panelOff, 0, innerWidth, innerHeight);
+}
+let stationView: { focus: THREE.Vector3; pos: THREE.Vector3; look: THREE.Vector3; fov: number; t: number; shot: Shot | null } | null = null;
 const UP = new THREE.Vector3(0, 1, 0);
 function frameStation(focus: THREE.Vector3, radius: number, from: THREE.Vector3, fov = 44, elev = 0.3) {
   const v = THREE.MathUtils.degToRad(fov / 2), h = Math.atan(Math.tan(v) * (innerWidth / innerHeight));
@@ -2486,6 +2502,7 @@ function frame() {
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
   audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);
+  panelShift(dt);
   nightLights.update(dt, player.pos.x, player.pos.z, clock.elapsedTime, camera);
   ambience.on = state !== 'title' && !inDungeon;
   if (ambience.on) ambience.update(dt); else ambience.stopAll();

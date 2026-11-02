@@ -4,8 +4,22 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 
 ## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.08,
-Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01). Spec doc v0.06.
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.09,
+Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01). Spec doc v0.06.
+
+### v0.09 changelog, part 1: station panels on the right, all on one screen (B27 + B29, Mike 2026-11-01)
+- Every station's side panel now sits on the **right** of the screen: the forges, campfire, camp kitchen, dojo, caravan, skills table, grindstone, store, sketchbook and the Journal pages. The camera's view slides over by the panel's width, so the station stays in the open space on the left. A phone held upright still has the panel along the bottom.
+- The panels are compact. Type, spacing and buttons follow the screen height, so everything shows at once without scrolling, on a 720p screen and on a phone held sideways.
+- Panels made of several groups show one group at a time under a row of tabs, and remember the open tab:
+  - Character forge: Species, Body, Face, Hair, Outfit, Extras, Story.
+  - Weapon forge: Stock, Limbs, Fittings, Story.
+  - Campfire telling: Your tune, Tell it to the bard.
+- With one campfire item open, the others shrink to a row of icons above it.
+- The store's sundries sit in two columns.
+- On a short screen, labels sit beside their text boxes, and the tune grid goes flat.
+- If a panel still runs past the bottom, it scales down to fit (to 70% at most) before it would scroll.
+- Text boxes keep 16 px type, so an iPhone doesn't zoom in when you type.
+- Test: `test/e2e-panels.mjs` checks every station, and every tab, for scrolling at 1280x720 and 844x390.
 
 ### v0.08 changelog, part 4: DM view (B20, Mike 2026-11-01)
 - Add `?dm` to the game's address to open the DM view. It's a planning tool over the game, not part of play, and it sits behind a passphrase. The code holds only the phrase's SHA-256 hash. This keeps it out of players' way; it is not security, since the site and its code are public.

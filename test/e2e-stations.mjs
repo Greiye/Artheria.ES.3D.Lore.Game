@@ -40,11 +40,12 @@ async function open(opts = { viewport: { width: 1280, height: 800 } }, pad = fal
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 60000 });
   return { ctx, page, errors };
 }
-// Is every point inside the frame, and (desktop) right of the panel?
+// Is every point inside the frame, and (desktop) left of the panel? (B29: panels sit on the right; the camera's view
+// slides over by the panel's width, which the projection includes.)
 const framed = (page, pts) => G(page, (pts) => {
   const g = window.__gametool, V = g.Vector3, panel = document.querySelector('.forge:not(.hidden) .forge-panel');
-  const edge = panel ? (panel.getBoundingClientRect().right / innerWidth) * 2 - 1 : -1;
-  return pts.map(([x, y, z]) => { const v = new V(x, y, z).project(g.camera); return { x: +v.x.toFixed(2), y: +v.y.toFixed(2), ok: v.x > edge - 0.02 && v.x < 1 && v.y > -1 && v.y < 1 && v.z < 1 }; });
+  const edge = panel && innerWidth > 600 ? (panel.getBoundingClientRect().left / innerWidth) * 2 - 1 : 1;
+  return pts.map(([x, y, z]) => { const v = new V(x, y, z).project(g.camera); return { x: +v.x.toFixed(2), y: +v.y.toFixed(2), ok: v.x > -1 && v.x < edge + 0.02 && v.y > -1 && v.y < 1 && v.z < 1 }; });
 }, pts);
 
 const { page, errors } = await open();
@@ -91,7 +92,7 @@ await station('anvil', () => window.__gametool.openWeaponForge(), 'smith', await
 const r0 = await G(page, () => window.__gametool.weaponDisplay.rotation.y);
 await page.waitForTimeout(800);
 const still = await G(page, (r0) => window.__gametool.weaponDisplay.rotation.y === r0, r0);
-await page.mouse.move(1000, 400); await page.mouse.down({ button: 'right' }); await page.mouse.move(1080, 420, { steps: 4 }); await page.mouse.up({ button: 'right' });
+await page.mouse.move(300, 400); await page.mouse.down({ button: "right" }); await page.mouse.move(380, 420, { steps: 4 });   // B29: left of the panel await page.mouse.up({ button: 'right' });
 const r1 = await G(page, () => window.__gametool.weaponDisplay.rotation.y);
 await page.waitForTimeout(600);
 const kept = await G(page, (r1) => window.__gametool.weaponDisplay.rotation.y === r1, r1);

@@ -12,6 +12,7 @@ const results = [];
 const check = (id, ok, detail = '') => { results.push({ id, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${id}${detail ? '  — ' + detail : ''}`); };
 const G = (page, fn, arg) => page.evaluate(fn, arg);
 const until = (page, fn, arg, timeout = 15000) => page.waitForFunction(fn, arg, { timeout, polling: 100 }).then(() => true, () => false);
+const tab = async (root, name) => { await page.waitForSelector(`${root} .fp-tab`); await page.locator(`${root} .fp-tab`, { hasText: name }).first().click(); };
 
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 await ctx.addInitScript(() => {
@@ -46,8 +47,11 @@ const humanVerts = await vcount();
 await page.click('#forge [data-f="species"][data-v="infernling"]');
 const inf = await until(page, (h) => window.__gametool.player.body.children[0].userData.rig.mesh.geometry.attributes.position.count > h, humanVerts);
 check('B4 picking Infernling rebuilds the live figure with horns and a tail', inf);
+await tab('#forge', 'Hair');   // B27: the forges are tabbed
 await page.click('#forge [data-f="hairStyle"][data-v="topknot"]');
+await tab('#forge', 'Outfit');
 await page.click('#forge [data-f="primary"][data-v="#A8523A"]');
+await tab('#forge', 'Story');
 await page.fill('#fgName', 'Kazka Test');
 await page.fill('#fgStory', 'Born under a grey sky.');
 
@@ -87,8 +91,11 @@ await G(page, () => window.__gametool.inventory.give('crossbow', 1));
 check('B5 with a crossbow, the anvil offers the forge', await verbIs('Forge your crossbow'));
 await page.keyboard.press('KeyE');
 check('B5 E on the anvil opens the weapon forge', await until(page, () => window.__gametool.state === 'forge' && window.__gametool.weaponForge.isOpen));
+await tab('#weaponForge', 'Limbs');
 await page.click('#weaponForge [data-k="limbs"][data-v="recurve"]');
+await tab('#weaponForge', 'Stock');
 await page.click('#weaponForge [data-k="stockMat"][data-v="bone"]');
+await tab('#weaponForge', 'Story');
 await page.fill('#wfEngrave', 'Aim twice'); await page.dispatchEvent('#wfEngrave', 'change');
 await page.fill('#wfName', 'Second Thoughts');
 await page.keyboard.press('Escape');

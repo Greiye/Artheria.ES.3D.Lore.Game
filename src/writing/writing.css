@@ -40,7 +40,7 @@
 .mn-more { pointer-events: none; font: 12px var(--hand); color: #8a7b5c; text-align: right; }
 
 /* Sketchbook (B10). */
-.sketch-panel canvas#skCanvas { width: 100%; max-width: 320px; aspect-ratio: 1; image-rendering: pixelated; touch-action: none; display: block; margin: 0 auto 8px;
+.sketch-panel canvas#skCanvas { width: 100%; max-width: min(300px, 40vh); aspect-ratio: 1; image-rendering: pixelated; touch-action: none; display: block; margin: 0 auto 8px;
   background: repeating-conic-gradient(#d9ccaa 0 25%, #efe3c4 0 50%) 0 0 / 20px 20px; border: 3px solid var(--wood); border-radius: 4px; cursor: crosshair; }
 .sk-palette { margin-bottom: 6px; }
 .sk-tools { margin-bottom: 8px; }
