@@ -61,7 +61,7 @@ const optIn = () => { localStorage.setItem('gametool.rotateask', 'on'); localSto
   await page.tap('#begin');
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 5000 }).catch(() => {});
   check('A brand-new iPhone player taps Begin and is in play (no character form, no keyboard)',
-    await G(page, () => window.__gametool.state === 'play' && document.getElementById('charcreate').classList.contains('hidden') && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? '')));
+    await G(page, () => window.__gametool.state === 'play' && !document.getElementById('charcreate') && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? '')));
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(shots, 'iphone-3-play.png') });
   // The address bar shrinking the page: the canvas follows the visual viewport.

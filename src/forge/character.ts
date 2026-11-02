@@ -7,6 +7,7 @@ import type { FigureLook, Species } from '../world/figure';
 import { FEATURE, GOTHIC_LOOK } from '../world/figure';
 import { ConstraintDice, rollText, type DieKind, type Roll } from './dice';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
+import { SKILLS } from '../skills/content';
 
 export interface ForgeCharacter { look: FigureLook; height: number; name: string; backstory: string; roll?: Roll | null }
 
@@ -49,11 +50,6 @@ export function loadForge(name = ''): ForgeCharacter {
     return { ...d, ...c, look: { ...d.look, ...(c.look ?? {}) }, height: typeof c.height === 'number' ? c.height : d.height };
   } catch { return defaultForge(name); }
 }
-// B25: the Journal's "Who are you?" form and the mirror share one name. Only touches a forge already saved.
-export function renameForge(name: string): void {
-  try { if (!localStorage.getItem(KEY)) return; } catch { return; }
-  const c = loadForge(name); c.name = name; saveForge(c);
-}
 function saveForge(c: ForgeCharacter): void {
   try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* private mode / quota */ }
 }
@@ -89,6 +85,8 @@ export class CharacterForge {
   readonly el: HTMLElement;
   private c: ForgeCharacter = defaultForge();
   private dice: ConstraintDice;
+  /** B22: the "Who you are" answers (kept on the game's character; main sets them before opening, reads them on close). */
+  who = { motivation: '', secret: '' };
 
   constructor(private onPreview: (c: ForgeCharacter) => void, private onClose: (c: ForgeCharacter) => void, loreWords: string[], private author: () => string) {
     this.dice = new ConstraintDice(loreWords);
@@ -113,6 +111,7 @@ export class CharacterForge {
     if (!this.isOpen) return;
     this.c.name = (this.el.querySelector('#fgName') as HTMLInputElement).value.trim();
     this.c.backstory = (this.el.querySelector('#fgStory') as HTMLTextAreaElement).value.trim();
+    this.who = { motivation: (this.el.querySelector('#fgMotivation') as HTMLTextAreaElement).value.trim(), secret: (this.el.querySelector('#fgSecret') as HTMLTextAreaElement).value.trim() };
     saveForge(this.c);
     this.el.classList.add('hidden');
     this.onClose(this.c);
@@ -148,36 +147,42 @@ export class CharacterForge {
     const c = this.c, l = c.look, sp = SPECIES.find((s) => s.id === l.species) ?? SPECIES[0];
     const name = (this.el.querySelector('#fgName') as HTMLInputElement | null)?.value ?? c.name;
     const story = (this.el.querySelector('#fgStory') as HTMLTextAreaElement | null)?.value ?? c.backstory;
+    const motivation = (this.el.querySelector('#fgMotivation') as HTMLTextAreaElement | null)?.value ?? this.who.motivation;
+    const secret = (this.el.querySelector('#fgSecret') as HTMLTextAreaElement | null)?.value ?? this.who.secret;
+    const aid = SKILLS.find((k) => k.id === 'firstaid');
+    // B22 (Mike 2026-11-01): the character forge is the Tailor & Barber-Surgeon. Who you are (the old Journal form, folded
+    // in), Body, Barber (face and hair), Tailor (clothes) and Surgeon (markings, and first aid); one tab each (B27).
     this.el.innerHTML = `
       <div class="forge-panel">
-        <div class="eyebrow">Character forge</div>
+        <div class="eyebrow">Tailor &amp; Barber-Surgeon</div>
         <h2>${escapeHtml(name || 'Your hero')}</h2>
-        <section><h4>Species</h4>${this.chips('species', SPECIES.map((s) => s.id), SPECIES.map((s) => s.label))}<p class="fine">${sp.blurb}</p></section>
-        <section><h4>Body</h4>
-          <label class="slider">Height <input type="range" id="fgHeight" min="1.45" max="2.25" step="0.01" value="${c.height}"><span>${c.height.toFixed(2)} m</span></label>
-          <label class="slider">Build <input type="range" id="fgBuild" min="0.85" max="1.25" step="0.01" value="${l.build ?? 1}"><span>${(l.build ?? 1) < 0.95 ? 'slim' : (l.build ?? 1) > 1.1 ? 'broad' : 'average'}</span></label>
-          <h5>Skin</h5>${this.swatches('skin', sp.skins)}
-        </section>
-        <section><h4>Face</h4>${this.chips('eyeStyle', EYE_STYLES)}<h5>Eyes</h5>${this.swatches('eyes', EYES)}
-          <h5>Marks</h5>${this.chips('marks', ['', '#A0603A', '#2A2A30', '#C83A3A', '#3A8AC8'], ['none', 'freckles', 'ink', 'war paint', 'woad'])}</section>
-        <section><h4>Hair</h4>${this.chips('hairStyle', HAIR_STYLES)}${this.swatches('hair', HAIR)}</section>
-        <section><h4>Outfit</h4><h5>Dress / vest, cap &amp; trousers</h5>${this.swatches('primary', PALETTE)}<h5>Shirt</h5>${this.swatches('secondary', PALETTE)}
-          <h5>Boots</h5>${this.swatches('boots', ['#6B4428', '#4A2E1E', '#2B2A24', '#8A5A32', '#3A4A5A'])}<h5>Belt &amp; trim</h5>${this.swatches('accent', PALETTE)}
-        </section>
-        <section><h4>Extras</h4>
-          <label class="check"><input type="checkbox" id="fgSkirt"${l.skirt ? ' checked' : ''}> Coat tails / robe</label>
-          <label class="check"><input type="checkbox" id="fgDress"${l.dress ? ' checked' : ''}> Bell dress</label>
-          <label class="check"><input type="checkbox" id="fgPlatform"${l.platform ? ' checked' : ''}> Platform boots</label>
-          <h5>Wings</h5>${this.chips('wings', ['', '#1E1A24', '#E8E0D8', '#8A3A4A'], ['none', 'black', 'white', 'crimson'])}
-          <h5>Headpiece</h5>${this.chips('headpiece', ['', '#2A2430', '#B8935A', '#E8E0D8'], ['none', 'black', 'gold', 'white'])}</section>
-        <section><h4>Story</h4>
+        <section><h4>Who you are</h4>
           <label class="field">Name<input id="fgName" type="text" maxlength="40" value="${escapeHtml(name)}" placeholder="e.g. Kazka of the Ash Road"></label>
-          <label class="field">Backstory <span class="hint">a few lines</span><textarea id="fgStory" rows="4" maxlength="1200" placeholder="Where they came from, and what they want.">${escapeHtml(story)}</textarea></label>
+          <label class="field">What do they want most? <span class="hint">optional</span><textarea id="fgMotivation" rows="2" maxlength="400" placeholder="Revenge, a cure, a crown, to be forgiven...">${escapeHtml(motivation)}</textarea></label>
+          <label class="field">One true thing only you know <span class="hint">optional</span><textarea id="fgSecret" rows="2" maxlength="400" placeholder="A secret, a rumour, a prophecy...">${escapeHtml(secret)}</textarea></label>
+          <label class="field">Backstory <span class="hint">a few lines</span><textarea id="fgStory" rows="3" maxlength="1200" placeholder="Where they came from, and what they want.">${escapeHtml(story)}</textarea></label>
           <div class="dice-row">
             <button class="secondary" id="fgRoll">Roll constraint dice</button>
             ${c.roll ? `<div class="dice">${(['word', 'mood', 'rule'] as DieKind[]).map((k) => `<button class="die" data-die="${k}" title="Reroll (${this.dice.rerolls} left)"><b>${k}</b>${escapeHtml(c.roll![k])}</button>`).join('')}</div><p class="fine">Work all three into the backstory. Tap a die to reroll it (${this.dice.rerolls} left).</p>` : '<p class="fine">Stuck? Roll three constraints to work into the story.</p>'}
           </div>
         </section>
+        <section><h4>Body</h4>${this.chips('species', SPECIES.map((s) => s.id), SPECIES.map((s) => s.label))}<p class="fine">${sp.blurb}</p>
+          <label class="slider">Height <input type="range" id="fgHeight" min="1.45" max="2.25" step="0.01" value="${c.height}"><span>${c.height.toFixed(2)} m</span></label>
+          <label class="slider">Build <input type="range" id="fgBuild" min="0.85" max="1.25" step="0.01" value="${l.build ?? 1}"><span>${(l.build ?? 1) < 0.95 ? 'slim' : (l.build ?? 1) > 1.1 ? 'broad' : 'average'}</span></label>
+          <h5>Skin</h5>${this.swatches('skin', sp.skins)}
+        </section>
+        <section><h4>Barber</h4><p class="fine">A trim, a new colour, a different look in the eye.</p>
+          <h5>Hair</h5>${this.chips('hairStyle', HAIR_STYLES)}${this.swatches('hair', HAIR)}
+          <h5>Eyes</h5>${this.chips('eyeStyle', EYE_STYLES)}${this.swatches('eyes', EYES)}</section>
+        <section><h4>Tailor</h4><h5>Dress / vest, cap &amp; trousers</h5>${this.swatches('primary', PALETTE)}<h5>Shirt</h5>${this.swatches('secondary', PALETTE)}
+          <h5>Boots</h5>${this.swatches('boots', ['#6B4428', '#4A2E1E', '#2B2A24', '#8A5A32', '#3A4A5A'])}<h5>Belt &amp; trim</h5>${this.swatches('accent', PALETTE)}
+          <label class="check"><input type="checkbox" id="fgSkirt"${l.skirt ? ' checked' : ''}> Coat tails / robe</label>
+          <label class="check"><input type="checkbox" id="fgDress"${l.dress ? ' checked' : ''}> Bell dress</label>
+          <label class="check"><input type="checkbox" id="fgPlatform"${l.platform ? ' checked' : ''}> Platform boots</label>
+          <h5>Wings</h5>${this.chips('wings', ['', '#1E1A24', '#E8E0D8', '#8A3A4A'], ['none', 'black', 'white', 'crimson'])}
+          <h5>Headpiece</h5>${this.chips('headpiece', ['', '#2A2430', '#B8935A', '#E8E0D8'], ['none', 'black', 'gold', 'white'])}</section>
+        <section><h4>Surgeon</h4><h5>Markings</h5>${this.chips('marks', ['', '#A0603A', '#2A2A30', '#C83A3A', '#3A8AC8'], ['none', 'freckles', 'ink', 'war paint', 'woad'])}
+          ${aid ? `<h5>${aid.icon} The surgeon's first-aid card</h5><ul class="fg-aid">${aid.card.lines.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul><p class="fine">${escapeHtml(aid.safety)} Practise it at the skills table by the dojo.</p>` : ''}</section>
         <div class="forge-actions">
           <button class="primary" id="fgDone">Done</button>
           <button class="secondary" id="fgSubmit">Submit…</button>

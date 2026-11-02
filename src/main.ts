@@ -41,7 +41,7 @@ import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type 
 import { FigureAnim, BodyAnim, type AnimInput, type Pose } from './anim/procedural';
 import { Dust } from './fx/dust';
 import { activeSlot, slotInfo, slotLabel } from './profiles';
-import { CharacterForge, loadForge, renameForge, type ForgeCharacter } from './forge/character';
+import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
 import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
 import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
 import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sketch';
@@ -78,7 +78,7 @@ import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel, buildScreen } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
 import { DmView, type Place } from './dm/dm';
-import { watchPanels } from './ui/fit-panel';
+import { watchPanels, setPanelTab } from './ui/fit-panel';
 import { BRIDGES, riverX, riverClear } from './world/river';
 import { plantForestPack } from './world/forestPack';
 import { Townsfolk } from './world/townsfolk';
@@ -345,24 +345,6 @@ ui.innerHTML = `
     </section>
   </div>
   <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>
-  <div id="charcreate" class="screen hidden">
-    <div class="card">
-      <div class="eyebrow">Journal · optional</div>
-      <h1>Who are you?</h1>
-      <p class="lead">Nothing here is needed to play. Your name shows on your casebook, your hero and the credits. Change it anytime from the Journal or the tailor's mirror.</p>
-      <label class="field">Character name<input id="ccName" type="text" maxlength="40" placeholder="e.g. Rill of the Dais"></label>
-      <label class="field">What does your character want more than anything? <span class="hint">optional</span>
-        <textarea id="ccMotivation" rows="2" placeholder="Revenge, a cure, a crown, to be forgiven..."></textarea>
-      </label>
-      <label class="field">What's one true thing about this world that only you know? <span class="hint">optional — makes great lore</span>
-        <textarea id="ccSecret" rows="2" placeholder="A secret, a rumor, a prophecy..."></textarea>
-      </label>
-      <div class="row">
-        <button id="ccSkip">Close</button>
-        <button id="ccBegin" class="primary">Save</button>
-      </div>
-    </div>
-  </div>
   <div id="editor" class="screen hidden">
     <div class="card editcard">
       <div class="eyebrow">Add to the campaign</div>
@@ -453,7 +435,6 @@ function setState(s: State) {
   show('pause', s === 'pause');
   show('relock', s === 'resume');
   show('editor', s === 'editor');
-  show('charcreate', s === 'charcreate');
   show('inventory', s === 'inventory');
   show('nolock', s === 'play' && !lockSupported && wantLock());
   cursor.on = false;   // a stale cursor never picks a target after a menu closes
@@ -527,30 +508,7 @@ async function begin() {
 let inWorld = false;   // v0.06: false at the main menu (and the screens opened from it), true from Begin until back at the menu
 let begun = false;   // v0.05: a save's bag and hour are restored once per page load (later Begins keep the live ones)
 let character: Character = loadCharacter();
-let ccFrom: State = 'title';
-const ccName = $<HTMLInputElement>('ccName'), ccMotivation = $<HTMLTextAreaElement>('ccMotivation'), ccSecret = $<HTMLTextAreaElement>('ccSecret');
-
-function openCharCreate(from: State) {
-  ccFrom = from;
-  ccName.value = character.name; ccMotivation.value = character.motivation; ccSecret.value = character.secret;
-  setState('charcreate');
-  if (inputMode !== 'touch') ccName.focus();   // B25: never pop the phone keyboard uninvited
-}
-function closeCharCreate() {
-  character = { name: ccName.value.trim(), motivation: ccMotivation.value.trim(), secret: ccSecret.value.trim(), created: true };
-  saveCharacter(character);
-  renameForge(character.name);   // B25: the forge and the form share one name
-  if (ccFrom === 'title') void begin();
-  else setState(ccFrom);
-}
-$('ccBegin').addEventListener('click', () => closeCharCreate());
-$('ccSkip').addEventListener('click', () => {
-  character = { ...character, created: true };
-  saveCharacter(character);
-  if (ccFrom === 'title') void begin();
-  else setState(ccFrom);
-});
-$('editCharacter').addEventListener('click', () => openCharCreate('pause'));
+$('editCharacter').addEventListener('click', () => openWhoYouAre());   // B22: the tailor's "Who you are" tab
 $('openCharacterForge').addEventListener('click', () => openCharacterForge());
 $('openWeaponForge').addEventListener('click', () => openWeaponForge());
 $('openSketchbook').addEventListener('click', () => openSketchbook());
@@ -883,7 +841,7 @@ function leaveForge() {
 }
 const characterForge = new CharacterForge(
   (c) => setPlayerLook(c),
-  (c) => { character = { ...character, name: c.name || character.name, created: true }; saveCharacter(character); leaveForge(); },
+  (c) => { character = { ...character, name: c.name || character.name, ...characterForge.who, created: true }; saveCharacter(character); leaveForge(); },
   loreWords, forgeAuthor);
 function openCharacterForge() {
   enterForge();
@@ -900,7 +858,13 @@ function openCharacterForge() {
     takeStation(spot, face, 'mirror');   // back to the glass, facing the camera
   } else { player.thirdPerson = true; stationPose = 'mirror'; }
   frameForge('body');
+  characterForge.who = { motivation: character.motivation, secret: character.secret };   // B22: "Who you are" lives here now
   characterForge.open(loadForge(character.name));
+}
+/** B22: the Journal's (and Gameplay's) "Who you are" opens the Tailor & Barber-Surgeon on that tab. */
+function openWhoYouAre() {
+  setPanelTab('Tailor & Barber-Surgeon', 0);
+  openCharacterForge();
 }
 // B5: the forged crossbow hovers over the anvil at twice size while you work on it, turning slowly.
 const weaponDisplay = new THREE.Group();
@@ -1944,7 +1908,7 @@ $('pgCasebook').addEventListener('click', () => openCasebook());
 $('pgPhrases').addEventListener('click', () => openPhrasebook());   // B16
 $('pgSkills').addEventListener('click', () => openSkillsBook());   // B19
 $('pgRecipes').addEventListener('click', () => openRecipeBook());   // B18
-$('pgSelf').addEventListener('click', () => openCharCreate('pause'));   // B25: optional, reached only from the Journal
+$('pgSelf').addEventListener('click', () => openWhoYouAre());   // B25 / B22: optional; the form now lives at the tailor
 $('pgMap').addEventListener('click', () => openMap());
 $('pgBag').addEventListener('click', () => { setState('play'); openInventory(); });
 // The exit gate: walking through asks whether to retire (save the bag and hour, then back to the menu).
@@ -2195,7 +2159,7 @@ window.addEventListener('keydown', (e) => {
   setMode('mouse');
   // Keys the browser would otherwise act on (focus change, menu bar, scrolling).
   const typing = !!(e.target as HTMLElement)?.closest?.('input, textarea');   // a text field gets its spaces and arrows
-  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'charcreate', 'forge'].includes(state) && !typing) e.preventDefault();
+  if (['Tab', 'AltLeft', 'AltRight', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code) && !['pause', 'editor', 'forge'].includes(state) && !typing) e.preventDefault();
   if (e.code === 'CapsLock') {
     // Some platforms (macOS) send only a keyup when Caps Lock turns off; see keyup below.
     if (state === 'play' && !e.repeat) { toggleRun(); capsToggledAt = performance.now(); }
@@ -2208,7 +2172,6 @@ window.addEventListener('keydown', (e) => {
     return;
   }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
-  if (state === 'charcreate') { if (e.code === 'Escape' && !e.repeat) closeCharCreate(); return; }
   if (state === 'forge') { if (e.code === 'Escape' && !e.repeat) closeForges(); return; }
   if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }

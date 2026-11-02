@@ -7,6 +7,18 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.09,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01). Spec doc v0.06.
 
+### v0.09 changelog, part 4: Tailor & Barber-Surgeon (B22, Mike 2026-11-01)
+- The tailor is now the **Tailor & Barber-Surgeon**: on its sign (two lines), at its door and on the DM map.
+- Its station (also the camp mirror) has five tabs:
+  - **Who you are:** name, what they want most, one true thing only you know, the backstory and the constraint dice. The old pop-up "Who are you?" form is folded in here and gone.
+  - **Body:** species, height, build, skin.
+  - **Barber:** hair style and colour, eyes.
+  - **Tailor:** clothes and colours, coat tails, dress, boots, wings, headpiece.
+  - **Surgeon:** markings, plus the surgeon's first-aid card (the Skills book's card with its safety line).
+- Journal → Who you are, and Gameplay → Who you are, open the Tailor & Barber-Surgeon on its "Who you are" tab. Done returns you to the Journal.
+- It's still free, and first-time creation is still optional: Begin goes straight into the game.
+- Test: `test/e2e-tailor.mjs`.
+
 ### v0.09 changelog, part 3: dialogue portraits (B30, Mike 2026-11-01)
 - In a conversation, the speaker's portrait stands on the left of the dialogue box, Ren'Py style, with the name tag beside it. It scales with the screen, smaller on a phone.
 - There's no art yet, so each speaker gets a drawn placeholder card: a silhouette, their initial and name, in a colour of their own.

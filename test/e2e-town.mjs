@@ -44,7 +44,7 @@ const face = (id) => G(page, (id) => {
   p.pos.set(d.x + fx * 1.6, 0, d.z + fz * 1.6);
   p.yaw = Math.atan2(-(d.x - p.pos.x), -(d.z - p.pos.z)); p.bodyYaw = p.yaw; p.pitch = -0.15;
 }, id);
-const doors = { library: 'Enter the Library', smithy: 'Enter the Smithy', tailor: 'Enter the Tailor', scriptorium: 'Enter the Scriptorium', cartographer: 'Enter the Cartographer', dojo: 'Enter the Dojo', gallery: 'Enter the Gallery', shop: 'Enter the General Store', inn: 'Rent a bed' };
+const doors = { library: 'Enter the Library', smithy: 'Enter the Smithy', tailor: 'Enter the Tailor & Barber-Surgeon', scriptorium: 'Enter the Scriptorium', cartographer: 'Enter the Cartographer', dojo: 'Enter the Dojo', gallery: 'Enter the Gallery', shop: 'Enter the General Store', inn: 'Rent a bed' };
 const verbs = [];
 for (const [id, v] of Object.entries(doors)) {
   await face(id);
@@ -63,7 +63,7 @@ const mapOpen = await until(page, () => window.__gametool.livingMap.isOpen, null
 await page.keyboard.press('Escape');
 await until(page, () => window.__gametool.state === 'play');
 await face('tailor');
-await until(page, () => window.__gametool.lookingAtVerb === 'Enter the Tailor', null, 6000);
+await until(page, () => window.__gametool.lookingAtVerb === 'Enter the Tailor & Barber-Surgeon', null, 6000);
 await page.keyboard.press('KeyE');
 const tailor = await until(page, () => window.__gametool.characterForge.isOpen, null, 6000);
 await page.keyboard.press('Escape');
