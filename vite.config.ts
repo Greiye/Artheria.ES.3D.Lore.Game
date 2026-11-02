@@ -95,9 +95,17 @@ function evolutionShots() {
 }
 const evolution = () => shipDir('evolution', EVO_DIR, 'evolution', EVO_EXT, (f) => (f.endsWith('.webp') ? 'image/webp' : f.endsWith('.png') ? 'image/png' : 'image/jpeg'));
 
+// B30 (Mike 2026-11-01): dialogue portraits, Ren'Py style. Drop <speaker>.png (or .webp / .jpg) into assets/portraits/;
+// <speaker>-<mood>.png is an expression. They ship beside the page (dist/portraits/); the list is baked in, so a
+// speaker without a file gets a drawn placeholder and the game never asks for a missing image.
+const PORTRAIT_DIR = 'assets/portraits';
+const PORTRAIT_EXT = /\.(webp|png|jpe?g)$/i;
+const portraitFiles = () => (fs.existsSync(PORTRAIT_DIR) ? fs.readdirSync(PORTRAIT_DIR).filter((f) => PORTRAIT_EXT.test(f)).sort() : []);
+const portraits = () => shipDir('portraits', PORTRAIT_DIR, 'portraits', PORTRAIT_EXT, (f) => (f.endsWith('.webp') ? 'image/webp' : f.endsWith('.png') ? 'image/png' : 'image/jpeg'));
+
 export default defineConfig({
   base: './',
-  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution()],
+  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits()],
   server: { host: true }, // also reachable from a phone on the same Wi-Fi for testing
   build: { assetsInlineLimit: 100_000_000, chunkSizeWarningLimit: 2000 },
   // .glb slots that actually exist in public/models (so the game never requests a missing file).
@@ -106,6 +114,7 @@ export default defineConfig({
     __CINEMA__: JSON.stringify(cinemaClips()),
     __EVOLUTION__: JSON.stringify(evolutionShots()),
     __WIKI__: JSON.stringify(wikiPages()),
+    __PORTRAITS__: JSON.stringify(portraitFiles()),
     __MODEL_IDS__: JSON.stringify(fs.existsSync('public/models') ? fs.readdirSync('public/models').filter((f) => f.endsWith('.glb')).map((f) => f.slice(0, -4)) : []),
   },
 });

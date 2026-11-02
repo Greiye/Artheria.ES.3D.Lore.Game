@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.09,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01). Spec doc v0.06.
 
+### v0.09 changelog, part 3: dialogue portraits (B30, Mike 2026-11-01)
+- In a conversation, the speaker's portrait stands on the left of the dialogue box, Ren'Py style, with the name tag beside it. It scales with the screen, smaller on a phone.
+- There's no art yet, so each speaker gets a drawn placeholder card: a silhouette, their initial and name, in a colour of their own.
+- To add art, drop `assets/portraits/<speaker>.png` (or `.webp` / `.jpg`; 512x640, head and shoulders) and rebuild. Speakers today are `natalie` and `pedlar`.
+- Expressions: `<speaker>-<mood>.png`, picked by `"mood"` on a dialogue line. A mood without a file falls back to the plain portrait. `assets/portraits/README.md` has the details.
+- Portraits ship beside the page (`dist/portraits/`) like the cinema reels. The list is baked in, so the game never asks for a missing file.
+- Test: `test/e2e-portraits.mjs`.
+
 ### v0.09 changelog, part 2: touch controls (B28, Mike 2026-11-01)
 - The camera − / + buttons at the top are gone. In their place:
   - **🎥 Change perspective**, the only button that changes the view. It cycles first person, over the shoulder and overhead.
