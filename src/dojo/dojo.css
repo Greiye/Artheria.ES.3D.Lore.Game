@@ -8,3 +8,14 @@
 .dj-count { font: 700 26px/1.2 Georgia, serif; text-align: center; margin: 8px 0 2px; color: var(--parchment); }
 .dojo-panel details { margin-top: 10px; }
 .dojo-panel summary { cursor: pointer; color: var(--parchment); }
+/* B26: the camera push-up counter. Top-left (station panels are on the right); the pill is always visible while on. */
+.dj-totals { text-align: center; margin: 0 0 4px; }
+#pushCam { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); z-index: 60; width: min(240px, 34vw);
+  background: rgba(20,14,8,.88); border: 1px solid rgba(232,200,120,.5); border-radius: 10px; padding: 8px; color: var(--parchment, #F3E6C8); font-size: 13px; }
+#pushCam .pc-pill { display: inline-block; background: #B3261E; color: #fff; font-weight: 700; border-radius: 999px; padding: 2px 10px; font-size: 12px; letter-spacing: .03em; }
+#pushCam .pc-view { position: relative; margin: 6px 0; aspect-ratio: 4 / 3; background: #000; border-radius: 6px; overflow: hidden; }
+#pushCam video, #pushCam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+#pushCam .pc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#pushCam .pc-reps { font: 700 28px/1 Georgia, serif; }
+#pushCam .pc-fine { margin: 4px 0 0; font-size: 11px; opacity: .75; }
+@media (max-height: 500px) { #pushCam { width: min(180px, 30vw); } #pushCam .pc-fine { display: none; } }

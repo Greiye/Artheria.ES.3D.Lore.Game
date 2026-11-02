@@ -36,7 +36,9 @@ export function parseChangelog(md: string, current = VERSION): VersionNotes[] {
   }
   // The version being built may have no tagged section yet: give it an empty entry so it still leads.
   if (!out.some((o) => o.version === current)) out.unshift({ version: current, sections: [] });
-  return out.sort((a, b) => Number(b.version) - Number(a.version));
+  // Compare part by part: 0.10 is newer than 0.09 (as plain numbers 0.10 would sort as 0.1).
+  const parts = (v: string) => v.split('.').map(Number);
+  return out.sort((a, b) => { const x = parts(a.version), y = parts(b.version); return (y[0] - x[0]) || (y[1] - x[1]); });
 }
 
 export class WhatsNew {

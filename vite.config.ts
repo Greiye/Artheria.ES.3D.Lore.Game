@@ -103,9 +103,19 @@ const PORTRAIT_EXT = /\.(webp|png|jpe?g)$/i;
 const portraitFiles = () => (fs.existsSync(PORTRAIT_DIR) ? fs.readdirSync(PORTRAIT_DIR).filter((f) => PORTRAIT_EXT.test(f)).sort() : []);
 const portraits = () => shipDir('portraits', PORTRAIT_DIR, 'portraits', PORTRAIT_EXT, (f) => (f.endsWith('.webp') ? 'image/webp' : f.endsWith('.png') ? 'image/png' : 'image/jpeg'));
 
+// B26: the camera push-up counter's pose model (MediaPipe Pose Lite, Apache-2.0). Library + WebAssembly come from the
+// pinned @mediapipe/tasks-vision package, the model from assets/pose/. ~15 MB, fetched only when the camera is turned on.
+const MP_DIR = 'node_modules/@mediapipe/tasks-vision';
+const POSE_MIME = (f: string) => (f.endsWith('.wasm') ? 'application/wasm' : f.endsWith('.task') ? 'application/octet-stream' : 'text/javascript');
+const pose = () => [
+  shipDir('pose-model', 'assets/pose', 'pose', /\.task$/, POSE_MIME),
+  shipDir('pose-lib', MP_DIR, 'pose', /vision_bundle\.mjs$/, POSE_MIME),
+  shipDir('pose-wasm', `${MP_DIR}/wasm`, 'pose/wasm', /\.(js|wasm)$/, POSE_MIME),
+];
+
 export default defineConfig({
   base: './',
-  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits()],
+  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits(), ...pose()],
   server: { host: true }, // also reachable from a phone on the same Wi-Fi for testing
   build: { assetsInlineLimit: 100_000_000, chunkSizeWarningLimit: 2000 },
   // .glb slots that actually exist in public/models (so the game never requests a missing file).

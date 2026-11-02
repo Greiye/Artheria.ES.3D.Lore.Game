@@ -19,7 +19,7 @@ export interface AnimInput {
 }
 // v0.06 S1 station poses: sit (campfire), smith (anvil), mirror (tailor), write (desk / scriptorium), kneel (bedroll).
 // v0.06 T4: the cinema band plays: fiddle, drum and pipe.
-export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe';
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe';
 
 const WALK = 2.5, RUN = 5;
 // Restyle S2f (Tree of Savior): poses are stepped at a sprite frame rate, not interpolated every frame, for
@@ -211,6 +211,12 @@ export class FigureAnim {
       set('spine', -0.05); set('head', -0.05 + Math.sin(pt * 2.1) * 0.05);
       set('armN', -1.1 + f, 0, 0.3); set('foreN', -1.5);
       set('armP', -1.0 - f, 0, -0.3); set('foreP', -1.7);
+    } else if (this.pose === 'pushup') {
+      // B26: push-ups on the mat. Straight body, arms straightening and bending, about one rep every two seconds.
+      const c = (1 - Math.cos(pt * 3)) / 2;   // 0 = arms straight, 1 = chest low
+      B.root.rotation.x = (Math.PI / 2 - 0.28 + c * 0.18) * k; B.root.position.y = (0.34 - 0.2 * c) * H * k;
+      set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', 0);
+      set('armN', -1.3 - c * 0.5, 0, -0.25); set('armP', -1.3 - c * 0.5, 0, 0.25); set('foreN', -c * 1.4); set('foreP', -c * 1.4); set('head', -0.45);
     } else if (this.pose === 'plank') {
       B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);
