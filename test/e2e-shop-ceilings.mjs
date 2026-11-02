@@ -1,7 +1,7 @@
 // v0.06 part 4 checks: unlimited crowns (E1), faded sundries in the store (E2), interior ceilings in the library and
 // the gallery (W2). The cinema (R1, R2) is covered by e2e-cinema.mjs. (H1, the wider 2D head, went with the 2D heads:
 // figures have 3D heads since 2026-10-29, checked in e2e-camera.mjs.)
-// Usage: npm run build && node test/e2e-v0.06-part4.mjs [path/to/index.html]
+// Usage: npm run build && node test/e2e-shop-ceilings.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import path from 'node:path';
 

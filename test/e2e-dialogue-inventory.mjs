@@ -1,6 +1,6 @@
 // Automated Done-when checks for v0.04 (§8): F3 dialogue + inventory, and its creativity check
 // (Natalie's "I don't know what to make" gives a §6.3 prompt and still hands over the crossbow).
-// Usage: npm run build && node test/e2e-v0.04.mjs [path/to/index.html]
+// Usage: npm run build && node test/e2e-dialogue-inventory.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';

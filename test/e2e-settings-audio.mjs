@@ -1,5 +1,5 @@
 // Automated Done-when checks for v0.02 (§8): F1 Settings, A7 audio synth, version label.
-// Usage: npm run build && node test/e2e-v0.02.mjs [path/to/index.html]
+// Usage: npm run build && node test/e2e-settings-audio.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import path from 'node:path';
 

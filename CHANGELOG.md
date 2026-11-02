@@ -13,6 +13,12 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - One version number: `package.json` is now `tales-of-artheria` 0.10.0, and the build stops if it and `src/version.ts` disagree.
 - README brought up to date (v0.07–v0.10 features, controls, credits).
 
+### v0.10 changelog, part 4: review fixes, round 3 (tests and CI)
+- Every suite now runs in CI: the new **Full e2e** workflow (`.github/workflows/e2e-full.yml`) splits `test/suites.json` across four parallel jobs, nightly, on demand, and on PRs labelled `full-e2e`. The quick smoke test still runs on every PR.
+- `npm run test:e2e` runs `scripts/e2e-run.mjs`: one list (`test/suites.json`), a summary at the end, `--only` and `--shard`.
+- Suites named after old roadmap steps are named after what they test: `e2e-settings-audio` (was v0.02), `e2e-world-controls` (v0.03), `e2e-dialogue-inventory` (v0.04), `e2e-crossbow` (v0.05), `e2e-library-books` (v0.06), `e2e-shop-ceilings` (v0.06-part4).
+- Five timing-sensitive checks (crossbow fire, perfect reload, bolt pickup prompt, hands, camera toggle) wait for the game's next frame instead of a fixed pause, which could be shorter than one slow frame under software rendering.
+
 ### v0.10 changelog, part 3: review fixes, round 2 (code only, no change in play)
 - Every station panel registers itself (`src/stations.ts`), and "close everything" closes them newest first, so a new station can't be left out.
 - `main.ts` slimmed by about 200 lines: the page's static markup is in `src/ui/shell.ts`, the controller map in `src/input/padmap.ts`, the town soundscape (ambience zones, townsfolk voices) in `src/world/soundscape.ts`, and the cinema screen and Projectionist in `src/world/cinema-spot.ts`.

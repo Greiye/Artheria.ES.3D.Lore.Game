@@ -1,5 +1,5 @@
 // Automated Done-when checks for v0.05 (§8): F4 crossbow. Creativity: none (combat only, stated in §8).
-// Usage: npm run build && node test/e2e-v0.05.mjs [path/to/index.html]
+// Usage: npm run build && node test/e2e-crossbow.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -59,7 +59,8 @@ check('F4.1 RMB aims down sights (FOV −15°)', Math.abs(baseFov - 15 - adsFov)
 // Aim right of the door, clear of Natalie. Set it in a capture listener on the click itself: headless Chromium
 // re-centres the locked pointer with stray mousemoves that would otherwise turn the view between aim and click.
 await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, -5); window.addEventListener('mousedown', () => { p.yaw = -0.3; p.pitch = 0.05; }, { capture: true, once: true }); });
-await page.waitForTimeout(300);   // a frame moves the eye to the new position
+// A frame moves the eye to the new position: wait for it (a fixed wait can be shorter than one slow frame).
+await page.waitForFunction(() => window.__gametool.player.eyePos.distanceTo(new window.__gametool.Vector3(0, window.__gametool.player.eyePos.y, -5)) < 0.05, null, { timeout: 8000 }).catch(() => undefined);
 await page.mouse.down({ button: 'left' }); await page.mouse.up({ button: 'left' });
 const shot = await cb(() => { const b = window.__gametool.crossbow.bolts[0]; return b ? { speed: b.vel.length(), d: b.origin.distanceTo(window.__gametool.player.eyePos) } : null; });
 check('F4.1 LMB fires: a bolt leaves the muzzle', !!shot && shot.d < 1, JSON.stringify(shot));
@@ -83,8 +84,11 @@ const perfect = await G(page, async () => {
   const c = window.__gametool.crossbow;
   c.pressReload();
   const t0 = performance.now();
-  await new Promise((r) => { const tick = () => (c.reload.active && c.reload.t >= 0.4 ? r() : requestAnimationFrame(tick)); tick(); });
-  c.pressReload();   // 0.4 s into a 2 s bar = 20%: inside the 15–30% zone
+  await new Promise((r) => { const tick = () => (c.reload.active ? r() : requestAnimationFrame(tick)); tick(); });
+  // Press at 0.45 s into the 2 s bar (inside the 15–30% zone). Set the bar's clock rather than waiting for it: one
+  // slow software frame (dt is capped, not small) can step the bar from before the zone to past it.
+  c.reload.t = 0.45;
+  c.pressReload();
   // Game time (the reload's own clock): wall time stretches when software frames run slower than the dt cap.
   let game = 0;
   await new Promise((r) => { const tick = () => { if (c.reload.active) game = c.reload.total; c.loaded ? r() : requestAnimationFrame(tick); }; tick(); });
@@ -117,7 +121,8 @@ await G(page, (t) => {
   const dy = t[1] - 1.7, dz = -1.2;
   p.yaw = 0; p.pitch = Math.atan2(dy, -dz);
 }, target);
-await page.waitForTimeout(300);
+// The prompt follows what you look at on the next frame: wait for it rather than a fixed 300 ms (slow frames).
+await page.waitForFunction(() => document.getElementById('promptVerb').textContent === 'Pick up bolt', null, { timeout: 8000 }).catch(() => undefined);
 const verb = await cb(() => document.getElementById('promptVerb').textContent);
 await page.keyboard.press('KeyE');
 await page.waitForTimeout(200);
@@ -130,7 +135,8 @@ await cb(() => window.__gametool.crossbow.bolts.forEach((b) => { if (b.stuck) b.
 const gone = await page.waitForFunction(() => window.__gametool.crossbow.bolts.every((b) => !b.stuck), null, { timeout: 5000 }).then(() => true, () => false);
 check('F4.2 stuck bolts disappear after 30 s', gone);
 
-await page.keyboard.press('Digit2'); await page.waitForTimeout(150);   // visibility follows on the next frame
+await page.keyboard.press('Digit2');   // visibility follows on the next frame
+await page.waitForFunction(() => !window.__gametool.crossbow.equipped && !window.__gametool.crossbow.viewmodel.visible, null, { timeout: 8000 }).catch(() => undefined);
 check('§5 2 = hands (crossbow away)', await cb(() => !window.__gametool.crossbow.equipped && !window.__gametool.crossbow.viewmodel.visible));
 check('v0.05: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();
