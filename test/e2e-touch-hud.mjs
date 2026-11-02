@@ -47,11 +47,12 @@ check('The perspective button cycles through the three views', new Set(views).si
 // Quick equip: dim until owned; lit while in hand; tap again to put away.
 check('Crossbow and sword buttons are dim before you own them', await G(page, () => ['qbow', 'qsword'].every((a) => document.querySelector(`[data-act="${a}"]`).classList.contains('dim'))));
 await G(page, () => { const g = window.__gametool; g.inventory.give('crossbow', 1); g.inventory.give('bolt', 5); g.inventory.give('sword', 1); });
+const settle = (fn) => page.waitForFunction(fn, null, { timeout: 10000, polling: 100 }).catch(() => {});   // buttons light on the next frame
 await page.tap('.t-cam [data-act="qsword"]');
-await page.waitForTimeout(200);
+await settle(() => document.querySelector('[data-act="qsword"]').classList.contains('latched'));
 const s1 = await G(page, () => ({ sw: window.__gametool.sword.equipped, cb: window.__gametool.crossbow.equipped, lit: document.querySelector('[data-act="qsword"]').classList.contains('latched') }));
 await page.tap('.t-cam [data-act="qbow"]');
-await page.waitForTimeout(200);
+await settle(() => document.querySelector('[data-act="qbow"]').classList.contains('latched') && !document.querySelector('[data-act="qsword"]').classList.contains('latched'));
 const s2 = await G(page, () => ({ sw: window.__gametool.sword.equipped, cb: window.__gametool.crossbow.equipped, bow: document.querySelector('[data-act="qbow"]').classList.contains('latched'), swl: document.querySelector('[data-act="qsword"]').classList.contains('latched') }));
 await page.tap('.t-cam [data-act="qbow"]');
 await page.waitForTimeout(200);
@@ -60,7 +61,7 @@ check('Sword button: draws the sword, lit', s1.sw && !s1.cb && s1.lit, JSON.stri
 check('Crossbow button: swaps to the crossbow; only it is lit', s2.cb && !s2.sw && s2.bow && !s2.swl, JSON.stringify(s2));
 check('Tapping the lit one again puts it away', !s3.cb && !s3.sw, JSON.stringify(s3));
 await page.tap('.t-cam [data-act="torch"]');
-await page.waitForTimeout(200);
+await settle(() => document.querySelector('[data-act="torch"]').classList.contains('latched'));
 check('Torch button lights the torch and lights up', await G(page, () => window.__gametool.torch.lit && document.querySelector('[data-act="torch"]').classList.contains('latched')));
 await page.tap('.t-cam [data-act="torch"]');
 
