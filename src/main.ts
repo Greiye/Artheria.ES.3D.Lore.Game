@@ -36,6 +36,11 @@ import { CookPanel, RecipeBook } from './cooking/cooking';
 import { BUFFS } from './cooking/recipes';
 import natalieScript from '../content/dialogue/natalie.json';
 import { Post } from './render/post';
+import { SHELL_HTML } from './ui/shell';
+import { buildCinemaSpot } from './world/cinema-spot';
+import { renderPadMap } from './input/padmap';
+import { townZones, FolkVoices } from './world/soundscape';
+import { station, closeAllStations } from './stations';
 import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
 import { FigureAnim, BodyAnim, type AnimInput, type Pose } from './anim/procedural';
@@ -76,21 +81,21 @@ import { haptics } from './input/haptics';
 import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
-import { CinemaPanel, buildScreen } from './cinema';
+import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
 import { DmView, type Place } from './dm/dm';
 import { watchPanels, setPanelTab } from './ui/fit-panel';
-import { BRIDGES, riverX, riverClear } from './world/river';
+import { riverClear } from './world/river';
 import { plantForestPack } from './world/forestPack';
 import { Townsfolk } from './world/townsfolk';
 import { NightLights } from './world/nightlights';
-import { Ambience, type Zone } from './ambience';
+import { Ambience } from './ambience';
 import { Intro } from './intro';
 import { Extras } from './extras';
 import { WhatsNew } from './whatsnew';
 import { loadGame, saveGame, clearGame } from './save';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
-import { glyph, type PadFamily } from './input/glyphs';
+import { glyph } from './input/glyphs';
 
 // Private, all rights reserved (D8). Not open source.
 
@@ -209,170 +214,7 @@ const library = buildLibrary(world.scene, world.colliders, world.solids);
 
 // ---------- UI ----------
 const ui = document.createElement('div');
-ui.innerHTML = `
-  <div id="title" class="screen">
-    <nav class="menu-list" aria-label="Main menu">
-      <button id="begin" class="menu-item">Begin</button>
-      <button id="newGame" class="menu-item hidden">New game</button>
-      <button id="openProfiles" class="menu-item">Profiles</button>
-      <button id="openExtras" class="menu-item">Extras</button>
-      <button id="openSettingsTitle" class="menu-item">Options</button>
-    </nav>
-    <p id="saveNote" class="fine hidden"></p>
-    <p id="homeTip" class="hidden">For fullscreen with no address bar: tap Share <b>⬆</b>, then <b>Add to Home Screen</b>, and play from the new icon.<button id="homeTipClose" aria-label="Hide this tip">✕</button></p>
-    <span id="versionLabel" class="menu-version"></span>
-  </div>
-  <div id="padStatus" aria-live="polite"></div>
-  <div id="versionNote"></div>
-  <div id="gateConfirm" class="screen hidden">
-    <div class="card narrow">
-      <div class="eyebrow">Temporary Exit - Mind the dust</div>
-      <h1>Leave the area?</h1>
-      <p>This will retire you. Your bag and the hour are saved; next time you begin back at the glade.</p>
-      <button id="gateYes" class="primary">Yes, retire</button>
-      <button id="gateNo" class="secondary">No, stay</button>
-    </div>
-  </div>
-  <div id="vignette"></div>
-  <div id="sleepFade"></div>
-  <div id="rotateAsk" role="dialog" aria-label="Turn your phone sideways">
-    <div class="ra-phone" aria-hidden="true"></div>
-    <p>Turn your phone sideways</p>
-    <span>Artheria plays in landscape.</span>
-    <span id="rotateIos" class="hidden">If it doesn't turn, swipe down from the top-right corner and switch off Rotation Lock.</span>
-    <button id="rotateTurn" class="primary hidden">Turn it for me</button>
-    <button id="rotateOk" class="secondary">Play upright anyway</button>
-  </div>
-  <div id="readHint">⟳ Turn your phone upright to scroll the pages</div>
-  <div id="hud" class="hidden">
-    <div id="crosshair"></div>
-    <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
-    <div id="toast" class="hidden"></div>
-    <div id="quick" class="hidden"></div>
-    <div id="delveHp" class="hidden sr-only" aria-live="polite"></div>
-    <div id="hurtEdge" aria-hidden="true"></div>
-    <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
-    <div id="autosaved" aria-live="polite">✒ Saved</div>
-    <div id="coach" class="hidden" aria-live="polite"></div>
-    <div id="nolock" class="hidden">Pointer lock unavailable here: hold the left mouse button and drag to look.</div>
-  </div>
-  <div id="pause" class="screen hidden">
-    <nav class="pause-side side-panel" aria-label="Pause menu">
-      <h1>Journal</h1>
-      <button id="resume" class="pause-item">Resume</button>
-      <button class="pause-item" data-group="gameplay">Gameplay</button>
-      <button class="pause-item" data-group="graphics">Graphics</button>
-      <button class="pause-item" data-group="sound">Sound</button>
-      <button class="pause-item" data-group="controls">Controls</button>
-      <span class="pause-rule" aria-hidden="true"></span>
-      <button id="pgCasebook" class="pause-item pause-page">Casebook</button>
-      <button id="pgMap" class="pause-item pause-page">Map</button>
-      <button id="pgBag" class="pause-item pause-page">Bag</button>
-      <button id="pgPhrases" class="pause-item pause-page">Phrasebook</button>
-      <button id="pgSkills" class="pause-item pause-page">Skills book</button>
-      <button id="pgRecipes" class="pause-item pause-page">Recipe book</button>
-      <button id="pgSelf" class="pause-item pause-page">Who you are</button>
-      <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
-      <p class="fine">Settings are saved in this browser.</p>
-    </nav>
-    <section id="gameplaySettings" class="pause-panel side-panel hidden" data-panel="gameplay">
-      <h2>Gameplay</h2>
-      <label class="field">Camera <select id="viewSel"><option value="overhead">Overhead (Dark Cloud 2 style)</option><option value="shoulder">Over the shoulder</option><option value="first">First person</option></select></label>
-      <label>Look sensitivity <output id="sensOut"></output><input id="sens" type="range" min="0.2" max="3" step="0.05"></label>
-      <label class="check"><input id="invert" type="checkbox"> Invert Y</label>
-      <label class="check"><input id="always" type="checkbox"> Always run (Caps Lock)</label>
-      <label class="field">Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
-      <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
-      <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
-      <h4>Comfort</h4>
-      <label>Text size <output id="textSizeOut"></output><input id="textSize" type="range" min="85" max="150" step="5"></label>
-      <label>Reading speed <output id="readSpeedOut"></output><input id="readSpeed" type="range" min="0.5" max="2" step="0.25"></label>
-      <label class="check"><input id="lefty" type="checkbox"> Left-handed (touch: move on the right, buttons on the left)</label>
-      <label>Touch button size <output id="buttonSizeOut"></output><input id="buttonSize" type="range" min="75" max="150" step="5"></label>
-      <h4>Your hero</h4>
-      <button id="editCharacter" class="secondary">Who you are (optional)</button>
-      <button id="openCharacterForge" class="secondary">Character forge</button>
-      <button id="openWeaponForge" class="secondary">Weapon forge</button>
-      <button id="openSketchbook" class="secondary">Sketchbook</button>
-      <button id="openCasebook" class="secondary">Casebook (J)</button>
-      <button id="openMap" class="secondary">Map (M)</button>
-    </section>
-    <section id="graphicsSettings" class="pause-panel side-panel hidden" data-panel="graphics">
-      <h2>Graphics</h2>
-      <label class="field">Preset
-        <select id="preset"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
-      </label>
-      <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="50" max="100" step="5"></label>
-      <label class="check"><input id="shadows" type="checkbox"> Shadows</label>
-      <label class="check"><input id="postFx" type="checkbox"> Post effects (glow)</label>
-      <label>Fog distance <output id="fogOut"></output><input id="fogDistance" type="range" min="20" max="120" step="5"></label>
-      <label class="field">FPS cap
-        <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>
-      </label>
-      <label class="check"><input id="autoQuality" type="checkbox"> Auto quality (eases off when the frame rate drops) <output id="autoQualityOut"></output></label>
-      <label>Field of view <output id="fovOut"></output><input id="fov" type="range" min="60" max="100" step="1"></label>
-    </section>
-    <section id="audioSettings" class="pause-panel side-panel hidden" data-panel="sound">
-      <h2>Sound</h2>
-      <label>Master <output id="audioMasterOut"></output><input id="audioMaster" type="range" min="0" max="100" step="5"></label>
-      <label class="check"><input id="muteMaster" type="checkbox"> Mute master</label>
-      <label>Music <output id="audioMusicOut"></output><input id="audioMusic" type="range" min="0" max="100" step="5"></label>
-      <label class="check"><input id="muteMusic" type="checkbox"> Mute music</label>
-      <label>SFX <output id="audioSfxOut"></output><input id="audioSfx" type="range" min="0" max="100" step="5"></label>
-      <label class="check"><input id="muteSfx" type="checkbox"> Mute SFX</label>
-      <label>Dialogue <output id="audioDialogueOut"></output><input id="audioDialogue" type="range" min="0" max="100" step="5"></label>
-      <label class="check"><input id="muteDialogue" type="checkbox"> Mute dialogue</label>
-    </section>
-    <section id="controlsMap" class="pause-panel side-panel hidden" data-panel="controls">
-      <h2>Controls</h2>
-      <table class="keys only-touch">
-        <tr><td>Left thumb</td><td>Move (small push walks, full push runs)</td></tr>
-        <tr><td>Right thumb</td><td>Drag to look</td></tr>
-        <tr><td>Buttons</td><td>Jump · Sneak · Sprint (hold) · View · Use · − / + camera · ☰ menu</td></tr>
-        <tr><td>Book</td><td>Swipe or tap a page edge · ✕ to close</td></tr>
-      </table>
-      <table class="keys only-mouse">
-        <tr><td>W A S D</td><td>Move (runs by default)</td><td>Mouse</td><td>Look</td></tr>
-        <tr><td>Shift</td><td>Walk (hold)</td><td>Caps Lock</td><td>Toggle always-run</td></tr>
-        <tr><td>Alt</td><td>Sprint (hold)</td><td>Space</td><td>Jump</td></tr>
-        <tr><td>C</td><td>Sneak / crouch</td><td>E</td><td>Use · read · talk</td></tr>
-        <tr><td>Tab</td><td>Close book</td><td>Esc</td><td>Pause menu</td></tr>
-        <tr><td>F</td><td>Camera: first person / shoulder / overhead</td><td>Wheel</td><td>Camera in / out</td></tr>
-        <tr><td>Q</td><td>Swap shoulder (or weapon)</td><td>T</td><td>Torch</td></tr>
-        <tr><td>1 · 2 · 3</td><td>Crossbow · hands · sword</td><td>Click</td><td>Fire · swing the sword</td></tr>
-      </table>
-      <div class="padmap" data-padmap></div>
-      <div id="keyBinds"></div>
-    </section>
-  </div>
-  <div id="relock" class="screen hidden"><button class="primary" id="relockBtn">Click to continue</button></div>
-  <div id="editor" class="screen hidden">
-    <div class="card editcard">
-      <div class="eyebrow">Add to the campaign</div>
-      <h1>Write lore</h1>
-      <label class="field">Your name<input id="eAuthor" type="text" maxlength="60" placeholder="Your name"></label>
-      <label class="field">Title<input id="eTitle" type="text" maxlength="80" placeholder="e.g. The Old Mill"></label>
-      <label class="field">Tags <span class="hint">comma-separated</span><input id="eTags" type="text" placeholder="character, place, rumor"></label>
-      <label class="field">Entry <span class="hint">Markdown: **bold**, *italic*, lists, images</span>
-        <textarea id="eBody" rows="8" placeholder="Write anything: a character, a place, a poem, a rumor..."></textarea>
-      </label>
-      <p id="eMsg" class="fine"></p>
-      <div class="row">
-        <button id="eCancel">Cancel</button>
-        <button id="eDownload">Download .md</button>
-        <button id="ePublish" class="primary">Publish to GitHub</button>
-      </div>
-      <details id="eSettings">
-        <summary>GitHub publish settings</summary>
-        <label class="field">Repo owner<input id="ghOwner" type="text" placeholder="e.g. Greiye"></label>
-        <label class="field">Repo name<input id="ghRepo" type="text" placeholder="e.g. Artheria.ES.3D.Lore.Game"></label>
-        <label class="field">Branch<input id="ghBranch" type="text" placeholder="main"></label>
-        <label class="field">Personal access token <span class="hint">stays only in this browser</span><input id="ghToken" type="password" placeholder="github_pat_..."></label>
-        <p class="fine">Create a fine-grained token at github.com → Settings → Developer settings → Personal access tokens, scoped to this one repo, permission "Contents: Read and write".</p>
-        <button id="ghSave">Save publish settings</button>
-      </details>
-    </div>
-  </div>`;
+ui.innerHTML = SHELL_HTML;
 document.body.appendChild(ui);
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const show = (id: string, on: boolean) => $(id).classList.toggle('hidden', !on);
@@ -404,18 +246,6 @@ function setMode(m: InputMode) {
 }
 
 // v0.04: the controller map, drawn from controls.gamepad with the pad's own button names.
-const PAD_MAP: [side: 'l' | 'r', button: number | string, what: string][] = [
-  ['l', 6, 'Aim (crossbow)'], ['l', 4, 'Camera in · page back'], ['l', 'Left stick', 'Move · click: sprint'],
-  ['l', 12, 'Swap shoulder · weapon'], ['l', 14, 'Quick swap: left hand (torch)'], ['l', 13, 'Hold: torch'], ['l', 8, 'Bag'],
-  ['r', 7, 'Fire · swing'], ['r', 15, 'Quick swap: right hand'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
-  ['r', 0, 'Use · talk · read'], ['r', 'Right stick', 'Look · click: change camera'], ['r', 9, 'Pause'],
-];
-function renderPadMap(fam: PadFamily) {
-  const row = ([, b, what]: (typeof PAD_MAP)[number]) =>
-    `<li><kbd class="${typeof b === 'number' && b <= 3 ? 'face face' + b : ''}">${typeof b === 'number' ? glyph(fam, b) : b}</kbd><span>${what}</span></li>`;
-  const html = `<ul class="l">${PAD_MAP.filter((r) => r[0] === 'l').map(row).join('')}</ul><ul class="r">${PAD_MAP.filter((r) => r[0] === 'r').map(row).join('')}</ul>`;
-  document.querySelectorAll('[data-padmap]').forEach((el) => { el.innerHTML = html; });
-}
 
 // v0.04: button names follow the input in use (and the pad's family: Xbox, PlayStation, Nintendo).
 function syncGlyphs() {
@@ -737,7 +567,7 @@ function animate(dt: number) {
   for (const a of animators.values()) a.update(dt);
   townsfolk.bandPlaying = cinema.withSound;
   townsfolk.update(dt, camera);
-  folkVoices(dt);
+  folkVoices.update(dt);
   bannerT += dt;
   swayStation(dt);
   companion.update(dt, player.pos, player.bodyYaw, state !== 'play');
@@ -840,10 +670,10 @@ function leaveForge() {
   stationView = null; stationPose = null;
   if (forgeFrom === 'pause') setState('pause'); else void resumePlay();
 }
-const characterForge = new CharacterForge(
+const characterForge = station(new CharacterForge(
   (c) => setPlayerLook(c),
   (c) => { character = { ...character, name: c.name || character.name, ...characterForge.who, created: true }; saveCharacter(character); leaveForge(); },
-  loreWords, forgeAuthor);
+  loreWords, forgeAuthor));
 function openCharacterForge() {
   enterForge();
   // v0.06 S3: at the tailor, turn to face the street so the camera (in front of you) is never inside the building;
@@ -873,10 +703,10 @@ weaponDisplay.position.set(world.stations.anvil.position.x, 1.3, world.stations.
 weaponDisplay.scale.setScalar(2.2);
 weaponDisplay.visible = false;
 world.scene.add(weaponDisplay);
-const weaponForge = new WeaponForge(
+const weaponForge = station(new WeaponForge(
   (c: WeaponCosmetic) => { weaponDisplay.clear(); weaponDisplay.add(buildCrossbowModel(c)); },
   (c: WeaponCosmetic) => { crossbow.applyCosmetic(c); weaponDisplay.visible = false; leaveForge(); },
-  loreWords, forgeAuthor);
+  loreWords, forgeAuthor));
 // v0.04: the weapon forge opens at the camp anvil or at the town smithy, wherever you asked for it.
 const anvilSpot = world.stations.anvil.position.clone();
 function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
@@ -891,7 +721,12 @@ function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   weaponDisplay.visible = true;
   weaponForge.open(loadWeapon());
 }
-function closeForges() { if (gateOpen) gateNo(); if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); } characterForge.close(); weaponForge.close(); sketchPad.close(); casebook.close(); folklore.close(); telling.close(); quick.close(); cook.close(); campfire.close(); recipeBook.close(); livingMap.close(); dojo.close(); caravan.close(); phrasebook.close(); skills.close(); skillsBook.close(); gear.close(); if (state === 'forge') wiki.close(); shop.close(); cinema.close(); if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); } }
+function closeForges() {
+  if (gateOpen) gateNo();
+  if (descendSheet) { descendSheet.remove(); descendSheet = null; leaveForge(); }
+  closeAllStations((p) => p === wiki && state !== 'forge');   // the wiki is also a reading view from Extras
+  if (galleryCard) { galleryCard.remove(); galleryCard = null; leaveForge(); }
+}
 // ---------- Phase C: B13 ink and paper, B3 margin notes, B10 sketch-to-world; saved on this device ----------
 // v0.04 crowns: finds and writing pay; spent at the General Store (src/shop.ts). Session-only, like the bag.
 const paidFor = new Set<string>();
@@ -923,9 +758,9 @@ const deskFor = (b: Book) => {
 const lecternDesk = deskFor(book), readerDesk = deskFor(reader);
 const otherDesks = (d: MarginDesk) => { (d === lecternDesk ? readerDesk : lecternDesk).reload(); };
 refreshMarginsInWorld();
-const sketchPad = new SketchPad(
+const sketchPad = station(new SketchPad(
   (s: Sketch) => { stampBanner(world.bannerCloth, s); try { localStorage.setItem('gametool.banner', s.id); } catch { /* blocked */ } toast(`"${s.name}" is pinned to the writing desk.`); earn(3, 'for a banner sketch', 'sketch:' + s.id); },
-  () => leaveForge(), forgeAuthor);
+  () => leaveForge(), forgeAuthor));
 stampBanner(world.bannerCloth, (() => { try { return sketchById(localStorage.getItem('gametool.banner') ?? '') ?? DEFAULT_SKETCH; } catch { return DEFAULT_SKETCH; } })());
 function openSketchbook(frame: 'banner' | 'body' = 'banner') {
   enterForge();
@@ -949,20 +784,20 @@ companion.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
 $('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
 const seen = (() => { try { return JSON.parse(localStorage.getItem('gametool.seen') ?? '[]') as string[]; } catch { return [] as string[]; } })();
 function markSeen(id: string) { if (!seen.includes(id)) { seen.push(id); try { localStorage.setItem('gametool.seen', JSON.stringify(seen)); } catch { /* blocked */ } } }
-const casebook = new Casebook(() => quest, (th: Theory) => {
+const casebook = station(new Casebook(() => quest, (th: Theory) => {
   quest.theory = th; quest.stage = 'lead'; saveQuest(quest);
   questProps.showLead(th.where);
   companion.say(support(quest, th) >= 2 ? QUEST.natalie.supported : QUEST.natalie.leap, { force: true });
-}, () => leaveForge(), loreWords, forgeAuthor);
+}, () => leaveForge(), loreWords, forgeAuthor));
 casebook.owner = () => character.name;
 function openCasebook() {
   if (state !== 'play' && state !== 'pause' && state !== 'dialogue') return;
   enterForge();
   casebook.open();
 }
-const folklore = new FolklorePanel(
+const folklore = station(new FolklorePanel(
   () => folkItems([...inventory.counts.keys()].filter((id) => inventory.count(id) > 0), quest.clues, seen, (id) => ITEMS[id]?.name ?? id),
-  () => leaveForge(), forgeAuthor);
+  () => leaveForge(), forgeAuthor));
 function openFolklore() { enterForge(); folklore.open(); }
 function findClue(id: string) {
   const c = clueById(id);
@@ -1001,18 +836,18 @@ interactables.push({ obj: pedlarHit, verb: () => 'Talk to Magister Greer', act: 
   talkTo('pedlar', pedlarHit.position, pedlarScript(seen));
 } });
 // ---------- Phase E: B8 campfire telling + B11 bard tunes, B9 gallery hall ----------
-const campfire = new CampfirePanel(() => {
+const campfire = station(new CampfirePanel(() => {
   const first = quest.clues[0] ? clueById(quest.clues[0])?.name.toLowerCase() : null;
   return [
     first ? `I remember the ${first}. I didn't want to believe it.` : 'I remember the door, and how quiet it was.',
     quest.theory ? `You said it was ${tagLabel('who', quest.theory.who).toLowerCase()}. I wrote it down.` : 'I was behind you the whole way. Mostly.',
     quest.stage === 'done' && quest.theory ? `And ${ending(quest.theory).friend} came home.` : "And the fire's still going, so it isn't over.",
   ];
-}, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); earn(5, 'for a ballad'); }, () => leaveForge(), forgeAuthor);
+}, (b: Ballad) => { toast(`"${b.title}" is on the shelf. Find it in the gallery hall.`, 4000); refreshGallery(); earn(5, 'for a ballad'); }, () => leaveForge(), forgeAuthor));
 campfire.owned = () => [...inventory.counts.keys()].filter((id) => inventory.count(id) > 0);   // v0.04 instruments
 campfire.onWriteLore = () => openEditor(true);   // v0.04: lore is written at the fire, Natalie holds the quill
 // v0.05 §5: Natalie tells a lore page with kinetic type; the fire flares on the emphasised words and the dramatic beats.
-const telling = new TellingView();
+const telling = station(new TellingView());
 let fireFlare = 0;
 campfire.tales = () => lore.entries.filter((e) => e.type === 'lore' || e.type === 'character' || e.type === 'song').map((e) => ({ id: e.id, title: e.title }));
 campfire.onTell = (id) => {
@@ -1053,12 +888,12 @@ function openCampfire() {
   campfire.open();
 }
 // ---------- B18: cooking at the campfire; the Recipe book in the Journal ----------
-const cook = new CookPanel(() => { if (state === 'forge') campfire.el.classList.remove('hidden'); });   // back to the fire
+const cook = station(new CookPanel(() => { if (state === 'forge') campfire.el.classList.remove('hidden'); }));   // back to the fire
 cook.author = () => forgeAuthor();
 cook.onLearn = (r) => earn(3, `${r.name} recipe`, 'recipe:' + r.id);
 cook.onEat = (b) => { haptics.play('pickup'); toast(`🍽 ${BUFFS[b].name}: ${BUFFS[b].text}`, 3600); };
 campfire.onCook = () => { campfire.el.classList.add('hidden'); cook.open(); };
-const recipeBook = new RecipeBook(cook, () => leaveForge());
+const recipeBook = station(new RecipeBook(cook, () => leaveForge()));
 function openRecipeBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); recipeBook.open(); }
 let sturdy = false;   // B18: a "well fed" delve
 const campfireClosed = campfire.onClose;
@@ -1232,7 +1067,7 @@ function openDescend() {
   descendSheet = el;
 }
 // v0.05 §6: the Quick Dungeon, a menu-only run picked from the trapdoor.
-const quick = new QuickDungeon();
+const quick = station(new QuickDungeon());
 quick.carvings = () => shrineLines.map((e) => ({ line: e.body.replace(/^#.*$/gm, '').replace(/[*_>[\]]/g, '').trim().split(/(?<=[.!?])\s+/)[0], title: e.title, credit: e.credit_as }));
 quick.onReward = (r) => { if (r.crowns) inventory.give(CROWN, r.crowns); for (const [id, n] of r.items) inventory.give(id, n); haptics.play('pickup'); };
 quick.onFinish = (seed, end) => {
@@ -1329,7 +1164,7 @@ const dm = urlFlags.has('dm') ? (() => {
   return v;
 })() : null;
 // ---------- Phase F: B7 living map ----------
-const livingMap = new LivingMap(() => {
+const livingMap = station(new LivingMap(() => {
   const m: Mark[] = [];
   for (const id of quest.clues) { const c = clueById(id); if (c) m.push({ x: c.at[0], z: c.at[2], label: '', kind: 'clue' }); }
   if (quest.theory) {
@@ -1346,13 +1181,13 @@ const livingMap = new LivingMap(() => {
   m.push({ x: CARAVAN.x, z: CARAVAN.z - 3, label: caravan.st.done.length ? `Caravan: ${caravan.st.phrases.length} phrases` : 'A caravan camps here', kind: 'place' });
   if (dojo.st.done.length) m.push({ x: DOJO.x, z: DOJO.z + 3.4, label: `${dojo.st.done.length} drill${dojo.st.done.length > 1 ? 's' : ''} done`, kind: 'place' });
   return m;
-}, () => ({ x: player.pos.x, z: player.pos.z, yaw: player.yaw }), () => leaveForge(), forgeAuthor);
+}, () => ({ x: player.pos.x, z: player.pos.z, yaw: player.yaw }), () => leaveForge(), forgeAuthor));
 function openMap() { if (state !== 'play' && state !== 'pause') return; enterForge(); livingMap.open(); }
 let mapClock = 0;
 // ---------- Phase F: B14 dojo (your character demonstrates; you follow the beginner-safe version) ----------
 const dojoBoard = buildDojo(world.scene, world.colliders);
 let dojoView: boolean | null = null;
-const dojo = new DojoPanel((d) => {
+const dojo = station(new DojoPanel((d) => {
   if (!d) return;
   // Stand on the mats (under the bar for the hanging drill), facing the camera, panel on the left.
   const at = d.pose === 'hang' ? DOJO.bar.clone() : new THREE.Vector3(DOJO.x - 1, 0, DOJO.z);
@@ -1363,7 +1198,7 @@ const dojo = new DojoPanel((d) => {
   const tall = innerHeight > innerWidth;
   rig.setShot(tall ? { pos: new THREE.Vector3(at.x, up + 0.2, at.z + far * 1.5), look: new THREE.Vector3(at.x, up - 1.6, at.z), fov: 50 }
     : { pos: new THREE.Vector3(at.x + (low ? -0.9 : -0.7), up + 0.45, at.z + far - (low ? 0.5 : 0)), look: new THREE.Vector3(at.x + (low ? -2.0 : -1.0), up, at.z), fov: 44 });   // the plank and push-ups lie along -x, centred ~0.9 m from where you stand; clear of the corner post and the water barrel
-}, () => { if (dojoView !== null) { player.thirdPerson = dojoView; dojoView = null; } leaveForge(); }, forgeAuthor);
+}, () => { if (dojoView !== null) { player.thirdPerson = dojoView; dojoView = null; } leaveForge(); }, forgeAuthor));
 function openDojo() {
   if (state !== 'play' && state !== 'pause') return;
   enterForge();
@@ -1377,7 +1212,7 @@ interactables.push({ obj: dojoBoard, verb: () => 'Train at the dojo', act: () =>
 const caravanFolk = buildCaravan(world.scene, world.colliders, world.heightAt);
 for (const f of caravanFolk) puppets.set('caravan:' + f.id, figureOf(f.root));
 let caravanView: boolean | null = null;
-const caravan = new CaravanPanel((t) => {
+const caravan = station(new CaravanPanel((t) => {
   for (const f of caravanFolk) f.root.userData.folk.talking = !!t && f.id === t.id;
   const f = t && caravanFolk.find((c) => c.id === t.id);
   if (!f) return;
@@ -1388,7 +1223,7 @@ const caravan = new CaravanPanel((t) => {
   const side = new THREE.Vector3(back.z, 0, -back.x);
   rig.setShot(tall ? { pos: at.clone().addScaledVector(back, 3.6).setY(at.y + 2.2), look: at.clone().setY(at.y + 0.6), fov: 50 }
     : { pos: at.clone().addScaledVector(back, 3.4).addScaledVector(side, 0.9).setY(at.y + 1.8), look: at.clone().addScaledVector(side, -1.3).setY(at.y + 1.35), fov: 44 });   // side = camera right: they sit right of the panel
-}, (t) => earn(t.reward, 'a talk in Spanish', 'es:' + t.id), () => { if (caravanView !== null) { player.thirdPerson = caravanView; caravanView = null; } leaveForge(); }, () => character.name);
+}, (t) => earn(t.reward, 'a talk in Spanish', 'es:' + t.id), () => { if (caravanView !== null) { player.thirdPerson = caravanView; caravanView = null; } leaveForge(); }, () => character.name));
 function openCaravan(id: string) {
   if (state !== 'play') return;
   const f = caravanFolk.find((c) => c.id === id);
@@ -1398,10 +1233,10 @@ function openCaravan(id: string) {
   caravan.open(f.talk);
 }
 for (const f of caravanFolk) interactables.push({ obj: f.hit, verb: () => f.talk.verb, act: () => openCaravan(f.id), when: () => !inDungeon });
-const phrasebook = new Phrasebook(caravan, () => leaveForge());
+const phrasebook = station(new Phrasebook(caravan, () => leaveForge()));
 // ---------- B19: real-skill mini games at the practice table by the dojo mats; cards go in the Skills book ----------
 const skillTable = buildSkillTable(world.scene, world.colliders, world.heightAt);
-const skills = new SkillsPanel((s) => earn(s.reward, `${s.name} card`, 'skill:' + s.id), () => leaveForge());
+const skills = station(new SkillsPanel((s) => earn(s.reward, `${s.name} card`, 'skill:' + s.id), () => leaveForge()));
 function openSkills() {
   if (state !== 'play') return;
   enterForge();
@@ -1414,7 +1249,7 @@ function openSkills() {
 }
 interactables.push({ obj: skillTable, verb: () => 'Practise a real skill', act: () => openSkills(), when: () => !inDungeon });
 // ---------- B17: gear care at the smith's grindstone (sharpen, clean and oil, restring) ----------
-const gear = new GearPanel(() => leaveForge());
+const gear = station(new GearPanel(() => leaveForge()));
 gear.has = { sword: () => sword.owned, crossbow: () => inventory.count('crossbow') > 0 };
 function applyGear() { const g = gear.st; sword.sharpness = swordSharpness(g); sword.setCondition(g.sharp, g.rust); crossbow.power = bowPower(g); }
 gear.onChange = applyGear;
@@ -1436,12 +1271,12 @@ function openGear() {
   gear.open();
 }
 interactables.push({ obj: grind.hit, verb: () => 'Care for your gear', act: () => openGear(), when: () => !inDungeon });
-const skillsBook = new SkillsBook(skills, () => leaveForge(), () => (gear.st.card ? gearCardHtml(gear.st)
+const skillsBook = station(new SkillsBook(skills, () => leaveForge(), () => (gear.st.card ? gearCardHtml(gear.st)
   : `<div class="sk-card locked"><div class="sk-card-head"><span>${GEAR_CARD.icon}</span><b>${GEAR_CARD.title}</b></div><p class="fine">Not learned yet. The smith teaches it at the grindstone outside the smithy.</p></div>`)
-  + pushupCardHtml(dojo.st.done.includes('pushup')));
+  + pushupCardHtml(dojo.st.done.includes('pushup'))));
 function openSkillsBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); skillsBook.open(); }
 // ---------- B21: the GitHub wiki, pulled at build time, read at the reading room lectern in the Ruined Library ----------
-const wiki = new WikiPanel();
+const wiki = station(new WikiPanel());
 const wikiLectern = buildWikiLectern(library.group, world.colliders);
 function openWiki() { if (state !== 'play') return; enterForge(); wiki.open(() => leaveForge(), 'library'); }
 interactables.push({ obj: wikiLectern, verb: () => 'Read the wiki', act: () => openWiki(), when: () => !inDungeon });
@@ -1510,7 +1345,7 @@ interactables.push(
   { obj: world.stations.anvil, verb: () => inventory.count('crossbow') > 0 ? 'Forge your crossbow' : 'Anvil (bring a crossbow)', act: () => { if (inventory.count('crossbow') > 0) openWeaponForge(); else toast('Natalie has a crossbow you could borrow.'); } },
 );
 // v0.04 town: one building per tool. E at a door opens it; the shopkeeper trades at the counter.
-const shop = new ShopPanel(inventory, () => leaveForge());
+const shop = station(new ShopPanel(inventory, () => leaveForge()));
 function openShop() {
   enterForge();
   const k = world.town.shopkeeper.position, top = new THREE.Vector3(k.x, 1.3, k.z);
@@ -1541,49 +1376,15 @@ for (const id of Object.keys(townAct) as TownId[]) {
 interactables.push({ obj: world.town.shopkeeperHit, verb: () => 'Trade with the Shopkeeper', act: () => openShop() });
 // v0.04 cinema: the Projectionist (a placeholder, never in the lore) shows short reels by Mike and friends
 // (assets/cinema/) on a screen in a gap of the town ring.
-const cin = world.town.cinema, cc = Math.cos(cin.ry), cs = Math.sin(cin.ry);
-const cinAt = (lx: number, lz: number) => new THREE.Vector3(cin.x + lx * cc + lz * cs, 0, cin.z - lx * cs + lz * cc);
-const reelScreen = buildScreen();
-reelScreen.position.copy(cinAt(0, 0.02)).setY(1.95); reelScreen.rotation.y = cin.ry;
-world.scene.add(reelScreen);
-const projectionist = buildFigure({ skin: '#E0B890', hair: '#2A2A30', primary: '#2E3A5A', secondary: '#C9A36B', boots: '#2A221C', accent: '#F2C27A', hairStyle: 'cap', scarf: '#B8463A', build: 1.0 }, 1.75);
-const pj = cinAt(1.9, 1.0);
-projectionist.position.copy(pj); projectionist.rotation.y = cin.ry - 0.5; projectionist.name = 'standee:projectionist';
-world.scene.add(projectionist);
-world.colliders.push({ kind: 'circle', x: pj.x, z: pj.z, r: 0.35 });
-const projectionistHit = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
-projectionistHit.position.copy(pj).setY(0.9); projectionistHit.name = 'projectionist'; world.scene.add(projectionistHit);
-const cinema = new CinemaPanel(reelScreen, () => leaveForge());
+const { reelScreen, projectionistHit } = buildCinemaSpot(world);
+const cinema = station(new CinemaPanel(reelScreen, () => leaveForge()));
 function openCinema() { enterForge(); cinema.open(); }
 // v0.06 T3: the reels' sound comes from the screen; the fire's music from the fire.
 cinema.onVideo = (v) => { const p = reelScreen.position; audio.attachMedia(v, 'cinema', p.x, p.y, p.z, 24); };
 let fireOut: AudioNode | null = null;
 campfire.out = () => (fireOut ??= audio.spatial('campfire', world.stations.campfire.position.x, 0.8, world.stations.campfire.position.z, 26, 'music'));
-// v0.06 T2: ambience zones. Birdsong in a spread of trees, the fountain's and the river's water, the smithy's hammer, chatter at the store.
-const lotFront = (id: TownId, out: number) => { const L = TOWN_LOTS.find((l) => l.id === id)!; return { x: L.x + Math.sin(L.ry) * (L.d / 2 + out), z: L.z + Math.cos(L.ry) * (L.d / 2 + out) }; };
-const zones: Zone[] = [];
-for (const [x, z] of world.trees) if (zones.length < 8 && Math.hypot(x, z) < 46 && zones.every((q) => Math.hypot(q.x - x, q.z - z) > 18)) zones.push({ name: `birds:${zones.length}`, kind: 'birds', x, y: 5, z, range: 15 });
-zones.push({ name: 'fountain', kind: 'water', x: FOUNTAIN.x, y: 0.8, z: FOUNTAIN.z, range: 9 });
-for (const b of BRIDGES) zones.push({ name: `river:${b.z}`, kind: 'water', x: riverX(b.z), y: 0.2, z: b.z, range: 14 });
-{ const s = lotFront('smithy', 0.5); zones.push({ name: 'forge', kind: 'forge', x: s.x, y: 1, z: s.z, range: 16 }); }
-{ const s = lotFront('shop', 2.3); zones.push({ name: 'chatter', kind: 'chatter', x: s.x, y: 1.5, z: s.z, range: 11 }); }
-const ambience = new Ambience(zones);
-// T3 NPC voices: townsfolk who are talking murmur from where they stand (only near enough to hear).
-const voiceNodes = new Map<string, AudioNode | null>();
-let voiceT = 0;
-function folkVoices(dt: number) {
-  if ((voiceT -= dt) > 0) return;
-  voiceT = 0.7;
-  if (!ambience.on) return;
-  for (const f of townsfolk.folk) {
-    if (!f.active || !f.talking) continue;
-    const p = f.root.position;
-    if (Math.hypot(p.x - audio.listener.x, p.z - audio.listener.z) > 14 || Math.random() < 0.35) continue;
-    if (!voiceNodes.has(f.id)) voiceNodes.set(f.id, audio.spatial('voice:' + f.id, p.x, 1.5, p.z, 14, 'dialogue'));
-    const out = voiceNodes.get(f.id);
-    if (out) audio.murmur(out, f.role === 'customer' ? 1.1 : 0.95);
-  }
-}
+const ambience = new Ambience(townZones(world.trees));
+const folkVoices = new FolkVoices(townsfolk, ambience);
 interactables.push({ obj: projectionistHit, verb: () => 'Watch the Projectionist\'s reels', act: () => openCinema() });
 interactables.push({ obj: reelScreen, verb: () => 'Watch the reels', act: () => openCinema() });
 function syncCrossbowView() {

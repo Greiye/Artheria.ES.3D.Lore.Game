@@ -13,6 +13,10 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - One version number: `package.json` is now `tales-of-artheria` 0.10.0, and the build stops if it and `src/version.ts` disagree.
 - README brought up to date (v0.07–v0.10 features, controls, credits).
 
+### v0.10 changelog, part 3: review fixes, round 2 (code only, no change in play)
+- Every station panel registers itself (`src/stations.ts`), and "close everything" closes them newest first, so a new station can't be left out.
+- `main.ts` slimmed by about 200 lines: the page's static markup is in `src/ui/shell.ts`, the controller map in `src/input/padmap.ts`, the town soundscape (ambience zones, townsfolk voices) in `src/world/soundscape.ts`, and the cinema screen and Projectionist in `src/world/cinema-spot.ts`.
+
 ### v0.10 changelog: camera push-up counter (B26, Mike 2026-11-01)
 - The dojo has a new **Push-ups** drill. Your character does push-ups on the mat, and you follow along. Knees down is the beginner version and counts the same.
 - **📷 Count with camera** (opt-in): MediaPipe Pose Lite watches you through the phone or laptop camera and counts each rep. A rep is the elbow bending past about 95° and then straightening past about 150°, using whichever arm the camera sees better. Reps less than 0.4 s apart are ignored.
