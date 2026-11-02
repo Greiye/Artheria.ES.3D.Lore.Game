@@ -4,8 +4,19 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 
 ## Unreleased — next launch (roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.09,
-Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01). Spec doc v0.06.
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.10,
+Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
+
+### v0.10 changelog: camera push-up counter (B26, Mike 2026-11-01)
+- The dojo has a new **Push-ups** drill. Your character does push-ups on the mat, and you follow along. Knees down is the beginner version and counts the same.
+- **📷 Count with camera** (opt-in): MediaPipe Pose Lite watches you through the phone or laptop camera and counts each rep. A rep is the elbow bending past about 95° and then straightening past about 150°, using whichever arm the camera sees better. Reps less than 0.4 s apart are ignored.
+- While the camera is on, a small preview with a skeleton overlay and a red **● Camera on** pill sit in the top-left corner. The camera turns off when you press Stop camera, switch drills or leave the mats.
+- Everything runs on the device. No frame is recorded or sent anywhere.
+- The pose library, its WebAssembly and the model (about 15 MB) ship beside the page in `dist/pose/`. They're only downloaded the first time someone turns the camera on, so the game itself is no bigger.
+- If the camera is refused or missing, the panel says so and **Rep done** still works.
+- Today's reps, your best day and your all-time total are kept in your profile. They're shown under the drill and on a new **Push-ups** card in the Skills book, which you earn by finishing the drill once.
+- The dojo camera is reframed for the right-hand panel, so the plank and push-ups are in clear view.
+- Test: `test/e2e-pushups.mjs`. With `POSE_REAL=1` it also loads the real model in Chromium.
 
 ### v0.09 changelog, part 4: Tailor & Barber-Surgeon (B22, Mike 2026-11-01)
 - The tailor is now the **Tailor & Barber-Surgeon**: on its sign (two lines), at its door and on the DM map.

@@ -58,6 +58,7 @@ import { loadBallads, balladEntry, decodeTune, SCALE, type Ballad } from './camp
 import { Gallery, GALLERY, type Exhibit } from './campfire/gallery';
 import { buildCeilings, roofOver, ROOFED } from './world/ceilings';
 import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
+import { pushupCardHtml } from './dojo/card';
 import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
 import './spanish/caravan.css';
 import { WikiPanel, buildWikiLectern } from './wiki';
@@ -1355,12 +1356,13 @@ const dojo = new DojoPanel((d) => {
   if (!d) return;
   // Stand on the mats (under the bar for the hanging drill), facing the camera, panel on the left.
   const at = d.pose === 'hang' ? DOJO.bar.clone() : new THREE.Vector3(DOJO.x - 1, 0, DOJO.z);
-  player.spawn(at, d.pose === 'plank' ? Math.PI / 2 : Math.PI);   // the plank side-on
-  const up = d.pose === 'hang' ? 1.75 : d.pose === 'plank' ? 0.45 : 1.0, far = d.pose === 'hang' ? 2.9 : 3.3;
+  const low = d.pose === 'plank' || d.pose === 'pushup';
+  player.spawn(at, low ? Math.PI / 2 : Math.PI);   // the plank and push-ups side-on
+  const up = d.pose === 'hang' ? 1.75 : low ? 0.45 : 1.0, far = d.pose === 'hang' ? 2.9 : 3.3;
   // Portrait phones put the panel along the bottom, so the figure goes in the top band instead.
   const tall = innerHeight > innerWidth;
   rig.setShot(tall ? { pos: new THREE.Vector3(at.x, up + 0.2, at.z + far * 1.5), look: new THREE.Vector3(at.x, up - 1.6, at.z), fov: 50 }
-    : { pos: new THREE.Vector3(at.x - 0.7, up + 0.45, at.z + far), look: new THREE.Vector3(at.x - 1.0, up, at.z), fov: 44 });
+    : { pos: new THREE.Vector3(at.x + (low ? -0.9 : -0.7), up + 0.45, at.z + far - (low ? 0.5 : 0)), look: new THREE.Vector3(at.x + (low ? -2.0 : -1.0), up, at.z), fov: 44 });   // the plank and push-ups lie along -x, centred ~0.9 m from where you stand; clear of the corner post and the water barrel
 }, () => { if (dojoView !== null) { player.thirdPerson = dojoView; dojoView = null; } leaveForge(); }, forgeAuthor);
 function openDojo() {
   if (state !== 'play' && state !== 'pause') return;
@@ -1434,8 +1436,9 @@ function openGear() {
   gear.open();
 }
 interactables.push({ obj: grind.hit, verb: () => 'Care for your gear', act: () => openGear(), when: () => !inDungeon });
-const skillsBook = new SkillsBook(skills, () => leaveForge(), () => gear.st.card ? gearCardHtml(gear.st)
-  : `<div class="sk-card locked"><div class="sk-card-head"><span>${GEAR_CARD.icon}</span><b>${GEAR_CARD.title}</b></div><p class="fine">Not learned yet. The smith teaches it at the grindstone outside the smithy.</p></div>`);
+const skillsBook = new SkillsBook(skills, () => leaveForge(), () => (gear.st.card ? gearCardHtml(gear.st)
+  : `<div class="sk-card locked"><div class="sk-card-head"><span>${GEAR_CARD.icon}</span><b>${GEAR_CARD.title}</b></div><p class="fine">Not learned yet. The smith teaches it at the grindstone outside the smithy.</p></div>`)
+  + pushupCardHtml(dojo.st.done.includes('pushup')));
 function openSkillsBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); skillsBook.open(); }
 // ---------- B21: the GitHub wiki, pulled at build time, read at the reading room lectern in the Ruined Library ----------
 const wiki = new WikiPanel();

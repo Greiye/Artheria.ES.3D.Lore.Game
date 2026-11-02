@@ -5,12 +5,13 @@ import { pixelTexture } from '../tex/pixel';
 import type { Collider } from '../world/index';
 import type { Pose } from '../anim/procedural';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
+import { PushupCam, addReps, loadTotals } from './pushups';
 
 // B14 dojo: follow-along training. Your own character demonstrates each drill on the mats; the panel
 // gives your real-life, beginner-safe version. Risky moves (hanging upside down, punching water) are
 // done by the character only (docs/backlog.md B14 safety framing). Reps are on the honour system.
 export const DOJO = { x: -14, z: 14, bar: new THREE.Vector3(-12, 0, 16.4) };
-export type Drill = typeof data.drills[number] & { characterOnly?: boolean };
+export type Drill = typeof data.drills[number] & { characterOnly?: boolean; camera?: boolean };
 const DRILLS = data.drills as Drill[];
 const KEY = 'gametool.dojo';
 interface DojoState { ack: boolean; done: string[]; taught: { name: string; how: string; safe: string }[] }
@@ -53,6 +54,8 @@ export class DojoPanel {
   count = 0;
   private timer = 0;
   private running = false;
+  /** B26: the opt-in camera counter for the push-up drill. */
+  readonly cam = new PushupCam(() => this.rep(), () => { if (this.isOpen) this.render(); });
 
   constructor(private onDrill: (d: Drill | null) => void, private onClose: () => void, private author: () => string) {
     try { const v = JSON.parse(localStorage.getItem(KEY) ?? '{}'); this.st = { ack: !!v.ack, done: Array.isArray(v.done) ? v.done : [], taught: Array.isArray(v.taught) ? v.taught : [] }; }
@@ -67,7 +70,7 @@ export class DojoPanel {
   get pose(): Pose | null { return this.isOpen && this.st.ack ? this.drill.pose as Pose : null; }
   private save() { try { localStorage.setItem(KEY, JSON.stringify(this.st)); } catch { /* blocked */ } }
   open() { this.count = 0; this.running = false; this.render(); this.el.classList.remove('hidden'); this.onDrill(this.st.ack ? this.drill : null); }
-  close() { if (!this.isOpen) return; this.running = false; this.el.classList.add('hidden'); this.onDrill(null); this.onClose(); }
+  close() { if (!this.isOpen) return; this.running = false; this.cam.stop(); this.el.classList.add('hidden'); this.onDrill(null); this.onClose(); }
 
   // Hold drills count seconds while running; called from the game loop.
   tick(dt: number) {
@@ -75,20 +78,29 @@ export class DojoPanel {
     this.timer += dt;
     if (this.timer >= 1) { this.timer -= 1; this.bump(); }
   }
+  /** One push-up (camera or "Rep done"): goes into the profile's totals too. */
+  rep() { if (this.drill.camera) addReps(1); this.bump(); }
   bump() {
-    this.count = Math.min(this.drill.target, this.count + 1);
+    this.count = this.drill.camera ? this.count + 1 : Math.min(this.drill.target, this.count + 1);
+    if (this.drill.camera && this.count > this.drill.target) { this.renderCount(); return; }
     if (this.count >= this.drill.target) { this.running = false; if (!this.st.done.includes(this.drill.id)) { this.st.done.push(this.drill.id); this.save(); } this.render(); }
-    else { const c = this.el.querySelector('.dj-count'); if (c) c.textContent = this.countText(); }
+    else this.renderCount();
   }
+  private renderCount() {
+    const c = this.el.querySelector('.dj-count'); if (c) c.textContent = this.countText();
+    const t = this.el.querySelector('.dj-totals'); if (t) t.textContent = this.totalsText();
+  }
+  private totalsText() { const t = loadTotals(); return `Today ${t.today} · best day ${t.best} · all time ${t.total}`; }
   private countText() { return this.drill.kind === 'hold' ? `${this.count} / ${this.drill.target} s` : `${this.count} / ${this.drill.target} reps`; }
 
   private click(ev: Event) {
     const b = (ev.target as HTMLElement).closest('button') as HTMLButtonElement | null;
     if (!b) return;
     if (b.id === 'djAck') { this.st.ack = true; this.save(); this.render(); this.onDrill(this.drill); }
-    else if (b.dataset.drill) { this.drill = DRILLS.find((d) => d.id === b.dataset.drill)!; this.count = 0; this.running = false; this.render(); this.onDrill(this.drill); }
+    else if (b.dataset.drill) { this.cam.stop(); this.drill = DRILLS.find((d) => d.id === b.dataset.drill)!; this.count = 0; this.running = false; this.render(); this.onDrill(this.drill); }
     else if (b.id === 'djStart') { this.running = !this.running; this.timer = 0; this.render(); }
-    else if (b.id === 'djRep') this.bump();
+    else if (b.id === 'djRep') this.rep();
+    else if (b.id === 'djCam') { if (this.cam.on) this.cam.stop(); else void this.cam.start(); }
     else if (b.id === 'djTeach') {
       const v = (id: string) => (this.el.querySelector('#' + id) as HTMLInputElement).value.trim();
       const t = { name: v('djName'), how: v('djHow'), safe: v('djSafe') };
@@ -115,7 +127,10 @@ export class DojoPanel {
       <ol class="dj-steps">${d.you.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ol>
       <p class="dj-safety">⚠ ${escapeHtml(d.safety)}</p>
       <div class="dj-count">${this.countText()}</div>
-      <div class="forge-actions">${d.kind === 'hold' ? `<button class="primary" id="djStart">${this.running ? 'Pause' : this.count ? 'Resume' : 'Start the hold'}</button>` : '<button class="primary" id="djRep">Rep done</button>'}</div>
+      ${d.camera ? `<p class="dj-totals fine">${this.totalsText()}</p>` : ''}
+      <div class="forge-actions">${d.kind === 'hold' ? `<button class="primary" id="djStart">${this.running ? 'Pause' : this.count ? 'Resume' : 'Start the hold'}</button>` : '<button class="primary" id="djRep">Rep done</button>'}${d.camera ? `<button class="secondary" id="djCam">${this.cam.on ? 'Stop camera' : '📷 Count with camera'}</button>` : ''}</div>
+      ${d.camera && this.cam.error ? `<p class="dj-safety">${escapeHtml(this.cam.error)}</p>` : ''}
+      ${d.camera && !this.cam.on ? '<p class="fine">Camera: opt-in. Prop your phone or laptop on the floor 1–2 m away, side-on, whole body in view. Counted on this device only; nothing is recorded or sent. The first time downloads the pose model (about 15 MB).</p>' : ''}
       <p class="fine">Honour system: count only what you actually did. Doing less is fine.</p>
       <details><summary>Teach a drill</summary>
         <label class="field">Name<input id="djName" type="text" maxlength="48"></label>
