@@ -44,14 +44,15 @@ await page.keyboard.press('KeyE');
 check('B4 E on the mirror opens the character forge', await until(page, () => window.__gametool.state === 'forge' && !document.getElementById('forge').classList.contains('hidden')));
 check('B4 the forge frames the player (camera shot, body shown)', await until(page, () => window.__gametool.rig.inShot && window.__gametool.player.body.visible));
 const humanVerts = await vcount();
+await tab('#forge', 'Body');
 await page.click('#forge [data-f="species"][data-v="infernling"]');
 const inf = await until(page, (h) => window.__gametool.player.body.children[0].userData.rig.mesh.geometry.attributes.position.count > h, humanVerts);
 check('B4 picking Infernling rebuilds the live figure with horns and a tail', inf);
-await tab('#forge', 'Hair');   // B27: the forges are tabbed
+await tab('#forge', 'Barber');   // B27: the forges are tabbed; B22: hair is the barber's
 await page.click('#forge [data-f="hairStyle"][data-v="topknot"]');
-await tab('#forge', 'Outfit');
+await tab('#forge', 'Tailor');
 await page.click('#forge [data-f="primary"][data-v="#A8523A"]');
-await tab('#forge', 'Story');
+await tab('#forge', 'Who you are');
 await page.fill('#fgName', 'Kazka Test');
 await page.fill('#fgStory', 'Born under a grey sky.');
 

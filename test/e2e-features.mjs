@@ -40,7 +40,7 @@ async function newPage() {
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 }).catch(() => {});
   check('B25 rollback: a new player\'s first Begin goes straight into play (no character form)', (await G(page, () => window.__gametool.state)) === 'play');
   check('B25 rollback: the character form never showed and nothing has focus in a text box',
-    await G(page, () => document.getElementById('charcreate').classList.contains('hidden') && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? '')));
+    await G(page, () => !document.getElementById('charcreate') && !window.__gametool.characterForge.isOpen && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? '')));
   await page.waitForTimeout(600); // let the async pointer-lock request settle before releasing it below
   await page.evaluate(() => document.exitPointerLock());
   await page.waitForTimeout(150);
@@ -52,10 +52,12 @@ async function newPage() {
   await page.click('[data-group="gameplay"]');   // close the group again
   check('B25: the Journal lists "Who you are" as a page', await page.isVisible('#pgSelf'));
   await page.click('#pgSelf');
-  check('B25: the Journal page opens the form', (await G(page, () => window.__gametool.state)) === 'charcreate');
-  await page.fill('#ccName', 'Rill');
-  await page.click('#ccBegin');
-  check('B25: Save returns to the Journal and keeps the name', (await G(page, () => window.__gametool.state)) === 'pause' && (await G(page, () => window.__gametool.character.name)) === 'Rill');
+  // B22: the form now lives at the Tailor & Barber-Surgeon, on its "Who you are" tab.
+  check('B25/B22: the Journal page opens the tailor on "Who you are"', await page.waitForFunction(() => window.__gametool.state === 'forge' && window.__gametool.characterForge.isOpen && document.querySelector('#forge .fp-tab.on')?.textContent === 'Who you are' && !!document.querySelector('#fgMotivation'), null, { timeout: 5000 }).then(() => true, () => false));
+  await page.fill('#fgName', 'Rill');
+  await page.fill('#fgMotivation', 'To find the missing party.');
+  await page.click('#fgDone');
+  check('B25: Done returns to the Journal and keeps the name and motivation', (await G(page, () => window.__gametool.state)) === 'pause' && (await G(page, () => window.__gametool.character.name)) === 'Rill' && (await G(page, () => window.__gametool.character.motivation)) === 'To find the missing party.');
   await page.click('#pgCasebook');
   check('B25: the casebook carries the hero\'s name', /Casebook of Rill/.test(await page.textContent('.casebook-panel .eyebrow').catch(() => '')));
   check('Character creation: no console/page errors', errors.length === 0, errors.join(' | '));

@@ -14,7 +14,8 @@ import { waterMaterial } from './river';
 // one gap in the ring and the lane from the glade another. Buildings are shells: E at a door opens the tool.
 export type TownId = 'library' | 'smithy' | 'tailor' | 'scriptorium' | 'cartographer' | 'dojo' | 'gallery' | 'shop' | 'inn';
 export const TOWN_NAMES: Record<TownId, string> = {
-  library: 'Library', smithy: 'Smithy', tailor: 'Tailor', scriptorium: 'Scriptorium', cartographer: 'Cartographer',
+  library: 'Library', smithy: 'Smithy', tailor: 'Tailor & Barber-Surgeon',   // B22 (Mike 2026-11-01): clothes, hair and face, markings and first aid
+  scriptorium: 'Scriptorium', cartographer: 'Cartographer',
   dojo: 'Dojo', gallery: 'Gallery', shop: 'General Store', inn: 'Inn',
 };
 const ICONS: Record<TownId, string> = { library: '❦', smithy: '⚒', tailor: '✂', scriptorium: '✒', cartographer: '⌖', dojo: '☯', gallery: '▣', shop: '⚖', inn: '☾' };
@@ -251,7 +252,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   });
   const gs = signUV(new THREE.PlaneGeometry(2.8, 0.7), LOTS.length, LOTS.length + 1);   // the atlas's last sign
   signs.push(gs.rotateY(Math.PI / 2).translate(GATE.x + 0.2, 2.45, GATE.z));
-  const signMesh = new THREE.Mesh(mergeGeometries(signs), new THREE.MeshBasicMaterial({ map: signAtlas([...LOTS.map((l) => [`${ICONS[l.id]}  ${TOWN_NAMES[l.id]}`]), ['Temporary Exit -', 'Mind the dust']]), side: THREE.DoubleSide }));
+  const signMesh = new THREE.Mesh(mergeGeometries(signs), new THREE.MeshBasicMaterial({ map: signAtlas([...LOTS.map((l) => { const [a, b] = TOWN_NAMES[l.id].split(' & '); return b ? [`${ICONS[l.id]}  ${a} &`, b] : [`${ICONS[l.id]}  ${a}`]; }), ['Temporary Exit -', 'Mind the dust']]), side: THREE.DoubleSide }));
   signMesh.name = 'town-signs'; signMesh.raycast = () => {};
   scene.add(signMesh);
 

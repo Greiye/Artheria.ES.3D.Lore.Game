@@ -55,6 +55,9 @@ export function fitPanel(p: HTMLElement): void {
   zoomToFit(p);
 }
 
+/** Open a panel on a given tab next time it's drawn; `key` is its eyebrow text. */
+export function setPanelTab(key: string, i: number): void { openTab.set(key, i); }
+
 /** Which tab a panel shows (tests). */
 export function panelTab(p: HTMLElement): number { return openTab.get(keyOf(p)) ?? 0; }
 

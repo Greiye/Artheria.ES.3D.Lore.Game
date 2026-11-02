@@ -3,7 +3,7 @@ import type { Player } from '../player';
 import type { Crossbow } from '../crossbow';
 import type { Sword } from '../sword';
 
-export type State = 'title' | 'play' | 'book' | 'pause' | 'resume' | 'editor' | 'charcreate' | 'dialogue' | 'inventory' | 'forge';
+export type State = 'title' | 'play' | 'book' | 'pause' | 'resume' | 'editor' | 'dialogue' | 'inventory' | 'forge';
 export type InputMode = 'mouse' | 'touch' | 'pad';
 
 // What the touch and gamepad layers are allowed to do to the game.
