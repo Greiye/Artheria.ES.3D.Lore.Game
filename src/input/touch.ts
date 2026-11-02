@@ -4,7 +4,7 @@ import { haptics } from './haptics';
 
 // Touch controls for phones / tablets (owner promoted B7 touch on 2026-10-16).
 // Left side: floating joystick (small push = walk, full push = run).
-// Right side: drag to look. Buttons: Jump, Sneak, Sprint (hold), View, camera −/+, Read (when aimed at the
+// Right side: drag to look. Buttons: Jump, Sneak, Sprint (hold), Bag; top: 🎥 perspective, quick-equip 🏹 🗡 🔥 (B28); Read (when aimed at the
 // book), Menu. v0.04: landscape first, face buttons in a controller's diamond, a buzz on each press.
 // UX pass (Mike 2026-10-31): thumb zones. One context button beside the face buttons names what it will do
 // (Talk / Read / Open ...); Map, Journal, Bag and Menu sit in a row in the top corner, one tap each; a faint
@@ -31,7 +31,6 @@ export class TouchControls {
       <div class="t-row">
         <button class="t-btn" data-act="map" aria-label="Map">Map</button>
         <button class="t-btn" data-act="journal" aria-label="Journal">Journal</button>
-        <button class="t-btn t-inv" data-act="inventory" aria-label="Inventory">Bag</button>
         <button class="t-btn t-menu" data-act="menu" aria-label="Menu">☰</button>
       </div>
       <button class="t-btn t-read t-use hidden" data-act="read">Use</button>
@@ -42,13 +41,14 @@ export class TouchControls {
         <button class="t-btn t-fire" data-act="fire">Fire</button>
       </div>
       <div class="t-cam">
-        <button class="t-btn" data-act="camin" aria-label="Camera in">−</button>
-        <button class="t-btn" data-act="camout" aria-label="Camera out">+</button>
-        <button class="t-btn" data-act="torch" aria-label="Torch">🔥</button>
+        <button class="t-btn t-pov" data-act="pov" aria-label="Change perspective" title="Change perspective">🎥</button>
+        <button class="t-btn t-q" data-act="qbow" aria-label="Crossbow" title="Crossbow">🏹</button>
+        <button class="t-btn t-q" data-act="qsword" aria-label="Sword" title="Sword">🗡</button>
+        <button class="t-btn t-q" data-act="torch" aria-label="Torch" title="Torch">🔥</button>
       </div>
       <div class="t-cluster">
         <button class="t-btn" data-act="sprint">Sprint</button>
-        <button class="t-btn" data-act="pov">View</button>
+        <button class="t-btn t-inv" data-act="inventory" aria-label="Inventory">Bag</button>
         <button class="t-btn" data-act="sneak">Sneak</button>
         <button class="t-btn t-jump" data-act="jump">Jump</button>
       </div>`;
@@ -73,12 +73,12 @@ export class TouchControls {
         const p = this.g.player;
         haptics.play(act === 'jump' ? 'jump' : 'tap');
         if (act === 'jump') p.jump();
-        else if (act === 'camin') this.g.stepCamera(-1);
-        else if (act === 'camout') this.g.stepCamera(1);
+        else if (act === 'qbow') this.g.quickEquip('crossbow');   // B28 (Mike 2026-11-01): quick-equip buttons
+        else if (act === 'qsword') this.g.quickEquip('sword');
         else if (act === 'torch') this.g.toggleTorch();
         else if (act === 'sneak') { p.toggleSneak(); b.classList.toggle('latched', p.sneaking); }
         else if (act === 'sprint') p.held.add('sprint');
-        else if (act === 'pov') this.g.toggleView();   // F2.4
+        else if (act === 'pov') this.g.toggleView();   // B28: the one perspective button (first person, shoulder, overhead)
         else if (act === 'read') this.g.activate();
         else if (act === 'menu') this.g.pause();
         else if (act === 'inventory') this.g.openInventory();
@@ -132,7 +132,7 @@ export class TouchControls {
     }
     const last = this.looks.get(e.pointerId);
     if (last) {
-      if (this.g.state() === 'play') this.g.player.look((e.clientX - last.x) * controls.touch.lookScale, (e.clientY - last.y) * controls.touch.lookScale);
+      if (this.g.state() === 'play') this.g.player.look((e.clientX - last.x) * controls.touch.lookScale, (e.clientY - last.y) * controls.touch.lookScale, false);   // B28: a drag never zooms
       this.looks.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
   }
@@ -168,6 +168,9 @@ export class TouchControls {
     const wb = bow.querySelector<HTMLElement>('[data-act="bow"]')!, wl = cb.equipped ? 'Bow' : sw.equipped ? 'Sword' : 'Hands';
     if (wb.textContent !== wl) wb.textContent = wl;
     this.root.querySelector('[data-act="aim"]')!.classList.toggle('latched', cb.ads);
+    // B28: the quick-equip buttons light while that's in hand, and dim until you own it.
+    const lit = (act: string, on: boolean, own: boolean) => { const b = this.root.querySelector(`[data-act="${act}"]`)!; b.classList.toggle('latched', on); b.classList.toggle('dim', !own); };
+    lit('qbow', cb.equipped, this.hasBow()); lit('qsword', sw.equipped, this.g.hasSword()); lit('torch', this.g.torchLit(), true);
     const ads = cb.ads ? '1' : '0';
     if (document.body.dataset.ads !== ads) document.body.dataset.ads = ads;   // v0.06 U2: fewer buttons while aiming
   }

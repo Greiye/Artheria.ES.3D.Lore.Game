@@ -176,7 +176,7 @@ player.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));   // v0.04 hi
 player.spawn(world.spawn.pos, world.spawn.yaw);
 // R3: the camera rig places the camera (follow / first person / framed shots); the player only moves.
 const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => settings.fov);
-player.zoomBy = (d) => stepView(rig.zoomBy(d));   // pinch / right stick: steps through the 5 distances
+player.zoomBy = (d) => stepView(rig.zoomBy(d));   // mouse drag / right stick: steps through the 5 distances (B28: touch drags never zoom)
 rig.update(0);
 world.scene.add(player.body);
 const torch = new Torch(world.scene, camera, player);   // v0.04
@@ -2121,6 +2121,12 @@ const hooks: GameHooks = {
   dialogueMove: (d: number) => dialogue.move(d),
   stepCamera: (n) => stepView(n),
   toggleTorch: () => toggleTorch(),
+  quickEquip: (what) => {   // B28: tap the crossbow or sword to take it in hand; tap it again to put it away
+    if (state !== 'play') return;
+    if (what === 'crossbow') equip(!crossbow.equipped); else if (sword.equipped) sword.unequip(); else equipSword();
+    showQuick();
+  },
+  torchLit: () => torch.lit,
   quickSwap: (h) => quickSwap(h),
   menuActive: () => !!intro?.active || extras.isOpen || gateOpen || telling.isOpen || quick.isOpen || whatsNew.isOpen || (wiki.isOpen && state !== 'forge') || campfire.isOpen,
   menu: (d) => menuInput(d),
