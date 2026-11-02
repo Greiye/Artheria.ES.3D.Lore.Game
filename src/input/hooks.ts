@@ -34,6 +34,8 @@ export interface GameHooks {
   dialogueMove(d: number): void; // v0.05: move the highlighted dialogue choice
   stepCamera(n: number): void;  // v0.04: one camera distance out (+1) or in (-1)
   toggleTorch(): void;          // v0.04
+  quickEquip(what: 'crossbow' | 'sword'): void;   // B28: the touch quick-equip buttons (tap again to put it away)
+  torchLit(): boolean;          // B28: lights the torch button
   quickSwap(hand: 'left' | 'right'): void;   // v0.04 D-pad quick swap
   menuActive(): boolean;   // v0.05: a menu that takes the D-pad is up (intro, main menu, Extras, gate prompt)
   menu(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boolean;   // v0.05: menus with the D-pad

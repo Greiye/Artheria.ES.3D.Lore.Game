@@ -70,7 +70,7 @@ await G(page, () => window.__gametool.livingMap.close()); await page.waitForTime
 await page.tap('.t-row [data-act="journal"]');
 check('One tap: Journal opens the casebook', await G(page, () => window.__gametool.casebook.isOpen));
 await G(page, () => window.__gametool.casebook.close()); await page.waitForTimeout(150);
-await page.tap('.t-row [data-act="inventory"]');
+await page.tap('.t-cluster [data-act="inventory"]');   // B28: the Bag button took the old View slot
 check('One tap: Bag opens the bag', await G(page, () => window.__gametool.state === 'inventory'));
 await page.tap('.inv-close');
 await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 }).catch(() => {});

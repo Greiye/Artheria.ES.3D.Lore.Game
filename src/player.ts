@@ -85,11 +85,12 @@ export class Player {
   zoomBy: ((d: number) => void) | null = null;
 
   // F2.1 Mouse: look, pitch clamped ±89°, invert Y + sensitivity from settings (F2.3).
-  look(dx: number, dy: number) {
+  look(dx: number, dy: number, zoom = true) {
     const k = controls.mouseBase * this.settings.sensitivity;
     const lim = THREE.MathUtils.degToRad(controls.pitchLimitDeg);
     this.yaw -= dx * k;
-    if (this.thirdPerson && this.zoomBy) { this.zoomBy(dy * k * 0.5); return; }
+    if (this.thirdPerson && this.zoomBy && zoom) { this.zoomBy(dy * k * 0.5); return; }
+    if (this.thirdPerson && !zoom) return;   // B28 (Mike 2026-11-01): a touch drag only turns; the 🎥 button changes the view
     this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k * (this.settings.invertY ? -1 : 1), -lim, lim);
   }
 

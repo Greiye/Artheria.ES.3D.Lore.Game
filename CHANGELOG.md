@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.09,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01). Spec doc v0.06.
 
+### v0.09 changelog, part 2: touch controls (B28, Mike 2026-11-01)
+- The camera − / + buttons at the top are gone. In their place:
+  - **🎥 Change perspective**, the only button that changes the view. It cycles first person, over the shoulder and overhead.
+  - **Quick-equip buttons:** 🏹 crossbow, 🗡 sword and 🔥 torch. Tap one to take it in hand, and tap it again to put it away. The one in hand is lit, and an item you don't own yet is dimmed.
+- The old "View" button by Jump is now **Bag** (your inventory). The Bag button that sat at the top right is gone, so there's only one.
+- No more drag-to-zoom on touch: dragging on the right of the screen only turns you. It used to zoom the camera, which fought the move stick.
+- The gamepad and mouse are unchanged.
+- Test: `test/e2e-touch-hud.mjs`.
+
 ### v0.09 changelog, part 1: station panels on the right, all on one screen (B27 + B29, Mike 2026-11-01)
 - Every station's side panel now sits on the **right** of the screen: the forges, campfire, camp kitchen, dojo, caravan, skills table, grindstone, store, sketchbook and the Journal pages. The camera's view slides over by the panel's width, so the station stays in the open space on the left. A phone held upright still has the panel along the bottom.
 - The panels are compact. Type, spacing and buttons follow the screen height, so everything shows at once without scrolling, on a 720p screen and on a phone held sideways.

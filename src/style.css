@@ -156,9 +156,13 @@ body:not([data-input="touch"]) .t-btn { display: none; }
 .t-cluster [data-act="jump"] { right: 60px; bottom: 0; width: 80px; height: 80px; font-size: 14px; }
 .t-cluster [data-act="sneak"] { right: 0; bottom: 68px; }
 .t-cluster [data-act="sprint"] { right: 136px; bottom: 68px; }
-.t-cluster [data-act="pov"] { right: 68px; bottom: 136px; }
+.t-cluster [data-act="inventory"] { right: 68px; bottom: 136px; }
 .t-cam { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
 .t-cam .t-btn { position: static; width: 48px; height: 48px; border-radius: 10px; font-size: 18px; }
+/* B28 (Mike 2026-11-01): one perspective button, then quick-equip for the crossbow, sword and torch. */
+.t-cam .t-pov { margin-right: 6px; }
+.t-cam .t-q.latched { background: rgba(242,201,76,.35); border-color: #F2C94C; box-shadow: 0 0 10px rgba(242,201,76,.5); }
+.t-cam .t-q.dim { opacity: .4; }
 /* Mike 2026-10-30: a phone held upright is asked to turn sideways from the first screen (over the splash too). */
 #rotateAsk { display: none; position: fixed; inset: 0; z-index: 200; place-items: center; align-content: center; gap: 12px;
   padding: 24px; background: rgba(12,14,13,.94); color: var(--parchment); text-align: center; font-family: var(--ui); }
@@ -245,7 +249,6 @@ button.secondary:hover { border-color: var(--rune); color: var(--parchment); }
 .inv-empty { color: var(--stone-l); font-style: italic; }
 #toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); background: rgba(30,36,32,.9); color: var(--parchment);
   border: 1px solid var(--rune); border-radius: 8px; padding: 8px 14px; font-size: 14px; pointer-events: none; }
-.t-inv { position: absolute; right: calc(16px + env(safe-area-inset-right)); top: calc(70px + env(safe-area-inset-top)); }
 
 /* F4 crossbow HUD: bolts + state, and the active-reload bar with its bright 15% zone (F4.3). */
 #ammo { position: absolute; left: 50%; bottom: calc(40px + env(safe-area-inset-bottom)); transform: translateX(-50%); text-align: center;
@@ -416,7 +419,7 @@ body:not([data-state="title"]) #intro.menu .logo { opacity: 0; }
 .t-cluster { width: 212px; height: 206px; }
 .t-cluster [data-act="jump"] { right: 66px; }
 .t-cluster [data-act="sprint"] { right: 148px; }
-.t-cluster [data-act="pov"] { right: 74px; bottom: 140px; }
+.t-cluster [data-act="inventory"] { right: 74px; bottom: 140px; }
 /* U1: the crossbow buttons sit in a 2×2 block to the left of the face buttons (they used to run down the right
    edge into Jump / Sneak). U2: every touch target is at least 44 px and clear of the notch. */
 .t-bow { top: auto; right: calc(16px + 212px + 14px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom));
@@ -425,7 +428,7 @@ body:not([data-state="title"]) #intro.menu .logo { opacity: 0; }
 .t-bow .t-fire { background: rgba(160,60,40,.6); }
 body[data-input="touch"] #ammo { bottom: calc(94px + env(safe-area-inset-bottom)); }
 /* Context-sensitive: aiming hides what you can't use while aiming. */
-body[data-ads="1"] .t-cluster [data-act="sprint"], body[data-ads="1"] .t-cluster [data-act="pov"] { display: none; }
+body[data-ads="1"] .t-cluster [data-act="sprint"], body[data-ads="1"] .t-cluster [data-act="inventory"] { display: none; }
 @media (max-height: 420px) {
   .t-cluster { transform: scale(.86); transform-origin: right bottom; }
   .t-bow { right: calc(16px + 183px + 12px + env(safe-area-inset-right)); grid-template-columns: repeat(2, 52px); }
@@ -470,7 +473,7 @@ body[data-lefty] .t-cluster { right: auto; left: calc(16px + env(safe-area-inset
 body[data-lefty] .t-cluster [data-act="jump"] { right: auto; left: 66px; }
 body[data-lefty] .t-cluster [data-act="sneak"] { right: auto; left: 0; }
 body[data-lefty] .t-cluster [data-act="sprint"] { right: auto; left: 148px; }
-body[data-lefty] .t-cluster [data-act="pov"] { right: auto; left: 74px; }
+body[data-lefty] .t-cluster [data-act="inventory"] { right: auto; left: 74px; }
 body[data-lefty] .t-use { right: auto; left: calc(16px + 212px + 10px + env(safe-area-inset-left)); transform-origin: left bottom; }
 body[data-lefty] .t-bow { right: auto; left: calc(16px + 212px + 10px + 104px + env(safe-area-inset-left)); transform-origin: left bottom; }
 body[data-lefty] .t-ghost { left: auto; right: calc(70px + env(safe-area-inset-right)); }
