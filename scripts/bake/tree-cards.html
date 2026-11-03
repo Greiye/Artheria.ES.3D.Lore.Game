@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- Bakes the crossed-quad tree cards (scripts/bake-tree-cards.mjs runs it). Not part of the game build. -->
+<script type="importmap">{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/examples/jsm/": "/node_modules/three/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+const CW = 128, CH = 256;   // one card
+// Tree_01 and Tree_01001 come out as a bare trunk beside a far-off sapling side-on (their parts sit apart), so
+// they are left out, and three near-repeats with them: eight cards fill a 4 x 2 grid, 512 px square (the world's
+// texture limit).
+const SKIP = ['Tree_01', 'Tree_01001', 'Background_Tree_Atlas003', 'Background_Tree_Atlas006', 'Background_Tree_Atlas007'];
+const COLS = 4;
+window.bake = async (url) => {
+  const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url);
+  const root = gltf.scene; root.updateMatrixWorld(true);
+  // One tree = its trunk and its branches ("Tree_Trunk_01.002" + "Tree_Branches_01.002"); rocks are left out.
+  const groups = new Map();
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    const key = (o.parent?.name || o.name).replace(/^Tree_(Trunk|Branches)_/, 'Tree_');
+    if (key.startsWith('Rocks')) return;
+    const src = o.material, mat = new THREE.MeshBasicMaterial({ map: src.map, color: src.color, alphaTest: src.map && src.transparent ? 0.5 : 0, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(o.geometry, mat); m.applyMatrix4(o.matrixWorld);
+    (groups.get(key) ?? groups.set(key, []).get(key)).push(m);
+  });
+  const trees = [...groups.entries()].map(([key, ms]) => { const g = new THREE.Group(); ms.forEach((m) => g.add(m)); const b = new THREE.Box3().setFromObject(g); return { key, g, b, h: b.max.y - b.min.y }; }).filter((t) => t.h > 3 && !SKIP.includes(t.key));
+  const renderer = new THREE.WebGLRenderer({ alpha: true, preserveDrawingBuffer: true });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setPixelRatio(1); renderer.setSize(CW * COLS, CH * Math.ceil(trees.length / COLS)); renderer.setClearColor(0, 0); renderer.setScissorTest(true);
+  const fill = [];   // how much of its card's height each tree fills
+  trees.forEach((t, i) => {
+    const scene = new THREE.Scene(); scene.add(t.g);
+    const c = t.b.getCenter(new THREE.Vector3()), w = Math.max(t.b.max.x - t.b.min.x, t.b.max.z - t.b.min.z), half = Math.max(w / 2, t.h / 4) * 1.02;
+    const cam = new THREE.OrthographicCamera(-half, half, half * 2, -half * 2, 0.1, 500);   // 1:2, the tree's foot on the bottom edge
+    cam.position.set(c.x, t.b.min.y + half * 2, c.z + 100); cam.lookAt(c.x, t.b.min.y + half * 2, c.z);
+    fill.push(+(t.h / (half * 4)).toFixed(3));
+    const vx = (i % COLS) * CW, vy = (Math.ceil(trees.length / COLS) - 1 - Math.floor(i / COLS)) * CH;   // row 0 at the top
+    renderer.setViewport(vx, vy, CW, CH); renderer.setScissor(vx, vy, CW, CH);
+    renderer.clear(); renderer.render(scene, cam);
+  });
+  return { url: renderer.domElement.toDataURL('image/png'), n: trees.length, heights: trees.map((t) => +t.h.toFixed(2)), fill, keys: trees.map((t) => t.key + ':' + t.g.children.length) };
+};
+window.ready = true;
+</script>

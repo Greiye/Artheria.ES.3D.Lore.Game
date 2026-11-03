@@ -119,15 +119,15 @@ mp.on('pageerror', (e) => mErr.push(e.message));
 await mp.goto(`http://127.0.0.1:${server.address().port}/` + path.basename(file));
 await mp.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
 await until(mp, () => (window.__gametool.animators.get('witch')?.mixer.time ?? 0) > 0.3, null, 30000);   // measured as the game shows her, idling
-const models = await G(mp, async () => { const g = window.__gametool; await g.modelsReady; const pack = await g.forestPack;
+const models = await G(mp, async () => { const g = window.__gametool; await g.modelsReady; const pack = g.forestCards;
   const size = (id) => { const h = g.loadedModels.get(id); if (!h) return 0; h.updateWorldMatrix(true, true); h.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); } }); const b = new g.Box3().setFromObject(h); return +(b.max.y - b.min.y).toFixed(2); };   // skinned bounds follow the bones
   let witchTris = 0; g.loadedModels.get('witch')?.traverse((o) => { if (o.isMesh) witchTris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
-  const big = []; pack?.mesh.traverse((o) => { if (o.isMesh && o.material.map) { const i = o.material.map.image; if (i.width > 512 || i.height > 512) big.push(i.width + 'x' + i.height); } });
+  
   return { witch: size('witch'), witchAnim: g.animators.get('witch')?.current, witchTris, witchHidden: !g.world.standees.witch.visible, sword: size('sword'),
-    trees: pack?.trees ?? 0, rocks: pack?.rocks ?? 0, packMeshes: pack?.mesh.children.length ?? 0, big, failed: [...g.failedModels.keys()] }; });
+    trees: pack?.trees ?? 0, clusters: pack?.clusters ?? 0, cardMesh: !!pack?.mesh.isMesh, failed: [...g.failedModels.keys()] }; });
 check('The Quaternius witch replaces her placeholder by the windmill: 1.7 m, idling, ≤5k tris', Math.abs(models.witch - 1.7) < 0.05 && models.witchAnim === 'idle' && models.witchTris <= 5000 && models.witchHidden, JSON.stringify(models));
 check('The Quaternius sword stands at the smithy', Math.abs(models.sword - 1.02) < 0.05);
-check('The tree pack dresses the hills in a few merged meshes, textures ≤512²', models.trees >= 50 && models.rocks > 0 && models.packMeshes <= 8 && models.big.length === 0 && models.failed.length === 0);
+check('Card trees (crossed quads) dress the hills in clusters, one merged mesh; no model fails to load', models.trees >= 50 && models.clusters >= 12 && models.cardMesh && models.failed.length === 0, JSON.stringify(models));
 await G(mp, () => { document.getElementById('extras')?.remove(); });
 const credits = await G(page, () => { const g = window.__gametool; g.extras.open(); g.extras.show('inspirations'); const t = document.getElementById('extras').textContent; g.extras.close(); return t; });
 check('Extras credits Quaternius (CC0) and 99.Miles (CC BY 4.0)', /Quaternius/.test(credits) && /CC0/.test(credits) && /99\.Miles/.test(credits) && /CC BY 4\.0/.test(credits));
