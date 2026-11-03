@@ -17,9 +17,14 @@ export interface AnimInput {
   swing?: number | null;  // v0.08: 0..1 through a sword cut
   combo?: number;         // v0.08: 1 forehand, 2 backhand, 3 heavy overhead
 }
+// B34 (Mike 2026-11-03): one-shot moves layered over whatever the body is doing: a wave, picking something up,
+// flinching from a hit, and idle fidgets (look round, stretch, shift weight) that idle figures play on their own.
+export type Gesture = 'wave' | 'pickup' | 'hit' | 'look' | 'stretch' | 'shift';
+const GESTURE_TIME: Record<Gesture, number> = { wave: 1.6, pickup: 0.9, hit: 0.6, look: 2.6, stretch: 2.2, shift: 2.0 };
+const FIDGETS: Gesture[] = ['look', 'stretch', 'shift'];
 // v0.06 S1 station poses: sit (campfire), smith (anvil), mirror (tailor), write (desk / scriptorium), kneel (bedroll).
 // v0.06 T4: the cinema band plays: fiddle, drum and pipe.
-export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe' | 'wake' | 'wakeroll';
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe' | 'wake' | 'wakeroll' | 'sitground';
 
 const WALK = 2.5, RUN = 5;
 // B33 (Mike 2026-11-03): poses update every frame, smooth. (Restyle S2f had stepped them at 12 fps for a
@@ -36,7 +41,24 @@ export class FigureAnim {
   private B: Record<BoneName, THREE.Bone>;
   private rest: Record<BoneName, THREE.Vector3>;
 
+  private gesture: { kind: Gesture; t: number } | null = null;
+  private idleT = 0;
+  private nextFidget = 6 + Math.random() * 8;
+  /** B34: idle figures fidget now and then (off for figures that should hold still, like a test's). */
+  fidgets = true;
+
   constructor(rig: FigureRig) { this.B = rig.bones; this.rest = rig.rest; }
+
+  /** B34: play a one-shot move over the current one (a later one replaces it). */
+  play(kind: Gesture) { this.gesture = { kind, t: 0 }; }
+  /** The one-shot playing now, if any (tests). */
+  get playing(): Gesture | null { return this.gesture?.kind ?? null; }
+  private gesture_(dt: number) {
+    const g = this.gesture!, T = GESTURE_TIME[g.kind];
+    g.t += dt;
+    if (g.t >= T) { this.gesture = null; return; }
+    gestureBones(this.B, this.rest, g.kind, g.t, T);
+  }
 
   update(dt: number, i: AnimInput) {
     if (dt <= 0) return;
@@ -116,6 +138,15 @@ export class FigureAnim {
     this.head.yaw = smooth(this.head.yaw, ly + Math.sin(t * 0.3) * 0.08 * (1 - loco), 5, dt);
     this.head.pitch = smooth(this.head.pitch, lp, 5, dt);
     B.head.rotation.set(this.head.pitch - Math.sin(t * 5.2) * 0.07 * w.talk - B.spine.rotation.x * 0.6, this.head.yaw - B.spine.rotation.y, 0, 'YXZ');
+
+    // B34: idle fidgets, then whatever one-shot is playing, layered over the pose so far.
+    const still = i.speed < 0.05 && !i.pose && !i.talking && !i.aiming && !i.airborne && !i.sword;
+    this.idleT = still ? this.idleT + dt : 0;
+    if (this.fidgets && still && !this.gesture && this.idleT > this.nextFidget) {
+      this.play(FIDGETS[Math.floor(Math.random() * FIDGETS.length)]);
+      this.idleT = 0; this.nextFidget = 8 + Math.random() * 10;
+    }
+    if (this.gesture) this.gesture_(dt);
 
     // B14 drills: blend the whole body toward a demonstrated exercise.
     if (i.pose) { if (i.pose !== this.pose) { this.poseT = 0; if (i.pose === 'wake' || i.pose === 'wakeroll') w.pose = 1; } this.pose = i.pose; }   // B31: wake starts lying down, no blend in
@@ -219,11 +250,57 @@ export class FigureAnim {
       set('spine', 0.25 * sit - 0.1 * yawn * lie); set('head', 0.2 * sit - 0.2 * lie);
       set('armN', -2.6 * yawn * lie - 0.3 * sit, 0, 0.1); set('armP', -2.6 * yawn * lie - 0.3 * sit, 0, -0.1);
       set('foreN', -0.4 * sit); set('foreP', -0.4 * sit);
+    } else if (this.pose === 'sitground') {
+      // B34: sitting on the ground, idle: knees up, leaning back on the hands, a slow look round.
+      set('thighN', -1.15, 0, -0.2); set('thighP', -1.15, 0, 0.2); set('shinN', 1.9); set('shinP', 1.9);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.47 * H, k);
+      set('spine', -0.2, Math.sin(pt * 0.4) * 0.08); set('head', 0.1, Math.sin(pt * 0.4 + 0.5) * 0.35);
+      set('armN', 0.55, 0, -0.25); set('armP', 0.55, 0, 0.25); set('foreN', -0.1); set('foreP', -0.1);
     } else if (this.pose === 'plank') {
       B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);
       set('armN', -1.45, 0, -0.1); set('armP', -1.45, 0, 0.1); set('foreN', -1.5); set('foreP', -1.5); set('head', -0.5);
     }
+  }
+}
+
+
+/** B34: the one-shot moves, added on top of the bones' pose this frame. `e` rises and falls over the move. */
+function gestureBones(B: Record<BoneName, THREE.Bone>, rest: Record<BoneName, THREE.Vector3>, kind: Gesture, t: number, T: number) {
+  const u = Math.min(1, t / T), ease = (x: number) => { const c = THREE.MathUtils.clamp(x, 0, 1); return c * c * (3 - 2 * c); };
+  const e = ease(u / 0.2) * (1 - ease((u - 0.75) / 0.25));   // in over the first fifth, out over the last quarter
+  const L = THREE.MathUtils.lerp, H = rest.hips.y / 0.93;
+  if (kind === 'wave') {
+    // The P hand up beside the head, the forearm waving side to side.
+    B.armP.rotation.x = L(B.armP.rotation.x, -0.3, e); B.armP.rotation.z = L(B.armP.rotation.z, 2.5, e);
+    B.foreP.rotation.x = L(B.foreP.rotation.x, -0.2, e); B.foreP.rotation.z = Math.sin(t * 11) * 0.5 * e;
+    B.head.rotation.z += 0.12 * e; B.spine.rotation.z -= 0.05 * e;
+  } else if (kind === 'pickup') {
+    // Bend at the knees and waist, reach down with the P hand, straighten up.
+    const d = Math.sin(Math.PI * u);
+    B.hips.position.y -= 0.3 * H * d;
+    B.thighN.rotation.x -= 1.0 * d; B.thighP.rotation.x -= 0.7 * d; B.shinN.rotation.x += 1.4 * d; B.shinP.rotation.x += 1.0 * d;
+    B.spine.rotation.x += 0.75 * d; B.head.rotation.x += 0.3 * d;
+    B.armP.rotation.x = L(B.armP.rotation.x, -0.9, d); B.foreP.rotation.x = L(B.foreP.rotation.x, -0.15, d);
+  } else if (kind === 'hit') {
+    // A sharp flinch: rocked back, head snapped away, arms up to guard; it fades out fast.
+    const h = ease(u / 0.1) * (1 - ease((u - 0.35) / 0.65));
+    B.spine.rotation.x -= 0.4 * h; B.head.rotation.x -= 0.35 * h; B.head.rotation.y += 0.3 * h;
+    B.armN.rotation.x = L(B.armN.rotation.x, -1.3, h); B.foreN.rotation.x = L(B.foreN.rotation.x, -1.6, h);
+    B.armP.rotation.x = L(B.armP.rotation.x, -1.1, h); B.foreP.rotation.x = L(B.foreP.rotation.x, -1.7, h);
+    B.hips.position.y -= 0.04 * H * h;
+  } else if (kind === 'look') {
+    // A look over one shoulder, then the other.
+    B.head.rotation.y += Math.sin(u * Math.PI * 2) * 0.75 * e; B.spine.rotation.y += Math.sin(u * Math.PI * 2) * 0.2 * e;
+  } else if (kind === 'stretch') {
+    // Both arms up overhead, leaning back a touch.
+    B.armN.rotation.x = L(B.armN.rotation.x, -2.9, e); B.armP.rotation.x = L(B.armP.rotation.x, -2.9, e);
+    B.foreN.rotation.x = L(B.foreN.rotation.x, -0.3, e); B.foreP.rotation.x = L(B.foreP.rotation.x, -0.3, e);
+    B.spine.rotation.x -= 0.15 * e; B.head.rotation.x -= 0.2 * e;
+  } else if (kind === 'shift') {
+    // Weight onto one leg: the hips slide over, the other knee bends.
+    B.hips.position.x += 0.04 * H * e; B.hips.rotation.z = 0.06 * e; B.shinN.rotation.x += 0.25 * e; B.thighN.rotation.x -= 0.1 * e;
+    B.spine.rotation.z -= 0.06 * e;
   }
 }
 

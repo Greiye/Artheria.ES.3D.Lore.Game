@@ -43,7 +43,7 @@ import { townZones, FolkVoices } from './world/soundscape';
 import { station, closeAllStations } from './stations';
 import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
-import { FigureAnim, BodyAnim, type AnimInput, type Pose } from './anim/procedural';
+import { FigureAnim, BodyAnim, type AnimInput, type Pose, type Gesture } from './anim/procedural';
 import { Dust } from './fx/dust';
 import { activeSlot, slotInfo, slotLabel } from './profiles';
 import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
@@ -516,7 +516,7 @@ function syncStandSword() {
 }
 function takeSword() {
   if (sword.owned) return;
-  inventory.give('sword', 1); haptics.play('pickup'); syncStandSword();
+  inventory.give('sword', 1); haptics.play('pickup'); gesture('pickup'); syncStandSword();
   equipSword(); showQuick();
   const how = inputMode === 'mouse' ? 'Click to swing, and keep clicking for a three-cut combo. 3 or Q draws it, 2 puts it away.'
     : inputMode === 'pad' ? 'RT swings, and keep pressing for a three-cut combo. D-pad right changes weapon.'
@@ -571,6 +571,11 @@ const footAt = () => {
   const s = Math.sin(player.bodyYaw), c = Math.cos(player.bodyYaw);
   return new THREE.Vector3(player.pos.x + c * 0.12 * footSide + s * 0.15, player.pos.y, player.pos.z - s * 0.12 * footSide + c * 0.15);
 };
+// ---------- B34 (Mike 2026-11-03): one-shot moves, sitting down when idle, NPCs waving hello ----------
+function gesture(kind: Gesture, who = 'player') { puppets.get(who)?.fig?.play(kind); }
+let idleSitT = 0, idleSit = false;   // stand still in play for SIT_AFTER seconds and you sit down on the ground
+const SIT_AFTER = 25;
+const waved = new Map<string, number>();   // when each NPC last waved (once a minute at most)
 let bannerT = 0;
 let lastReload: string | null = null;
 let lastVaults = 0;
@@ -589,16 +594,24 @@ function animate(dt: number) {
   const rm = crossbow.reload.active ? crossbow.reload.mode : null;   // v0.04: feel the reload start and a jam
   if (rm !== lastReload) { if (rm === 'jam') haptics.play('jam'); else if (rm === 'normal') haptics.play('reload'); lastReload = rm; }
   dust.update(dt, camera);
+  const idleNow = state === 'play' && !inDungeon && !waking && player.hSpeed < 0.05 && !player.airborne && !stationPose && !dojo.pose
+    && !crossbow.equipped && !sword.equipped && !MOVE_ACTIONS.some((a) => player.held.has(a)) && Math.hypot(player.analog.x, player.analog.y) < 0.05;
+  idleSitT = idleNow ? idleSitT + dt : 0;
+  idleSit = idleNow && idleSitT > SIT_AFTER;
   const mine: AnimInput = {
     speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
     sword: sword.equipped, swing: sword.progress, combo: sword.combo,
-    airborne: player.airborne, landed, pose: dojo.pose ?? stationPose ?? (state === 'book' ? 'read' : null),
+    airborne: player.airborne, landed, pose: dojo.pose ?? stationPose ?? (state === 'book' ? 'read' : idleSit ? 'sitground' : null),
     look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
   };
   sword.held.visible = sword.equipped && !mine.pose;   // put away at a station or a drill
   for (const [id, p] of puppets) {
     const input = id === 'player' ? (player.body.visible ? mine : null) : npcInput(id, p.root);
     if (!input) continue;
+    if (id !== 'player' && p.fig && state === 'play' && !input.talking && !input.pose) {   // B34: hello as you come near (npcPos: npcInput's)
+      const d = Math.hypot(player.pos.x - npcPos.x, player.pos.z - npcPos.z);
+      if (d < 4.5 && clock.elapsedTime - (waved.get(id) ?? -1e9) > 60) { waved.set(id, clock.elapsedTime); p.fig.play('wave'); }
+    }
     p.root.userData.talking = !!input.talking;   // the 2D head's face moves its mouth (src/render/sprites.ts)
     const clips = animators.get(id);
     if (clips) clips.set(clipState(input));
@@ -1133,7 +1146,7 @@ const goblins = new Goblins(world.scene, {
   hurt: (dmg, by, slow) => {
     if (!inDungeon || delveHp <= 0) return;
     if (sturdy) dmg = Math.max(1, dmg - 1);   // B18: well fed
-    delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt');
+    delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt'); gesture('hit');
     if (slow) slowT = Math.max(slowT, slow);
     if (delveHp <= 0) {
       exitDungeon();
@@ -1336,7 +1349,7 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
     if (s.kind === 'chest') {
       if (d.chest) { toast('Empty. You already took what was here.'); return; }
       d.chest = true; saveDelves();
-      inventory.give('trinket', 1); haptics.play('pickup');
+      inventory.give('trinket', 1); haptics.play('pickup'); gesture('pickup');
       hint(`A trinket from below! Into the bag with it (${keyName('bag')}). Magister Greer would love its story.`, 'A trinket from below (I: inventory). Magister Greer would love to hear its story.', 4500);
       return;
     }
@@ -1549,6 +1562,7 @@ dialogue.onEnd = () => {
 };
 function talkTo(who: string, at: THREE.Vector3, script: DialogueScript) {
   dialogueWith = who;
+  gesture('wave');   // B34: say hello
   setState('dialogue');   // F3.3: frees the pointer, freezes movement
   rig.setShot(rig.twoShot(at, 1.55));
   if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
@@ -1594,7 +1608,7 @@ function activate() {
   else if (lookingAt === 'library' && libraryHit) useLibrary(libraryHit);
   else if (lookingAt === 'bolt') {
     const b = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange);
-    if (b) { crossbow.pickUp(b); haptics.play('pickup'); toast('Bolt recovered', 1200); }
+    if (b) { crossbow.pickUp(b); haptics.play('pickup'); gesture('pickup'); toast('Bolt recovered', 1200); }
   }
 }
 
@@ -2384,4 +2398,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, gesture, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
