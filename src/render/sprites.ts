@@ -214,9 +214,9 @@ function aim(b: Board, camera: THREE.Camera, dt: number, scaleFrom: THREE.Object
 /** Redraw the billboards that are on screen. Call once a frame, before the main render. */
 export function updateSprites(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, dt: number) {
   const roots: THREE.Object3D[] = [];
-  scene.traverse((o) => { if (o.userData.sprite) roots.push(o); });
+  scene.traverse((o) => { if (o.userData.sprite || o.userData.faceOnly) roots.push(o); });   // faceOnly: a .glb with a drawn face (src/models.ts)
   if (!roots.length) return;
-  for (const root of roots) if (root.userData.spriteMode !== spriteMode) applyMode(root);
+  for (const root of roots) if (!root.userData.faceOnly && root.userData.spriteMode !== spriteMode) applyMode(root);
   const prevTarget = renderer.getRenderTarget(), prevAlpha = renderer.getClearAlpha();
   renderer.getClearColor(clear);
   renderer.setClearColor(0x000000, 0);
@@ -224,7 +224,7 @@ export function updateSprites(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
     if (!shown(root)) continue;
     root.updateWorldMatrix(true, true);   // this frame's pose; cheaper than updating the whole scene
     if (root.userData.face) showFace(root, dt);
-    if (!spriteMode) continue;
+    if (!spriteMode || root.userData.faceOnly) continue;
     const b = bodyBoard(root);
     b.mesh.visible = true;
     if (!aim(b, camera, dt, root)) continue;

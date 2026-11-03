@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { faceGeometry, faceMaterial, type FigureLook } from './world/figure';
+import { FACE } from './render/headArt';
 
 export interface ModelSlot {
   id: string;                    // file name without .glb, e.g. "natalie"
@@ -12,6 +14,9 @@ export interface ModelSlot {
   height: number;                // the model is scaled to this height (m), feet on the ground
   parent?: THREE.Object3D;       // where the model goes (default: the placeholder's parent)
   faceYaw?: number;              // extra rotation so the model faces the right way
+  /** A drawn face for a model whose face is baked in (Mike 2026-11-03, the witch): a face quad on its head bone,
+   *  sized and placed from the named skin mesh, the baked eye meshes hidden. The drawn sheet is `look` (its `art`). */
+  face?: { skin: string; hide?: string[]; look: FigureLook };
 }
 
 const MODEL_DIR = './models/';
@@ -88,6 +93,7 @@ async function fillSlot(slot: ModelSlot): Promise<boolean> {
   const holder = new THREE.Group();
   model.position.set(-centre.x * k, -box.min.y * k, -centre.z * k);
   holder.add(model);
+  if (slot.face) drawnFace(holder, model, slot.face);
   holder.rotation.y = slot.faceYaw ?? 0;
   holder.name = 'model:' + slot.id;
   const parent = slot.parent ?? slot.placeholder.parent;
@@ -99,6 +105,32 @@ async function fillSlot(slot: ModelSlot): Promise<boolean> {
   loadedModels.set(slot.id, holder);
   if (animator) animators.set(slot.id, animator);
   return true;
+}
+
+// The face quad goes on the head bone, measured in the holder's frame (the model faces +Z there, before any yaw).
+function drawnFace(holder: THREE.Group, model: THREE.Object3D, f: NonNullable<ModelSlot['face']>) {
+  holder.updateMatrixWorld(true);
+  let skin: THREE.Object3D | null = null, head: THREE.Bone | null = null;
+  const eyes = new THREE.Box3();
+  model.traverse((o) => {
+    if (o.name === f.skin) skin = o;
+    if ((o as THREE.Bone).isBone && /^head$/i.test(o.name.replace(/^.*[:|]/, ''))) head = o as THREE.Bone;
+    if (f.hide?.includes(o.name)) { eyes.expandByObject(o); o.visible = false; }
+  });
+  if (!skin || !head) return;
+  const box = new THREE.Box3().setFromObject(skin), c = box.getCenter(new THREE.Vector3());
+  const w = (box.max.x - box.min.x) * 0.85, h = w * (FACE.h / FACE.w);
+  const eyeY = eyes.isEmpty() ? c.y + h * 0.1 : (eyes.min.y + eyes.max.y) / 2;   // the eye strip sits where the baked eyes were
+  const at = new THREE.Vector3(c.x, eyeY + h * (FACE.split / 2) - h / 2, box.max.z + 0.004);
+  const bone = head as THREE.Bone;
+  const face = new THREE.Mesh(faceGeometry(w, h), faceMaterial());
+  face.name = 'figure-face';
+  face.raycast = () => {};
+  const q = bone.getWorldQuaternion(new THREE.Quaternion()).invert(), sc = bone.getWorldScale(new THREE.Vector3());
+  face.quaternion.copy(q); face.scale.set(1 / sc.x, 1 / sc.y, 1 / sc.z);
+  face.position.copy(bone.worldToLocal(at));
+  bone.add(face);
+  holder.userData.face = face; holder.userData.look = f.look; holder.userData.faceOnly = true;
 }
 
 // Rebuild R4 (owner request 2026-10-22): animation clips inside a character's .glb play by state.
