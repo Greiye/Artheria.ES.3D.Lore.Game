@@ -110,6 +110,50 @@ await t.tap('#fight [data-b="jump"]');
 check('Touch: tapping Jump jumps', await until(t, () => window.__gametool.fightMode.fight.a.y > 0.1, null, 5000));
 await t.screenshot({ path: path.join(shots, 'b35-fight-touch.png') });
 
+
+// Gamepad (mocked standard-mapping pad): stick moves, Y jumps, a shoulder shields, A attacks, Start leaves.
+await t.close();
+const gctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+await gctx.addInitScript(() => {
+  const pad = { id: 'Test Pad (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', timestamp: 0,
+    axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) };
+  window.__pad = pad;
+  navigator.getGamepads = () => [pad, null, null, null];
+});
+const gp = await gctx.newPage();
+await gp.route(/^https?:/, (r) => r.abort());
+await gp.goto('file://' + file);
+await gp.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
+await gp.waitForTimeout(400);
+await gp.click('#begin');
+await gp.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 60000 });
+await G(gp, () => window.__gametool.openFight());
+await until(gp, () => window.__gametool.fightMode.fight.phase === 'fight', null, 30000);
+const btn = (i, on) => G(gp, ([i, on]) => { const b = window.__pad.buttons[i]; b.pressed = on; b.value = on ? 1 : 0; }, [i, on]);
+const x0 = await G(gp, () => window.__gametool.fightMode.fight.a.x);
+await G(gp, () => { window.__pad.axes[0] = 1; });
+const moved = await until(gp, (x0) => window.__gametool.fightMode.fight.a.x > x0 + 0.3, x0, 10000);
+await G(gp, () => { window.__pad.axes[0] = 0; });
+check('Pad: left stick walks', moved);
+await btn(3, true);
+check('Pad: Y jumps', await until(gp, () => window.__gametool.fightMode.fight.a.y > 0.1, null, 5000));
+await btn(3, false);
+await until(gp, () => window.__gametool.fightMode.fight.a.grounded, null, 5000);
+await btn(4, true);
+check('Pad: holding LB raises the shield', await until(gp, () => window.__gametool.fightMode.fight.a.state === 'shield', null, 5000));
+await btn(4, false);
+await until(gp, () => window.__gametool.fightMode.fight.a.state !== 'shield', null, 5000);
+// A move can start and finish inside one slow frame, so watch what reaches the fight engine instead.
+await G(gp, () => { const f = window.__gametool.fightMode.fight, step = f.step.bind(f); window.__atk = 0; f.step = (p, q) => { if (p.attack) window.__atk++; return step(p, q); }; });
+await btn(0, true);
+check('Pad: A attacks (one press, one attack)', await until(gp, () => window.__atk === 1, null, 5000) && await G(gp, () => new Promise((r) => setTimeout(() => r(window.__atk === 1), 500))));
+await btn(0, false);
+const help = await G(gp, () => { const v = (s) => !!document.querySelector(s).offsetParent; return { pad: v('#fight .fx-help-pad'), keys: v('#fight .fx-help-keys'), mode: document.body.dataset.input }; });
+check('Pad: the controls line shows pad buttons', help.pad && !help.keys, JSON.stringify(help));
+await btn(9, true);
+check('Pad: Start leaves the mat', await until(gp, () => window.__gametool.state === 'play' && !window.__gametool.fightMode.isOpen, null, 10000));
+await btn(9, false);
+
 await browser.close();
 const failed = results.filter((r) => !r.ok).length;
 console.log(`${results.length - failed}/${results.length} checks passed`);

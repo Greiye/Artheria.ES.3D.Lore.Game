@@ -27,3 +27,4 @@
 #fight .fx-big { border-color: #E8C878; }
 body[data-input="touch"] #fight .fx-pad { display: grid; }
 body[data-input="touch"] #fight .fx-help { display: none; }
+body[data-input="pad"] #fight .fx-help-keys { display: none; }
