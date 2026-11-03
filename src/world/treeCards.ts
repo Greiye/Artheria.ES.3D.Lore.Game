@@ -14,7 +14,7 @@ const [CW, CH] = cards.cell as [number, number];
 const N = cards.fill.length, COLS = cards.cols, ROWS = Math.ceil(N / COLS);
 
 /** One tree: `planes` quads (2 or 3) round the trunk at x/z, `h` m tall, showing card `card`. */
-function tree(card: number, x: number, y: number, z: number, h: number, turn: number, planes: number): THREE.BufferGeometry[] {
+export function cardTree(card: number, x: number, y: number, z: number, h: number, turn: number, planes: number): THREE.BufferGeometry[] {
   const H = h / cards.fill[card], W = H * (CW / CH);
   const u0 = (card % COLS) / COLS, u1 = u0 + 1 / COLS, v1 = 1 - Math.floor(card / COLS) / ROWS, v0 = v1 - 1 / ROWS;   // row 0 at the top
   const out: THREE.BufferGeometry[] = [];
@@ -48,21 +48,31 @@ export function plantForestCards(scene: THREE.Scene, heightAt: (x: number, z: nu
     for (let j = 0; j < n && trees < count; j++) {
       const a = R() * Math.PI * 2, r = j ? 1.5 + R() * 3 : 0, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       if (keepOut(x, z)) continue;
-      geos.push(...tree(Math.floor(R() * N), x, heightAt(x, z) - 0.05, z, 6 + R() * 5, R() * Math.PI, R() < 0.5 ? 2 : 3));
+      geos.push(...cardTree(Math.floor(R() * N), x, heightAt(x, z) - 0.05, z, 6 + R() * 5, R() * Math.PI, R() < 0.5 ? 2 : 3));
       trees++;
     }
   }
-  const tex = new THREE.TextureLoader().load(cardsUrl);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.magFilter = THREE.NearestFilter;   // chunky up close, like the pixel shadows
-  // A little over white: the baked cards are unlit and read dark once the hills' light falls on them again.
-  const mat = new THREE.MeshLambertMaterial({ map: tex, color: new THREE.Color(1.15, 1.15, 1.15), alphaTest: 0.5 });
-  const merged = mergeAll(geos);
-  const mesh = new THREE.Mesh(merged, mat);
-  mesh.name = 'forest-cards'; mesh.raycast = () => {};
+  return { mesh: cardMesh(scene, geos, 'forest-cards'), trees, clusters };
+}
+
+/** The number of tree cards in the atlas. */
+export const CARD_COUNT = N;
+
+let sharedMat: THREE.MeshLambertMaterial | null = null;
+/** Merge card quads into one mesh (one draw call) with the shared card material and add it to the scene. */
+export function cardMesh(scene: THREE.Scene, geos: THREE.BufferGeometry[], name: string): THREE.Mesh {
+  if (!sharedMat) {
+    const tex = new THREE.TextureLoader().load(cardsUrl);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;   // chunky up close, like the pixel shadows
+    // A little over white: the baked cards are unlit and read dark once the hills' light falls on them again.
+    sharedMat = new THREE.MeshLambertMaterial({ map: tex, color: new THREE.Color(1.15, 1.15, 1.15), alphaTest: 0.5 });
+  }
+  const mesh = new THREE.Mesh(mergeAll(geos), sharedMat);
+  mesh.name = name; mesh.raycast = () => {};
   mesh.castShadow = true;
   scene.add(mesh);
-  return { mesh, trees, clusters };
+  return mesh;
 }
 
 function mergeAll(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
