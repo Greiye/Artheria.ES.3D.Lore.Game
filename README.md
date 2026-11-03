@@ -67,7 +67,7 @@ On touch screens, the left thumb is a joystick and the right thumb drags to look
 - **Quest text:** `content/quest/`. Roll tables are in `content/rolltables/`.
 - **Models:** put `public/models/<slot>.glb` in the repo and it replaces that slot's placeholder:
   - slots: `natalie`, `hero`, `kavik`, `pedlar`, `stagecoach`, `witch`, `sword` and `player`;
-  - `forest-trees.glb` dresses the hills;
+  - the hills' card trees (`src/art/trees/tree-cards.png`, baked from 99.Miles' Low Poly Forest Tree Pack by `scripts/bake-tree-cards.mjs`);
   - clips named `idle`, `walk`, `run`, `talk` and `aim` play by state.
 - **Model budget:** at most 5k triangles per character and at most 512² textures. Use Meshopt compression; Draco is not supported.
 - **Faces:** see `src/art/heads/README.md` (eye and mouth strip sheets; templates are in the project's `art-templates/`).

@@ -18,7 +18,7 @@ const INSPIRATIONS: { name: string; note: string }[] = [
 // References review: third-party models in public/models/ and their licences (also public/models/CREDITS.md).
 const ASSET_CREDITS: { what: string; who: string; licence: string; href?: string; note?: string }[] = [
   { what: 'Witch (rig and animations) and Sword', who: 'Quaternius', licence: 'CC0', href: 'https://quaternius.com', note: 'Witch simplified for phones.' },
-  { what: 'Low Poly Forest Tree Pack', who: '99.Miles', licence: 'CC BY 4.0', href: 'https://sketchfab.com/3d-models/low-poly-forest-tree-pack-5ff5a51e74324845a4e4905f182dfb2b', note: 'Textures resized to 512 px; unused maps removed.' },
+  { what: 'Low Poly Forest Tree Pack', who: '99.Miles', licence: 'CC BY 4.0', href: 'https://sketchfab.com/3d-models/low-poly-forest-tree-pack-5ff5a51e74324845a4e4905f182dfb2b', note: 'Its trees, drawn as flat cards for the crossed-quad trees on the hills.' },
   { what: 'MediaPipe Pose Landmarker (Lite) and Tasks Vision', who: 'Google', licence: 'Apache-2.0', href: 'https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker', note: 'The dojo\'s camera push-up counter. Runs on your device only.' },
 ];
 

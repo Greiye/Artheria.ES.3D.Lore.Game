@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, graphics: crossed-quad trees (Mike 2026-11-03)
+- The hills' forest is now card trees on every preset: each tree is two or three upright cut-out quads crossed through the trunk, standing in loose clusters of two to five. Eight cards from 99.Miles' Low Poly Forest Tree Pack (CC BY 4.0, still credited) are baked side-on into one 512 px sheet (`src/art/trees/tree-cards.png`, by `scripts/bake-tree-cards.mjs`).
+- `public/models/forest-trees.glb` (2.1 MB) no longer ships. The whole forest is one mesh and one draw call, and it shows on `file://` pages too.
+- Tests: `test/e2e-references.mjs` checks the card forest.
+
 ### v0.11 changelog, graphics: the witch's drawn face (Mike 2026-11-03)
 - The Witch (the Quaternius model) now has a drawn face like everyone else, with blinks and expressions, on a face quad on her head bone. Her baked-in eyes are hidden. She uses the hero's sheet until Mike draws hers (`src/art/heads/`).
 - Any .glb slot can do the same with a `face` entry (`src/models.ts`, `drawnFace`).
