@@ -19,7 +19,7 @@ export interface AnimInput {
 }
 // v0.06 S1 station poses: sit (campfire), smith (anvil), mirror (tailor), write (desk / scriptorium), kneel (bedroll).
 // v0.06 T4: the cinema band plays: fiddle, drum and pipe.
-export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe';
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe' | 'wake' | 'wakeroll';
 
 const WALK = 2.5, RUN = 5;
 // B33 (Mike 2026-11-03): poses update every frame, smooth. (Restyle S2f had stepped them at 12 fps for a
@@ -118,7 +118,7 @@ export class FigureAnim {
     B.head.rotation.set(this.head.pitch - Math.sin(t * 5.2) * 0.07 * w.talk - B.spine.rotation.x * 0.6, this.head.yaw - B.spine.rotation.y, 0, 'YXZ');
 
     // B14 drills: blend the whole body toward a demonstrated exercise.
-    if (i.pose) { if (i.pose !== this.pose) this.poseT = 0; this.pose = i.pose; }
+    if (i.pose) { if (i.pose !== this.pose) { this.poseT = 0; if (i.pose === 'wake' || i.pose === 'wakeroll') w.pose = 1; } this.pose = i.pose; }   // B31: wake starts lying down, no blend in
     w.pose = smooth(w.pose, i.pose ? 1 : 0, 5, dt);
     this.poseT += dt;
     const k = w.pose;
@@ -207,6 +207,18 @@ export class FigureAnim {
       B.root.rotation.x = (Math.PI / 2 - 0.28 + c * 0.18) * k; B.root.position.y = (0.34 - 0.2 * c) * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', 0);
       set('armN', -1.3 - c * 0.5, 0, -0.25); set('armP', -1.3 - c * 0.5, 0, 0.25); set('foreN', -c * 1.4); set('foreP', -c * 1.4); set('head', -0.45);
+    } else if (this.pose === 'wake' || this.pose === 'wakeroll') {
+      // B31: waking up. Lying on the back (on the inn bed, or the bedroll on the ground), sit up, then stand.
+      const bed = this.pose === 'wake', e = (x: number) => { const c = THREE.MathUtils.clamp(x, 0, 1); return c * c * (3 - 2 * c); };
+      const up = e((pt - 0.6) / 0.6), stand = e((pt - 1.3) / 0.6), lie = 1 - up, sit = up * (1 - stand);
+      const yawn = Math.max(0, Math.sin(Math.min(1, pt / 0.6) * Math.PI));   // a stretch while still lying down
+      B.root.rotation.x = (-Math.PI / 2) * lie * k; B.root.position.y = ((bed ? 0.5 : 0.12) + 0.1) * lie * k;
+      set('thighN', -(bed ? 1.45 : 1.2) * sit, 0, -0.1 * sit); set('thighP', -(bed ? 1.45 : 1.2) * sit, 0, 0.1 * sit);
+      set('shinN', (bed ? 1.5 : 1.9) * sit); set('shinP', (bed ? 1.5 : 1.9) * sit);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - (bed ? 0.39 : 0.5) * H * sit, k);
+      set('spine', 0.25 * sit - 0.1 * yawn * lie); set('head', 0.2 * sit - 0.2 * lie);
+      set('armN', -2.6 * yawn * lie - 0.3 * sit, 0, 0.1); set('armP', -2.6 * yawn * lie - 0.3 * sit, 0, -0.1);
+      set('foreN', -0.4 * sit); set('foreP', -0.4 * sit);
     } else if (this.pose === 'plank') {
       B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);

@@ -314,6 +314,7 @@ async function begin() {
   // v0.05: pick up where the last save left off (the spot only if you saved, not if you retired at the gate).
   const save = loadGame();
   if (save?.pos) player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
+  lastRest = save?.rest ?? 'inn';
   if (save && !begun) {
     setWorldTime(save.time);
     for (const [id, n] of save.items) if (inventory.count(id) < n) inventory.give(id, n - inventory.count(id));
@@ -323,6 +324,7 @@ async function begin() {
   audio.water(false);
   setView('overhead');                          // v0.06 M7: every Begin starts in the overhead camera
   setState('play');                             // in the world immediately, even before lock resolves
+  if (wakeIntro()) wakeUp(lastRest);            // B31: fade in on the player getting up from the bed or bedroll
   // Mike 2026-10-30: Begin goes straight into the game. What's new moved to Extras (it read as a menu in the way).
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
@@ -337,6 +339,42 @@ async function begin() {
   lockSupported = await requestLock();
   show('nolock', state === 'play' && !lockSupported && wantLock());
 }
+// ---------- B31 (Mike 2026-11-03): the wake-up intro ----------
+// Every Begin / Continue: the screen goes black, then fades in on the player getting up. A new game wakes in the
+// inn's guest bed; Continue wakes where you last slept (the bedroll if that was at camp, otherwise the inn).
+// Any key, click, touch or pad button skips it. Test browsers skip it unless localStorage gametool.waketest = 'on'
+// (like the coach), so the suites still start at the glade spawn.
+let lastRest: 'inn' | 'camp' = 'inn';
+let waking = 0;   // seconds left of the get-up; 0 = not waking
+const WAKE_TIME = 2.0;
+function wakeIntro() {
+  try { return !navigator.webdriver || localStorage.getItem('gametool.waketest') === 'on'; } catch { return !navigator.webdriver; }
+}
+function wakeUp(where: 'inn' | 'camp') {
+  if (where === 'camp') {
+    const b = world.stations.bedroll.position, a = 0.35;   // the bedroll's pillow end points along (sin a, cos a)
+    player.spawn(new THREE.Vector3(b.x - Math.sin(a) * 1.05, 0, b.z - Math.cos(a) * 1.05), a);
+  } else {
+    const t = world.town.bed;
+    player.spawn(new THREE.Vector3(t.x, 0, t.z), t.yaw);
+  }
+  player.thirdPerson = true;
+  stationPose = where === 'camp' ? 'wakeroll' : 'wake';
+  // A three-quarter shot from beside the foot of the bed, looking back along it at the sleeper.
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), p = player.pos;
+  rig.setShot({ pos: new THREE.Vector3(p.x + fx * 1.7 - fz * 1.5, 1.7, p.z + fz * 1.7 + fx * 1.5), look: new THREE.Vector3(p.x - fx * 0.7, 0.55, p.z - fz * 0.7), fov: 50 });
+  waking = WAKE_TIME;
+  const fade = $('sleepFade');
+  fade.style.transition = 'none'; fade.classList.add('on');
+  void fade.offsetWidth;   // commit the black before fading in
+  fade.style.transition = ''; requestAnimationFrame(() => fade.classList.remove('on'));
+}
+function endWake() {
+  waking = 0;
+  if (stationPose === 'wake' || stationPose === 'wakeroll') { stationPose = null; rig.setShot(null); }
+  $('sleepFade').classList.remove('on');
+}
+for (const ev of ['keydown', 'pointerdown'] as const) window.addEventListener(ev, () => { if (waking && state === 'play') endWake(); }, true);
 let inWorld = false;   // v0.06: false at the main menu (and the screens opened from it), true from Begin until back at the menu
 let begun = false;   // v0.05: a save's bag and hour are restored once per page load (later Begins keep the live ones)
 let character: Character = loadCharacter();
@@ -921,6 +959,7 @@ function sleep(onBedroll = false) {
     const b = world.stations.bedroll.position;
     takeStation(new THREE.Vector3(b.x - 0.6, 0, b.z + 0.2), b, 'kneel');
   }
+  lastRest = onBedroll ? 'camp' : 'inn';   // B31: Continue wakes here
   const fade = $('sleepFade');
   fade.classList.add('on');
   setTimeout(() => {
@@ -1657,7 +1696,7 @@ $('ePublish').addEventListener('click', () => {
 function snapshot(keepSpot: boolean) {
   return saveGame({
     pos: keepSpot && !inDungeon ? [player.pos.x, player.pos.y, player.pos.z] : null, yaw: player.yaw,
-    time: world.time, items: [...inventory.counts].filter(([, n]) => n > 0),
+    time: world.time, items: [...inventory.counts].filter(([, n]) => n > 0), rest: lastRest,
   });
 }
 function toMenu(note: string) {
@@ -2249,11 +2288,16 @@ function frame() {
   world.update(clock.elapsedTime, camera);
   library.relic.rotation.y = clock.elapsedTime * 0.6;   // the Noctavel shard turns slowly
   gamepad.update();
+  if (waking) {   // B31: the get-up runs its course, or any pad button skips it
+    waking = state === 'play' ? waking - dt : 0;
+    const pad = [...(navigator.getGamepads?.() ?? [])].some((p) => p?.buttons.some((b) => b.pressed));
+    if (waking <= 0 || pad) endWake();
+  }
   syncCrossbowView();
   if (state === 'play') {
     simAcc += dt;
     while (simAcc >= SIM_STEP) {
-      player.update(SIM_STEP); simAcc -= SIM_STEP; perf.simSeconds += SIM_STEP;
+      if (!waking) player.update(SIM_STEP); simAcc -= SIM_STEP; perf.simSeconds += SIM_STEP;   // B31: no moving while getting up
       // A7: footsteps while actually moving (not just holding a speed modifier) and not sneaking.
       const moving = MOVE_ACTIONS.some((a) => player.held.has(a)) || Math.hypot(player.analog.x, player.analog.y) > 0.05;
       if (moving && !player.sneaking) {
@@ -2338,4 +2382,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestPack, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
