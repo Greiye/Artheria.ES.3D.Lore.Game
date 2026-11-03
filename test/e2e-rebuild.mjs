@@ -67,10 +67,18 @@ check('R4 away from walls the body shows again', await until(page, () => window.
 await G(page, () => { const p = window.__gametool.player; p.pos.set(2, 0, 6); p.yaw = 0; p.pitch = 0; });
 await page.keyboard.down('KeyD');
 const turned = await until(page, () => { const p = window.__gametool.player; return Math.abs(Math.atan2(Math.sin(p.bodyYaw + Math.PI / 2), Math.cos(p.bodyYaw + Math.PI / 2))) < 0.25; });
-// Poses step at 12 fps (S2f), so one sample can land near the swing's zero crossing: watch for a swing.
+// One sample can land near the swing's zero crossing: watch for a swing over several frames.
 const swung = await until(page, () => Math.abs(window.__gametool.player.body.children[0].userData.rig.bones.thighN.rotation.x) > 0.1, null, 3000);
 const swing = await G(page, () => Math.abs(window.__gametool.player.body.children[0].userData.rig.bones.thighN.rotation.x));
+// B33: smooth animation. The pose changes on every rendered frame (no 12 fps stepping that holds a pose for frames).
+const everyFrame = await G(page, () => new Promise((res) => {
+  const bone = window.__gametool.player.body.children[0].userData.rig.bones.thighN;
+  let last = bone.rotation.x, frames = 0, changed = 0;
+  const tick = () => { const v = bone.rotation.x; if (v !== last) changed++; last = v; if (++frames < 8) requestAnimationFrame(tick); else res({ frames, changed }); };
+  requestAnimationFrame(tick);
+}));
 await page.keyboard.up('KeyD');
+check('B33 running: the legs move on every frame (smooth, not stepped)', everyFrame.changed >= everyFrame.frames - 1, JSON.stringify(everyFrame));
 check('A strafing right turns the body to face right (third person)', turned);
 check('A running swings the legs', swung, swing.toFixed(2));
 await G(page, () => { const p = window.__gametool.player, h = window.__gametool.world.standees.hero.position; p.pos.set(h.x - 2.2, 0, h.z + 0.6); });

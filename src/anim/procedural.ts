@@ -22,9 +22,8 @@ export interface AnimInput {
 export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe';
 
 const WALK = 2.5, RUN = 5;
-// Restyle S2f (Tree of Savior): poses are stepped at a sprite frame rate, not interpolated every frame, for
-// the flipbook feel of 8-direction sprite cycles. Movement through the world stays smooth.
-const ANIM_FPS = 12;
+// B33 (Mike 2026-11-03): poses update every frame, smooth. (Restyle S2f had stepped them at 12 fps for a
+// flipbook look; Mike found it choppy.)
 const smooth = (cur: number, target: number, rate: number, dt: number) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
 
 export class FigureAnim {
@@ -37,20 +36,11 @@ export class FigureAnim {
   private B: Record<BoneName, THREE.Bone>;
   private rest: Record<BoneName, THREE.Vector3>;
 
-  private acc = 0;
-  private landed = false;
-
   constructor(rig: FigureRig) { this.B = rig.bones; this.rest = rig.rest; }
 
   update(dt: number, i: AnimInput) {
     if (dt <= 0) return;
-    this.acc += dt;
-    this.landed ||= !!i.landed;   // a one-frame event must survive the skipped frames
-    if (this.acc < 1 / ANIM_FPS) return;
-    const step = this.acc;
-    this.acc = 0;
-    this.pose_(step, this.landed ? { ...i, landed: true } : i);
-    this.landed = false;
+    this.pose_(dt, i);
   }
 
   private pose_(dt: number, i: AnimInput) {

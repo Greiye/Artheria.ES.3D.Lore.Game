@@ -2,10 +2,14 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
-## Live builds 0.03 to 0.10 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
+## Live builds 0.03 to 0.11 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.10,
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
+
+### v0.11 changelog, part 1: smooth animation (B33, Mike 2026-11-03)
+- Characters animate smoothly: poses update every frame. The 12 fps stepped "flipbook" look from restyle S2f is gone.
+- Test: `test/e2e-rebuild.mjs` checks the running legs move on every frame.
 
 ### v0.10 changelog, part 5: review fixes, optional round (code tidy, no change in play)
 - 117 exports used only inside their own file are now private, and four unused constants are gone (`LAYERS`, `ANIM_STATES`, `HIPS_AT`, `panelTab`).
