@@ -2,10 +2,17 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
-## Live builds 0.03 to 0.12 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
+## Live builds 0.03 to 0.13 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.12,
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
+
+### v0.13 changelog, part 1: characters take torch and lantern light (B43, Mike 2026-11-03)
+- Characters keep their painted shading, but the hour now dims and tints them. They're full colour by day, warmer and darker at sunset, and dim blue at night, so they sit in the scene instead of glowing.
+- Nearby point lights brighten them: your torch, the campfire, the town lanterns and the dungeon torches.
+- This covers the player, townsfolk, standees, Kavik, goblins and loaded models, and their drawn faces too.
+- The work is in `figureMaterial` / `figureLight` in `src/world/figure.ts`, a Lambert material that keeps only the point-light term. The sky sets the hour's tint.
+- New `test/e2e-npc-light.mjs` (4/4): every character uses the lit material, the hour dims them, and a torch at night brightens a character beside it.
 
 ### v0.12 changelog: controller everywhere (B40, Mike 2026-11-03)
 - **Every panel works with a controller.** This covers the stations and forges, the tailor, the shop, the cinema, the dojo, gear care, cooking (also when it's opened at the campfire), the map, the journal, the Skills, Phrasebook and Recipe books, the library wiki, the DM view, the gallery, the sketchbook and the lore editor.

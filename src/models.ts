@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { faceGeometry, faceMaterial, type FigureLook } from './world/figure';
+import { faceGeometry, faceMaterial, figureMaterial, type FigureLook } from './world/figure';
 import { FACE } from './render/headArt';
 
 export interface ModelSlot {
@@ -39,7 +39,7 @@ function restyle(root: THREE.Object3D) {
       if (!('color' in src)) return mat;
       if (src.map) {
         src.map.magFilter = THREE.NearestFilter;
-        return new THREE.MeshBasicMaterial({ map: src.map, color: src.color, transparent: src.transparent, alphaTest: src.alphaTest, side: src.side });
+        return figureMaterial({ map: src.map, color: src.color, transparent: src.transparent, alphaTest: src.alphaTest, side: src.side });   // B43: torch/campfire light
       }
       return new THREE.MeshLambertMaterial({ color: src.color, transparent: src.transparent, alphaTest: src.alphaTest, side: src.side });
     };

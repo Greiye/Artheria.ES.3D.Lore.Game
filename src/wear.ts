@@ -29,7 +29,7 @@ function ripGeometry(r: number, seed: number): THREE.ShapeGeometry {
 export class Wear {
   level = 0;
   private rips: THREE.Mesh[] = [];
-  private mat: THREE.MeshBasicMaterial | null = null;
+  private mat: THREE.MeshLambertMaterial | null = null;
   private base = new THREE.Color(1, 1, 1);
   private grime = new THREE.Color('#8E7462');
 
@@ -42,12 +42,12 @@ export class Wear {
     const mesh = fig?.getObjectByName('figure-body') as THREE.SkinnedMesh | undefined;
     const rig = fig?.userData.rig as { bones: Record<BoneName, THREE.Bone>; rest: Record<BoneName, THREE.Vector3> } | undefined;
     if (!mesh || !rig) return;
-    this.mat = (mesh.material as THREE.MeshBasicMaterial).clone();   // figures share atlas materials; only ours gets dirty
+    this.mat = (mesh.material as THREE.MeshLambertMaterial).clone();   // figures share atlas materials; only ours gets dirty
     mesh.material = this.mat;
     this.base.copy(this.mat.color);
     const U = rig.rest.hips.y / RIG.hips[1][1];
-    const tear = new THREE.MeshBasicMaterial({ color: '#2A1712', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4 });
-    const fray = new THREE.MeshBasicMaterial({ color: '#B9A58A', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 });
+    const tear = new THREE.MeshLambertMaterial({ color: '#2A1712', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4 });
+    const fray = new THREE.MeshLambertMaterial({ color: '#B9A58A', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 });
     RIPS.forEach(([bone, x, y, z, face, r], i) => {
       const p = RIG[bone][1], g = new THREE.Group();
       const hole = new THREE.Mesh(ripGeometry(r * U, i + 1), tear), rim = new THREE.Mesh(ripGeometry(r * U * 1.25, i + 1), fray);

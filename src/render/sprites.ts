@@ -137,7 +137,7 @@ function expression(b: FaceState, root: THREE.Object3D, dt: number): { eyes: str
 interface FaceState { art: HeadArt; blink: number; talk: number; eyes: Frame | null; mouth: Frame | null; name: string }
 const faceStates = new WeakMap<THREE.Object3D, FaceState>();
 function showFace(root: THREE.Object3D, dt: number) {
-  const face = root.userData.face as THREE.Mesh, m = face.material as THREE.MeshBasicMaterial;
+  const face = root.userData.face as THREE.Mesh, m = face.material as THREE.MeshLambertMaterial;
   let st = faceStates.get(root);
   if (!st) { st = { art: headArt(root.userData.look as FigureLook), blink: 1 + Math.random() * 3, talk: 0, eyes: null, mouth: null, name: '' }; faceStates.set(root, st); }
   const art = st.art, x = expression(st, root, dt);

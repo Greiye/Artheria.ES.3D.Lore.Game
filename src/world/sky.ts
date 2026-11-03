@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { figureLight } from './figure';
 import { shaftTexture } from '../tex/pixel';
 
 // Rebuild R1: golden-hour sky, sun, fog, light shafts and drifting motes (docs/vision.md "Lighting glue").
@@ -37,6 +38,9 @@ const PHASES: Record<TimeOfDay, Phase> = {
   night: { elev: 32, az: 218, sun: '#86A2E8', sunI: 0.42, hemiSky: '#2C3C66', hemiGround: '#0C0C14', hemiI: 0.24,
     zenith: '#050918', upper: '#0E1834', horizon: '#222C48', glow: '#3A4668', fog: '#0E1426', shafts: 0, disc: '#DCE6FF', stars: 1 },
 };
+
+// B43: how the hour tints the (painted, unlit) characters, so they sit in the scene's light like the world does.
+const FIGURE_SHADE: Record<TimeOfDay, string> = { day: '#FFFFFF', sunset: '#D8C2C0', night: '#6A7AA6' };
 
 interface Sky {
   sun: THREE.DirectionalLight;
@@ -160,6 +164,7 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
       sun.position.copy(sunDir).multiplyScalar(90);
       sun.color.set(p.sun); sun.intensity = p.sunI;
       hemi.color.set(p.hemiSky); hemi.groundColor.set(p.hemiGround); hemi.intensity = p.hemiI;
+      figureLight.shade.value.set(FIGURE_SHADE[t]);   // B43: characters dim and tint with the hour
       (scene.fog as THREE.Fog).color.set(p.fog);
       (scene.background as THREE.Color).set(p.fog);
       paintDome(p);
