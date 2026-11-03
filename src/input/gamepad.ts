@@ -2,6 +2,7 @@ import { controls } from '../controls';
 import type { GameHooks } from './hooks';
 import { haptics } from './haptics';
 import { padFamily, type PadFamily } from './glyphs';
+import type { PadDir } from './padnav';
 
 // Gamepad support via the standard Gamepad API mapping (Xbox / PlayStation / Switch Pro on
 // Chrome, Edge, Firefox, Safari incl. iOS). Owner promoted B7 gamepad on 2026-10-16.
@@ -11,6 +12,10 @@ export class GamepadControls {
   private bookStickArmed = true;
   private torchHold = 0;   // when D-pad down went down (ms)
   private torchDone = false;
+  private viewHold = 0;    // B40: when View went down (ms); a hold opens the map, a tap the bag
+  private viewDone = false;
+  private navDir: PadDir | null = null;   // B40: the direction held on the D-pad / left stick in a panel, for repeats
+  private navNext = 0;
   connected = false;
   family: PadFamily = 'xbox';   // whose button names to show
   onFamily: (f: PadFamily) => void = () => {};
@@ -78,7 +83,10 @@ export class GamepadControls {
       if (pressed(B.zoomIn)) this.g.stepCamera(-1);
       if (pressed(B.zoomOut)) this.g.stepCamera(1);
       if (pressed(B.activate)) this.g.activate();
-      if (pressed(B.inventory)) this.g.openInventory();
+      // B40: View: a tap opens the bag, a 0.4 s hold opens the map.
+      if (pressed(B.inventory)) { this.viewHold = performance.now(); this.viewDone = false; }
+      if (now[B.inventory] && !this.viewDone && performance.now() - this.viewHold >= 400) { this.viewDone = true; this.g.openMap(); }
+      if (!now[B.inventory] && this.prev[B.inventory] && !this.viewDone) this.g.openInventory();
       if (pressed(B.pause)) this.g.pause();
       const cb = this.g.crossbow;   // F4
       if (pressed(B.equip)) this.g.shoulderSwap();
@@ -93,7 +101,21 @@ export class GamepadControls {
     } else {
       this.release();
       if (st === 'forge' && (rx || ry)) this.g.forgeStick?.(rx, ry);
-      if (st === 'book') {
+      if ((st === 'forge' || st === 'editor') && this.g.panel) {
+        // B40: station panels, the map, the journal, the books and the lore editor. A held job (sharpening) takes A.
+        const holding = this.g.panelHold?.(!!now[B.activate]) ?? false;
+        const d = this.nav(now, lx, ly);
+        if (d) this.g.panel(d);
+        if (pressed(B.activate) && !holding) this.g.panel('ok');
+        if (pressed(B.back) || pressed(B.pause)) this.g.panel('back');
+      } else if (st === 'book' && this.g.deskOpen?.()) {
+        // B40: the margin-note desk in an open book: the same panel controls; B puts the pen down.
+        const d = this.nav(now, lx, ly);
+        if (d) this.g.panel?.(d);
+        if (pressed(B.activate)) this.g.panel?.('ok');
+        if (pressed(B.back) || pressed(B.pause)) this.g.panel?.('back');
+      } else if (st === 'book') {
+        if (pressed(B.jump)) this.g.bookPen?.();   // B40: Y picks up the pen (margin notes)
         const bk = this.g.book;
         if (pressed(B.pageNext) || pressed(B.dpadRight)) bk.next();
         if (pressed(B.pagePrev) || pressed(B.dpadLeft)) bk.prev();
@@ -121,5 +143,16 @@ export class GamepadControls {
       }
     }
     this.prev = now;
+  }
+
+  /** B40: the direction to move in a panel this frame: a D-pad press or a left-stick flick, repeating while held. */
+  private nav(now: boolean[], lx: number, ly: number): PadDir | null {
+    const B = controls.gamepad.buttons;
+    const held: PadDir | null = now[B.dpadUp] ? 'up' : now[B.dpadDown] ? 'down' : now[B.dpadLeft] ? 'left' : now[B.dpadRight] ? 'right'
+      : Math.hypot(lx, ly) > 0.75 ? (Math.abs(lx) > Math.abs(ly) ? (lx > 0 ? 'right' : 'left') : (ly > 0 ? 'down' : 'up')) : null;
+    const t = performance.now();
+    if (held !== this.navDir) { this.navDir = held; this.navNext = t + 400; return held; }
+    if (held && t >= this.navNext) { this.navNext = t + 120; return held; }
+    return null;
   }
 }

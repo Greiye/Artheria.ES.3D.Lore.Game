@@ -42,4 +42,9 @@ export interface GameHooks {
   setMode(m: InputMode): void;
   bandPad?(i: number): void;              // v0.06 C3: play note pad i at the campfire
   forgeStick?(x: number, y: number): void;   // v0.06 S4: the right stick turns the weapon on the anvil
+  panel?(d: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): void;   // B40: the open panel with a controller
+  panelHold?(on: boolean): boolean;   // B40: A held in a panel job that needs holding (sharpening); true while one is running
+  deskOpen?(): boolean;               // B40: the margin-note desk is open in the book
+  bookPen?(): void;                   // B40: pick up the pen in the open book
+  canSwapShoulder(): boolean;         // B40: the touch shoulder button shows only in the shoulder view
 }

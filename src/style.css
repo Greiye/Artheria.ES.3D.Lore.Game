@@ -18,6 +18,8 @@ button { font: 600 14px var(--ui); cursor: pointer; border-radius: 6px; }
 button.primary { background: var(--rune); color: var(--shadow); border: 0; padding: 12px 22px; box-shadow: 0 0 0 3px rgba(63,224,232,.25); }
 button.primary:hover { filter: brightness(1.08); }
 button:focus-visible { outline: 3px solid var(--parchment); outline-offset: 2px; }
+/* B40: where the controller is in a panel, drawn whatever the browser thinks of :focus-visible */
+body[data-input="pad"] :is(button, input, select, textarea, summary, a[href], [tabindex="0"]):focus { outline: 3px solid #FFE2A0 !important; outline-offset: 2px; }
 
 /* Title / pause / relock screens */
 .screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;

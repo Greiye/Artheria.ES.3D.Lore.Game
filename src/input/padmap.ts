@@ -4,7 +4,7 @@ import { glyph, type PadFamily } from './glyphs';
 // with button names for the pad in use (Xbox, PlayStation, Nintendo).
 const PAD_MAP: [side: 'l' | 'r', button: number | string, what: string][] = [
   ['l', 6, 'Aim (crossbow)'], ['l', 4, 'Camera in · page back'], ['l', 'Left stick', 'Move · click: sprint'],
-  ['l', 12, 'Swap shoulder · weapon'], ['l', 14, 'Quick swap: left hand (torch)'], ['l', 13, 'Hold: torch'], ['l', 8, 'Bag'],
+  ['l', 12, 'Swap shoulder · weapon'], ['l', 14, 'Quick swap: left hand (torch)'], ['l', 13, 'Hold: torch'], ['l', 8, 'Bag · hold: map'],
   ['r', 7, 'Fire · swing'], ['r', 15, 'Quick swap: right hand'], ['r', 5, 'Camera out · page on'], ['r', 3, 'Jump'], ['r', 2, 'Reload'], ['r', 1, 'Sneak · back'],
   ['r', 0, 'Use · talk · read'], ['r', 'Right stick', 'Look · click: change camera'], ['r', 9, 'Pause'],
 ];

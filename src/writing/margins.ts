@@ -95,6 +95,9 @@ export class MarginDesk {
     (this.desk.querySelector('textarea') as HTMLTextAreaElement | null)?.focus();
   }
   closeDesk() { this.desk.classList.add('hidden'); }
+  /** B40: the desk panel (the controller moves around it) and the pen (Y picks it up). */
+  get deskEl(): HTMLElement { return this.desk; }
+  pressPen() { this.pen.click(); }
 
   private renderDesk() {
     const st = this.stationery();

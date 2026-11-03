@@ -34,7 +34,7 @@ await page.waitForTimeout(500);
 
 const top = await G(page, () => [...document.querySelectorAll('#touch .t-cam .t-btn')].map((b) => b.dataset.act));
 const oldCam = await G(page, () => !!document.querySelector('[data-act="camin"], [data-act="camout"]'));
-check('Top row: one perspective button, then crossbow, sword, torch (no camera − / +)', top.join() === 'pov,qbow,qsword,torch' && !oldCam, top.join());
+check('Top row: one perspective button, the shoulder swap (B40), then crossbow, sword, torch (no camera − / +)', top.join() === 'pov,shoulder,qbow,qsword,torch' && !oldCam, top.join());
 check('Only one button changes perspective', await G(page, () => document.querySelectorAll('#touch [data-act="pov"]').length === 1));
 check('The old View slot is now the Bag (and the Bag appears once)', await G(page, () => document.querySelectorAll('#touch [data-act="inventory"]').length === 1 && document.querySelector('.t-cluster [data-act="inventory"]')?.textContent === 'Bag'));
 await page.screenshot({ path: path.join(shots, 'b28-touch.png') });

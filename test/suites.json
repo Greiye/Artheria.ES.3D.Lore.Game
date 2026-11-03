@@ -48,6 +48,7 @@
     "e2e-wake",
     "e2e-witch-face",
     "e2e-animations",
-    "e2e-fight"
+    "e2e-fight",
+    "e2e-gamepad"
   ]
 }
