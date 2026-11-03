@@ -64,37 +64,60 @@ export class TouchControls {
     zone.addEventListener('pointerup', (e) => this.up(e));
     zone.addEventListener('pointercancel', (e) => this.up(e));
 
+    // B32 (Mike 2026-11-03): a finger that presses a button and slides off it must not trigger it. Tap buttons act
+    // when the finger lifts, and only if it is still over the same button; sliding off cancels. Buttons you hold or
+    // that need to be instant (jump, fire, aim, reload, sprint, sneak) still act on press. A finger that starts on
+    // the stick or look zone is captured by the zone, so it can never press a button by sliding onto one.
+    const INSTANT = new Set(['jump', 'sprint', 'sneak', 'reload', 'fire', 'aim']);
+    const over = (b: HTMLElement, e: PointerEvent) => { const el = document.elementFromPoint(e.clientX, e.clientY); return !!el && (el === b || b.contains(el)); };
     this.root.querySelectorAll<HTMLButtonElement>('.t-btn').forEach((b) => {
       const act = b.dataset.act!;
+      const instant = INSTANT.has(act);
+      let armed: number | null = null;   // the pointer that pressed this tap button, until it lifts or slides off
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault(); e.stopPropagation();
         this.g.setMode('touch');
         b.classList.add('on');
-        const p = this.g.player;
         haptics.play(act === 'jump' ? 'jump' : 'tap');
-        if (act === 'jump') p.jump();
-        else if (act === 'qbow') this.g.quickEquip('crossbow');   // B28 (Mike 2026-11-01): quick-equip buttons
-        else if (act === 'qsword') this.g.quickEquip('sword');
-        else if (act === 'torch') this.g.toggleTorch();
-        else if (act === 'sneak') { p.toggleSneak(); b.classList.toggle('latched', p.sneaking); }
-        else if (act === 'sprint') p.held.add('sprint');
-        else if (act === 'pov') this.g.toggleView();   // B28: the one perspective button (first person, shoulder, overhead)
-        else if (act === 'read') this.g.activate();
-        else if (act === 'menu') this.g.pause();
-        else if (act === 'inventory') this.g.openInventory();
-        else if (act === 'map') this.g.openMap();
-        else if (act === 'journal') this.g.openJournal();
-        else if (act === 'bow') this.g.weaponSwap();   // v0.08: hands → sword → crossbow
-        else if (act === 'reload') this.g.crossbow.pressReload();
-        else if (act === 'fire') this.g.fire();
-        else if (act === 'aim') this.g.crossbow.setADS(!this.g.crossbow.ads);
+        if (instant) this.act(act, b);
+        else armed = e.pointerId;
       });
-      const release = () => { b.classList.remove('on'); if (act === 'sprint') this.g.player.held.delete('sprint'); };
-      b.addEventListener('pointerup', release);
-      b.addEventListener('pointercancel', release);
-      b.addEventListener('pointerleave', release);
+      b.addEventListener('pointermove', (e) => {
+        if (armed !== e.pointerId || over(b, e)) return;
+        armed = null; b.classList.remove('on');   // slid off: cancelled
+      });
+      b.addEventListener('pointerup', (e) => {
+        const go = armed === e.pointerId && over(b, e);
+        armed = null; b.classList.remove('on');
+        if (act === 'sprint') this.g.player.held.delete('sprint');
+        if (go) this.act(act, b);
+      });
+      const cancel = () => { armed = null; b.classList.remove('on'); if (act === 'sprint') this.g.player.held.delete('sprint'); };
+      b.addEventListener('pointercancel', cancel);
+      b.addEventListener('pointerleave', (e) => { if (instant || armed === e.pointerId) cancel(); });
       b.addEventListener('contextmenu', (e) => e.preventDefault());
     });
+  }
+
+  /** What each touch button does (on press for instant buttons, on release over the button for tap buttons). */
+  private act(act: string, b: HTMLElement) {
+    const p = this.g.player;
+    if (act === 'jump') p.jump();
+    else if (act === 'qbow') this.g.quickEquip('crossbow');   // B28 (Mike 2026-11-01): quick-equip buttons
+    else if (act === 'qsword') this.g.quickEquip('sword');
+    else if (act === 'torch') this.g.toggleTorch();
+    else if (act === 'sneak') { p.toggleSneak(); b.classList.toggle('latched', p.sneaking); }
+    else if (act === 'sprint') p.held.add('sprint');
+    else if (act === 'pov') this.g.toggleView();   // B28: the one perspective button (first person, shoulder, overhead)
+    else if (act === 'read') this.g.activate();
+    else if (act === 'menu') this.g.pause();
+    else if (act === 'inventory') this.g.openInventory();
+    else if (act === 'map') this.g.openMap();
+    else if (act === 'journal') this.g.openJournal();
+    else if (act === 'bow') this.g.weaponSwap();   // v0.08: hands → sword → crossbow
+    else if (act === 'reload') this.g.crossbow.pressReload();
+    else if (act === 'fire') this.g.fire();
+    else if (act === 'aim') this.g.crossbow.setADS(!this.g.crossbow.ads);
   }
 
   private down(e: PointerEvent) {

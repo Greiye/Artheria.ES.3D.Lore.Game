@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, part 2: touch buttons cancel on slide-off (B32, Mike 2026-11-03)
+- A finger that presses a touch button and slides off it no longer triggers it. Map, Journal, Menu, Bag, the perspective and quick-equip buttons (crossbow, sword, torch) and Use now act when the finger lifts, and only if it is still over the same button.
+- Jump, Sneak, Sprint, Fire, Aim and Reload still act the moment they're pressed.
+- A finger that starts on the move stick or the look area can never press a button by sliding onto it.
+- A touch after a key press brings the touch buttons back (before, they stayed hidden until the next Begin).
+- Test: `test/e2e-touch-slide.mjs` (real touch input: slide-off cancels, lift-over acts, instant buttons, stick finger).
+
 ### v0.11 changelog, part 1: smooth animation (B33, Mike 2026-11-03)
 - Characters animate smoothly: poses update every frame. The 12 fps stepped "flipbook" look from restyle S2f is gone.
 - Test: `test/e2e-rebuild.mjs` checks the running legs move on every frame.
