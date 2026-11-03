@@ -1,7 +1,7 @@
 {
-  "name": "video-gametool",
+  "name": "tales-of-artheria",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.10.0",
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
@@ -21,7 +21,7 @@
     "@types/three": "0.160.0",
     "playwright-core": "1.56.1",
     "typescript": "5.6.3",
-    "vite": "5.4.11",
+    "vite": "5.4.21",
     "vite-plugin-singlefile": "2.0.3"
   }
 }

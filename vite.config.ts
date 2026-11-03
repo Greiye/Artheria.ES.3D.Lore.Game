@@ -113,6 +113,13 @@ const pose = () => [
   shipDir('pose-wasm', `${MP_DIR}/wasm`, 'pose/wasm', /\.(js|wasm)$/, POSE_MIME),
 ];
 
+// One version: src/version.ts (the corner label) and package.json must agree, so a round can't bump only one of them.
+const GAME_VERSION = /VERSION = '([\d.]+)'/.exec(fs.readFileSync('src/version.ts', 'utf8'))?.[1];
+const PKG_VERSION = JSON.parse(fs.readFileSync('package.json', 'utf8')).version as string;
+if (!GAME_VERSION || !PKG_VERSION.startsWith(GAME_VERSION + '.')) {
+  throw new Error(`Version mismatch: src/version.ts says ${GAME_VERSION}, package.json says ${PKG_VERSION}. Bump both (0.NN → 0.NN.0).`);
+}
+
 export default defineConfig({
   base: './',
   plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits(), ...pose()],

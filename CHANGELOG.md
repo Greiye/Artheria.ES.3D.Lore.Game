@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.10,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.10 changelog, part 2: review fixes, round 1 (Mike 2026-11-02, "Run all")
+- Dev tools: Vite pinned to 5.4.21 (fixes the high-severity dev-server advisory in 5.4.11). The game itself was never affected. A moderate esbuild advisory remains for the dev server only; it needs a Vite major upgrade.
+- Credits: MediaPipe Pose Landmarker and Tasks Vision (Google, Apache-2.0) are in Extras → Inspirations → Asset credits, the README and `public/models/CREDITS.md`.
+- One version number: `package.json` is now `tales-of-artheria` 0.10.0, and the build stops if it and `src/version.ts` disagree.
+- README brought up to date (v0.07–v0.10 features, controls, credits).
+
 ### v0.10 changelog: camera push-up counter (B26, Mike 2026-11-01)
 - The dojo has a new **Push-ups** drill. Your character does push-ups on the mat, and you follow along. Knees down is the beginner version and counts the same.
 - **📷 Count with camera** (opt-in): MediaPipe Pose Lite watches you through the phone or laptop camera and counts each rep. A rep is the elbow bending past about 95° and then straightening past about 150°, using whichever arm the camera sees better. Reps less than 0.4 s apart are ignored.
