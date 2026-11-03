@@ -22,6 +22,12 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - The Kavik fight keeps its own controller layout (v0.11 part 6). The panel controls stay out of it.
 - Code: `src/input/padnav.ts`, plus the panel hooks in `src/input/gamepad.ts` and `src/main.ts`. Test: `test/e2e-gamepad.mjs`.
 
+### v0.11 changelog, part 7: every tree is a card (Mike 2026-11-03, "Trees are still 3D")
+- The card-tree change (#57) only replaced the far forest. The 95 meadow trees and the horizon ring were still 3D trunks and leaf clumps.
+- Every tree in the meadow and the horizon ring now uses the same crossed cards (`src/world/index.ts`, `cardTree` / `cardMesh` in `src/world/treeCards.ts`), merged into one mesh. Each meadow tree keeps a trunk collider.
+- Bushes and ivy stay as low-poly leaf clumps.
+- Fix from B35: Kavik used to stand in front of the dojo door, so his "Spar with Kavik" target covered "Enter the Dojo". He now stands beside the doorway.
+
 ### v0.11 changelog, part 6: controller in the Kavik fight (Mike 2026-11-03)
 - The fight now works on a gamepad:
   - The left stick or D-pad moves and aims.
