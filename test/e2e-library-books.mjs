@@ -1,7 +1,7 @@
 // Automated Done-when checks for v0.06 (§8): F5 library + books, §6.1 types, §6.2 validation, §6.4 links.
 // The §8 0.06 creativity check (a non-technical friend adds a book unaided in < 10 min) needs a real person;
 // this test covers its machine-checkable parts: plain-language errors, auto-shelving, every type opens.
-// Usage: npm run build && node test/e2e-v0.06.mjs [path/to/index.html]
+// Usage: npm run build && node test/e2e-library-books.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';

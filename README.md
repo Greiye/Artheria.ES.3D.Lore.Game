@@ -57,7 +57,9 @@ On touch screens, the left thumb is a joystick and the right thumb drags to look
 
 - `npm install`, then `npm run dev` for a dev server. `npm run build` checks lore and types and writes the single-file `dist/index.html`.
 - Every push to `main` runs `.github/workflows/deploy.yml`, which builds and publishes **`dist/`** to GitHub Pages. The root `index.html` is only Vite's source entry.
-- `.github/workflows/smoke.yml` runs the boot, town and menu tests on every PR. The full suite (`npm run test:e2e`, headless Chromium) is long, so run it locally.
+- `.github/workflows/smoke.yml` runs the boot, town and menu tests on every PR.
+- `.github/workflows/e2e-full.yml` runs every suite in `test/suites.json` across four parallel jobs: nightly, on demand (Actions → Full e2e → Run workflow), and on PRs labelled `full-e2e`.
+- Locally: `npm run test:e2e` (all, headless Chromium), or `node scripts/e2e-run.mjs --only crossbow,menus` / `--shard 1/4`.
 
 ## Content
 

@@ -16,7 +16,7 @@ const until = (page, fn, arg, timeout = 15000) => page.waitForFunction(fn, arg, 
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 await ctx.addInitScript(() => {
   if (!localStorage.getItem('gametool.character')) localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test', motivation: '', secret: '', created: true }));
-  window.addEventListener('mousemove', (e) => e.stopImmediatePropagation(), true);   // aim by yaw/pitch only (see e2e-v0.06)
+  window.addEventListener('mousemove', (e) => e.stopImmediatePropagation(), true);   // aim by yaw/pitch only (see e2e-library-books)
 });
 const page = await ctx.newPage();
 const errors = [];

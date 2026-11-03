@@ -1,5 +1,5 @@
 // Automated Done-when checks for v0.03 (§8): F2 world/camera, §5 controls, §6.3 daily creation prompt.
-// Usage: npm run build && node test/e2e-v0.03.mjs [path/to/index.html]
+// Usage: npm run build && node test/e2e-world-controls.mjs [path/to/index.html]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -107,7 +107,8 @@ await page.waitForTimeout(100);
 const fp = await G(page, () => { const g = window.__gametool; return { first: !g.player.thirdPerson, cam: g.player.eyePos.distanceTo(g.camera.position), body: g.player.body.visible }; });
 check('F2.4 F switches to first person: camera at the eyes, body hidden', fp.first && fp.cam < 0.01 && !fp.body, JSON.stringify(fp));
 await page.keyboard.press('KeyF');
-await page.waitForTimeout(300);
+// The view changes on the next frame; at ~2 fps under software rendering a fixed 300 ms can land before it.
+await page.waitForFunction(() => window.__gametool.player.thirdPerson && window.__gametool.player.body.visible, null, { timeout: 8000 }).catch(() => undefined);
 check('F2.4 F again returns to third person', await G(page, () => window.__gametool.player.thirdPerson && window.__gametool.player.body.visible));
 check('v0.03: no console/page errors', errors.length === 0, errors.join(' | '));
 await browser.close();

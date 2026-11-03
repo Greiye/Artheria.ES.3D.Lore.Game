@@ -1,0 +1,34 @@
+# The full e2e set (test/suites.json), split across four parallel jobs. It's long (~45 min serial on a fast machine)
+# and timing-sensitive under software rendering, so it runs nightly, on demand, and on PRs labelled "full-e2e".
+# Every PR still gets the quick smoke test (smoke.yml).
+name: Full e2e
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize, opened, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright-core install --with-deps chromium
+      - run: node scripts/e2e-run.mjs --shard ${{ matrix.shard }}/4
