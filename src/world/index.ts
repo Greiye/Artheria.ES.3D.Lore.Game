@@ -4,6 +4,7 @@ import { Batch } from './batch';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
+import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { buildFigure, buildCoach } from './figure';
 import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { groundMaterial, outcrop } from './land';
@@ -209,30 +210,17 @@ export function buildWorld(): World {
   setFlatMask((x, z) => clear(x, z, 0.5) || flatSpots.some(([fx, fz, r]) => Math.hypot(x - fx, z - fz) < r));
   shapeGround(groundGeo);
 
-  // ---------- trees: birch + oak, trunks batched, canopies as alpha-cut leaf blocks ----------
+  // ---------- trees: crossed-quad cards (Mike 2026-11-03: "crossed on all"), one merged mesh ----------
+  // Every tree in the meadow and the horizon ring is two or three upright cards from src/art/trees/tree-cards.png,
+  // the same as the far forest (src/world/treeCards.ts). A trunk collider keeps them solid.
   const canopyDark = leafMaterial('leaves', true), canopyLight = leafMaterial('leavesLight', true);
   const leafB = new Batch();
   const trees: [number, number][] = [];
+  const cardGeos: THREE.BufferGeometry[] = [];
   const tree = (x: number, z: number) => {
-    const birch = R() < 0.45, h = birch ? 4.5 + R() * 3 : 3.2 + R() * 2, r = birch ? 0.16 : 0.28 + R() * 0.1, gy = heightAt(x, z);
-    B.add(tex(birch ? 'birch' : 'bark'), new THREE.CylinderGeometry(r * 0.8, r, h, 6), V(x, gy + h / 2, z), undefined, R() * 6);
-    if (!birch) {   // root flare + a low branch stub
-      B.add(tex('bark'), new THREE.CylinderGeometry(r, r * 1.6, 0.5, 6), V(x, gy + 0.25, z), undefined, R() * 6);
-    }
-    // Canopy: overlapping leaf blocks around the crown, a few hanging lower; birches are narrow and tall.
-    const blocks = birch ? 5 : 8, cr = birch ? 1.1 : 1.9;
-    for (let i = 0; i < blocks; i++) {
-      const s = (birch ? 0.9 : 1.1) + R() * (birch ? 0.6 : 0.9);
-      const a = R() * Math.PI * 2, d = R() * cr * 0.8, y = h - (birch ? 1.6 : 0.6) + R() * cr * (birch ? 2.0 : 1.1);
-      // S3: rounded low-poly leaf clumps (storybook canopies) instead of Vintage Story leaf cubes.
-      leafB.add(R() < 0.5 ? canopyDark : canopyLight, new THREE.IcosahedronGeometry(0.66, 1),
-        V(x + Math.cos(a) * d, gy + y, z + Math.sin(a) * d), V(s, s * (birch ? 1.1 : 0.8), s), R() * 1.5);
-    }
-    if (!birch) for (let i = 0; i < 2; i++) {   // stubby branches out to the crown
-      const a = R() * Math.PI * 2;
-      B.add(tex('bark'), new THREE.BoxGeometry(0.14, 0.14, 1.2), V(x + Math.cos(a) * 0.5, gy + h - 0.8 - i * 0.5, z + Math.sin(a) * 0.5), undefined, -a + Math.PI / 2, 0.5);
-    }
-    colliders.push({ kind: 'circle', x, z, r: r + 0.12 });
+    const h = 4.5 + R() * 3.5;
+    cardGeos.push(...cardTree(Math.floor(R() * CARD_COUNT), x, heightAt(x, z) - 0.05, z, h, R() * Math.PI, R() < 0.5 ? 2 : 3));
+    colliders.push({ kind: 'circle', x, z, r: 0.35 });
   };
   for (let i = 0; i < 400 && trees.length < 95; i++) {
     const x = (R() * 2 - 1) * (HALF - 2), z = (R() * 2 - 1) * (HALF - 2);
@@ -242,10 +230,10 @@ export function buildWorld(): World {
   }
   // A ring of tall trees past the boundary so the horizon is forest, not a hard edge (fog swallows it).
   for (let a = 0; a < Math.PI * 2; a += 0.09) {
-    const r = HALF + 4 + R() * 12, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 7 + R() * 5, gy = heightAt(x, z) - 0.3;
-    B.add(tex(R() < 0.4 ? 'birch' : 'bark'), new THREE.CylinderGeometry(0.3, 0.4, h, 5), V(x, gy + h / 2, z));
-    leafB.add(canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, gy + h, z), V(4 + R() * 2, 3.5 + R() * 2, 4 + R() * 2), R());
+    const r = HALF + 4 + R() * 12, x = Math.cos(a) * r, z = Math.sin(a) * r, h = 8 + R() * 5;
+    cardGeos.push(...cardTree(Math.floor(R() * CARD_COUNT), x, heightAt(x, z) - 0.3, z, h, R() * Math.PI, 2));
   }
+  shadowCasters.push(cardMesh(scene, cardGeos, 'tree-cards'));
   // Bushes: low leaf blocks, walk-through (soft foliage, see assumptions).
   for (let i = 0; i < 110; i++) {
     const x = (R() * 2 - 1) * (HALF - 1), z = (R() * 2 - 1) * (HALF - 1);
