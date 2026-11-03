@@ -1,5 +1,7 @@
 # Partial rebuild plan
 
+> **Historical (2026-11-02).** This plan finished with R4 and phases A–F (PR #5, 2026-10-26). The look and camera now follow [vision.md](vision.md) (storybook direction, 2026-10-27) and the changes since are in `CHANGELOG.md`. Kept because code comments and `test/e2e-rebuild.mjs` refer to it.
+
 2026-10-22, approved scope: **partial**. We rebuild the look, the world, the camera and the player to match
 [vision.md](vision.md). The plumbing that doesn't depend on art style stays.
 Status 2026-10-22: R0 done (tag). R1 and R2 built, and Mike signed off on the look. R3 (camera rig) merged (PR #4). R4 (gameplay port) in PR #5. Phase A (B1 animation + R5 polish) built next; then backlog phases B–F (backlog.md).

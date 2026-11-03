@@ -2,6 +2,7 @@ import legendary from '../../content/quest/legendary.json';
 import { clueById } from './quest';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 import type { DialogueScript } from '../dialogue';
+import { storeSet } from '../store';
 
 // B12 item folklore: name a thing you carry or found, give it a history and a rumor. Legendary items
 // carry fixed canon lore (credited) with curated player rumors stacked under it; your own words stay on
@@ -15,9 +16,9 @@ const KEY = 'gametool.folklore';
 function loadFolk(): Record<string, Folk> {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
 }
-function saveFolk(f: Record<string, Folk>) { try { localStorage.setItem(KEY, JSON.stringify(f)); } catch { /* blocked */ } }
+function saveFolk(f: Record<string, Folk>) { storeSet(KEY, JSON.stringify(f)); }
 
-export interface FolkItem { id: string; name: string; canon?: Legend }
+interface FolkItem { id: string; name: string; canon?: Legend }
 
 function folkMarkdown(it: FolkItem, f: Folk, author: string): string {
   return entryMarkdown({

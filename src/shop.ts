@@ -5,7 +5,7 @@ import { DEBUG_UNLIMITED_CROWNS } from './economy';
 // rock lookout's purse, curios) and from writing: a margin note, a banner sketch, a ballad or a lore page
 // pays (see `earn` in main.ts). Session-only, like the rest of the inventory for now.
 export const CROWN = 'crown';
-export interface Ware { id: string; n: number; price: number }
+interface Ware { id: string; n: number; price: number }
 const STOCK: Ware[] = [
   { id: 'bolt', n: 5, price: 6 },
   { id: 'whistle', n: 1, price: 12 },

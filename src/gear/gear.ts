@@ -3,6 +3,7 @@ import { Batch } from '../world/batch';
 import { pixelTexture } from '../tex/pixel';
 import type { Collider } from '../world/index';
 import { escapeHtml } from '../submit';
+import { storeSet } from '../store';
 
 // B17 (Mike 2026-11-01): weapon and gear care at the smith's grindstone, outside the smithy. Gear wears with use:
 // every sword hit dulls the edge, a trip below leaves rust on the blade, every bolt loosed frays the crossbow string.
@@ -11,21 +12,21 @@ import { escapeHtml } from '../submit';
 // only) teaches three jobs: sharpen on the whetstone (hold the angle steady), clean and oil the blade, restring the
 // crossbow. Doing all three earns the Gear care card in the Skills book. Real-skill notes and a knife-safety note
 // first, like the dojo and the practice table.
-export const GEAR_DISCLAIMER = 'Blades are sharp and can cut you badly. These are beginner basics to learn about, not training. Only sharpen, clean or handle a real knife or tool with an adult who knows how, and never on your own.';
-export const GEAR_SAFETY = 'Knife safety: keep your fingers behind the edge, and stroke or cut away from your body. Never test an edge on your skin. Carry a blade point down, or in a sheath. Put tools away when you finish.';
-export const BAND = { lo: 15, hi: 20 };      // degrees: a common angle for kitchen and pocket knives
-export const STROKES = 8;
+const GEAR_DISCLAIMER = 'Blades are sharp and can cut you badly. These are beginner basics to learn about, not training. Only sharpen, clean or handle a real knife or tool with an adult who knows how, and never on your own.';
+const GEAR_SAFETY = 'Knife safety: keep your fingers behind the edge, and stroke or cut away from your body. Never test an edge on your skin. Carry a blade point down, or in a sheath. Put tools away when you finish.';
+const BAND = { lo: 15, hi: 20 };      // degrees: a common angle for kitchen and pocket knives
+const STROKES = 8;
 const STROKE_S = 1.2;
 const KEY = 'gametool.gear';
 
-export const OIL_STEPS = [
+const OIL_STEPS = [
   'Wipe the blade clean of dirt and blood with a damp cloth, spine to edge, never along the edge toward your hand.',
   'Dry it completely. Water left on steel is what rusts it.',
   'Rub a few drops of oil over the whole blade with a cloth.',
   'Wipe off the extra so only a thin film is left.',
   'Put it away dry, in its sheath or on a rack, not in a damp bag.',
 ];
-export const STRING_STEPS = [
+const STRING_STEPS = [
   'Check it is unloaded: no bolt on the rail, and the string not drawn back.',
   'Look along the old string for fraying or loose strands.',
   'Use a stringer (a cord that bends the bow for you), never your hands alone.',
@@ -43,12 +44,12 @@ export const GEAR_CARD = {
   when: 'Looking after knives, tools and outdoor gear, with an adult, so they stay safe and last.',
 };
 
-export type Job = 'sharpen' | 'oil' | 'string';
-export interface GearState { ack: boolean; sharp: number; rust: number; string: number; done: Partial<Record<Job, number>>; card: { at: number; real: boolean } | null }
+type Job = 'sharpen' | 'oil' | 'string';
+interface GearState { ack: boolean; sharp: number; rust: number; string: number; done: Partial<Record<Job, number>>; card: { at: number; real: boolean } | null }
 const fresh = (): GearState => ({ ack: false, sharp: 1, rust: 0, string: 1, done: {}, card: null });
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
-export function loadGear(): GearState {
+function loadGear(): GearState {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (!v) return fresh();
     return { ack: !!v.ack, sharp: clamp01(Number(v.sharp ?? 1)), rust: clamp01(Number(v.rust ?? 0)), string: clamp01(Number(v.string ?? 1)), done: v.done && typeof v.done === 'object' ? v.done : {}, card: v.card ?? null };
   } catch { return fresh(); }
@@ -58,7 +59,7 @@ export function loadGear(): GearState {
 export const swordSharpness = (g: GearState) => g.sharp * (1 - 0.35 * g.rust);
 /** How hard the crossbow throws, 0..1: a frayed string loses power. */
 export const bowPower = (g: GearState) => (g.string < 0.5 ? 0.75 : 1);
-export const conditionWord = (k: number) => (k > 0.8 ? 'keen' : k > 0.55 ? 'worn' : 'dull');
+const conditionWord = (k: number) => (k > 0.8 ? 'keen' : k > 0.55 ? 'worn' : 'dull');
 
 // ---------- the grindstone ----------
 export function grindstonePos(lot: { x: number; z: number; ry: number; w: number; d: number }) {
@@ -127,7 +128,7 @@ export class GearPanel {
     window.addEventListener('keyup', (e) => { if (e.code === 'Space') this.holding = false; });
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
-  save() { try { localStorage.setItem(KEY, JSON.stringify(this.st)); } catch { /* blocked */ } }
+  save() { storeSet(KEY, JSON.stringify(this.st)); }
   open() { this.st = loadGear(); this.job = null; this.render(); this.el.classList.remove('hidden'); }
   close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.job = null; this.holding = false; this.onClose(); }
 

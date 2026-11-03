@@ -7,16 +7,16 @@ import { escapeHtml } from './submit';
 // content/wiki/ and the build bakes the pages in (__WIKI__), so it reads offline and never calls GitHub while you
 // play. Read it at the reading room lectern in the Ruined Library, or from Extras → Wiki on the main menu.
 // Wiki links ([[Page]], [[Text|Page]], [text](Page)) stay inside; web links open in a new tab.
-export interface WikiPage { slug: string; title: string; md: string }
+interface WikiPage { slug: string; title: string; md: string }
 declare const __WIKI__: WikiPage[];
-export const WIKI_PAGES: WikiPage[] = typeof __WIKI__ === 'undefined' ? [] : __WIKI__;
+const WIKI_PAGES: WikiPage[] = typeof __WIKI__ === 'undefined' ? [] : __WIKI__;
 export const WIKI_URL = 'https://github.com/Greiye/Artheria.ES.3D.Lore.Game/wiki';
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-').replace(/\.md$/, '');
-export const findPage = (name: string) => WIKI_PAGES.find((p) => norm(p.slug) === norm(name) || norm(p.title) === norm(name));
+const findPage = (name: string) => WIKI_PAGES.find((p) => norm(p.slug) === norm(name) || norm(p.title) === norm(name));
 
 /** Wiki markdown → elements. Links are swapped for tokens before the (escaping) renderer and put back as safe <a>s. */
-export function renderWiki(md: string): HTMLElement[] {
+function renderWiki(md: string): HTMLElement[] {
   const links: { text: string; to: string }[] = [];
   const token = (text: string, to: string) => { links.push({ text, to: to.trim() }); return `\u0001${links.length - 1}\u0001`; };
   const src = md
@@ -79,7 +79,7 @@ export class WikiPanel {
 }
 
 /** The reading room lectern, just inside the Ruined Library on the left of the aisle, with an open book. */
-export const LECTERN = { x: -5, z: -21.5 };
+const LECTERN = { x: -5, z: -21.5 };
 export function buildWikiLectern(group: THREE.Group, colliders: Collider[]): THREE.Mesh {
   const { x, z } = LECTERN, wood = new THREE.MeshLambertMaterial({ color: 0x6B4428 }), page = new THREE.MeshLambertMaterial({ color: 0xEFE3C4 });
   const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.05, 0.16), wood); post.position.set(x, 0.52, z);

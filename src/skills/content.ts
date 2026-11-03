@@ -2,8 +2,8 @@
 // finishing one earns its skill card for the Skills book. The steps follow common beginner guidance (scouting knot
 // books; Red Cross / St John / NHS minor cut and burn care; Leave No Trace fire practice). Safety framing follows
 // the B14 dojo: a note to accept first, and nothing here replaces a course or a grown-up who knows how.
-export interface OrderRound { kind: 'order'; title: string; ask: string; steps: string[] }
-export interface PickRound { kind: 'pick'; title: string; ask: string; right: string[]; wrong: { text: string; why: string }[] }
+interface OrderRound { kind: 'order'; title: string; ask: string; steps: string[] }
+interface PickRound { kind: 'pick'; title: string; ask: string; right: string[]; wrong: { text: string; why: string }[] }
 export type Round = OrderRound | PickRound;
 export interface Skill { id: 'knots' | 'firstaid' | 'fire'; name: string; icon: string; blurb: string; safety: string; rounds: Round[]; card: { title: string; lines: string[]; when: string }; reward: number }
 

@@ -7,14 +7,14 @@ import { reading } from '../reading';
 //   ***x*** dramatic beat: big, with a pause before   ... or —  a lingering pause
 // Words appear one at a time; the pace follows the punctuation and the tags. On a phone held sideways, a prompt
 // asks for portrait (the telling is laid out tall: Natalie and the fire above, the words below).
-export type Tone = 'plain' | 'whisper' | 'em' | 'drama';
+type Tone = 'plain' | 'whisper' | 'em' | 'drama';
 export interface Beat { word: string; tone: Tone; wait: number; para: number }
 
 const BASE = 230;                                                          // ms per word, about 260 words a minute
 const PACE: Record<Tone, number> = { plain: 1, whisper: 1.6, em: 1.2, drama: 1.9 };
 
 /** Markdown → timed words. `wait` is how long after the previous word this one appears. */
-export function parseTelling(md: string): { title: string; beats: Beat[] } {
+function parseTelling(md: string): { title: string; beats: Beat[] } {
   let title = '';
   const paras: string[] = [];
   for (const block of md.replace(/\r\n?/g, '\n').split(/\n\s*\n/)) {

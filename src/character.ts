@@ -1,3 +1,4 @@
+import { storeSet } from './store';
 // Backlog item promoted 2026-10-18 (spec B4): a short character-creation form shown once
 // before the player's first spawn. Two creativity questions, matching the original design
 // doc's intent (make the campaign feel like theirs) without blocking play — both are optional
@@ -27,5 +28,5 @@ export function loadCharacter(): Character {
 }
 
 export function saveCharacter(c: Character): void {
-  try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* private mode / quota */ }
+  storeSet(KEY, JSON.stringify(c));
 }

@@ -3,7 +3,7 @@ import { audio } from './audio';
 // v0.06 T2: positional ambience. Each zone is a sound with a place and a reach: birdsong in the trees, the well's
 // water, the smithy's hammer, chatter by the General Store. A zone only makes sound while the listener is inside
 // its reach (T3 falloff does the fading), so far zones cost nothing.
-export type ZoneKind = 'birds' | 'water' | 'forge' | 'chatter';
+type ZoneKind = 'birds' | 'water' | 'forge' | 'chatter';
 export interface Zone { name: string; kind: ZoneKind; x: number; y: number; z: number; range: number }
 interface Live extends Zone { out: AudioNode | null; wait: number; stop: (() => void) | null }
 // Seconds between calls, min and spread.

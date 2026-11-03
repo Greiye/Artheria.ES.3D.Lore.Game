@@ -20,8 +20,8 @@ import { buildKavik } from './kavik';
 
 // `top` (v0.04): the collider is a solid that height you can stand on, step onto, vault or climb.
 // Without it a collider is a wall as tall as anything the player can reach.
-export interface CircleCollider { kind: 'circle'; x: number; z: number; r: number; top?: number }
-export interface BoxCollider { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number; top?: number }
+interface CircleCollider { kind: 'circle'; x: number; z: number; r: number; top?: number }
+interface BoxCollider { kind: 'box'; minX: number; maxX: number; minZ: number; maxZ: number; top?: number }
 export type Collider = CircleCollider | BoxCollider;
 
 export interface World {

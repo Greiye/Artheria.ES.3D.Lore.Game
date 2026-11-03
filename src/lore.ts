@@ -2,7 +2,7 @@
 // It is imported at build time (not fetched) so the game also works opened as a local file.
 import index from '../content/lore/index.json';
 
-export type EntryType = 'lore' | 'character' | 'song' | 'food' | 'art';
+type EntryType = 'lore' | 'character' | 'song' | 'food' | 'art';
 export interface LoreEntry {
   id: string;
   title: string;
@@ -21,8 +21,8 @@ export interface LoreEntry {
   look?: string;          // B4: forged look from the character forge ("key=value; ...")
   body: string;
 }
-export interface Shelf { id: string; label: string; red: string[]; grey: number; auto?: boolean }
-export interface LoreIndex { schemaVersion: 2; entries: LoreEntry[]; shelves: Shelf[] }
+interface Shelf { id: string; label: string; red: string[]; grey: number; auto?: boolean }
+interface LoreIndex { schemaVersion: 2; entries: LoreEntry[]; shelves: Shelf[] }
 
 export const lore = index as unknown as LoreIndex;
 export const entryById = new Map(lore.entries.map((e) => [e.id, e]));

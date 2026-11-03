@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import type { Collider } from '../world/index';
+import { storeSet } from '../store';
 
 // B2 companion: Natalie walks with you once she joins, keeps a step behind your shoulder, and thinks out
 // loud (barks) about where you are and what you find. "Wait here" parks her; chatter can be muted.
-export interface CompanionPrefs { follow: boolean; quiet: boolean }
+interface CompanionPrefs { follow: boolean; quiet: boolean }
 const KEY = 'gametool.companion';
 export function loadCompanion(): CompanionPrefs {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? '{}'); return { follow: !!v.follow, quiet: !!v.quiet }; } catch { return { follow: false, quiet: false }; }
 }
-export function saveCompanion(p: CompanionPrefs) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* blocked */ } }
+export function saveCompanion(p: CompanionPrefs) { storeSet(KEY, JSON.stringify(p)); }
 
 const WALK = 2.2, RUN = 5.2, KEEP = 2.0;
 const DOOR_Z = -18.2;   // the Ruined Library's front wall (world/index.ts LIB.front)

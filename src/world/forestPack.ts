@@ -45,7 +45,7 @@ function pieces(root: THREE.Object3D): Piece[] {
   }).filter((p) => p.height > 0.01);
 }
 
-export interface ForestPack { mesh: THREE.Group; trees: number; rocks: number }
+interface ForestPack { mesh: THREE.Group; trees: number; rocks: number }
 
 /**
  * Scatter the pack over the hills: `count` trees and a third as many rocks in the band `from`–`to` metres out

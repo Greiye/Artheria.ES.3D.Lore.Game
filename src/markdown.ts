@@ -5,9 +5,9 @@
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export type ImageResolver = (src: string) => string | null;
+type ImageResolver = (src: string) => string | null;
 // F5.6: [[slug]] → a tappable link (title from the index); unknown slug → plain text with a "missing page" note.
-export type LinkResolver = (slug: string) => string | null;
+type LinkResolver = (slug: string) => string | null;
 let linkResolver: LinkResolver = () => null;
 export function setLinkResolver(r: LinkResolver) { linkResolver = r; }
 

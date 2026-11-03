@@ -1,4 +1,5 @@
 import type { InputMode } from './input/hooks';
+import { storeSet } from './store';
 
 // UX pass (Mike 2026-10-31): teach the controls by doing, in the first minute. One short line at a time, in the
 // words of whatever you're holding (keys, thumbs or a pad); each goes away as soon as you've done it, and the
@@ -26,7 +27,7 @@ export class Coach {
 
   private finish(s: Step) {
     this.done.add(s);
-    try { localStorage.setItem(KEY, JSON.stringify([...this.done])); } catch { /* blocked */ }
+    storeSet(KEY, JSON.stringify([...this.done]));
   }
   /** Called when E / the context button / A does something. */
   used() { if (!this.done.has('use')) this.finish('use'); }

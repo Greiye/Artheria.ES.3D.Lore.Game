@@ -3,6 +3,7 @@ import { openSubmitSheet, escapeHtml } from '../submit';
 import { audio, type PlayKind } from '../audio';
 import { STEMS } from './band';
 import './campfire.css';
+import { storeSet } from '../store';
 
 // B8 campfire ending + B11 bard tunes. Sit by the fire, write an 8-step tune, then tell the adventure in
 // three turns (Natalie takes a turn between yours). The bard (Natalie is one) turns it into a ballad you
@@ -24,7 +25,7 @@ const PLAYABLE: { kind: PlayKind; label: string; item?: string; pads: number }[]
 ];
 const PENTA = [60, 62, 64, 67, 69, 72], PAD_NAMES = ['C', 'D', 'E', 'G', 'A', 'C′'];
 // v0.06 C1: the panel is a list of big buttons, one open at a time, Sleep first.
-export type FireSection = 'sleep' | 'play' | 'cook' | 'hear' | 'tell' | 'leave';
+type FireSection = 'sleep' | 'play' | 'cook' | 'hear' | 'tell' | 'leave';
 const SECTIONS: [FireSection, string, string][] = [
   ['sleep', '☾', 'Sleep'], ['play', '♫', 'Play along'], ['cook', '🍲', 'Cook'], ['hear', '❦', 'Hear a tale'], ['tell', '✒', 'Tell a tale'], ['leave', '⇠', 'Leave'],
 ];
@@ -95,7 +96,7 @@ export class CampfirePanel {
     this.stopBand = audio.playBand(STEMS, 84, this.out());   // the camp plays the other stems while you sit
   }
   close() { if (!this.isOpen) return; this.stopBand(); this.el.classList.add('hidden'); this.onClose(); }
-  private saveTune() { try { localStorage.setItem(TUNE_KEY, encodeTune(this.tune)); } catch { /* blocked */ } }
+  private saveTune() { storeSet(TUNE_KEY, encodeTune(this.tune)); }
   play(t: Tune = this.tune) { return audio.tune(t.steps, SCALE, t.instrument, t.bpm, 2, this.out()); }
 
   // Toggle one cell (step 0–7, row 0–7 from the low C). Exposed for tests.

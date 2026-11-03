@@ -1,4 +1,5 @@
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
+import { storeSet } from '../store';
 
 // B10 sketch-to-world: a 32×32 pixel painter. Sketches stay on this device and get stamped onto
 // things in the world (the camp banner) and onto margin notes as wax seals (B3). Pixels are stored
@@ -31,7 +32,7 @@ export function loadSketches(): Sketch[] {
   } catch { return []; }
 }
 function saveSketches(list: Sketch[]) {
-  try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX))); } catch { /* storage full or blocked */ }
+  storeSet(KEY, JSON.stringify(list.slice(0, MAX)));
 }
 export function sketchById(id: string | undefined): Sketch | undefined {
   if (!id) return undefined;

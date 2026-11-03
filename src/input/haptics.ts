@@ -1,6 +1,6 @@
 // v0.04: haptic feedback. A connected gamepad rumbles (Chrome/Edge/Safari dual-rumble); a phone vibrates
 // (Android; iOS Safari has no vibration API). Off with Settings > Vibration.
-export type Haptic = 'tap' | 'jump' | 'land' | 'fire' | 'jam' | 'reload' | 'hit' | 'hurt' | 'pickup';
+type Haptic = 'tap' | 'jump' | 'land' | 'fire' | 'jam' | 'reload' | 'hit' | 'hurt' | 'pickup';
 
 const FX: Record<Haptic, { ms: number; strong: number; weak: number }> = {
   tap: { ms: 25, strong: 0, weak: 0.35 },

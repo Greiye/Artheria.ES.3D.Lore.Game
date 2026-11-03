@@ -4,6 +4,7 @@ import { pixelTexture } from '../tex/pixel';
 import type { Collider } from '../world/index';
 import { escapeHtml } from '../submit';
 import { SKILLS, SKILLS_DISCLAIMER, type Skill, type Round } from './content';
+import { storeSet } from '../store';
 
 // B19 (Mike 2026-10-31): real-skill mini games at the practice table beside the dojo mats. Two kinds of round:
 // "order" (tap the steps in the right order) and "pick" (tap everything that helps, leave the rest). Both rounds
@@ -67,7 +68,7 @@ export class SkillsPanel {
     document.body.appendChild(this.el);
     this.el.addEventListener('click', (e) => this.click(e));
   }
-  save() { try { localStorage.setItem(KEY, JSON.stringify(this.st)); } catch { /* blocked */ } }
+  save() { storeSet(KEY, JSON.stringify(this.st)); }
   get isOpen() { return !this.el.classList.contains('hidden'); }
   open() { this.skill = null; this.render(); this.el.classList.remove('hidden'); }
   close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.skill = null; this.onClose(); }

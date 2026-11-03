@@ -1,6 +1,7 @@
 import { escapeHtml } from '../submit';
 import type { DialogueNode, DialogueScript } from '../dialogue';
 import './dm.css';
+import { storeSet } from '../store';
 
 // B20 (Mike 2026-11-01): the DM view. Same app, opened with ?dm and a passphrase (checked against a SHA-256 hash, so
 // the phrase itself is not in the code). This only keeps it out of players' way: the site is public and anyone can
@@ -9,32 +10,32 @@ import './dm.css';
 //  - Map: a top-down plan of the glade and town. Click to drop pins for NPCs, doors, dungeon seeds, kit pieces, notes.
 //  - Quest graph: dialogue / quest nodes (a line, choices with an optional condition, actions such as give:item:n or
 //    quest:start), drawn as a graph. It exports in the game's own dialogue format (content/dialogue/*.json).
-export const DM_HASH = '043812dc2bb9092a3d556b155fc2971ecc655948a38e355e7f143b5c789ce98a';
+const DM_HASH = '043812dc2bb9092a3d556b155fc2971ecc655948a38e355e7f143b5c789ce98a';
 const KEY = 'gametool~dm';          // outside the per-profile "gametool." keys: the DM's work isn't a player save
 const UNLOCK = 'gametool~dm.unlocked';
 const HALF = 50;
 
-export type PinKind = 'npc' | 'door' | 'dungeon' | 'kit' | 'note';
-export const PIN_KINDS: [PinKind, string, string][] = [['npc', '☺', 'NPC'], ['door', '⌂', 'Door'], ['dungeon', '▼', 'Dungeon seed'], ['kit', '▣', 'Kit piece'], ['note', '✎', 'Note']];
-export interface DmPin { id: string; kind: PinKind; x: number; z: number; label: string; notes: string; seed?: number }
-export interface GraphNode extends DialogueNode { x: number; y: number; choices?: { text: string; next: string; if?: string }[] }
-export interface Graph { id: string; speaker: string; start: string; nodes: Record<string, GraphNode> }
-export interface DmState { pins: DmPin[]; graphs: Graph[]; current: string }
+type PinKind = 'npc' | 'door' | 'dungeon' | 'kit' | 'note';
+const PIN_KINDS: [PinKind, string, string][] = [['npc', '☺', 'NPC'], ['door', '⌂', 'Door'], ['dungeon', '▼', 'Dungeon seed'], ['kit', '▣', 'Kit piece'], ['note', '✎', 'Note']];
+interface DmPin { id: string; kind: PinKind; x: number; z: number; label: string; notes: string; seed?: number }
+interface GraphNode extends DialogueNode { x: number; y: number; choices?: { text: string; next: string; if?: string }[] }
+interface Graph { id: string; speaker: string; start: string; nodes: Record<string, GraphNode> }
+interface DmState { pins: DmPin[]; graphs: Graph[]; current: string }
 export interface Place { x: number; z: number; w: number; d: number; ry: number; label: string }
 
-export async function sha256(text: string): Promise<string> {
+async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 const blankGraph = (id = 'quest1'): Graph => ({ id, speaker: 'Someone', start: 'n1', nodes: { n1: { text: 'Hello, traveller.', x: 40, y: 40, end: true } } });
-export function loadDm(): DmState {
+function loadDm(): DmState {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (v && Array.isArray(v.pins) && Array.isArray(v.graphs) && v.graphs.length) return v; } catch { /* fresh */ }
   const g = blankGraph();
   return { pins: [], graphs: [g], current: g.id };
 }
 /** The game's dialogue JSON (content/dialogue/*.json) as a graph, laid out in rows by depth from the start. */
-export function graphFromScript(id: string, s: DialogueScript): Graph {
+function graphFromScript(id: string, s: DialogueScript): Graph {
   const depth = new Map<string, number>([[s.start, 0]]), q = [s.start];
   while (q.length) {
     const k = q.shift()!, n = s.nodes[k]; if (!n) continue;
@@ -48,7 +49,7 @@ export function graphFromScript(id: string, s: DialogueScript): Graph {
   return { id, speaker: s.speaker, start: s.start, nodes };
 }
 /** A graph in the game's dialogue format (positions dropped; `if` on a choice is kept for the game to grow into). */
-export function scriptFromGraph(g: Graph): DialogueScript {
+function scriptFromGraph(g: Graph): DialogueScript {
   const nodes: Record<string, DialogueNode> = {};
   for (const [k, n] of Object.entries(g.nodes)) {
     const { x: _x, y: _y, ...rest } = n;
@@ -93,7 +94,7 @@ export class DmView {
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
   get graph(): Graph { return this.st.graphs.find((g) => g.id === this.st.current) ?? this.st.graphs[0]; }
-  save() { try { localStorage.setItem(KEY, JSON.stringify(this.st)); } catch { /* blocked */ } }
+  save() { storeSet(KEY, JSON.stringify(this.st)); }
   open() { this.render(); this.el.classList.remove('hidden'); }
   close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.onClose(); }
 

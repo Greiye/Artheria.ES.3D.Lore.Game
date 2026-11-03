@@ -69,7 +69,7 @@ export function loadModel(id: string): Promise<THREE.Object3D | null> {
 }
 
 // Fit a loaded model to its slot: scale to `height`, feet at the placeholder's base, same position.
-export async function fillSlot(slot: ModelSlot): Promise<boolean> {
+async function fillSlot(slot: ModelSlot): Promise<boolean> {
   if (!availableModels.has(slot.id)) return false;
   const model = await loadModel(slot.id);
   if (!model) return false;
@@ -105,7 +105,6 @@ export async function fillSlot(slot: ModelSlot): Promise<boolean> {
 // Clip names are matched case-insensitively, ignoring a Blender "Armature|" prefix. A missing clip falls
 // back along FALLBACK (run → walk → idle); with no idle either, the model just holds its pose.
 export type AnimState = 'idle' | 'walk' | 'run' | 'talk' | 'aim';
-export const ANIM_STATES: AnimState[] = ['idle', 'walk', 'run', 'talk', 'aim'];
 const FALLBACK: Record<AnimState, AnimState[]> = {
   idle: ['idle'], walk: ['walk', 'idle'], run: ['run', 'walk', 'idle'], talk: ['talk', 'idle'], aim: ['aim', 'idle'],
 };

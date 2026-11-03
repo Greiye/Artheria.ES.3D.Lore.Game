@@ -3,6 +3,7 @@ import './writing.css';
 import type { LoreEntry } from '../lore';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 import { loadSketches, sketchById, sketchDataUrl } from './sketch';
+import { storeSet } from '../store';
 
 // B13 ink and paper + B3 margin notes. Your own stationery (an ink for everything you write, a paper
 // for the books you read) and handwritten notes pinned to book pages. Everything stays on this device;
@@ -10,8 +11,8 @@ import { loadSketches, sketchById, sketchDataUrl } from './sketch';
 
 export const INKS = { 'iron gall': '#2B2A24', sepia: '#6B4423', cinnabar: '#B3362C', verdigris: '#2F7A62', indigo: '#2E3F7A', 'rune glow': '#1BA8B0' } as const;
 export type Ink = keyof typeof INKS;
-export const PAPERS = ['fresh', 'aged', 'vellum', 'charred'] as const;
-export type Paper = typeof PAPERS[number];
+const PAPERS = ['fresh', 'aged', 'vellum', 'charred'] as const;
+type Paper = typeof PAPERS[number];
 export interface Stationery { ink: Ink; paper: Paper }
 const STATIONERY = 'gametool.stationery';
 
@@ -21,7 +22,7 @@ export function loadStationery(): Stationery {
     return { ink: s.ink in INKS ? s.ink : 'iron gall', paper: PAPERS.includes(s.paper) ? s.paper : 'fresh' };
   } catch { return { ink: 'iron gall', paper: 'fresh' }; }
 }
-export function saveStationery(s: Stationery) { try { localStorage.setItem(STATIONERY, JSON.stringify(s)); } catch { /* blocked */ } }
+export function saveStationery(s: Stationery) { storeSet(STATIONERY, JSON.stringify(s)); }
 // Paper is a class on every book root; ink is a CSS variable the notes (and the editor) read.
 export function applyStationery(s: Stationery) {
   document.querySelectorAll('.book').forEach((b) => { PAPERS.forEach((p) => b.classList.toggle('paper-' + p, p === s.paper)); });
@@ -33,7 +34,7 @@ const MARGINS = 'gametool.margins';
 export function loadMargins(): MarginNote[] {
   try { const v = JSON.parse(localStorage.getItem(MARGINS) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 }
-function saveMargins(list: MarginNote[]) { try { localStorage.setItem(MARGINS, JSON.stringify(list.slice(-300))); } catch { /* full */ } }
+function saveMargins(list: MarginNote[]) { storeSet(MARGINS, JSON.stringify(list.slice(-300))); }
 
 function marginsMarkdown(e: LoreEntry, notes: MarginNote[], author: string): string {
   const body = notes.map((n) => `> ${n.text.replace(/\n/g, '\n> ')}\n\n— in ${n.ink} ink, page ${n.page + 1}${n.seal ? ', sealed' : ''}`).join('\n\n');

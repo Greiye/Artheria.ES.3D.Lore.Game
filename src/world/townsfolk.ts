@@ -10,7 +10,7 @@ import { seedOf } from '../traits/roll';
 // drills outside the dojo; customers trade at the General Store's counter; pairs chat on the green.
 // v0.06 T4: a small band (fiddle, drum, pipe) stands by the Projectionist's screen and plays while a reel with
 // sound plays. None of them block the player or take input; the interactive NPCs are untouched.
-export type FolkRole = 'walker' | 'sparring' | 'drill' | 'customer' | 'chat' | 'band';
+type FolkRole = 'walker' | 'sparring' | 'drill' | 'customer' | 'chat' | 'band';
 export interface Folk {
   id: string;
   name: string;          // a role name ("the Lamplighter"), never a lore name

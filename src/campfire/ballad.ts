@@ -1,5 +1,6 @@
 import type { LoreEntry } from '../lore';
 import { entryMarkdown } from '../submit';
+import { storeSet } from '../store';
 
 // B11 + B8 data: a tune (8 steps over a pentatonic scale, so any pattern sounds fine) and the ballads
 // the bard makes from a campfire telling. All saved on this device.
@@ -30,7 +31,7 @@ export function loadBallads(): Ballad[] {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 }
 export function saveBallad(b: Ballad) {
-  try { localStorage.setItem(KEY, JSON.stringify([b, ...loadBallads().filter((o) => o.id !== b.id)].slice(0, 20))); } catch { /* full */ }
+  storeSet(KEY, JSON.stringify([b, ...loadBallads().filter((o) => o.id !== b.id)].slice(0, 20)));
 }
 
 // The bard's craft, by template: split each turn into short lines, pair them into verses, add Natalie's

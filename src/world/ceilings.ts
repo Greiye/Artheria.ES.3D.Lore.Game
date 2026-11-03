@@ -7,7 +7,7 @@ import { GALLERY } from '../campfire/gallery';
 // three cameras) meets timber, never sky. Each ceiling is a single downward-facing plank plane plus a few beams: from
 // above the plane is back-face culled, so the overview still looks down into the halls and the outside is unchanged.
 // The ceilings cast no shadow, so the halls stay lit as before.
-export interface Roofed { minX: number; maxX: number; minZ: number; maxZ: number; y: number }
+interface Roofed { minX: number; maxX: number; minZ: number; maxZ: number; y: number }
 export const ROOFED: Record<'library' | 'gallery', Roofed> = {
   library: { minX: -13, maxX: 13, minZ: -42, maxZ: -18, y: 8.35 },   // world/index.ts LIB: walls 8.5 m
   gallery: { minX: GALLERY.minX, maxX: GALLERY.maxX, minZ: GALLERY.minZ, maxZ: GALLERY.maxZ, y: 3.22 },   // under the lintel

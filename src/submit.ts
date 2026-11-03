@@ -6,7 +6,7 @@ import { downloadMarkdown, slugify } from './editor';
 const SUBMIT_REPO = 'Greiye/Artheria.ES.3D.Lore.Game';
 const MAX_URL_BODY = 6000;   // GitHub's new-issue URL starts failing past ~8 KB
 
-export interface Submission { kind: string; title: string; markdown: string }
+interface Submission { kind: string; title: string; markdown: string }
 
 function issueUrl(s: Submission): string {
   const body = s.markdown.length > MAX_URL_BODY

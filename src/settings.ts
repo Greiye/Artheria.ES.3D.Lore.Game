@@ -3,7 +3,7 @@
 export type Preset = 'low' | 'medium' | 'high';
 export type FpsCap = 30 | 60 | 0; // 0 = uncapped (F1.1 "∞")
 
-export interface AudioSettings {
+interface AudioSettings {
   master: number; music: number; sfx: number; dialogue: number; // F1.2: 0-100 per bus
   muteMaster: boolean; muteMusic: boolean; muteSfx: boolean; muteDialogue: boolean;
 }

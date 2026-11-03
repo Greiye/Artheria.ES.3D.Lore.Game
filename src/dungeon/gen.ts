@@ -4,7 +4,7 @@
 // carve L-shaped corridors, then tag rooms by their distance from the entrance.
 export const N = 36;                 // grid cells per side
 export const CELL = 2;               // metres per cell
-export type Tag = 'entrance' | 'hall' | 'shrine' | 'treasure' | 'pool' | 'nest';
+type Tag = 'entrance' | 'hall' | 'shrine' | 'treasure' | 'pool' | 'nest';
 export interface Room { x: number; y: number; w: number; h: number; cx: number; cy: number; tag: Tag; depth: number }
 export const THEMES = ['Ancient', 'Frost', 'Molten', 'Grim', 'Verdant'] as const;
 export type Theme = typeof THEMES[number];

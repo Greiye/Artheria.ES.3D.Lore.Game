@@ -28,7 +28,7 @@ async function open(init) {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('file://' + file);
-  await page.waitForFunction(() => window.__gametool);
+  await page.waitForFunction(() => window.__gametool, null, { timeout: 90000 });   // a second game booting on a slow machine
   await page.click('#begin'); await page.mouse.move(5, 5);
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 8000 });
   return { ctx, page, errors };

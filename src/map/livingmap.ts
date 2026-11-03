@@ -1,5 +1,6 @@
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 import './map.css';
+import { storeSet } from '../store';
 
 // B7 living map (M): a hand-inked map of the glade that fills in as you walk (fog of war, 4 m cells),
 // and records what you did there: clues found, where your theory led, the friend you found, the fire
@@ -34,7 +35,7 @@ export class LivingMap {
   private save() {
     let fog = '';
     for (let i = 0; i < G * G; i += 4) fog += ((this.seen[i] | (this.seen[i + 1] << 1) | (this.seen[i + 2] << 2) | (this.seen[i + 3] << 3)) & 15).toString(16);
-    try { localStorage.setItem(KEY, JSON.stringify({ fog, pins: this.pins } satisfies MapState)); } catch { /* blocked */ }
+    storeSet(KEY, JSON.stringify({ fog, pins: this.pins } satisfies MapState));
   }
   // Reveal everything within 10 m. Called from the game loop about once a second.
   reveal(x: number, z: number) {

@@ -6,9 +6,10 @@ import './forge.css';
 import { pixelTexture, type TexName } from '../tex/pixel';
 import { ConstraintDice, rollText, type DieKind, type Roll } from './dice';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
+import { storeSet } from '../store';
 
-export type StockStyle = 'hunter' | 'heavy' | 'slim';
-export type LimbStyle = 'straight' | 'recurve' | 'wing';
+type StockStyle = 'hunter' | 'heavy' | 'slim';
+type LimbStyle = 'straight' | 'recurve' | 'wing';
 export type Material = 'oak' | 'dark' | 'birch' | 'bone' | 'iron';
 export interface WeaponCosmetic {
   stock: StockStyle; limbs: LimbStyle; stockMat: Material; limbMat: Material;
@@ -22,7 +23,7 @@ const defaultWeapon = (): WeaponCosmetic => ({
 export function loadWeapon(): WeaponCosmetic {
   try { const raw = localStorage.getItem(KEY); return raw ? { ...defaultWeapon(), ...JSON.parse(raw) } : defaultWeapon(); } catch { return defaultWeapon(); }
 }
-function saveWeapon(c: WeaponCosmetic): void { try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* quota */ } }
+function saveWeapon(c: WeaponCosmetic): void { storeSet(KEY, JSON.stringify(c)); }
 
 const MAT_TEX: Record<Material, [TexName | null, string]> = {
   oak: ['wood', '#FFFFFF'], dark: ['planks', '#FFFFFF'], birch: ['birch', '#FFFFFF'], bone: ['parchment', '#F4ECD8'], iron: ['stone', '#B8BCC0'],

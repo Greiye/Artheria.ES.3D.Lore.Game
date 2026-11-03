@@ -8,13 +8,12 @@ import './quick.css';
 // (the stairs, three layers of 2–3 rooms, the goblin's nest), so exactly four picks from entry to the end.
 // Each room resolves at once in a card: a fight (a summary, it costs health), an event (a carving from the
 // lore) or a find (crowns, bolts, a trinket). Same seed, same graph, same rooms.
-export type QKind = 'start' | 'fight' | 'event' | 'loot' | 'rest' | 'boss';
-export interface QNode { id: string; layer: number; row: number; kind: QKind; next: string[] }
-export interface QGraph { seed: number; theme: Theme; nodes: QNode[] }
-export interface QReward { crowns: number; items: [string, number][] }
-export interface Carving { line: string; title: string; credit: string }
+type QKind = 'start' | 'fight' | 'event' | 'loot' | 'rest' | 'boss';
+interface QNode { id: string; layer: number; row: number; kind: QKind; next: string[] }
+interface QGraph { seed: number; theme: Theme; nodes: QNode[] }
+interface QReward { crowns: number; items: [string, number][] }
+interface Carving { line: string; title: string; credit: string }
 
-export const LAYERS = 5;
 const KIND_LABEL: Record<QKind, string> = { start: 'Stairs', fight: 'Fight', event: 'Carving', loot: 'Cache', rest: 'Spring', boss: 'The Nest' };
 const KIND_ICON: Record<QKind, string> = { start: '⇣', fight: '⚔', event: '✎', loot: '◈', rest: '♨', boss: '☠' };
 // Fights and the nest are rolled goblins (docs/trait-roll-tables.md): new ones every run, the dice never shown.
