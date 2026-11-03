@@ -7,6 +7,20 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, part 5: fighter mode vs Kavik (B35, Mike 2026-11-03)
+- **Spar with Kavik** at the dojo. It's a 1v1, side-on on the mats, with health bars, a 60 s clock and best of 3 rounds.
+- **Moves:** one Attack button and one Special button, each by direction, plus a shield and a grab. All the moves are our own.
+  - Attack: Quick Cut (neutral), Stepping Slash (side), Rising Arc (up), Low Sweep (down).
+  - Special: Ember Bolt (neutral), Comet Dash (side), Updraft (up), Still Water (down, a counter).
+  - Shield blocks; shield plus a direction rolls away. The Shoulder Throw grab beats a shield.
+- **Kavik's AI** is a small state machine: approach, poke, block, punish, anti-air, back off. He goes easy until you win your first match. After that he fights fair for good: he blocks, anti-airs and punishes some whiffs, and he reads button-mashing. He still reacts with a human delay and leaves openings after his attacks.
+- **Rewards:** 25 crowns for the first win, then 5 per win. The save keeps your record (`gametool.fight`).
+- **Controls:**
+  - Keyboard: A D move, W S aim up or down, Space jump, J attack, K special, L shield, I grab, Esc leaves.
+  - Touch: a stick on the left, with Attack, Special, Shield and Jump on the right.
+  - No gamepad support in this mode yet.
+- Code: `src/fight/` holds the engine, the AI and the screen. Test: `test/e2e-fight.mjs`.
+
 ### v0.11 changelog, part 4: more animations (B34, Mike 2026-11-03)
 - New one-shot moves layered over whatever a figure is doing:
   - **Wave:** NPCs wave hello when you come near (once a minute each), and you wave when you start a conversation.
