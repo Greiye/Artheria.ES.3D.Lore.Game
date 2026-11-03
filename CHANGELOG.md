@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, part 4: more animations (B34, Mike 2026-11-03)
+- New one-shot moves layered over whatever a figure is doing:
+  - **Wave:** NPCs wave hello when you come near (once a minute each), and you wave when you start a conversation.
+  - **Pick-up:** a crouch and reach when you take the sword from its stand, pick up a bolt or open a chest below.
+  - **Hit:** a flinch when something hits you in the dungeon.
+- **Idle fidgets:** figures standing still look round, stretch or shift their weight every 8 to 18 s.
+- **Sit:** stand still in the world for 25 s and you sit down on the ground. Any move gets you up.
+- Test: `test/e2e-animations.mjs`.
+
 ### v0.11 changelog, graphics: crossed-quad trees (Mike 2026-11-03)
 - The hills' forest is now card trees on every preset: each tree is two or three upright cut-out quads crossed through the trunk, standing in loose clusters of two to five. Eight cards from 99.Miles' Low Poly Forest Tree Pack (CC BY 4.0, still credited) are baked side-on into one 512 px sheet (`src/art/trees/tree-cards.png`, by `scripts/bake-tree-cards.mjs`).
 - `public/models/forest-trees.glb` (2.1 MB) no longer ships. The whole forest is one mesh and one draw call, and it shows on `file://` pages too.

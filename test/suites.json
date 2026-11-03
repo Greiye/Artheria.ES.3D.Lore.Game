@@ -46,6 +46,7 @@
     "e2e-pushups",
     "e2e-touch-slide",
     "e2e-wake",
-    "e2e-witch-face"
+    "e2e-witch-face",
+    "e2e-animations"
   ]
 }
