@@ -18,6 +18,11 @@ const KEYS: Record<string, keyof Pad | 'left' | 'right'> = {
   Space: 'jump', KeyJ: 'attack', KeyK: 'special', KeyL: 'shield', ShiftLeft: 'shield', KeyI: 'grab', KeyU: 'grab',
 };
 const PRESS = new Set(['attack', 'special', 'jump', 'grab']);
+// Gamepad (standard mapping; Mike 2026-11-03 "Add that now"): left stick or D-pad moves and aims, A attack,
+// B special, Y jump, X grab, any shoulder or trigger holds the shield, Start leaves. On the result: A rematch, B leave.
+const PAD_PRESS: [number, string][] = [[0, 'attack'], [1, 'special'], [3, 'jump'], [2, 'grab']];
+const PAD_SHIELD = [4, 5, 6, 7], PAD_START = 9, PAD_UP = 12, PAD_DOWN = 13, PAD_LEFT = 14, PAD_RIGHT = 15;
+const DEAD = 0.25;
 
 export class FightMode {
   readonly el: HTMLDivElement;
@@ -34,6 +39,8 @@ export class FightMode {
   private held = new Set<string>();
   private pressed = new Set<string>();
   private stick = { id: -1, x0: 0, y0: 0, x: 0, y: 0 };
+  /** The gamepad as last read: stick, held buttons, and the buttons down last poll (for presses). */
+  private gp = { x: 0, y: 0, shield: false, up: false, down: false, prev: [] as boolean[] };
 
   constructor() {
     this.el = document.createElement('div');
@@ -50,7 +57,8 @@ export class FightMode {
         <h3 class="fx-r-title"></h3><p class="fx-r-line"></p>
         <div class="fx-r-row"><button id="fxRematch">Rematch</button><button class="secondary" id="fxLeave">Leave the mat</button></div>
       </div>
-      <p class="fx-help">Move <b>A D</b> · aim <b>W S</b> · jump <b>Space</b> · attack <b>J</b> · special <b>K</b> · shield <b>L</b> (+ a direction: roll) · grab <b>I</b> · <b>Esc</b> leaves</p>
+      <p class="fx-help fx-help-pad only-pad">Move <b>stick / D-pad</b> · attack <b>A</b> · special <b>B</b> · jump <b>Y</b> · grab <b>X</b> · shield <b>LB RB LT RT</b> · <b>Start</b> leaves</p>
+      <p class="fx-help fx-help-keys">Move <b>A D</b> · aim <b>W S</b> · jump <b>Space</b> · attack <b>J</b> · special <b>K</b> · shield <b>L</b> (+ a direction: roll) · grab <b>I</b> · <b>Esc</b> leaves</p>
       <div class="fx-stick" aria-hidden="true"><div class="fx-knob"></div></div>
       <div class="fx-pad">
         <button class="fx-b" data-b="special">Special</button><button class="fx-b fx-big" data-b="attack">Attack</button>
@@ -101,7 +109,7 @@ export class FightMode {
     this.isOpen = false;
     this.el.classList.add('hidden');
     document.body.classList.remove('fighting');
-    this.held.clear(); this.pressed.clear();
+    this.held.clear(); this.pressed.clear(); this.gp.x = this.gp.y = 0; this.gp.shield = this.gp.up = this.gp.down = false;
     this.onClose();
   }
   /** A new best-of-3 against Kavik at the level the save says. */
@@ -114,6 +122,30 @@ export class FightMode {
     this.el.querySelector('.fx-result')!.classList.add('hidden');
     this.el.querySelector('.fx-level')!.textContent = this.level === 'fair' ? '(for real now)' : '(going easy)';
     this.acc = 0;
+    this.gp.prev = this.padButtons();   // the A press that opened the fight isn't an attack
+  }
+
+  private padButtons(): boolean[] {
+    const p = [...(navigator.getGamepads?.() ?? [])].find((g) => !!g && g.connected);
+    return p ? p.buttons.map((b) => b.pressed || b.value > 0.5) : [];
+  }
+  /** Read the gamepad: presses go to the same queue as keys and touch; the stick and shield are held. */
+  private pollPad() {
+    const now = this.padButtons(), prev = this.gp.prev, hit = (i: number) => !!now[i] && !prev[i];
+    this.gp.prev = now;
+    const p = [...(navigator.getGamepads?.() ?? [])].find((g) => !!g && g.connected);
+    if (!p) { this.gp.x = this.gp.y = 0; this.gp.shield = false; return; }
+    if (this.result) {
+      if (hit(0)) this.start(); else if (hit(1) || hit(PAD_START)) this.close();
+      return;
+    }
+    if (hit(PAD_START)) { this.close(); return; }
+    const ax = p.axes[0] ?? 0, ay = p.axes[1] ?? 0;
+    this.gp.x = (Math.abs(ax) > DEAD ? ax : 0) + (now[PAD_RIGHT] ? 1 : 0) - (now[PAD_LEFT] ? 1 : 0);
+    this.gp.y = ay;
+    this.gp.up = !!now[PAD_UP] || ay < -0.55; this.gp.down = !!now[PAD_DOWN] || ay > 0.55;
+    this.gp.shield = PAD_SHIELD.some((i) => now[i]);
+    for (const [i, k] of PAD_PRESS) if (hit(i)) this.pressed.add(k);
   }
 
   private key(e: KeyboardEvent, down: boolean) {
@@ -128,12 +160,12 @@ export class FightMode {
 
   /** The player's pad from the keys and touch held now (presses are used up). */
   private pad(): Pad {
-    const h = this.held, sx = this.stick.x, sy = this.stick.y;
+    const h = this.held, sx = this.stick.x, sy = this.stick.y, g = this.gp;
     const p: Pad = {
-      x: (h.has('right') ? 1 : 0) - (h.has('left') ? 1 : 0) + (Math.abs(sx) > 0.3 ? sx : 0),
-      up: h.has('up') || sy < -0.55, down: h.has('down') || sy > 0.55,
+      x: (h.has('right') ? 1 : 0) - (h.has('left') ? 1 : 0) + (Math.abs(sx) > 0.3 ? sx : 0) + g.x,
+      up: h.has('up') || sy < -0.55 || g.up, down: h.has('down') || sy > 0.55 || g.down,
       attack: this.pressed.has('attack'), special: this.pressed.has('special'), jump: this.pressed.has('jump'), grab: this.pressed.has('grab'),
-      shield: h.has('shield'),
+      shield: h.has('shield') || g.shield,
     };
     p.x = Math.max(-1, Math.min(1, p.x));
     this.pressed.clear();
@@ -143,6 +175,8 @@ export class FightMode {
   /** Run the fight for `dt` seconds of real time (fixed 60 Hz steps) and redraw the screen. */
   update(dt: number) {
     if (!this.isOpen) return;
+    this.pollPad();
+    if (!this.isOpen) return;   // Start left the mat
     this.acc += Math.min(dt, 0.25);
     let p = this.pad();
     while (this.acc >= STEP) {

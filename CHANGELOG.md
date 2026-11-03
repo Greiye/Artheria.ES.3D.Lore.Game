@@ -7,6 +7,17 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, part 6: controller in the Kavik fight (Mike 2026-11-03)
+- The fight now works on a gamepad:
+  - The left stick or D-pad moves and aims.
+  - A is attack, B special, Y jump and X grab.
+  - Any shoulder button or trigger holds the shield.
+  - Start leaves the mat.
+- On the result screen, A is a rematch and B leaves.
+- With a pad in use, the controls line shows the pad buttons.
+- The A press that starts the fight doesn't count as an attack.
+- `test/e2e-fight.mjs` has 6 new pad checks (21/21).
+
 ### v0.11 changelog, part 5: fighter mode vs Kavik (B35, Mike 2026-11-03)
 - **Spar with Kavik** at the dojo. It's a 1v1, side-on on the mats, with health bars, a 60 s clock and best of 3 rounds.
 - **Moves:** one Attack button and one Special button, each by direction, plus a shield and a grab. All the moves are our own.
