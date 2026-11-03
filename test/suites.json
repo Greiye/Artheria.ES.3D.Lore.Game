@@ -43,6 +43,7 @@
     "e2e-touch-hud",
     "e2e-portraits",
     "e2e-tailor",
-    "e2e-pushups"
+    "e2e-pushups",
+    "e2e-touch-slide"
   ]
 }

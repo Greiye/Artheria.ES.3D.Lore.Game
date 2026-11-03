@@ -2015,7 +2015,7 @@ window.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => player.held.clear());
 
 // ---------- mouse look ----------
-window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') setMode('mouse'); });
+window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') setMode('mouse'); else if (e.pointerType === 'touch') setMode('touch'); });   // B32: a touch after a key press brings the touch buttons back
 window.addEventListener('mousedown', (e) => {
   if (state !== 'play') return;
   if (e.button === 0) {
