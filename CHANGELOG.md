@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, graphics: pixel shadows (Mike 2026-11-03)
+- Shadows are hard-edged and chunky: the sun's shadow map is 512 px (was 2048) with no soft filtering, so edges step in visible pixels. Shadows are on by default on High (Pause > Graphics > Shadows on any preset).
+
 ### v0.11 changelog, part 3: wake-up intro (B31, Mike 2026-11-03)
 - Begin and Continue now go black, then fade in on your character getting up: lying down, a stretch, sitting up, then standing. It takes two seconds, and any key, click, touch or pad button skips it.
 - A new game wakes in the inn's new guest bed, under the jetty by the door. Continue wakes where you last slept: the bedroll if that was at camp, otherwise the inn. The save remembers it.
