@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { paintedAtlas, toTile, type PaintKind } from '../tex/paintedAtlas';
-import { painted, rigged, faceMaterial, faceGeometry, blobShadow, BONES, type BoneName, type FigureLook, type FigureRig } from './figure';
+import { painted, rigged, figureMaterial, faceMaterial, faceGeometry, blobShadow, BONES, type BoneName, type FigureLook, type FigureRig } from './figure';
 import { spriteFigure } from '../render/sprites';
 import { FACE } from '../render/headArt';
 
@@ -125,7 +125,7 @@ export function buildKavik(height = 1.85): THREE.Group {
   const atlas = paintedAtlas(colours.map((c) => ({ color: c, kind: kindOf(c) })));
   for (const [g, c] of parts) toTile(g, atlas.rect(c));
   const geo = mergeGeometries(parts.map(([g, , b]) => rigged(painted(g, '#FFFFFF', 0, height), BONES.indexOf(b))));
-  const mesh = new THREE.SkinnedMesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, map: atlas.texture, side: THREE.DoubleSide }));   // open robe shells
+  const mesh = new THREE.SkinnedMesh(geo, figureMaterial({ vertexColors: true, map: atlas.texture, side: THREE.DoubleSide }));   // open robe shells
   mesh.name = 'figure-body';
   mesh.add(bones.root);
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));

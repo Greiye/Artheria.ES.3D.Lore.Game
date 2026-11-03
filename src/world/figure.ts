@@ -83,13 +83,47 @@ export function painted(geo: THREE.BufferGeometry, color: string, yMin: number, 
   return g;
 }
 
-// S2f (Tree of Savior pipeline): characters are unlit. All shading is baked into the vertex colours
-// (painted()), so they read the same in any light, as ToS bakes it into hand-painted diffuse maps.
-const bodyMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-const atlasMats = new Map<THREE.Texture, THREE.MeshBasicMaterial>();
-function atlasMaterial(map: THREE.Texture): THREE.MeshBasicMaterial {
+// S2f (Tree of Savior pipeline): characters keep their painted shading baked into the vertex colours
+// (painted()), as ToS bakes it into hand-painted diffuse maps. B43 (Mike 2026-11-03, "NPCs ignore dynamic
+// lighting"): the sun and sky don't light them (that would shade them twice), but the hour dims and tints them
+// (figureLight.shade, set by the sky) and nearby point lights (torches, the campfire, lanterns) add their glow.
+export const figureLight = {
+  shade: { value: new THREE.Color(1, 1, 1) },   // the hour's tint: white by day, dim blue at night
+  gain: { value: 0.16 },                        // how strongly point lights brighten a character
+};
+const FIG_LIGHT = `
+  vec3 figPts = vec3(0.0);
+  #if NUM_POINT_LIGHTS > 0
+  for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+    vec3 lv = pointLights[i].position + vViewPosition;
+    float ld = max(length(lv), 1e-3);
+    float att = getDistanceAttenuation(ld, pointLights[i].distance, pointLights[i].decay);
+    figPts += pointLights[i].color * att * (0.45 + 0.55 * max(dot(normalize(normal), lv / ld), 0.0));
+  }
+  #endif
+  vec3 outgoingLight = diffuseColor.rgb * (figShade + figPts * figGain);`;
+/** A character material: painted (unlit) look, dimmed by the hour and brightened by nearby point lights. */
+export function figureMaterial(params: THREE.MeshLambertMaterialParameters): THREE.MeshLambertMaterial {
+  const m = new THREE.MeshLambertMaterial(params);
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.figShade = figureLight.shade; sh.uniforms.figGain = figureLight.gain;
+    sh.fragmentShader = 'uniform vec3 figShade;\nuniform float figGain;\n' + sh.fragmentShader.replace(
+      'vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;', FIG_LIGHT);
+  };
+  m.customProgramCacheKey = () => 'figure-lit';
+  // A clone (wear on the player's clothes, goblins' own tints) keeps the character lighting.
+  m.clone = function (this: THREE.MeshLambertMaterial) {
+    const c = new THREE.MeshLambertMaterial().copy(this);
+    c.onBeforeCompile = this.onBeforeCompile; c.customProgramCacheKey = this.customProgramCacheKey; c.clone = this.clone;
+    return c;
+  };
+  return m;
+}
+const bodyMat = figureMaterial({ vertexColors: true });
+const atlasMats = new Map<THREE.Texture, THREE.MeshLambertMaterial>();
+function atlasMaterial(map: THREE.Texture): THREE.MeshLambertMaterial {
   let m = atlasMats.get(map);
-  if (!m) { m = new THREE.MeshBasicMaterial({ vertexColors: true, map }); atlasMats.set(map, m); }
+  if (!m) { m = figureMaterial({ vertexColors: true, map }); atlasMats.set(map, m); }
   return m;
 }
 const noRaycast = () => {};
@@ -439,7 +473,7 @@ export function faceGeometry(w: number, h: number): THREE.BufferGeometry {
   return mergeGeometries([eyes, mouth]);
 }
 // One face material per figure: its map is the look's face sheet once loaded (src/render/sprites.ts).
-export function faceMaterial() { return new THREE.MeshBasicMaterial({ alphaTest: 0.5, visible: false }); }
+export function faceMaterial() { return figureMaterial({ alphaTest: 0.5, visible: false }); }
 
 // The stagecoach (D13 BBEG placeholder): a black coach with lit lanterns. Feet at y = 0, faces +Z.
 export function buildCoach(height: number): THREE.Group {
