@@ -327,8 +327,9 @@ export function buildWorld(): World {
   };
   place('stagecoach', buildCoach(3.4), -5.0, -2.6, 0.5, 1.5);
   place('hero', buildFigure({ art: 'hero', skin: '#F0C8A0', hair: '#6B3E22', primary: '#3E6FA8', secondary: '#7FA8D0', boots: '#2E4A6E', accent: '#F2C94C', hairStyle: 'spiky' }, 1.8), 3.8, 3.2, -0.6, 0.35);
-  // Kavik (Mike's character, 2026-10-29): watches the dojo's pupils spar, by its door.
-  { const d = TOWN_LOTS.find((l) => l.id === 'dojo')!, c = Math.cos(d.ry), s = Math.sin(d.ry), lx = 0.4, lz = d.d / 2 + 1.5;
+  // Kavik (Mike's character, 2026-10-29): watches the dojo's pupils spar, beside its door (off the doorway, so
+  // his "Spar with Kavik" hitbox never covers the door's "Enter the Dojo").
+  { const d = TOWN_LOTS.find((l) => l.id === 'dojo')!, c = Math.cos(d.ry), s = Math.sin(d.ry), lx = 2.2, lz = d.d / 2 + 1.1;
     place('kavik', buildKavik(1.85), d.x + lx * c + lz * s, d.z - lx * s + lz * c, d.ry - 0.5, 0.35); }
   // v0.05 D13: Natalie Bourbon, the warner, left of the library door (§3 step 4).
   const NAT = { x: -2.8, z: LIB.front + 1.8 };
