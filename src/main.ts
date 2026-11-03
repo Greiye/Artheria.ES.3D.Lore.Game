@@ -120,7 +120,7 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 // MSAA costs fill rate on phones and on Low; it is set once, when the canvas is made (a preset change applies next load).
 const renderer = new THREE.WebGLRenderer({ antialias: !coarse && settings.preset !== 'low', powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.BasicShadowMap;   // Mike 2026-11-03: hard-edged, pixel-stepped shadows (no soft PCF blur)
 // F1.1: device pixel ratio capped (phones hold frame rate), then scaled by the render-scale setting.
 const basePixelRatio = Math.min(window.devicePixelRatio, coarse ? 1.5 : 2);
 // References review: auto quality scales these down when the frame rate drops (settings stay as picked).

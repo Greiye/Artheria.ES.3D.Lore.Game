@@ -64,12 +64,14 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(SKY.sunLight, 2.4);
   sun.position.copy(sunDir).multiplyScalar(90);
-  sun.shadow.mapSize.set(2048, 2048);
+  // Mike 2026-11-03: a small shadow map. Over the 120 x 80 m shadow area each texel is about 0.23 x 0.16 m, so
+  // shadow edges read as chunky pixel steps (BasicShadowMap in main.ts: no filtering).
+  sun.shadow.mapSize.set(512, 512);
   sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
   sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
   sun.shadow.camera.near = 1; sun.shadow.camera.far = 200;
   sun.shadow.bias = -0.0015;
-  sun.shadow.normalBias = 0.03;
+  sun.shadow.normalBias = 0.08;   // bigger texels need more push to avoid acne
   scene.add(sun, sun.target);
 
   // Sky dome: vertex-coloured gradient, warmest toward the sun. PLACEHOLDER: a sky shader with clouds.
