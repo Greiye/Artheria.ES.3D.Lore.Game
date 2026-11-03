@@ -2,10 +2,25 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
-## Live builds 0.03 to 0.11 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
+## Live builds 0.03 to 0.12 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.12,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
+
+### v0.12 changelog: controller everywhere (B40, Mike 2026-11-03)
+- **Every panel works with a controller.** This covers the stations and forges, the tailor, the shop, the cinema, the dojo, gear care, cooking (also when it's opened at the campfire), the map, the journal, the Skills, Phrasebook and Recipe books, the library wiki, the DM view, the gallery, the sketchbook and the lore editor.
+  - The D-pad or a left-stick flick moves to the nearest control in that direction, and repeats while held.
+  - A presses the control. On a text box, A gives it the focus so the system keyboard can type.
+  - Left and right change a slider or a list.
+  - B or Start leaves through the panel's own Close, Leave or Done button. In a text box, the first B puts the pen down.
+  - The control the controller is on is always outlined.
+- **Margin notes:** in an open book, Y picks up the pen. The desk then works like any other panel.
+- **Gear care:** hold A to lift the blade while sharpening, the same as holding Space.
+- **Character forge:** the right stick turns the hero, the same as at the weapon forge.
+- **Map from the controller:** hold View or Create for 0.4 s. A tap still opens the bag.
+- **Touch:** a ⇄ button next to 🎥 swaps the shoulder. It shows only in the shoulder view.
+- The Kavik fight keeps its own controller layout (v0.11 part 6). The panel controls stay out of it.
+- Code: `src/input/padnav.ts`, plus the panel hooks in `src/input/gamepad.ts` and `src/main.ts`. Test: `test/e2e-gamepad.mjs`.
 
 ### v0.11 changelog, part 7: every tree is a card (Mike 2026-11-03, "Trees are still 3D")
 - The card-tree change (#57) only replaced the far forest. The 95 meadow trees and the horizon ring were still 3D trunks and leaf clumps.

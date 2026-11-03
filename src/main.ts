@@ -98,6 +98,7 @@ import { WhatsNew } from './whatsnew';
 import { loadGame, saveGame, clearGame } from './save';
 import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph } from './input/glyphs';
+import { topPanel, padMove, padNudge, padPress, padBack, type PadDir } from './input/padnav';
 import { storeSet } from './store';
 
 // Private, all rights reserved (D8). Not open source.
@@ -1905,6 +1906,28 @@ function menuButtons(where: 'side' | 'panel' = 'side'): HTMLElement[] {
   const root = gateOpen ? $('gateConfirm') : extras.isOpen ? extras.el : state === 'title' ? $('title') : null;
   return root ? [...root.querySelectorAll<HTMLButtonElement>('button')].filter((b) => b.offsetParent !== null && !b.disabled) : [];
 }
+// B40: a controller in any open panel (stations, the map, the journal, the books, the lore editor, the margin desk).
+// The fight with Kavik has its own controls (src/fight/mode.ts), so the panel controls leave it alone.
+function panelRoot(): HTMLElement | null {
+  if (state === 'editor') return $('editor');
+  if (state === 'book') { const d = reader.isOpen ? readerDesk : lecternDesk; return d.isWriting ? d.deskEl : null; }
+  if (state !== 'forge' || fightMode.isOpen) return null;
+  return topPanel();
+}
+function panelInput(d: PadDir | 'ok' | 'back') {
+  const root = panelRoot();
+  if (!root) { if (d === 'back' && state === 'forge' && !fightMode.isOpen) closeForges(); return; }
+  if (d === 'ok') { padPress(root); return; }
+  if (d === 'back') {
+    if (padBack(root)) return;
+    if (state === 'editor') closeEditor();
+    else if (state === 'book') (reader.isOpen ? readerDesk : lecternDesk).closeDesk();
+    else closeForges();
+    return;
+  }
+  if ((d === 'left' || d === 'right') && padNudge(document.activeElement, d === 'right' ? 1 : -1)) return;
+  padMove(root, d);
+}
 function focusMenu(i: number, where: 'side' | 'panel' = 'side') { const bs = menuButtons(where); bs[Math.max(0, Math.min(bs.length - 1, i))]?.focus({ preventScroll: true }); }
 function menuInput(dir: 'up' | 'down' | 'left' | 'right' | 'ok' | 'back'): boolean {
   if (intro?.active) { intro.input(); return true; }
@@ -2019,7 +2042,19 @@ const hooks: GameHooks = {
   menuActive: () => !!intro?.active || extras.isOpen || gateOpen || telling.isOpen || quick.isOpen || whatsNew.isOpen || (wiki.isOpen && state !== 'forge') || campfire.isOpen,
   menu: (d) => menuInput(d),
   bandPad: (i) => { if (campfire.isOpen && campfire.section === 'play' && !telling.isOpen) campfire.pad(i); },
-  forgeStick: (x, y) => { if (weaponForge.isOpen) turnWeapon(x * 0.06, y * 0.04); },
+  forgeStick: (x, y) => {
+    if (weaponForge.isOpen) turnWeapon(x * 0.06, y * 0.04);
+    else if (characterForge.isOpen) { player.bodyYaw += x * 0.06; player.body.rotation.y = player.bodyYaw; }   // B40: turn the hero too
+  },
+  panel: (d) => panelInput(d),
+  panelHold: (on) => {
+    if (!(gear.isOpen && gear.job === 'sharpen')) return false;
+    if (inputMode === 'pad') gear.holding = on;   // B40: hold A to lift the blade, like holding Space
+    return true;
+  },
+  deskOpen: () => (reader.isOpen ? readerDesk : lecternDesk).isWriting,
+  bookPen: () => (reader.isOpen ? readerDesk : lecternDesk).pressPen(),
+  canSwapShoulder: () => state === 'play' && player.thirdPerson && rig.step === 1 && !crossbow.equipped,
   setMode,
 };
 const touch: TouchControls | null = new TouchControls(hooks);

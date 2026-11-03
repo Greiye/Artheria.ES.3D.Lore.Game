@@ -4,7 +4,7 @@ import { haptics } from './haptics';
 
 // Touch controls for phones / tablets (owner promoted B7 touch on 2026-10-16).
 // Left side: floating joystick (small push = walk, full push = run).
-// Right side: drag to look. Buttons: Jump, Sneak, Sprint (hold), Bag; top: 🎥 perspective, quick-equip 🏹 🗡 🔥 (B28); Read (when aimed at the
+// Right side: drag to look. Buttons: Jump, Sneak, Sprint (hold), Bag; top: 🎥 perspective, ⇄ shoulder (B40), quick-equip 🏹 🗡 🔥 (B28); Read (when aimed at the
 // book), Menu. v0.04: landscape first, face buttons in a controller's diamond, a buzz on each press.
 // UX pass (Mike 2026-10-31): thumb zones. One context button beside the face buttons names what it will do
 // (Talk / Read / Open ...); Map, Journal, Bag and Menu sit in a row in the top corner, one tap each; a faint
@@ -42,6 +42,7 @@ export class TouchControls {
       </div>
       <div class="t-cam">
         <button class="t-btn t-pov" data-act="pov" aria-label="Change perspective" title="Change perspective">🎥</button>
+        <button class="t-btn t-sh hidden" data-act="shoulder" aria-label="Swap shoulder" title="Swap shoulder">⇄</button>
         <button class="t-btn t-q" data-act="qbow" aria-label="Crossbow" title="Crossbow">🏹</button>
         <button class="t-btn t-q" data-act="qsword" aria-label="Sword" title="Sword">🗡</button>
         <button class="t-btn t-q" data-act="torch" aria-label="Torch" title="Torch">🔥</button>
@@ -108,6 +109,7 @@ export class TouchControls {
     else if (act === 'torch') this.g.toggleTorch();
     else if (act === 'sneak') { p.toggleSneak(); b.classList.toggle('latched', p.sneaking); }
     else if (act === 'sprint') p.held.add('sprint');
+    else if (act === 'shoulder') this.g.shoulderSwap();   // B40: the other shoulder (shown only in the shoulder view)
     else if (act === 'pov') this.g.toggleView();   // B28: the one perspective button (first person, shoulder, overhead)
     else if (act === 'read') this.g.activate();
     else if (act === 'menu') this.g.pause();
@@ -177,6 +179,7 @@ export class TouchControls {
     const verb = this.g.state() === 'play' ? this.g.useVerb() : null;
     this.readBtn.classList.toggle('hidden', !verb);
     if (verb && this.readBtn.textContent !== verb) this.readBtn.textContent = verb;
+    this.root.querySelector('[data-act="shoulder"]')!.classList.toggle('hidden', !this.g.canSwapShoulder());
     const sneak = this.root.querySelector('[data-act="sneak"]')!;
     sneak.classList.toggle('latched', this.g.player.sneaking);
     const cb = this.g.crossbow;   // F4: crossbow buttons once Natalie has handed it over
