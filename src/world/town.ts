@@ -120,6 +120,9 @@ export interface Town {
   shopkeeperHit: THREE.Object3D;
   /** Where the projectionist's screen stands (main.ts hangs the screen and places the projectionist). */
   cinema: Spot;
+  /** B31: the inn's guest bed under the jetty, where a new game wakes: the foot of the bed (feet spot) and the yaw
+   *  that faces away from it. */
+  bed: { x: number; z: number; yaw: number };
   /** v0.06 W3: every lantern (lamp-post tops and the lantern by each door), for night halos and the few real lights. */
   lanterns: THREE.Vector3[];
   /** The lit-window material (brighter at night). */
@@ -137,6 +140,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const glow = new THREE.MeshBasicMaterial({ color: '#F2C27A' });
   const lanternMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#FFC878').multiplyScalar(1.7) });
   const lanterns: THREE.Vector3[] = [], chimneys: THREE.Vector3[] = [];
+  let bed = { x: 0, z: 0, yaw: 0 };
   const doors = {} as Record<TownId, THREE.Object3D>;
   const local = (L: Spot) => { const c = Math.cos(L.ry), s = Math.sin(L.ry); return (lx: number, y: number, lz: number) => V(L.x + lx * c + lz * s, y, L.z - lx * s + lz * c); };
 
@@ -216,6 +220,16 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
       B.add(roof, new THREE.ConeGeometry(1.75, 5.5, 4), at(tx, TH + 2.9, tz), undefined, L.ry + Math.PI / 4);
       B.add(glow, new THREE.SphereGeometry(0.14, 6, 4), at(tx, TH + 5.75, tz));   // gilt finial
     }
+    if (L.id === 'inn') {   // B31: a guest bed under the jetty, head to the wall below the right window
+      const bx = 2.5, z0 = D / 2 + 0.25, len = 2.0, zc = z0 + len / 2;
+      B.add(wood, new THREE.BoxGeometry(1.0, 0.32, len), at(bx, 0.16, zc), undefined, L.ry);                       // frame
+      B.add(wood, new THREE.BoxGeometry(1.0, 0.75, 0.1), at(bx, 0.38, z0 + 0.05), undefined, L.ry);                // headboard
+      B.add(tex('cover'), new THREE.BoxGeometry(0.9, 0.14, len - 0.12), at(bx, 0.39, zc + 0.03), undefined, L.ry); // mattress + blanket
+      B.add(tex('plaster'), new THREE.BoxGeometry(0.6, 0.12, 0.34), at(bx, 0.5, z0 + 0.32), undefined, L.ry);      // pillow
+      for (const lz of [z0 + 0.5, z0 + 1.45]) { const c = at(bx, 0, lz); colliders.push({ kind: 'circle', x: c.x, z: c.z, r: 0.5, top: 0.46 }); }
+      const f = at(bx, 0, z0 + len + 0.2);
+      bed = { x: f.x, z: f.z, yaw: L.ry + Math.PI };   // the player faces out from the bed (yaw 0 looks toward -Z)
+    }
     if (L.id === 'shop') {   // a market counter in front, with crates
       B.add(wood, new THREE.BoxGeometry(2.4, 0.9, 0.7), at(2.0, 0.45, D / 2 + 1.6), undefined, L.ry);
       B.add(tex('planks'), new THREE.BoxGeometry(0.6, 0.6, 0.6), at(-2.3, 0.3, D / 2 + 1.0), undefined, L.ry + 0.3);
@@ -285,7 +299,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const shopkeeperHit = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
   shopkeeperHit.position.copy(sa(2.0, 0.9, shop.d / 2 + 2.55)); shopkeeperHit.rotation.y = shop.ry; shopkeeperHit.name = 'shopkeeper';
   scene.add(shopkeeperHit);
-  return { doors, shopkeeper, shopkeeperHit, cinema: cin, lanterns, windows: glow, chimneys, fingerpost };
+  return { doors, shopkeeper, shopkeeperHit, cinema: cin, bed, lanterns, windows: glow, chimneys, fingerpost };
 }
 
 // ---------- Style pass 2: storybook dressing (window boxes, pots, awnings, barrels, a well, bunting) ----------

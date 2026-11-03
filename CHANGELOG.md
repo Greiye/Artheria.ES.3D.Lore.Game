@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, part 3: wake-up intro (B31, Mike 2026-11-03)
+- Begin and Continue now go black, then fade in on your character getting up: lying down, a stretch, sitting up, then standing. It takes two seconds, and any key, click, touch or pad button skips it.
+- A new game wakes in the inn's new guest bed, under the jetty by the door. Continue wakes where you last slept: the bedroll if that was at camp, otherwise the inn. The save remembers it.
+- Test browsers skip the intro unless `localStorage gametool.waketest = 'on'` (like the coach), so the other suites still start at the glade.
+- Test: `test/e2e-wake.mjs`.
+
 ### v0.11 changelog, part 2: touch buttons cancel on slide-off (B32, Mike 2026-11-03)
 - A finger that presses a touch button and slides off it no longer triggers it. Map, Journal, Menu, Bag, the perspective and quick-equip buttons (crossbow, sword, torch) and Use now act when the finger lifts, and only if it is still over the same button.
 - Jump, Sneak, Sprint, Fire, Aim and Reload still act the moment they're pressed.
