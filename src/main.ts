@@ -4,7 +4,7 @@ import './render/grade';   // style pass 1: global colour grade (patches a shade
 import { updateSprites, setSpriteCharacters, faceExpression } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';
-import { buildFigure } from './world/figure';
+import { buildFigure, type FigureLook } from './world/figure';
 import { Player } from './player';
 import { Book } from './book';
 import { lore, entryById } from './lore';
@@ -193,7 +193,9 @@ const wear = new Wear(player);   // UX pass: clothes tear as you're hurt in the 
 let purseSteps = 0;   // every third footstep the purse clinks   // v0.04: the 'read' pose holds an open book (shelf reader)
 // .glb models (public/models/<id>.glb) replace placeholders when present; never blocks loading.
 const modelSlots: ModelSlot[] = [
-  ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number })),
+  ...Object.entries(world.standees).map(([id, s]) => ({ id, placeholder: s, height: s.userData.height as number,
+    // Mike 2026-11-03: the witch's baked face swaps for a drawn one (the hero's sheet until Mike draws hers).
+    face: id === 'witch' ? { skin: 'Witch_Head_2', hide: ['Witch_Head_5'], look: { ...(s.userData.look as FigureLook), art: 'hero' } } : undefined })),
   { id: 'player', placeholder: player.body.children[0], parent: player.body, height: controls.eyeHeight + 0.1, faceYaw: Math.PI },
 ];
 // References review: the 99.Miles forest tree pack (public/models/forest-trees.glb) dresses the hills, clear of

@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.11,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.11 changelog, graphics: the witch's drawn face (Mike 2026-11-03)
+- The Witch (the Quaternius model) now has a drawn face like everyone else, with blinks and expressions, on a face quad on her head bone. Her baked-in eyes are hidden. She uses the hero's sheet until Mike draws hers (`src/art/heads/`).
+- Any .glb slot can do the same with a `face` entry (`src/models.ts`, `drawnFace`).
+- Test: `test/e2e-witch-face.mjs`.
+
 ### v0.11 changelog, graphics: pixel shadows (Mike 2026-11-03)
 - Shadows are hard-edged and chunky: the sun's shadow map is 512 px (was 2048) with no soft filtering, so edges step in visible pixels. Shadows are on by default on High (Pause > Graphics > Shadows on any preset).
 
