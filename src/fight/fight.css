@@ -1,0 +1,29 @@
+/* B35: fighter mode vs Kavik. */
+#fight { position: fixed; inset: 0; z-index: 40; pointer-events: auto; color: var(--parchment, #F3E6C8); font-family: Georgia, serif; touch-action: none; user-select: none; }
+#fight.hidden { display: none; }
+#fight .fx-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; align-items: flex-start; gap: 12px; }
+#fight .fx-side { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+#fight .fx-right { align-items: flex-end; }
+#fight .fx-name { font-weight: 700; text-shadow: 0 1px 2px #000; }
+#fight .fx-name small { font-weight: 400; opacity: .8; }
+#fight .fx-bar { width: 100%; height: 14px; background: rgba(20,14,8,.75); border: 1px solid rgba(232,200,120,.6); border-radius: 3px; overflow: hidden; }
+#fight .fx-hp { display: block; height: 100%; background: linear-gradient(#E8C878, #C9A23A); transition: width .15s; }
+#fight .fx-right .fx-bar { transform: scaleX(-1); }
+#fight .fx-right .fx-hp { background: linear-gradient(#C890F0, #8C5EC4); }
+#fight .fx-pips { font-size: 14px; letter-spacing: 2px; text-shadow: 0 1px 2px #000; }
+#fight .fx-clock { font: 700 26px/1 Georgia, serif; min-width: 44px; text-align: center; background: rgba(20,14,8,.75); border-radius: 6px; padding: 4px 6px; }
+#fight .fx-banner { position: absolute; top: 34%; left: 0; right: 0; text-align: center; font: 700 clamp(28px, 7vw, 64px)/1 Georgia, serif; text-shadow: 0 3px 0 #2B1A10, 0 0 18px rgba(0,0,0,.6); pointer-events: none; }
+#fight .fx-result { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(20,14,8,.92); border: 1px solid rgba(232,200,120,.6); border-radius: 10px; padding: 14px 18px; text-align: center; max-width: min(420px, 90vw); }
+#fight .fx-result h3 { margin: 0 0 6px; font-size: 24px; }
+#fight .fx-r-row { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+#fight .fx-help { position: absolute; bottom: calc(8px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; font-size: 13px; text-shadow: 0 1px 2px #000; margin: 0; pointer-events: none; }
+#fight .fx-quit { position: absolute; top: calc(52px + env(safe-area-inset-top)); right: 12px; left: auto; width: auto; margin: 0; padding: 6px 14px; }
+#fight .fx-stick { position: absolute; width: 100px; height: 100px; margin: -50px 0 0 -50px; border-radius: 50%; border: 2px solid rgba(243,230,200,.4); display: none; pointer-events: none; }
+#fight .fx-stick.on { display: block; }
+#fight .fx-knob { position: absolute; left: 30px; top: 30px; width: 40px; height: 40px; border-radius: 50%; background: rgba(243,230,200,.5); }
+#fight .fx-pad { position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(36px + env(safe-area-inset-bottom)); display: none; grid-template-columns: repeat(2, 64px); gap: 10px; }
+#fight .fx-b { width: 64px; height: 64px; border-radius: 50%; padding: 0; font-size: 12px; background: rgba(20,14,8,.7); border: 2px solid rgba(232,200,120,.6); color: inherit; }
+#fight .fx-b.on { background: rgba(232,200,120,.5); }
+#fight .fx-big { border-color: #E8C878; }
+body[data-input="touch"] #fight .fx-pad { display: grid; }
+body[data-input="touch"] #fight .fx-help { display: none; }
