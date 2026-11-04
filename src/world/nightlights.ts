@@ -16,7 +16,27 @@ function haloTexture(): THREE.CanvasTexture {
   return t;
 }
 
+// Town style 2: a pool of warm light on the ground under every lantern, painted like pixel art: three hard-edged
+// rings rather than a smooth falloff, drawn with hard texels. One instanced draw for all of them.
+function poolTexture(): THREE.CanvasTexture {
+  const N = 32, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d')!, img = g.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const r = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2) / (N / 2);
+    const a = r < 0.38 ? 1 : r < 0.68 ? 0.6 : r < 0.95 ? 0.28 : 0;
+    const i = (y * N + x) * 4;
+    img.data[i] = 255; img.data[i + 1] = r < 0.38 ? 200 : 170; img.data[i + 2] = r < 0.38 ? 120 : 90; img.data[i + 3] = Math.round(a * 255);
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearFilter; t.generateMipmaps = false;
+  return t;
+}
+export const POOL_R = 2.6;
+
 export class NightLights {
+  /** Town style 2: warm light pools on the ground, one under each lantern. */
+  readonly pools: THREE.InstancedMesh;
   readonly halos: THREE.InstancedMesh;
   /** G3 (graphics batch, Mike 2026-11-03): a soft warm glow in front of every lit window, from dusk. */
   readonly windowHalos: THREE.InstancedMesh;
@@ -26,7 +46,7 @@ export class NightLights {
   private pick = 0;
   private windowBase: THREE.Color;
 
-  constructor(scene: THREE.Scene, readonly anchors: THREE.Vector3[], private windows: THREE.MeshBasicMaterial, readonly windowSpots: THREE.Vector3[] = []) {
+  constructor(scene: THREE.Scene, readonly anchors: THREE.Vector3[], private windows: THREE.MeshBasicMaterial, readonly windowSpots: THREE.Vector3[] = [], ground: (x: number, z: number) => number = () => 0) {
     // Camera-facing quads, one instanced draw (point sprites can be clamped to a few pixels on some GPUs).
     this.halos = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.9, 1.9), new THREE.MeshBasicMaterial({
       map: haloTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false, toneMapped: false,
@@ -39,6 +59,18 @@ export class NightLights {
     this.windowHalos.count = windowSpots.length;
     this.windowHalos.name = 'window-halos'; this.windowHalos.raycast = () => {}; this.windowHalos.frustumCulled = false;
     scene.add(this.windowHalos);
+    // Flat on the ground, a little above it (and pulled toward the camera in depth) so it never fights the paving.
+    this.pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(POOL_R * 2, POOL_R * 2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({
+      map: poolTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: true, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    }), Math.max(1, anchors.length));
+    this.pools.count = anchors.length;
+    const m = new THREE.Matrix4();
+    anchors.forEach((a, i) => this.pools.setMatrixAt(i, m.makeTranslation(a.x, ground(a.x, a.z) + 0.04, a.z)));
+    this.pools.instanceMatrix.needsUpdate = true;
+    this.pools.computeBoundingSphere();
+    this.pools.name = 'lamp-pools'; this.pools.raycast = () => {}; this.pools.visible = false; this.pools.renderOrder = 1;
+    scene.add(this.pools);
     for (let i = 0; i < 4; i++) {
       const l = new THREE.PointLight(WARM, 0, 10, 1.7);
       l.castShadow = false; l.visible = false; l.name = 'night-light';
@@ -56,6 +88,8 @@ export class NightLights {
     const night = t === 'night', dusk = t === 'sunset';
     (this.halos.material as THREE.MeshBasicMaterial).opacity = night ? 0.85 : dusk ? 0.55 : 0;
     this.halos.visible = night || dusk;
+    (this.pools.material as THREE.MeshBasicMaterial).opacity = night ? 0.6 : dusk ? 0.35 : 0;
+    this.pools.visible = (night || dusk) && this.anchors.length > 0;
     (this.windowHalos.material as THREE.MeshBasicMaterial).opacity = night ? 0.5 : dusk ? 0.35 : 0;
     this.windowHalos.visible = (night || dusk) && this.windowSpots.length > 0;
     // G3: the real lantern lights come on at dusk too (softer), so walls by the lanterns warm up as the sun goes.

@@ -422,3 +422,48 @@ export function shaftTexture(): THREE.CanvasTexture {
 }
 
 
+
+// Town style 2 (Mike 2026-11-04, Graphics thread, "Loads of sprites" look): the town's buildings and street as
+// pixel art. The same painted tile, cut to 32 px a metre, cut down to a 6-colour palette of its own
+// hues (no dither: it reads as cloth), and drawn with hard texels up close (mipmapped far away so roofs don't shimmer). Pixel-art textures sit
+// with the 2D crowd sprites; the 3D named NPCs and the player stay painted.
+const ART_PX = 32, ART_COLOURS = 6;
+const artCache = new Map<TexName, THREE.Texture>();
+export function pixelArtTexture(name: TexName): THREE.Texture {
+  let t = artCache.get(name);
+  if (t) return t;
+  const src = paint(name), sx = src.width / TILE, sy = src.height / TILE;
+  const W = Math.round(ART_PX * sx), H = Math.round(ART_PX * sy);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d', { willReadFrequently: true })!;
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, W, H);   // box-ish downsample: each texel is the average of a 2×2 painted block
+  const img = g.getImageData(0, 0, W, H), d = img.data, n = W * H;
+  // A small palette per tile (k-means on the tile's own colours), so the tones stay the tile's hues, not muddy steps.
+  const pal: number[][] = [];
+  for (let k = 0; k < ART_COLOURS; k++) { const i = Math.floor((k + 0.5) / ART_COLOURS * n) * 4; pal.push([d[i], d[i + 1], d[i + 2]]); }
+  pal.sort((a, b) => a[0] + a[1] + a[2] - b[0] - b[1] - b[2]);
+  const near = new Uint8Array(n);
+  const nearest = (i: number) => { let best = 0, bd = Infinity; pal.forEach((c, k) => { const e = (d[i] - c[0]) ** 2 + (d[i + 1] - c[1]) ** 2 + (d[i + 2] - c[2]) ** 2; if (e < bd) { bd = e; best = k; } }); return best; };
+  for (let it = 0; it < 6; it++) {
+    const sum = pal.map(() => [0, 0, 0, 0]);
+    for (let p = 0; p < n; p++) { const k = near[p] = nearest(p * 4), s4 = sum[k]; s4[0] += d[p * 4]; s4[1] += d[p * 4 + 1]; s4[2] += d[p * 4 + 2]; s4[3]++; }
+    sum.forEach((s4, k) => { if (s4[3]) pal[k] = [s4[0] / s4[3], s4[1] / s4[3], s4[2] / s4[3]]; });
+  }
+  for (let p = 0; p < n; p++) {
+    const c = pal[nearest(p * 4)], i = p * 4;
+    d[i] = Math.round(c[0]); d[i + 1] = Math.round(c[1]); d[i + 2] = Math.round(c[2]); d[i + 3] = d[i + 3] < 128 ? 0 : 255;
+  }
+  g.putImageData(img, 0, 0);
+  t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.anisotropy = 4;
+  t.userData.pixelArt = name;
+  artCache.set(name, t);
+  return t;
+}
+/** How many town textures are pixel art (tests). */
+export const pixelArtCount = () => artCache.size;
