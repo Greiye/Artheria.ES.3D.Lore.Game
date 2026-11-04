@@ -23,6 +23,11 @@ const defaultWeapon = (): WeaponCosmetic => ({
 export function loadWeapon(): WeaponCosmetic {
   try { const raw = localStorage.getItem(KEY); return raw ? { ...defaultWeapon(), ...JSON.parse(raw) } : defaultWeapon(); } catch { return defaultWeapon(); }
 }
+/** The crossbow and its legend as a lore file (Submit, and the B37 portfolio). */
+export function weaponMarkdown(c: WeaponCosmetic, author: string): string {
+  const body = `# ${c.name || 'Unnamed crossbow'}\n\n*A ${c.stock} crossbow, ${c.stockMat} stock and ${c.limbMat} ${c.limbs} limbs.${c.engraving ? ` Engraved: "${c.engraving}".` : ''}*\n\n${c.legend || '(No legend yet.)'}${c.roll ? `\n\n> Forged under the dice: ${rollText(c.roll)}.` : ''}\n`;
+  return entryMarkdown({ title: c.name || 'Unnamed crossbow', author, type: 'art', tags: ['weapon', 'forge', 'crossbow'], body });
+}
 function saveWeapon(c: WeaponCosmetic): void { storeSet(KEY, JSON.stringify(c)); }
 
 const MAT_TEX: Record<Material, [TexName | null, string]> = {
@@ -144,8 +149,7 @@ export class WeaponForge {
     this.el.querySelector('#wfDone')!.addEventListener('click', () => this.close());
     this.el.querySelector('#wfSubmit')!.addEventListener('click', () => {
       this.readText(); saveWeapon(this.c);
-      const body = `# ${c.name || 'Unnamed crossbow'}\n\n*A ${c.stock} crossbow, ${c.stockMat} stock and ${c.limbMat} ${c.limbs} limbs.${c.engraving ? ` Engraved: "${c.engraving}".` : ''}*\n\n${c.legend || '(No legend yet.)'}${c.roll ? `\n\n> Forged under the dice: ${rollText(c.roll)}.` : ''}\n`;
-      openSubmitSheet({ kind: 'weapon legend', title: c.name || 'Unnamed crossbow', markdown: entryMarkdown({ title: c.name || 'Unnamed crossbow', author: this.author(), type: 'art', tags: ['weapon', 'forge', 'crossbow'], body }) });
+      openSubmitSheet({ kind: 'weapon legend', title: c.name || 'Unnamed crossbow', markdown: weaponMarkdown(c, this.author()) });
     });
   }
 }

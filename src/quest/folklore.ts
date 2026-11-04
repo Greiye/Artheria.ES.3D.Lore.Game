@@ -13,14 +13,14 @@ const LEGENDS = legendary.items as Record<string, Legend>;
 const PEDLAR = legendary.pedlar;
 const KEY = 'gametool.folklore';
 
-function loadFolk(): Record<string, Folk> {
+export function loadFolk(): Record<string, Folk> {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
 }
 function saveFolk(f: Record<string, Folk>) { storeSet(KEY, JSON.stringify(f)); }
 
-interface FolkItem { id: string; name: string; canon?: Legend }
+export interface FolkItem { id: string; name: string; canon?: Legend }
 
-function folkMarkdown(it: FolkItem, f: Folk, author: string): string {
+export function folkMarkdown(it: FolkItem, f: Folk, author: string): string {
   return entryMarkdown({
     title: f.name || it.name, author, type: 'folklore', tags: ['folklore', it.id],
     body: `*${it.name}*\n\n**History.** ${f.history || '(none yet)'}\n\n**Rumor.** ${f.rumor || '(none yet)'}`,

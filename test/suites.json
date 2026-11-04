@@ -61,6 +61,7 @@
     "e2e-banded-sky",
     "e2e-first-day",
     "e2e-see-through",
-    "e2e-touch-haptics"
+    "e2e-touch-haptics",
+    "e2e-portfolio"
   ]
 }

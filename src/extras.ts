@@ -1,5 +1,6 @@
 import { escapeHtml } from './submit';
 import './extras.css';
+import { portfolioHtml, postcard, download, fileSlug, type Piece } from './portfolio';
 import { SLOTS, slotInfo, slotLabel, switchTo, clearSlot, exportSlot, fileName, importInto } from './profiles';
 
 // v0.05 main menu → Extras: Inspirations (the people behind the game; names used with their consent) and
@@ -24,7 +25,9 @@ const ASSET_CREDITS: { what: string; who: string; licence: string; href?: string
 
 export class Extras {
   readonly el: HTMLDivElement;
-  tab: 'menu' | 'inspirations' | 'evolution' | 'profiles' = 'menu';
+  tab: 'menu' | 'inspirations' | 'evolution' | 'profiles' | 'portfolio' = 'menu';
+  /** B37: everything this profile made (main sets it: the author's name and the lore titles live there). */
+  portfolio: () => { author: string; pieces: Piece[] } = () => ({ author: '', pieces: [] });
   /** B24: opened straight onto a page from the main menu, so Back returns to the menu. */
   private direct = false;
   /** B24: a profile changed under the running game (switch, clear, import into the live one): reload. */
@@ -55,6 +58,8 @@ export class Extras {
       else if (b.dataset.act === 'write') this.onWrite();
       else if (b.dataset.act === 'whatsnew') this.onWhatsNew();
       else if (b.dataset.act === 'wiki') this.onWiki();
+      else if (b.dataset.act === 'pfExport') this.exportPortfolio();
+      else if (b.dataset.act === 'pfCard') void this.savePostcard(Number(b.dataset.i));
       else if (b.dataset.act?.startsWith('p')) this.profileAct(b.dataset.act, Number(b.dataset.slot));
     });
   }
@@ -98,6 +103,7 @@ export class Extras {
         <button class="primary" data-tab="inspirations">Inspirations</button>
         <button class="secondary" data-tab="evolution">Evolution of the game</button>
         <button class="secondary" id="profilesBtn" data-tab="profiles">Profiles</button>
+        <button class="secondary" id="portfolioBtn" data-tab="portfolio">Portfolio</button>
         <button class="secondary" id="writeLoreTitle" data-act="write">Write lore</button>
         <button class="secondary" id="whatsNewBtn" data-act="whatsnew">What's new</button>
         <button class="secondary" id="wikiBtn" data-act="wiki">Wiki</button>
@@ -118,6 +124,16 @@ export class Extras {
         if (slotInfo(i).active) { this.onProfileChange(); return; }
         this.note = `Imported into ${slotLabel(slotInfo(i))}.`; this.show('profiles');
       });
+    } else if (tab === 'portfolio') {
+      const { pieces } = this.portfolio();
+      this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Portfolio</h1>
+        <p class="fine">Everything you made in this profile. Export it as one page you can open anywhere or send to a friend, or save any piece as a postcard. It all stays on this device until you share the file.</p>
+        <ul class="pf-list">${pieces.map((p, i) => `<li class="pf">${p.image ? `<img src="${p.image}" alt="">` : `<span class="pf-sw" style="background:${escapeHtml(p.color ?? '#6B4423')}"></span>`}
+          <div class="pf-txt"><span class="fine">${escapeHtml(p.kind)}</span><b>${escapeHtml(p.title)}</b></div>
+          <button class="secondary" data-act="pfCard" data-i="${i}">Postcard</button></li>`).join('') || '<li class="fine">Nothing yet. Sketch at the Scriptorium, dress up at the Tailor, forge a crossbow, or sing at the campfire.</li>'}</ul>
+        ${this.note ? `<p class="prof-note" role="status">${escapeHtml(this.note)}</p>` : ''}
+        ${pieces.length ? '<button class="primary" id="pfExport" data-act="pfExport">Export portfolio</button>' : ''}
+        ${back}</div>`;
     } else if (tab === 'inspirations') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Inspirations</h1>
         <div class="insp-list">${INSPIRATIONS.map((p) => `<figure class="insp"><figcaption>${escapeHtml(p.name)}</figcaption><blockquote>${escapeHtml(p.note)}</blockquote></figure>`).join('')}</div>
@@ -140,6 +156,25 @@ export class Extras {
       strip.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); this.go(this.index + Math.sign(e.deltaY)); } }, { passive: false });
       this.go(this.index, true);
     }
+  }
+  /** B37: one self-contained page with every piece. */
+  exportPortfolio() {
+    const { author, pieces } = this.portfolio();
+    if (!pieces.length) return;
+    const name = `artheria-portfolio-${fileSlug(author || 'traveller')}.html`;
+    download(name, new Blob([portfolioHtml(pieces, author)], { type: 'text/html' }));
+    this.lastExport = name; this.note = `Saved ${name} (${pieces.length} pieces).`; this.show('portfolio');
+  }
+  lastExport = '';
+  async savePostcard(i: number) {
+    const { author, pieces } = this.portfolio(), p = pieces[i];
+    if (!p) return;
+    const c = await postcard(p, author);
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/png'));
+    if (!blob) return;
+    const name = `artheria-${fileSlug(p.kind)}-${fileSlug(p.title)}.png`;
+    download(name, blob);
+    this.lastExport = name; this.note = `Saved the postcard ${name}.`; this.show('portfolio');
   }
   private count() { const c = this.el.querySelector('.evo-count'); if (c) c.textContent = this.shots.length ? `${this.index + 1} / ${this.shots.length}` : ''; }
   /** Show screenshot `i` (clamped). */

@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 3: your portfolio (B37, Mike 2026-11-04)
+- Extras → Portfolio lists everything this profile made: your hero from the Tailor, your crossbow, sketches, ballads, margin notes, folklore and your theory.
+- "Export portfolio" saves one page (`artheria-portfolio-<name>.html`) that opens in any browser and works offline. Pictures are inside it. Each piece's lore file is tucked under it, so it can also be sent in for review.
+- "Postcard" on any piece saves a 1200×800 PNG, framed like a gallery plaque.
+- Nothing is sent anywhere; you share the file if you want to. The work is in `src/portfolio.ts`.
+- New `test/e2e-portfolio.mjs` (9/9).
+
 ### v0.14 changelog, part 2: buttons buzz on phones (Mike 2026-11-04)
 - Every button you tap on a phone now gives a short buzz: menus, pause, panels, chips, toggles and sliders, as well as the touch HUD.
 - iPhone Safari has no vibration API. On iOS 18 and later a tap now ticks the Taptic Engine through a hidden system switch, the one haptic a web page can reach on iPhone. Older iOS stays silent.
