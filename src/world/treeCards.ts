@@ -68,15 +68,15 @@ export function cardMesh(scene: THREE.Scene, geos: THREE.BufferGeometry[], name:
     // A little over white: the baked cards are unlit and read dark once the hills' light falls on them again.
     sharedMat = new THREE.MeshLambertMaterial({ map: tex, color: new THREE.Color(1.15, 1.15, 1.15), alphaTest: 0.5 });
   }
-  const mesh = new THREE.Mesh(mergeAll(geos), sharedMat);
+  const mesh = new THREE.Mesh(mergeCards(geos), sharedMat);
   mesh.name = name; mesh.raycast = () => {};
   mesh.castShadow = true;
   scene.add(mesh);
   return mesh;
 }
 
-function mergeAll(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
-  // Plane geometries are all alike (indexed, position/normal/uv), so a plain concatenation is enough.
+export function mergeCards(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  // (also used by bushCards.ts) Plane geometries are all alike (indexed, position/normal/uv), so a plain concatenation is enough.
   let v = 0, idx = 0;
   for (const g of geos) { v += g.attributes.position.count; idx += g.index!.count; }
   const pos = new Float32Array(v * 3), nor = new Float32Array(v * 3), uv = new Float32Array(v * 2), ind = new Uint32Array(idx);

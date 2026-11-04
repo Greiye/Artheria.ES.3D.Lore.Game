@@ -1,5 +1,6 @@
 // G4 (Mike 2026-11-03, graphics batch): chunkier, simpler foliage to sit with the card trees: fewer, bigger bushes
-// (two or three fat lumps each) and fewer, bigger flower clumps, at about the same triangle budget.
+// and fewer, bigger flower clumps. Since Mike 2026-11-04 (Graphics thread) the bushes are crossed-quad cards like the
+// trees: one merged mesh, two or three cards each, walk-through.
 // Usage: node test/e2e-chunky-foliage.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
 import path from 'node:path';
@@ -21,16 +22,17 @@ await page.waitForTimeout(400);
 await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 90000 });
 const r = await page.evaluate(() => {
-  const s = window.__gametool.world.scene, out = { canopyTris: 0, flowers: 0, flowerScale: 0, ferns: 0 };
+  const s = window.__gametool.world.scene, out = { bushTris: 0, bushMeshes: 0, canopyTris: 0, flowers: 0, flowerScale: 0, ferns: 0 };
   s.traverse((o) => {
+    if (o.name === 'bush-cards') { out.bushMeshes++; out.bushTris += o.geometry.index.count / 3; out.bushTex = !!o.material.map; }
     if (o.name === 'canopy' && o.geometry) out.canopyTris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
     if (o.name === 'foliage:flowers') { out.flowers = o.count; const e = o.instanceMatrix.array; out.flowerScale = Math.hypot(e[0], e[1], e[2]); }
     if (o.name === 'foliage:fern') out.ferns = o.count;
   });
   return out;
 });
-// Before G4: 110 single-lump bushes (20 triangles each) = at most 2200 triangles; 320 flower tufts at 0.5 m.
-check('Bushes: chunkier lumps at about the old triangle budget (110 single bushes)', r.canopyTris > 600 && r.canopyTris <= 2200 * 1.6, JSON.stringify(r));
+// Each bush is 2 or 3 cards, each card two back-to-back quads: 8 or 12 triangles. About 60 bushes on the meadow.
+check('Bushes: crossed-quad cards in one mesh, the old leaf lumps gone', r.bushMeshes === 1 && r.bushTex && r.bushTris >= 40 * 8 && r.bushTris <= 75 * 12 && r.canopyTris === 0, JSON.stringify(r));
 check('Flowers: fewer, bigger clumps', r.flowers > 0 && r.flowers <= 200 && r.flowerScale > 0.5, JSON.stringify(r));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
