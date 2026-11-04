@@ -20,6 +20,7 @@ const FOLLOW = { distNear: 3.6, distFar: 17, elevNear: 0.32, elevFar: 0.95, fovF
 const STEPS = [{ name: 'first', zoom: 0 }, { name: 'shoulder', zoom: 0 }, { name: 'overhead', zoom: 0.2 }] as const;
 export const OVERHEAD = 2;
 const SHOULDER = { side: 0.55, dist: 2.3, elev: 0.14, look: 1.5 };   // over the shoulder (right by default)
+const LEAD_MAX = THREE.MathUtils.degToRad(18), LEAD_TAU = 0.6, LEAD_HOLD = 0.8;   // B39 camera lead: cap, damping (s), quiet time after a manual turn (s)
 const MIN_CLEAR = 1.3;   // closest the follow camera may come to the look point before it cranes up instead
 
 export class CameraRig {
@@ -58,6 +59,12 @@ export class CameraRig {
   }
   /** B45: walls and objects don't pull the camera in; they open up instead (src/render/seeThrough.ts). Set by main.ts. */
   seeThrough = false;
+  /** B39: the follow camera leads toward the move direction. Set by main.ts (setting, input type, state). */
+  lead = false;
+  /** The current lead, radians (+ = the camera has turned right). */
+  leadCur = 0;
+  private leadYaw = 0;       // the player's yaw last frame, to spot manual turning
+  private leadHold = 0;      // s left of "the player is turning the camera themselves": the lead stays neutral
   // Highest the camera may go at (x, z), e.g. under the dungeon ceiling. Set by main.ts.
   ceiling: (x: number, z: number) => number = () => Infinity;
 
@@ -105,7 +112,10 @@ export class CameraRig {
       this.basePos.copy(p.eyePos);
       this.free = 0;
       this.hasSmooth = false;
+      this.leadCur = 0; this.leadYaw = p.yaw;
     } else {
+      this.updateLead(dt);
+      const yaw = p.yaw - this.leadCur;
       const L = THREE.MathUtils.lerp, ek = 1 - Math.pow(0.002, dt);
       this.cur = Math.abs(this.target - this.cur) < 0.002 ? this.target : L(this.cur, this.target, ek);
       this.shoulderT = L(this.shoulderT, this.step === 1 ? 1 : 0, ek);
@@ -114,7 +124,7 @@ export class CameraRig {
       const dist = L(L(FOLLOW.distNear, FOLLOW.distFar, Math.pow(z, 1.2)), SHOULDER.dist, sh);
       let elev = L(L(FOLLOW.elevNear, FOLLOW.elevFar, z), SHOULDER.elev, sh);
       // Over the shoulder: the look point shifts to the player's right (or left) and the camera follows it sideways.
-      const side = SHOULDER.side * sh * this.sideCur, rx = -Math.cos(p.yaw), rz = Math.sin(p.yaw);
+      const side = SHOULDER.side * sh * this.sideCur, rx = -Math.cos(yaw), rz = Math.sin(yaw);
       this.look.set(p.pos.x + rx * side, p.pos.y + L(L(FOLLOW.lookNear, FOLLOW.lookFar, z), SHOULDER.look, sh), p.pos.z + rz * side);
       const offset = new THREE.Vector3();
       const q = new THREE.Vector3();
@@ -124,7 +134,7 @@ export class CameraRig {
       // crane up in steps until it clears, as a real crane would over a wall.
       let target = 0;
       for (let crane = 0; crane < 6; crane++) {
-        offset.set(Math.sin(p.yaw) * Math.cos(elev), Math.sin(elev), Math.cos(p.yaw) * Math.cos(elev)).multiplyScalar(dist);
+        offset.set(Math.sin(yaw) * Math.cos(elev), Math.sin(elev), Math.cos(yaw) * Math.cos(elev)).multiplyScalar(dist);
         target = 0;
         for (let t = 0.05; t <= 1.0001; t += 0.05) {
           q.copy(this.look).addScaledVector(offset, t);
@@ -136,7 +146,7 @@ export class CameraRig {
       }
       // v0.06: back right up to a wall in the overhead view even the steepest crane meets it at once; rise almost straight up.
       if (target * dist < Math.min(MIN_CLEAR, dist)) {
-        offset.set(Math.sin(p.yaw) * 0.03, 1, Math.cos(p.yaw) * 0.03).normalize().multiplyScalar(Math.min(dist, 6));
+        offset.set(Math.sin(yaw) * 0.03, 1, Math.cos(yaw) * 0.03).normalize().multiplyScalar(Math.min(dist, 6));
         target = 0;
         for (let t = 0.05; t <= 1.0001; t += 0.05) {
           q.copy(this.look).addScaledVector(offset, t);
@@ -187,6 +197,22 @@ export class CameraRig {
     this.camera.quaternion.slerpQuaternions(this.baseQ, this.shotQ, k);
     const fov = THREE.MathUtils.lerp(this.playFov, s.fov, k);
     if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+  }
+
+  // B39 (Mike 2026-11-03): while you walk, the follow camera drifts a little (up to LEAD_MAX) toward the side
+  // you're heading, so a stick player doesn't have to keep steering the view. It's a camera-only offset: movement
+  // stays relative to the player's yaw, so it can't feed back into a spin. Turning the camera yourself, or
+  // stopping, eases it back to neutral.
+  private updateLead(dt: number) {
+    const p = this.player, turned = Math.abs(Math.atan2(Math.sin(p.yaw - this.leadYaw), Math.cos(p.yaw - this.leadYaw))) > 1e-4;
+    this.leadYaw = p.yaw;
+    if (turned) this.leadHold = LEAD_HOLD;
+    else this.leadHold = Math.max(0, this.leadHold - dt);
+    const { f, r } = p.moveInput, len = Math.hypot(f, r);
+    const want = this.lead && this.leadHold === 0 && len > 0.05 ? LEAD_MAX * THREE.MathUtils.clamp(r / Math.max(len, 1), -1, 1) : 0;
+    const tau = this.leadHold > 0 || !this.lead ? LEAD_TAU * 0.4 : len > 0.05 ? LEAD_TAU : LEAD_TAU * 2.5;
+    this.leadCur += (want - this.leadCur) * (1 - Math.exp(-dt / tau));
+    if (Math.abs(this.leadCur) < 1e-4) this.leadCur = 0;
   }
 
   // Shot: over the player's shoulder toward a talker's face (F3 dialogue).

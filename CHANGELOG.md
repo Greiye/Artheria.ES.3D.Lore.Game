@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 4: the camera leads where you walk (B39, Mike 2026-11-03)
+- In the follow views (overhead and over the shoulder), the camera drifts up to 18° toward the side you're walking, so you don't have to keep steering it with the right thumb. It eases in over about half a second.
+- It eases back to neutral when you walk straight on, stop, or turn the camera yourself. It's off in first person and at stations.
+- It only moves the camera; your stick still moves you relative to the view you had, so it can never spin you in circles.
+- Options > Gameplay > "Camera follows your walk": Touch and controller (default), Always, or Off.
+- New `test/e2e-camera-lead.mjs` (10/10).
+
 ### v0.13 changelog, part 3: the camera sees through walls (B45, Mike 2026-11-03)
 - The follow camera no longer pulls in when a building or prop is behind you. Walls, roofs, trees and props between the camera and you open up in a soft, dithered circle and close again once you've moved on.
 - The ground, sky, mountains and characters are never cut. It's off in first person, at stations and in the dungeon (the dungeon camera still pulls in).

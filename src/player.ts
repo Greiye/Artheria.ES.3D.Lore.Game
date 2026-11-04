@@ -23,7 +23,9 @@ export class Player {
   // Analog move input from a thumbstick / touch joystick: x = right, y = forward, each -1..1.
   // Skyrim-style: a small deflection walks, a full one runs.
   readonly analog = { x: 0, y: 0 };
-  readonly analogLook = { x: 0, y: 0 };   // rad/s, from the right stick
+  readonly analogLook = { x: 0, y: 0 };
+  /** B39: this step's move input relative to the view (forward, right), for the camera lead. */
+  readonly moveInput = { f: 0, r: 0 };   // rad/s, from the right stick
   // D2 / F2.4: F toggles third person. A6 body = Legends-style figure, shown only in 3rd person.
   thirdPerson = true;   // rebuild R3: third-person follow is the default view (docs/vision.md)
   readonly body = new THREE.Group();
@@ -123,6 +125,7 @@ export class Player {
       if (this.thirdPerson && this.zoomBy) this.zoomBy(this.analogLook.y * dt * 0.35);
       else this.pitch = THREE.MathUtils.clamp(this.pitch - this.analogLook.y * dt * (this.settings.invertY ? -1 : 1), -lim, lim);
     }
+    this.moveInput.f = this.moveInput.r = 0;
     if (this.vault) {   // the vault owns the body until it lands
       const x0 = this.pos.x, z0 = this.pos.z;
       this.stepVault(dt);
@@ -139,6 +142,7 @@ export class Player {
       // Partial stick = walk pace, full stick = current pace (run / sprint).
       scale = mag < controls.analogRunThreshold ? Math.min(1, controls.speeds.walk / this.speed()) * (mag / controls.analogRunThreshold) : 1;
     }
+    this.moveInput.f = f; this.moveInput.r = r;
     if (f || r) {
       const len = Math.hypot(f, r), sp = this.speed() * dt * scale;
       const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
