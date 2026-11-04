@@ -56,6 +56,7 @@ import { stampBanner, buildBookmarks } from './writing/stamps';
 import { QUEST, loadQuest, saveQuest, clueById, support, ending, tagLabel, type Theory } from './quest/quest';
 import { Casebook } from './quest/casebook';
 import { FirstDay } from './quest/firstday';
+import { gatherPortfolio } from './portfolio';
 import { QuestProps } from './quest/props';
 import { Companion, loadCompanion, saveCompanion } from './quest/companion';
 import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
@@ -1913,6 +1914,7 @@ $('gateYes').addEventListener('click', () => gateYes());
 $('gateNo').addEventListener('click', () => gateNo());
 
 const extras = new Extras(() => { setState('title'); focusMenu(1); });
+extras.portfolio = () => { const author = forgeAuthor(); return { author, pieces: gatherPortfolio(author, (id) => lore.entries.find((e) => e.id === id)?.title ?? id) }; };   // B37
 extras.onWrite = () => { extras.el.classList.add('hidden'); openEditor(); };   // v0.06: Write lore moved from the main menu to Extras
 // v0.06 M6: What's new, once per session on Begin. Automated test browsers skip it unless a test asks.
 const whatsNew = new WhatsNew(promptOfTheDay());

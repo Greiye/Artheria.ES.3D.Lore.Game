@@ -74,7 +74,7 @@ export function decodeLook(s: string): { look: FigureLook; height: number } | nu
 }
 const THREE_clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
-function forgeMarkdown(c: ForgeCharacter, author: string): string {
+export function forgeMarkdown(c: ForgeCharacter, author: string): string {
   const sp = SPECIES.find((s) => s.id === c.look.species)?.label ?? 'Human';
   const body = `# ${c.name || 'Unnamed hero'}\n\n*${sp}.*\n\n${c.backstory.trim() || '(No backstory yet.)'}${c.roll ? `\n\n> Forged under the dice: ${rollText(c.roll)}.` : ''}\n`;
   return entryMarkdown({ title: c.name || 'Unnamed hero', author, type: 'character', tags: ['character', 'forge', c.look.species ?? 'human'], body, extra: { color: c.look.primary, look: encodeLook(c) } });

@@ -55,7 +55,7 @@ export function sketchDataUrl(s: Sketch, scale = 2): string {
   return c.toDataURL();
 }
 
-function sketchMarkdown(s: Sketch, author: string): string {
+export function sketchMarkdown(s: Sketch, author: string): string {
   return entryMarkdown({
     title: s.name || 'Untitled sketch', author, type: 'sketch', tags: ['sketch'],
     body: `A 32×32 sketch made in the game. \`pixels\` is one hex digit per pixel (palette index, row by row).\n`,
