@@ -172,6 +172,10 @@ export class Pet {
   private detour = 0;
   private detourT = 0;
   terrain: (x: number, z: number) => number = () => 0;
+  /** Pets PR 3: something it has sniffed out (a clue, a chest); while set it trots there and sits by it. */
+  lead: THREE.Vector3 | null = null;
+  private alertAt: THREE.Vector3 | null = null;
+  private alertT = 0;
 
   constructor(readonly id: PetId, scene: THREE.Scene, home: THREE.Vector3, homeYaw: number, private colliders: Collider[], private bounds: () => number, readonly prefs: PetPrefs) {
     const d = BUILD[id]();
@@ -205,6 +209,9 @@ export class Pet {
     if (on) delete this.prefs.stayAt[this.id]; else this.prefs.stayAt[this.id] = [+this.pos.x.toFixed(2), +this.pos.z.toFixed(2)];
     savePets(this.prefs);
   }
+  /** Pets PR 3: a foe is near. It stops, faces it, ears up (the owl flaps), for a moment. */
+  alert(at: THREE.Vector3) { this.alertAt = at.clone(); this.alertT = 2.2; }
+  get alerting() { return this.alertT > 0; }
   /** Put it beside the player (a door into the dungeon and back). */
   placeNear(p: THREE.Vector3, dx = -1.2, dz = 1.0) { this.root.position.set(p.x + dx, p.y, p.z + dz); }
 
@@ -214,12 +221,14 @@ export class Pet {
     let moving = false;
     if (this.following && !frozen) {
       // A step behind the player's right shoulder.
-      const goal = new THREE.Vector3(player.x - Math.sin(playerYaw) * 1.3 + Math.cos(playerYaw) * 0.9, 0, player.z - Math.cos(playerYaw) * 1.3 - Math.sin(playerYaw) * 0.9);
+      const goal = this.lead ? new THREE.Vector3(this.lead.x + 0.7, 0, this.lead.z + 0.7)
+        : new THREE.Vector3(player.x - Math.sin(playerYaw) * 1.3 + Math.cos(playerYaw) * 0.9, 0, player.z - Math.cos(playerYaw) * 1.3 - Math.sin(playerYaw) * 0.9);
+      this.alertT -= dt;
       const dx = goal.x - r.position.x, dz = goal.z - r.position.z, d = Math.hypot(dx, dz);
       const far = Math.hypot(player.x - r.position.x, player.z - r.position.z);
       if (far > 30) { r.position.set(goal.x, 0, goal.z); this.speed = 0; }   // left behind (teleport, respawn)
       else {
-        const want = d < 0.3 ? 0 : d > KEEP * 2 ? this.sp.run : Math.min(this.sp.walk, d * 1.8);
+        const want = d < 0.3 || this.alertT > 0 ? 0 : d > KEEP * 2 ? this.sp.run : Math.min(this.sp.walk, d * 1.8);
         this.speed += (want - this.speed) * (1 - Math.exp(-8 * dt));
         if (d > 0.05 && this.speed > 0.05) {
           // Head for the goal, or round whatever blocked the last step (a wall, a cart): angle off to one side for a
@@ -234,7 +243,10 @@ export class Pet {
           else if (this.detourT <= -0.6) this.detour = 0;
           this.turnTo(head, 10, dt);
           moving = this.speed > 0.2;
-        } else this.turnTo(Math.atan2(player.x - r.position.x, player.z - r.position.z), 4, dt);
+        } else {
+          const look = this.alertT > 0 && this.alertAt ? this.alertAt : this.lead ?? player;
+          this.turnTo(Math.atan2(look.x - r.position.x, look.z - r.position.z), this.alertT > 0 ? 10 : 4, dt);
+        }
       }
       this.pushOut(r.position);
     } else {
@@ -261,7 +273,7 @@ export class Pet {
     const P = this.parts, t = this.t;
     if (this.sp.fly) {
       // Wings beat in flight and fold when perched; the head turns about, as owls' do.
-      const flap = this.fly > 0.3 ? Math.sin(t * 16) * 0.9 * this.fly : 0;
+      const flap = this.fly > 0.3 || this.alertT > 0 ? Math.sin(t * 16) * 0.9 * Math.max(this.fly, this.alertT > 0 ? 0.6 : 0) : 0;
       if (P.wl && P.wr) { P.wl.rotation.z = -flap - 0.1; P.wr.rotation.z = flap + 0.1; }
       P.body.rotation.x = this.fly * 0.25;
       P.head.rotation.y = this.fly > 0.3 ? 0 : Math.sin(t * 0.7) > 0.6 ? 1.1 : Math.sin(t * 0.7) < -0.7 ? -1.1 : 0;
@@ -283,7 +295,8 @@ export class Pet {
     // Nosing about now and then while standing; looks up while sitting.
     if (!moving && !this.sitting) { this.sniff += dt; } else this.sniff = 0;
     const nose = !moving && !this.sitting && Math.sin(this.sniff * 1.3) > 0.3 ? -0.45 + Math.sin(t * 9) * 0.05 : this.sitting ? 0.25 : 0;
-    P.head.rotation.x += (-nose - P.head.rotation.x) * k;
+    P.head.rotation.x += ((this.alertT > 0 ? -0.3 : -nose) - P.head.rotation.x) * k;
+    if (this.alertT > 0) P.tail.rotation.y = 0;   // stiff and still, ears up
   }
 
   private pushOut(p: THREE.Vector3) {
