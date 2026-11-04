@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 5: steady aim with the crossbow (B44, Mike 2026-11-03)
+- With the crossbow in first person there's no crosshair. The aim (and the view with it) wanders with a slow drift and your breathing, body-cam style.
+- Holding still fills a stability meter that calms it. Aiming down the sights steadies you fully in about 1.6 s; from the hip it only gets part way.
+- Walking, jumping or turning fast drains it, and each shot's kick knocks it back to 30%.
+- Bolts fly where the wandering aim points, plus a little spread when you're not steady.
+- A ring in the middle of the screen tightens as you steady and turns gold when you're ready to shoot.
+- There's no bow in the game yet; when one comes it can use the same sway. Push-up strength (B26) can scale it later.
+- New `test/e2e-steady-aim.mjs` (10/10). `e2e-traits` now fires its goblin shot from a steady aim.
+
 ### v0.13 changelog, part 4: the camera leads where you walk (B39, Mike 2026-11-03)
 - In the follow views (overhead and over the shoulder), the camera drifts up to 18° toward the side you're walking, so you don't have to keep steering it with the right thumb. It eases in over about half a second.
 - It eases back to neutral when you walk straight on, stop, or turn the camera yourself. It's off in first person and at stations.

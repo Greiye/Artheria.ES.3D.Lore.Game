@@ -47,6 +47,11 @@ output { color: var(--parchment); font-variant-numeric: tabular-nums; }
 /* HUD (F3.1) */
 #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
 body[data-view=follow] #crosshair { display: none; }
+/* B44: steady aim. With the crossbow in first person there's no crosshair, only a ring that tightens as you steady. */
+body.steadyAim #crosshair { display: none; }
+#steady { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+  border: 2px solid var(--parchment); box-shadow: 0 0 0 1px rgba(30,36,32,.55), inset 0 0 0 1px rgba(30,36,32,.55); opacity: .7; will-change: transform; }
+#steady.steady { border-color: #E8D27A; opacity: .9; }
 #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
   background: var(--parchment); box-shadow: 0 0 0 2px rgba(30,36,32,.7); }
 #prompt { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); padding: 7px 14px; border-radius: 6px;
