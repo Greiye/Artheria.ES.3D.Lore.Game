@@ -17,7 +17,7 @@ const KEYS: Record<string, keyof Pad | 'left' | 'right' | 'throw'> = {
   KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down',
   Space: 'up', KeyU: 'lp', KeyI: 'rp', KeyJ: 'lk', KeyK: 'rk', KeyO: 'throw', KeyL: 'throw',
 };
-const PRESS = new Set(['lp', 'rp', 'lk', 'rk', 'throw']);
+const PRESS = new Set(['lp', 'rp', 'lk', 'rk', 'throw', 'up', 'down']);   // up / down too: a quick tap is a sidestep
 // Gamepad (standard mapping; Mike 2026-11-03 "Add that now", limbs 2026-11-04): the stick or D-pad moves (up hops,
 // down crouches, back guards), X left hand, Y right hand, A left foot, B right foot, a shoulder or trigger throws
 // (both hands), Start leaves. On the result: A rematch, B leave.
@@ -60,8 +60,8 @@ export class FightMode {
         <h3 class="fx-r-title"></h3><p class="fx-r-line"></p>
         <div class="fx-r-row"><button id="fxRematch">Rematch</button><button class="secondary" id="fxLeave">Leave the mat</button></div>
       </div>
-      <p class="fx-help fx-help-pad only-pad">Move <b>stick</b> (hold back to block, down-back low) · hands <b>X Y</b> · feet <b>A B</b> · throw <b>LB</b> · <b>Start</b> leaves</p>
-      <p class="fx-help fx-help-keys">Move <b>A D</b> (hold back to block) · hop <b>W</b> · crouch <b>S</b> · hands <b>U I</b> · feet <b>J K</b> · throw <b>U+I</b> or <b>O</b> · <b>Esc</b> leaves</p>
+      <p class="fx-help fx-help-pad only-pad">Move <b>stick</b> (hold back to block, down-back low, tap up / down to sidestep) · hands <b>X Y</b> · feet <b>A B</b> · throw <b>LB</b> · <b>Start</b> leaves</p>
+      <p class="fx-help fx-help-keys">Move <b>A D</b> (hold back to block) · tap <b>W S</b> to sidestep, hold to hop / crouch · hands <b>U I</b> · feet <b>J K</b> · throw <b>U+I</b> or <b>O</b> · <b>Esc</b> leaves</p>
       <div class="fx-stick" aria-hidden="true"><div class="fx-knob"></div></div>
       <div class="fx-pad">
         <button class="fx-b fx-throw" data-b="throw">Throw</button>
@@ -166,7 +166,7 @@ export class FightMode {
     const h = this.held, sx = this.stick.x, sy = this.stick.y, g = this.gp;
     const p: Pad = {
       x: (h.has('right') ? 1 : 0) - (h.has('left') ? 1 : 0) + (Math.abs(sx) > 0.3 ? sx : 0) + g.x,
-      up: h.has('up') || sy < -0.55 || g.up, down: h.has('down') || sy > 0.55 || g.down,
+      up: this.pressed.has('up') || h.has('up') || sy < -0.55 || g.up, down: this.pressed.has('down') || h.has('down') || sy > 0.55 || g.down,
       lp: this.pressed.has('lp') || this.pressed.has('throw'), rp: this.pressed.has('rp') || this.pressed.has('throw'),
       lk: this.pressed.has('lk'), rk: this.pressed.has('rk'),
     };
@@ -186,7 +186,9 @@ export class FightMode {
     while (this.acc >= STEP) {
       this.acc -= STEP;
       this.fight.step(p, this.ai.pad(this.fight));
-      p = { ...p, lp: false, rp: false, lk: false, rk: false };   // a press counts once
+      // A press counts once; a tap of up / down (down and up again inside one frame) counts for one step.
+      const h = this.held, sy = this.stick.y, g = this.gp;
+      p = { ...p, lp: false, rp: false, lk: false, rk: false, up: h.has('up') || sy < -0.55 || g.up, down: h.has('down') || sy > 0.55 || g.down };
       if (this.fight.phase === 'matchEnd' && !this.result) this.finish();
     }
     this.draw();
