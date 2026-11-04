@@ -10,8 +10,11 @@ import { storeSet } from '../store';
 // finds its way round walls, catches up if left far behind, and sits or perches when you stand still. Talk to a pet
 // you've befriended for the pets page (name it, tell it to stay, call another).
 // Saved on this device: who you've befriended, their names, who is with you and where the others wait.
-export type PetId = 'dog' | 'cat' | 'owl' | 'hedgehog';
-export const PET_IDS: PetId[] = ['dog', 'cat', 'owl', 'hedgehog'];
+// Mike 2026-11-04: seven more dogs, each its own pet with its own spot and name: Princess, Milo, Hot Dog, Brandy,
+// Buster, Peanut and Kona (a chihuahua); and a giant hamster the size of a dog.
+export const NAMED_DOGS = ['princess', 'milo', 'hotdog', 'brandy', 'buster', 'peanut', 'kona'] as const;
+export type PetId = 'dog' | 'cat' | 'owl' | 'hedgehog' | 'hamster' | typeof NAMED_DOGS[number];
+export const PET_IDS: PetId[] = ['dog', 'cat', 'owl', 'hedgehog', 'hamster', ...NAMED_DOGS];
 export interface PetPrefs { friends: PetId[]; withYou: PetId | null; stayAt: Partial<Record<PetId, [number, number]>>; names: Partial<Record<PetId, string>> }
 const KEY = 'gametool.pets';
 const isPet = (f: unknown): f is PetId => PET_IDS.includes(f as PetId);
@@ -25,12 +28,32 @@ export function savePets(p: PetPrefs) { storeSet(KEY, JSON.stringify(p)); }
 
 /** Each pet: what it is called until you name it, what it eats, and how it moves. */
 /** Pets that already have a name (Mike named the hedgehog); you can still rename them. */
-const BORN_NAMES: Partial<Record<PetId, string>> = { hedgehog: 'Shadow' };
+const BORN_NAMES: Partial<Record<PetId, string>> = { hedgehog: 'Shadow', princess: 'Princess', milo: 'Milo', hotdog: 'Hot Dog', brandy: 'Brandy', buster: 'Buster', peanut: 'Peanut', kona: 'Kona' };
 export const SPECIES: Record<PetId, { kind: string; food: string; foodName: string; fly: boolean; walk: number; run: number }> = {
   dog: { kind: 'dog', food: 'bread', foodName: 'bread', fly: false, walk: 2.4, run: 5.6 },
   cat: { kind: 'cat', food: 'fish', foodName: 'dried fish', fly: false, walk: 2.2, run: 5.8 },
   owl: { kind: 'owl', food: 'jerky', foodName: 'jerky', fly: true, walk: 3.2, run: 6.4 },
   hedgehog: { kind: 'hedgehog', food: 'mealworms', foodName: 'mealworms', fly: false, walk: 2.0, run: 5.0 },
+  hamster: { kind: 'hamster', food: 'seeds', foodName: 'sunflower seeds', fly: false, walk: 2.0, run: 4.8 },
+  princess: { kind: 'dog', food: 'bread', foodName: 'bread', fly: false, walk: 2.4, run: 5.6 },
+  milo: { kind: 'dog', food: 'bread', foodName: 'bread', fly: false, walk: 2.4, run: 5.8 },
+  hotdog: { kind: 'dog', food: 'bread', foodName: 'bread', fly: false, walk: 2.0, run: 4.6 },
+  brandy: { kind: 'dog', food: 'bread', foodName: 'bread', fly: false, walk: 2.6, run: 6.0 },
+  buster: { kind: 'dog', food: 'bread', foodName: 'bread', fly: false, walk: 2.4, run: 5.4 },
+  peanut: { kind: 'dog', food: 'bread', foodName: 'bread', fly: false, walk: 2.4, run: 5.6 },
+  kona: { kind: 'chihuahua', food: 'bread', foodName: 'bread', fly: false, walk: 2.2, run: 5.0 },
+};
+/** What each named dog looks like (our own picks; Mike named them, and Kona is a chihuahua). */
+interface DogLook { fur: number; pale: number; dark: number; ear?: number; len?: number; leg?: number; wide?: number; ears?: 'flop' | 'up' | 'big'; scale?: number }
+const DOG_LOOKS: Partial<Record<PetId, DogLook>> = {
+  dog: { fur: 0xA8692E, pale: 0xEAD3A8, dark: 0x3A2414 },                                                   // the farm dog
+  princess: { fur: 0xF2EEE6, pale: 0xFFFFFF, dark: 0x2A2626, ear: 0xF2EEE6, ears: 'up', wide: 1.15 },        // white and fluffy
+  milo: { fur: 0xF0E6D2, pale: 0xFFFFFF, dark: 0x5A3A1E, ear: 0x8A5A2E, scale: 0.85 },                        // a beagle's patches
+  hotdog: { fur: 0x7A3A1A, pale: 0xB8723E, dark: 0x2A140A, len: 1.6, leg: 0.45, scale: 0.85 },               // long and low
+  brandy: { fur: 0xD8A24E, pale: 0xF0D29A, dark: 0x5A3A16, ear: 0xC08A3A, scale: 1.12 },                    // golden
+  buster: { fur: 0x6A4A32, pale: 0xE8DCC8, dark: 0x1E1612, ears: 'up', wide: 1.3, len: 0.9, scale: 1.05 },   // brindle, broad chest
+  peanut: { fur: 0xC8955A, pale: 0xEAD3A8, dark: 0x3A2414, ears: 'up', scale: 0.62 },                       // small and tan
+  kona: { fur: 0xD8B482, pale: 0xF2E2C8, dark: 0x2A1E14, ears: 'big', leg: 0.9, len: 0.8, scale: 0.42 },     // a chihuahua
 };
 
 const KEEP = 1.8;
@@ -38,32 +61,69 @@ type Parts = Record<'body' | 'head' | 'tail' | 'fl' | 'fr' | 'bl' | 'br', THREE.
 const box = (w: number, h: number, d: number, m: THREE.Material) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.castShadow = true; return o; };
 const lambert = (c: number) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 
-/** Our own low-poly farm dog: a chunky body, head and snout, floppy ears, four legs and a tail, ~0.55 m at the back. */
-function buildDog(): { root: THREE.Group; parts: Parts } {
-  const fur = new THREE.MeshLambertMaterial({ color: 0xA8692E, flatShading: true });
-  const pale = new THREE.MeshLambertMaterial({ color: 0xEAD3A8, flatShading: true });
-  const dark = new THREE.MeshLambertMaterial({ color: 0x3A2414, flatShading: true });
-  const root = new THREE.Group(); root.name = 'pet:dog';
-  const body = new THREE.Group(); body.position.y = 0.42; root.add(body);
-  const torso = box(0.32, 0.28, 0.66, fur); body.add(torso);
-  const chest = box(0.26, 0.2, 0.2, pale); chest.position.set(0, -0.06, 0.26); body.add(chest);
-  const head = new THREE.Group(); head.position.set(0, 0.2, 0.36); body.add(head);
-  const skull = box(0.26, 0.24, 0.26, fur); head.add(skull);
-  const snout = box(0.15, 0.12, 0.17, pale); snout.position.set(0, -0.05, 0.19); head.add(snout);
-  const nose = box(0.07, 0.05, 0.04, dark); nose.position.set(0, -0.01, 0.28); head.add(nose);
+/** Our own low-poly dogs: a chunky body, head and snout, ears, four legs and a tail. One build, different looks
+ *  (colours, body length, leg length, ears, size): the farm dog is ~0.55 m at the back. */
+function buildDog(id: PetId = 'dog'): { root: THREE.Group; parts: Parts } {
+  const L = DOG_LOOKS[id] ?? DOG_LOOKS.dog!, len = L.len ?? 1, legK = L.leg ?? 1, wide = L.wide ?? 1;
+  const fur = lambert(L.fur), pale = lambert(L.pale), dark = lambert(L.dark), earM = lambert(L.ear ?? L.dark);
+  const root = new THREE.Group(); root.name = 'pet:' + id;
+  root.scale.setScalar(L.scale ?? 1);
+  const legH = 0.32 * legK;
+  const body = new THREE.Group(); body.position.y = 0.1 + legH; root.add(body);
+  const torso = box(0.32 * wide, 0.28, 0.66 * len, fur); body.add(torso);
+  const chest = box(0.26 * wide, 0.2, 0.2, pale); chest.position.set(0, -0.06, 0.26 * len); body.add(chest);
+  const head = new THREE.Group(); head.position.set(0, 0.2, 0.36 * len); body.add(head);
+  const skull = box(0.26 * Math.min(wide, 1.15), 0.24, 0.26, fur); head.add(skull);
+  const snout = box(0.15, 0.12, id === 'kona' ? 0.1 : 0.17, pale); snout.position.set(0, -0.05, id === 'kona' ? 0.16 : 0.19); head.add(snout);
+  const nose = box(0.07, 0.05, 0.04, dark); nose.position.set(0, -0.01, id === 'kona' ? 0.22 : 0.28); head.add(nose);
   for (const s of [-1, 1]) {
-    const ear = box(0.07, 0.16, 0.11, dark); ear.position.set(s * 0.15, 0.02, -0.02); ear.rotation.z = s * 0.25; head.add(ear);
+    const ears = L.ears ?? 'flop';
+    const ear = ears === 'flop' ? box(0.07, 0.16, 0.11, earM) : ears === 'up' ? box(0.07, 0.12, 0.08, earM) : box(0.05, 0.2, 0.16, earM);
+    if (ears === 'flop') { ear.position.set(s * 0.15, 0.02, -0.02); ear.rotation.z = s * 0.25; }
+    else if (ears === 'up') { ear.position.set(s * 0.09, 0.17, -0.04); ear.rotation.z = -s * 0.15; }
+    else { ear.position.set(s * 0.15, 0.17, -0.02); ear.rotation.z = -s * 0.55; }   // a chihuahua's big ears
+    head.add(ear);
     const eye = box(0.04, 0.04, 0.02, dark); eye.position.set(s * 0.07, 0.04, 0.135); head.add(eye);
   }
-  const tail = new THREE.Group(); tail.position.set(0, 0.1, -0.33); body.add(tail);
-  const tailMesh = box(0.06, 0.06, 0.26, fur); tailMesh.position.z = -0.12; tail.add(tailMesh); tail.rotation.x = -0.6;
+  if (id === 'milo') { const patch = box(0.33, 0.06, 0.4, earM); patch.position.set(0, 0.12, -0.05); body.add(patch); }   // the beagle saddle
+  if (id === 'buster') for (const z of [-0.2, 0, 0.2]) { const st = box(0.33 * wide, 0.29, 0.04, dark); st.position.z = z * len; body.add(st); }   // brindle
+  const tail = new THREE.Group(); tail.position.set(0, 0.1, -0.33 * len); body.add(tail);
+  const tailMesh = box(0.06, 0.06, id === 'buster' ? 0.1 : 0.26, fur); tailMesh.position.z = -0.12; tail.add(tailMesh); tail.rotation.x = id === 'princess' ? -1.6 : -0.6;
   const leg = (x: number, z: number) => {
     const g = new THREE.Group(); g.position.set(x, -0.1, z); body.add(g);
-    const l = box(0.09, 0.32, 0.09, fur); l.position.y = -0.16; g.add(l);
-    const paw = box(0.1, 0.05, 0.12, pale); paw.position.set(0, -0.3, 0.02); g.add(paw);
+    const l = box(0.09, legH, 0.09, fur); l.position.y = -legH / 2; g.add(l);
+    const paw = box(0.1, 0.05, 0.12, pale); paw.position.set(0, -legH + 0.02, 0.02); g.add(paw);
     return g;
   };
-  return { root, parts: { body, head, tail, fl: leg(-0.11, 0.24), fr: leg(0.11, 0.24), bl: leg(-0.11, -0.24), br: leg(0.11, -0.24) } };
+  const lx = 0.11 * wide, lz = 0.24 * len;
+  return { root, parts: { body, head, tail, fl: leg(-lx, lz), fr: leg(lx, lz), bl: leg(-lx, -lz), br: leg(lx, -lz) } };
+}
+
+/** Our own low-poly giant hamster, the size of a dog: a round golden body with a white front, fat cheeks, small
+ *  round ears, beady eyes, a pink nose and stubby feet. */
+function buildHamster(): { root: THREE.Group; parts: Parts } {
+  const gold = lambert(0xD99A4E), white = lambert(0xF4ECDF), pink = lambert(0xE89A9A), dark = lambert(0x1A1210);
+  const root = new THREE.Group(); root.name = 'pet:hamster';
+  root.scale.setScalar(1.1);
+  const body = new THREE.Group(); body.position.y = 0.3; root.add(body);
+  const core = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3, 0), gold); core.scale.set(1, 0.9, 1.2); core.castShadow = true; body.add(core);
+  const front = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 0), white); front.scale.set(1, 0.95, 0.7); front.position.set(0, -0.05, 0.18); body.add(front);
+  const head = new THREE.Group(); head.position.set(0, 0.08, 0.3); body.add(head);
+  const skull = new THREE.Mesh(new THREE.DodecahedronGeometry(0.17, 0), gold); skull.castShadow = true; head.add(skull);
+  const muzzle = box(0.14, 0.1, 0.1, white); muzzle.position.set(0, -0.05, 0.12); head.add(muzzle);
+  const nose = box(0.04, 0.03, 0.03, pink); nose.position.set(0, -0.02, 0.18); head.add(nose);
+  for (const sd of [-1, 1]) {
+    const cheek = new THREE.Mesh(new THREE.DodecahedronGeometry(0.08, 0), white); cheek.position.set(sd * 0.12, -0.06, 0.06); head.add(cheek);
+    const eye = box(0.04, 0.04, 0.03, dark); eye.position.set(sd * 0.08, 0.05, 0.13); head.add(eye);
+    const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 6), pink); ear.rotation.x = Math.PI / 2; ear.position.set(sd * 0.11, 0.15, 0); head.add(ear);
+  }
+  const tail = new THREE.Group(); tail.position.set(0, -0.05, -0.35); body.add(tail);
+  const leg = (x: number, z: number) => {
+    const g = new THREE.Group(); g.position.set(x, -0.2, z); body.add(g);
+    const f = box(0.08, 0.1, 0.1, pink); f.position.y = -0.05; g.add(f);
+    return g;
+  };
+  return { root, parts: { body, head, tail, fl: leg(-0.14, 0.18), fr: leg(0.14, 0.18), bl: leg(-0.14, -0.18), br: leg(0.14, -0.18) } };
 }
 
 /** Our own low-poly barn cat: slim and low, pointed ears, a long tail held up; grey tabby with a pale chest. */
@@ -153,7 +213,7 @@ function buildHedgehog(): { root: THREE.Group; parts: Parts } {
   };
   return { root, parts: { body, head, tail, fl: leg(-0.17, 0.22), fr: leg(0.17, 0.22), bl: leg(-0.17, -0.22), br: leg(0.17, -0.22) } };
 }
-const BUILD: Record<PetId, () => { root: THREE.Group; parts: Parts }> = { dog: buildDog, cat: buildCat, owl: buildOwl, hedgehog: buildHedgehog };
+const BUILD: Partial<Record<PetId, () => { root: THREE.Group; parts: Parts }>> = { cat: buildCat, owl: buildOwl, hedgehog: buildHedgehog, hamster: buildHamster };
 
 export class Pet {
   readonly root: THREE.Group;
@@ -162,6 +222,7 @@ export class Pet {
   speed = 0;
   sitting = false;
   private parts: Parts;
+  private base = 0.42;
   private fly = 0;   // the owl: 0 perched, 1 flying at shoulder height
   /** Only out at dusk and by night until befriended (the owl); main sets it. */
   shown: () => boolean = () => true;
@@ -178,13 +239,14 @@ export class Pet {
   private alertT = 0;
 
   constructor(readonly id: PetId, scene: THREE.Scene, home: THREE.Vector3, homeYaw: number, private colliders: Collider[], private bounds: () => number, readonly prefs: PetPrefs) {
-    const d = BUILD[id]();
+    const d = (BUILD[id] ?? (() => buildDog(id)))();
+    this.base = d.parts.body.position.y;
     this.root = d.root; this.parts = d.parts;
     const at = prefs.stayAt[id];
     this.root.position.set(at ? at[0] : home.x, 0, at ? at[1] : home.z);
     this.yaw = homeYaw; this.root.rotation.y = homeYaw;
     scene.add(this.root);
-    const hs = id === 'dog' || id === 'hedgehog' ? 1 : 0.75;
+    const hs = id === 'cat' || id === 'owl' || id === 'kona' ? 0.75 : 1;
     this.hit = new THREE.Mesh(new THREE.BoxGeometry(0.9 * hs, 0.9 * hs, 1.1 * hs), new THREE.MeshBasicMaterial({ visible: false }));
     this.hit.name = 'pet-hit:' + id;
     scene.add(this.hit);
@@ -263,7 +325,7 @@ export class Pet {
     r.rotation.y = this.yaw;
     r.visible = this.friend || this.shown();
     this.animate(dt, moving);
-    this.hit.position.set(r.position.x, r.position.y + 0.45 * (this.id === 'dog' || this.id === 'hedgehog' ? 1 : 0.6), r.position.z);
+    this.hit.position.set(r.position.x, r.position.y + 0.45 * (this.id === 'cat' || this.id === 'owl' || this.id === 'kona' ? 0.6 : 1), r.position.z);
     this.hit.rotation.y = this.yaw;
   }
 
@@ -285,7 +347,7 @@ export class Pet {
     const sit = this.sitting ? 1 : 0;
     const k = 1 - Math.exp(-6 * dt);
     P.body.rotation.x += (-0.42 * sit - P.body.rotation.x) * k;
-    const base = this.id === 'cat' ? 0.27 : this.id === 'hedgehog' ? 0.36 : 0.42;
+    const base = this.base;
     P.body.position.y += ((base - base * 0.24 * sit + Math.abs(sw) * 0.03) - P.body.position.y) * k;
     P.fl.rotation.x = sw + 0.42 * sit; P.br.rotation.x = sw * 0.9 - 1.1 * sit;
     P.fr.rotation.x = -sw + 0.42 * sit; P.bl.rotation.x = -sw * 0.9 - 1.1 * sit;

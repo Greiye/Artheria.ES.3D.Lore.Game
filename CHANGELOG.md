@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 17: pets 4, the pack (Mike 2026-11-04)
+- Seven more dogs live around town, each its own breed and colours: Princess by the gallery, Milo by the smithy, Hot Dog by the scriptorium, Brandy by the library, Buster by the dojo, Peanut by the tailor, and Kona, a tiny big-eared chihuahua, by the inn.
+- A giant hamster, dog-sized, lives by the cartographer. It takes sunflower seeds, now sold with the shop's sundries.
+
 ### v0.14 changelog, part 16: pets 3, a pet that helps (Mike 2026-11-04)
 - The pet with you warns you when a goblin is near below: it stops, faces it and growls, hisses, hoots or rolls into a ball of spines.
 - It sniffs out what's hidden near you, an unfound clue up top or an unopened chest below, and trots over to sit by it until you take it.

@@ -46,7 +46,7 @@ export class PetsPanel {
         <p class="fine">${p.following ? `${escapeHtml(p.label)} is with you.` : `${escapeHtml(p.label)} is waiting here.`} Likes ${escapeHtml(ITEMS[p.sp.food]?.name.toLowerCase() ?? p.sp.foodName)}.</p>
         <div class="forge-actions"><button class="primary" data-pet-act="${p.following ? 'stay' : 'come'}">${p.following ? 'Stay here' : 'Come with me'}</button></div>
       </section>
-      ${others.length ? `<section><h4>Your other pets</h4>${others.map((o) => `<button class="shop-row" data-pet-call="${o.id}"><span>${escapeHtml(o.name || 'The ' + o.sp.kind)}</span><span>${o.following ? where(o) : 'Call'}</span></button>`).join('')}
+      ${others.length ? `<section><h4>Your other pets</h4><div class="shop-grid">${others.map((o) => `<button class="shop-row" data-pet-call="${o.id}"><span>${escapeHtml(o.name || 'The ' + o.sp.kind)}</span><span>${o.following ? where(o) : 'Call'}</span></button>`).join('')}</div>
         <p class="fine">One pet comes with you at a time; the others wait where you left them.</p></section>` : ''}
       <div class="forge-actions"><button class="secondary" data-pet-act="close">Done</button></div>
       <p class="fine">Saved on this device.</p>
