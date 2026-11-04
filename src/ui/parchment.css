@@ -67,3 +67,20 @@ body[data-input="pad"] :is(body .forge-panel, .pause-side, .pause-panel, .card) 
 :is(body .forge-panel, .pause-panel, .card, .pp-sheet) :is(.shop-purse, .prof-note, .chip.legendary, .qd-loot, .kt-drama) { color: var(--pp-gold-d); text-shadow: none; }
 :is(body .forge-panel, .pause-panel, .card, .pp-sheet) :is(.sk-got, .sk-steps button.ok) { color: #3E6B2A; border-color: #5E8B3A; }
 :is(body .forge-panel, .pause-panel, .card, .pp-sheet) :is(.insp, .daily) { background: rgba(255,250,230,.4); }
+
+/* Mike 2026-11-04: the Esc pause menu sits on the right, like the station panels. The sidebar is the right-most
+   sheet with its gilt edge facing the game; the open group's options open to its left. */
+#pause { flex-direction: row-reverse; background: linear-gradient(270deg, rgba(10,7,4,.45), rgba(10,7,4,.1)); }
+#pause .pause-side { border-right: 0; border-left: 3px solid var(--pp-gold); border-radius: 10px 0 0 10px;
+  padding-left: 18px; padding-right: calc(18px + env(safe-area-inset-right));
+  box-shadow: inset 14px 0 18px -10px rgba(0,0,0,.7); }
+#pause .pause-panel:not(.hidden) { box-shadow: inset -14px 0 18px -10px rgba(0,0,0,.7); }
+#pause .pause-side:not(.hidden) + .pause-panel { margin-left: 8px; margin-right: 6px; }
+#pause .pause-item { text-align: right; border-left: 0; border-right: 3px solid transparent; }
+#pause .pause-item:hover, #pause .pause-item:focus-visible { background: linear-gradient(270deg, rgba(201,154,69,.30), transparent); }
+#pause .pause-item.on { border-right-color: var(--pp-gold-d); background: linear-gradient(270deg, rgba(201,154,69,.42), transparent); }
+#pause .pause-rule { background: linear-gradient(270deg, rgba(138,92,28,.6), transparent); }
+#pause .pause-side h1 { align-self: flex-end; }
+#pause .pause-side .fine { text-align: right; }
+body[data-state="pause"] #padStatus { right: auto; left: calc(16px + env(safe-area-inset-left)); }   /* clear of the Journal title */
+body[data-state="pause"] #credit { right: auto; left: calc(8px + env(safe-area-inset-left)); }   /* clear of the sidebar */

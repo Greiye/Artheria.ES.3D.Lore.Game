@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 3: pause menu on the right (Mike 2026-11-04, "Move esc. Pause menu to right")
+- The Esc pause menu (Journal) now opens on the right side of the screen, like the station panels; a group's options open to its left. The controller status and version label move to the left while it's open.
+
 ### v0.15 changelog, part 2: bodies show strength (B46, Mike 2026-11-04)
 - Strength and Endurance, 1 to 20, on the Tailor's Body tab. Strength fills out the shoulders, arms, chest and thighs: 20 looks like a bodybuilder, 2 frail and skinny. Endurance thickens the torso and waist. 10 is the body you had before.
 - Townsfolk have their own strength and endurance, mostly near average with a few frail or burly ones. Your friends in a room see your build too.
