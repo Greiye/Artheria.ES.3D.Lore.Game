@@ -7,6 +7,7 @@ import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { buildFigure, buildCoach } from './figure';
 import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
+import { outlineStatic } from '../render/outline';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
 import { buildSmoke, type Smoke } from './smoke';
@@ -295,6 +296,7 @@ export function buildWorld(): World {
   const smoke = buildSmoke(scene, town.chimneys);   // UX pass
   const statics = B.flush(scene, 'static');
   statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
+  outlineStatic(statics, scene);   // G2: ink outlines on buildings and props
 
   // ---------- undergrowth (instanced, wind-swayed) ----------
   const scatter = (n: number, minR: number, maxR: number, pad: number, near = 0.6): Tuft[] => {
@@ -406,7 +408,9 @@ export function buildWorld(): World {
   ].map((g, i) => { const n = g.toNonIndexed(); const c = new THREE.Color(['#F2783A', '#FFD25A', '#FFB347'][i]); n.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: n.attributes.position.count }, () => [c.r, c.g, c.b]).flat(), 3)); n.deleteAttribute('uv'); return n; })), new THREE.MeshBasicMaterial({ vertexColors: true }));
   flame.position.set(FX, 0.12, FZ); flame.name = 'campfire-flame'; flame.raycast = () => {};
   scene.add(flame);
-  campB.flush(scene, 'camp').forEach((m) => { m.castShadow = true; shadowCasters.push(m); });
+  const campMeshes = campB.flush(scene, 'camp');
+  campMeshes.forEach((m) => { m.castShadow = true; shadowCasters.push(m); });
+  outlineStatic(campMeshes, scene, 'outline-camp');
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 1.6), new THREE.MeshBasicMaterial({ color: '#BFD8E0' }));
   glass.name = 'camp';
   glass.position.set(MX + Math.sin(MR) * 0.045, 1.0, MZ + Math.cos(MR) * 0.045); glass.rotation.y = MR; scene.add(glass);

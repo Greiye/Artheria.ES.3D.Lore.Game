@@ -1,3 +1,4 @@
+import { outlineSkinned } from '../render/outline';
 import * as THREE from 'three';
 import { spriteFigure } from '../render/sprites';
 import { FACE } from '../render/headArt';
@@ -440,6 +441,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   mesh.bind(new THREE.Skeleton(BONES.map((n) => bones[n])));
   mesh.frustumCulled = false;   // small and always near; skips per-frame skinned bounds
   root.add(mesh);
+  outlineSkinned(mesh);   // G2: the ink line around the body
   // The face (Mega Man Legends style): the look's drawn face sheet (src/render/headArt.ts, Mike's hand-drawn
   // sheets where they exist) on a quad over the front of the skull. Expressions swap by moving its UVs
   // (src/render/sprites.ts), so blinking and talking cost nothing.

@@ -36,6 +36,7 @@ export interface Settings {
   preset: Preset;
   renderScale: number; // 50-100 (%)
   shadows: boolean;
+  inkLines: boolean;   // G2: thin ink outlines on characters and props
   postFx: boolean;     // rebuild R1: bloom on glows/sun (replaces the legacy toon outlines)
   fogDistance: number;  // far-plane distance, 20-120 m; near is derived (F1.1)
   fpsCap: FpsCap;
@@ -62,7 +63,7 @@ const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 
 const firstPreset: Preset = IS_IOS ? 'lowpower' : typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'medium';
 const defaults: Settings = {
   schemaVersion: 2,
-  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true, seeThrough: true, cameraLead: 'auto',
+  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true, seeThrough: true, cameraLead: 'auto', inkLines: true,
   lefty: false, buttonSize: 100, textSize: 100, readSpeed: 1,
   preset: firstPreset, ...PRESETS[firstPreset], autoQuality: true,
   audio: { ...defaultAudio },
@@ -116,6 +117,7 @@ export function loadSettings(): Settings {
       shadows: bool(s.shadows, PRESETS[preset].shadows),
       // Saved before the rebuild: the old outlines toggle carries over as the post-effects choice.
       postFx: bool(s.postFx ?? (s as { outlines?: unknown }).outlines, PRESETS[preset].postFx),
+      inkLines: bool(s.inkLines, true),
       fogDistance: clamp(s.fogDistance, 20, 120, PRESETS[preset].fogDistance),
       autoQuality: bool(s.autoQuality, true),
       fpsCap: oldCap ? 0 : (s.fpsCap === 30 || s.fpsCap === 60 || s.fpsCap === 0) ? s.fpsCap : PRESETS[preset].fpsCap,

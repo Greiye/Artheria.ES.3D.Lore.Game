@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 7: ink outlines (graphics G2, Mike 2026-11-03)
+- Characters, buildings and props get a thin dark ink line around their silhouettes, like the line on drawn sprites. It's about 1.6 px up close and thins with distance so far scenery doesn't turn to ink.
+- It's the cheap "inverted hull": a back-faces-only copy pushed out along smoothed normals, no post pass, so it works on every preset. All town buildings and props share one outline mesh (one extra draw call; the camp has another), and each character has one skinned outline on its own skeleton.
+- Walls opened by see-through (B45) open their outline too. Fog fades it.
+- Options > Graphics > "Ink outlines" turns it off.
+- New `test/e2e-ink-lines.mjs` (6/6).
+
 ### v0.13 changelog, part 6: painted ground (graphics G1, Mike 2026-11-03)
 - The meadow, town grass and paths carry a broad layer of soft brush strokes: lighter warm patches and darker cool ones, at two crossing scales, so the ground reads as hand-painted instead of one repeating tile.
 - Cost: one 256 px texture and two extra texture reads in the ground shader, on every preset.
