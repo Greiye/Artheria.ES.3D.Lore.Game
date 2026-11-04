@@ -54,6 +54,8 @@ export class ShopPanel {
     return true;
   }
 
+  // Mike 2026-11-04 ("The extra tabs"): four tabs (fit-panel.ts makes them from the sections) so the store fits a
+  // phone at full text size: gear, instruments, sundries, sell.
   private render() {
     const have = DEBUG_UNLIMITED_CROWNS ? Infinity : this.inv.count(CROWN);
     const row = (w: Ware, i: number, cls = '') => `<button class="shop-row${cls}" data-buy="${i}" ${have < w.price ? 'disabled' : ''}><span>${ITEMS[w.id].icon} ${ITEMS[w.id].name}${w.n > 1 ? ' × ' + w.n : ''}</span><span>◎ ${w.price}</span></button>`;
@@ -63,13 +65,15 @@ export class ShopPanel {
       <h2>The Shopkeeper</h2>
       <p class="shop-line">“${this.line}”</p>
       <div class="shop-purse">◎ <b>${have === Infinity ? '∞' : have}</b> crowns</div>
-      <h4>Buy</h4>
-      ${STOCK.map((w, i) => row(w, i)).join('')}
-      <h4 class="shop-sundry-head">Sundries</h4>
-      <div class="shop-grid">${SUNDRIES.map((w, i) => row(w, STOCK.length + i, ' sundry')).join('')}</div>
-      <h4>Sell</h4>
-      ${sells.length ? sells.map((id) => `<button class="shop-row" data-sell="${id}"><span>${ITEMS[id].icon} ${ITEMS[id].name} (${this.inv.count(id)})</span><span>+◎ ${BUYS[id]}</span></button>`).join('') : '<p class="fine">Nothing I buy. Curios from below fetch a good price.</p>'}
-      <p class="fine">Crowns come from finds and from writing: margin notes, banner sketches, ballads and lore pages all pay.</p>
+      <section><h4>Gear</h4>
+      ${STOCK.map((w, i) => (w.id === 'bolt' ? row(w, i) : '')).join('')}
+      <p class="fine">Crowns come from finds and from writing: margin notes, banner sketches, ballads and lore pages all pay.</p></section>
+      <section><h4>Instruments</h4>
+      ${STOCK.map((w, i) => (w.id !== 'bolt' ? row(w, i) : '')).join('')}</section>
+      <section><h4 class="shop-sundry-head">Sundries</h4>
+      <div class="shop-grid">${SUNDRIES.map((w, i) => row(w, STOCK.length + i, ' sundry')).join('')}</div></section>
+      <section><h4>Sell</h4>
+      ${sells.length ? sells.map((id) => `<button class="shop-row" data-sell="${id}"><span>${ITEMS[id].icon} ${ITEMS[id].name} (${this.inv.count(id)})</span><span>+◎ ${BUYS[id]}</span></button>`).join('') : '<p class="fine">Nothing I buy. Curios from below fetch a good price.</p>'}</section>
       <div class="forge-actions"><button class="secondary" data-act="close">Leave</button></div>
     </div>`;
   }

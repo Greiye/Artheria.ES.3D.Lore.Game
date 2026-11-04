@@ -31,3 +31,10 @@ body .forge-panel :is(.chip, .fp-tab) { font-size: calc(var(--rd-body) - 1px); p
 body .forge-panel .hint { font-size: calc(var(--rd-body) - 3px); }
 /* A zoomed panel (fit-panel.ts sets --fz) keeps the caravan's answers 44px tall and 16px on screen. */
 body .forge-panel .es-answers button { min-height: calc(44px / var(--fz, 1)); font-size: max(calc(16px / var(--fz, 1)), var(--rd-body)); }
+/* Touch screens (Mike 2026-11-04, "The extra tabs"): a panel's tabs sit in one row you swipe sideways, instead of
+   wrapping onto two or three lines, so the open tab's content keeps full-size text. */
+@media (pointer: coarse) {
+  body .forge-panel .fp-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  body .forge-panel .fp-tabs::-webkit-scrollbar { display: none; }
+  body .forge-panel .fp-tab { flex: 0 0 auto; }
+}

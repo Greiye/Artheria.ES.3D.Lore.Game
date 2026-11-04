@@ -153,6 +153,8 @@ export class CharacterForge {
     const aid = SKILLS.find((k) => k.id === 'firstaid');
     // B22 (Mike 2026-11-01): the character forge is the Tailor & Barber-Surgeon. Who you are (the old Journal form, folded
     // in), Body, Barber (face and hair), Tailor (clothes) and Surgeon (markings, and first aid); one tab each (B27).
+    // Mike 2026-11-04 ("The extra tabs"): split further so every tab fits a phone at full text size: Who you are,
+    // Secret, Backstory, Body, Barber (hair), Face (skin, eyes), Tailor (colours), Outfit (cut, wings, headpiece), Surgeon.
     this.el.innerHTML = `
       <div class="forge-panel">
         <div class="eyebrow">Tailor &amp; Barber-Surgeon</div>
@@ -160,7 +162,11 @@ export class CharacterForge {
         <section><h4>Who you are</h4>
           <label class="field">Name<input id="fgName" type="text" maxlength="40" value="${escapeHtml(name)}" placeholder="e.g. Kazka of the Ash Road"></label>
           <label class="field">What do they want most? <span class="hint">optional</span><textarea id="fgMotivation" rows="2" maxlength="400" placeholder="Revenge, a cure, a crown, to be forgiven...">${escapeHtml(motivation)}</textarea></label>
+        </section>
+        <section><h4>Secret</h4>
           <label class="field">One true thing only you know <span class="hint">optional</span><textarea id="fgSecret" rows="2" maxlength="400" placeholder="A secret, a rumour, a prophecy...">${escapeHtml(secret)}</textarea></label>
+        </section>
+        <section><h4>Backstory</h4>
           <label class="field">Backstory <span class="hint">a few lines</span><textarea id="fgStory" rows="3" maxlength="1200" placeholder="Where they came from, and what they want.">${escapeHtml(story)}</textarea></label>
           <div class="dice-row">
             <button class="secondary" id="fgRoll">Roll constraint dice</button>
@@ -170,13 +176,14 @@ export class CharacterForge {
         <section><h4>Body</h4>${this.chips('species', SPECIES.map((s) => s.id), SPECIES.map((s) => s.label))}<p class="fine">${sp.blurb}</p>
           <label class="slider">Height <input type="range" id="fgHeight" min="1.45" max="2.25" step="0.01" value="${c.height}"><span>${c.height.toFixed(2)} m</span></label>
           <label class="slider">Build <input type="range" id="fgBuild" min="0.85" max="1.25" step="0.01" value="${l.build ?? 1}"><span>${(l.build ?? 1) < 0.95 ? 'slim' : (l.build ?? 1) > 1.1 ? 'broad' : 'average'}</span></label>
-          <h5>Skin</h5>${this.swatches('skin', sp.skins)}
         </section>
         <section><h4>Barber</h4><p class="fine">A trim, a new colour, a different look in the eye.</p>
-          <h5>Hair</h5>${this.chips('hairStyle', HAIR_STYLES)}${this.swatches('hair', HAIR)}
+          <h5>Hair</h5>${this.chips('hairStyle', HAIR_STYLES)}${this.swatches('hair', HAIR)}</section>
+        <section><h4>Face</h4><h5>Skin</h5>${this.swatches('skin', sp.skins)}
           <h5>Eyes</h5>${this.chips('eyeStyle', EYE_STYLES)}${this.swatches('eyes', EYES)}</section>
         <section><h4>Tailor</h4><h5>Dress / vest, cap &amp; trousers</h5>${this.swatches('primary', PALETTE)}<h5>Shirt</h5>${this.swatches('secondary', PALETTE)}
-          <h5>Boots</h5>${this.swatches('boots', ['#6B4428', '#4A2E1E', '#2B2A24', '#8A5A32', '#3A4A5A'])}<h5>Belt &amp; trim</h5>${this.swatches('accent', PALETTE)}
+          <h5>Boots</h5>${this.swatches('boots', ['#6B4428', '#4A2E1E', '#2B2A24', '#8A5A32', '#3A4A5A'])}<h5>Belt &amp; trim</h5>${this.swatches('accent', PALETTE)}</section>
+        <section><h4>Outfit</h4>
           <label class="check"><input type="checkbox" id="fgSkirt"${l.skirt ? ' checked' : ''}> Coat tails / robe</label>
           <label class="check"><input type="checkbox" id="fgDress"${l.dress ? ' checked' : ''}> Bell dress</label>
           <label class="check"><input type="checkbox" id="fgPlatform"${l.platform ? ' checked' : ''}> Platform boots</label>
