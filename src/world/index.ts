@@ -6,6 +6,7 @@ import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { tuftCards, type TuftCard } from './tuftCards';
 import { buildFences } from './fenceCards';
+import { buildSkyCards } from './skyCards';
 import { CARAVAN } from '../spanish/caravan';   // built later (main.ts): keep the fences clear of its camp
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
@@ -70,6 +71,7 @@ export function buildWorld(): World {
   const sky = buildSky(scene, SUN_ELEV, SUN_AZ);
   sky.setTime('sunset');   // v0.04: every visit starts at a dark sunset
   buildMountains(scene);
+  const skyCards = buildSkyCards(scene);   // quad detail 3: rolling hill cards and drifting clouds
 
   // One lit material per pixel texture (Lambert: cheap on phones, takes shadows).
   const mats = new Map<TexName, THREE.MeshLambertMaterial>();
@@ -500,6 +502,7 @@ export function buildWorld(): World {
       wind.value = t;
       river.update(t);
       smoke.update(t);
+      skyCards.update(t);
       sky.update(t, camera);
     },
     setShadows(on: boolean) {
