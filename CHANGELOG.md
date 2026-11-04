@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 12: crossed-quad bushes (Mike 2026-11-04, Graphics thread)
+- Meadow bushes are now crossed-quad cards like the trees: two or three upright cards each, from a pixel-art bush sheet painted in the game (five greens, a dark rim, some with red berries, white blossom or yellow flowers). One mesh for all of them; still walk-through.
+
 ### v0.14 changelog, part 11: phone panels shrink to fit again (Mike 2026-11-04, "Shrink to fit")
 - Phones go back to B27: a tall station panel fits the screen without scrolling. On a touch screen its text steps down from 16px to 11px first, which keeps buttons full size, and then it zooms out, to no less than 0.6. Short panels keep UI 3's large text. The long shop and tailor end up at about 7px text on a phone.
 - The caravan's answers stay at least 44px tall and 16px on screen when their panel is zoomed.

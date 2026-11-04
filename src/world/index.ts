@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
+import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
 import { buildFigure, buildCoach } from './figure';
 import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { outlineStatic } from '../render/outline';
@@ -217,8 +218,6 @@ export function buildWorld(): World {
   // ---------- trees: crossed-quad cards (Mike 2026-11-03: "crossed on all"), one merged mesh ----------
   // Every tree in the meadow and the horizon ring is two or three upright cards from src/art/trees/tree-cards.png,
   // the same as the far forest (src/world/treeCards.ts). A trunk collider keeps them solid.
-  const canopyDark = leafMaterial('leaves', true), canopyLight = leafMaterial('leavesLight', true);
-  const leafB = new Batch();
   const trees: [number, number][] = [];
   const cardGeos: THREE.BufferGeometry[] = [];
   const tree = (x: number, z: number) => {
@@ -238,20 +237,16 @@ export function buildWorld(): World {
     cardGeos.push(...cardTree(Math.floor(R() * CARD_COUNT), x, heightAt(x, z) - 0.3, z, h, R() * Math.PI, 2));
   }
   shadowCasters.push(cardMesh(scene, cardGeos, 'tree-cards'));
-  // Bushes: low leaf blocks, walk-through (soft foliage, see assumptions).
-  // G4 (Mike 2026-11-03, graphics batch): chunkier and simpler, to sit with the card trees. Fewer, bigger bushes,
-  // each two or three fat lumps (a dark base and a lighter top), about the same triangle budget as before.
+  // Bushes: crossed-quad cards like the trees (Mike 2026-11-04, Graphics thread), walk-through (soft foliage).
+  // G4's chunky, simple look: fewer, bigger bushes, two or three cards each from a painted pixel sheet (bushCards.ts).
+  const bushGeos: THREE.BufferGeometry[] = [];
   for (let i = 0; i < 75; i++) {
     const x = (R() * 2 - 1) * (HALF - 1), z = (R() * 2 - 1) * (HALF - 1);
     if (clear(x, z, 1.4)) continue;
-    const s = 0.9 + R() * 0.6, gy = heightAt(x, z), n = R() < 0.5 ? 2 : 3, ry = R() * 3;
-    leafB.add(canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, gy + s * 0.38, z), V(s * 1.45, s * 0.8, s * 1.3), ry);
-    for (let k = 1; k < n; k++) {
-      const a = ry + k * 2.3, d = s * 0.45;
-      leafB.add(canopyLight, new THREE.IcosahedronGeometry(0.62, 0), V(x + Math.cos(a) * d, gy + s * 0.62, z + Math.sin(a) * d), V(s * 0.9, s * 0.7, s * 0.85), R() * 3);
-    }
+    const s = 0.9 + R() * 0.6;
+    bushGeos.push(...bushCard(Math.floor(R() * BUSH_CARDS), x, heightAt(x, z) - 0.05, z, s * 2.1, R() * Math.PI, R() < 0.5 ? 2 : 3));
   }
-  leafB.flush(scene, 'canopy').forEach((m) => { m.raycast = () => {}; shadowCasters.push(m); });
+  shadowCasters.push(bushMesh(scene, bushGeos));
 
   // ---------- rocks + ruined walls ----------
   const rock = (x: number, z: number, s: number, t: TexName) => {
