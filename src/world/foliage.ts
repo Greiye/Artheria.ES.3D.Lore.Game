@@ -7,7 +7,7 @@ import { pixelTexture, solidTexture, type TexName } from '../tex/pixel';
 export const wind = { value: 0 };
 const noRaycast = () => {};
 
-function windify(mat: THREE.Material, strength: number) {
+export function windify(mat: THREE.Material, strength: number) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uWind = wind;
     sh.vertexShader = 'uniform float uWind;\n' + sh.vertexShader.replace(
@@ -31,7 +31,7 @@ function windify(mat: THREE.Material, strength: number) {
   mat.customProgramCacheKey = () => 'wind' + strength + (mat as THREE.MeshLambertMaterial).alphaTest;
 }
 
-const crossed = (() => {
+export const crossed = (() => {
   const a = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
   const b = a.clone().rotateY(Math.PI / 2);
   const g = new THREE.BufferGeometry();

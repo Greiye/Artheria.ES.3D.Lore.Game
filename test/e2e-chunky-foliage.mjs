@@ -28,12 +28,15 @@ const r = await page.evaluate(() => {
     if (o.name === 'canopy' && o.geometry) out.canopyTris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
     if (o.name === 'foliage:flowers') { out.flowers = o.count; const e = o.instanceMatrix.array; out.flowerScale = Math.hypot(e[0], e[1], e[2]); }
     if (o.name === 'foliage:fern') out.ferns = o.count;
+    if (o.name === 'foliage:tuftCards') { out.tufts = o.instanceMatrix.count; out.cards = new Set(o.geometry.attributes.aCard.array).size; out.tuftTex = !!o.material.map; }
   });
   return out;
 });
 // Each bush is 2 or 3 cards, each card two back-to-back quads: 8 or 12 triangles. About 60 bushes on the meadow.
 check('Bushes: crossed-quad cards in one mesh, the old leaf lumps gone', r.bushMeshes === 1 && r.bushTex && r.bushTris >= 40 * 8 && r.bushTris <= 75 * 12 && r.canopyTris === 0, JSON.stringify(r));
 check('Flowers: fewer, bigger clumps', r.flowers > 0 && r.flowers <= 200 && r.flowerScale > 0.5, JSON.stringify(r));
+// Quad detail 1: denser, varied meadow tufts: one instanced mesh using all eight painted cards.
+check('Meadow tufts: one instanced mesh, 2000+ tufts, all 8 cards (3 grasses, clover, 4 flowers)', r.tuftTex && r.tufts >= 2000 && r.cards === 8, JSON.stringify(r));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
