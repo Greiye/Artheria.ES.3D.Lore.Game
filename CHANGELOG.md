@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 9: cel-shaded characters (Mike 2026-11-04, Graphics thread "Sure!")
+- Characters are lit in three flat steps (lit, half-shade, shade with a cool tint) from the sun instead of a smooth falloff, so they read like a drawn comic over their ink outlines. Faces stay smooth. It is one extra line in the shader, so it costs nothing on phones.
+
 ### v0.15 changelog, part 8: fighting Kavik in 3D (Mike 2026-11-04, "more like Tekken" + "All 6")
 - Tap up or down to sidestep round the other fighter (hold up to hop, hold down to crouch). Straight moves miss someone who steps off their line; round kicks and sweeps track and still hit.
 - The fight turns on the mat as you circle, and the camera swings round with it, always side-on, so the stick always means toward and away.

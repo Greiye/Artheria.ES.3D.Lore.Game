@@ -4,7 +4,7 @@ import './render/grade';   // style pass 1: global colour grade (patches a shade
 import { updateSprites, setSpriteCharacters, faceExpression } from './render/sprites';
 import './style.css';
 import { buildWorld } from './world';
-import { buildFigure, figureLight, GOTHIC_LOOK, type FigureLook } from './world/figure';
+import { buildFigure, figureLight, updateFigureSun, GOTHIC_LOOK, type FigureLook } from './world/figure';
 import { enableSeeThrough, updateSeeThrough, seeThroughUniforms } from './render/seeThrough';
 import { outlineUniforms, setOutlines } from './render/outline';
 import { Player } from './player';
@@ -2859,6 +2859,7 @@ function frame() {
   renderer.getDrawingBufferSize(outlineUniforms.outlineRes.value);   // G2: outline width in real pixels
   camera.updateMatrixWorld();
   updateSeeThrough(rig.seeThrough && player.thirdPerson && state === 'play', camera, stChest.copy(player.pos).setY(player.pos.y + 1.1));
+  updateFigureSun(camera);   // cel shading: the characters' light bands follow the sun as the camera turns
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);

@@ -60,7 +60,7 @@ export const GOTHIC_LOOK: FigureLook = {
 export type Species = 'human' | 'elf' | 'infernling' | 'drakari' | 'owlkin' | 'emberkin' | 'stonekin' | 'cinderkin' | 'titankin' | 'corvani' | 'lumari' | 'goblin';
 
 const light = new THREE.Vector3(0.35, 0.85, 0.4).normalize();
-const WARM = new THREE.Color('#FFE2B8'), COOL = new THREE.Color('#7E8CB8');
+const WARM = new THREE.Color('#FFE2B8');
 
 // Paint per-face light into vertex colours: a warm key from above-front, cool shade on the far side,
 // plus a gentle top-down gradient (storybook painted shading, three soft steps).
@@ -75,12 +75,11 @@ export function painted(geo: THREE.BufferGeometry, color: string, yMin: number, 
   const p = g.attributes.position, nn = g.attributes.normal, col = new Float32Array(p.count * 3);
   for (let i = 0; i < p.count; i++) {
     n.fromBufferAttribute(nn, i);
-    const lambert = Math.max(0, n.dot(light));
     const h = THREE.MathUtils.clamp((p.getY(i) - yMin) / Math.max(1e-3, yMax - yMin), 0, 1);
     c.copy(base);
-    if (lambert > 0.7) c.multiplyScalar(1.1).lerp(WARM, 0.1);
-    else if (lambert > 0.25) c.multiplyScalar(0.97);
-    else c.multiplyScalar(0.8).lerp(COOL, 0.16);
+    // Cel shading (Mike 2026-11-04, Graphics "Sure!"): the light / mid / shadow bands now come from the sun at draw
+    // time (figureMaterial), stepped; the paint keeps a faint warm top and the height shading only.
+    if (n.dot(light) > 0.7) c.lerp(WARM, 0.06);
     c.multiplyScalar((0.9 + 0.14 * h) * (0.84 + 0.18 * ((p.getY(i) - pMin) / pSpan)));
     col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
   }
@@ -95,7 +94,18 @@ export function painted(geo: THREE.BufferGeometry, color: string, yMin: number, 
 export const figureLight = {
   shade: { value: new THREE.Color(1, 1, 1) },   // the hour's tint: white by day, dim blue at night
   gain: { value: 0.16 },                        // how strongly point lights brighten a character
+  /** Cel shading: where the light comes from (view space, set each frame from `sunWorld` by updateFigureSun). */
+  sun: { value: new THREE.Vector3(0, 1, 0) },
+  /** The sun's direction in the world (the sky sets it); kept above the horizon, so night is moonlight from it. */
+  sunWorld: new THREE.Vector3(0.35, 0.85, 0.4).normalize(),
 };
+const sunTmp = new THREE.Vector3();
+/** Point the characters' cel light where the sun is, as seen from this camera (call once a frame). */
+export function updateFigureSun(camera: THREE.Camera) {
+  sunTmp.copy(figureLight.sunWorld);
+  if (sunTmp.y < 0.3) { sunTmp.y = 0.3; sunTmp.normalize(); }
+  figureLight.sun.value.copy(sunTmp).transformDirection(camera.matrixWorldInverse);
+}
 const FIG_LIGHT = `
   vec3 figPts = vec3(0.0);
   #if NUM_POINT_LIGHTS > 0
@@ -106,16 +116,23 @@ const FIG_LIGHT = `
     figPts += pointLights[i].color * att * (0.45 + 0.55 * max(dot(normalize(normal), lv / ld), 0.0));
   }
   #endif
+  // Cel shading: three flat bands from the sun (lit, mid, shadow), the shadow a touch cool. A hard step, no blend.
+  #ifdef FIG_CEL
+  float figNdl = dot(normalize(normal), figSun);
+  float figBand = figNdl > 0.28 ? 1.0 : figNdl > -0.3 ? 0.8 : 0.62;
+  diffuseColor.rgb *= figBand * (figBand < 0.9 ? vec3(0.9, 0.95, 1.1) : vec3(1.0));
+  #endif
   vec3 outgoingLight = diffuseColor.rgb * (figShade + figPts * figGain);`;
-/** A character material: painted (unlit) look, dimmed by the hour and brightened by nearby point lights. */
-export function figureMaterial(params: THREE.MeshLambertMaterialParameters): THREE.MeshLambertMaterial {
+/** A character material: painted look with cel-shaded bands from the sun, dimmed by the hour and brightened by
+ * nearby point lights. `cel: false` for flat cards (the drawn faces). */
+export function figureMaterial(params: THREE.MeshLambertMaterialParameters, cel = true): THREE.MeshLambertMaterial {
   const m = new THREE.MeshLambertMaterial(params);
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.figShade = figureLight.shade; sh.uniforms.figGain = figureLight.gain;
-    sh.fragmentShader = 'uniform vec3 figShade;\nuniform float figGain;\n' + sh.fragmentShader.replace(
+    sh.uniforms.figShade = figureLight.shade; sh.uniforms.figGain = figureLight.gain; sh.uniforms.figSun = figureLight.sun;
+    sh.fragmentShader = (cel ? '#define FIG_CEL\n' : '') + 'uniform vec3 figShade;\nuniform float figGain;\nuniform vec3 figSun;\n' + sh.fragmentShader.replace(
       'vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;', FIG_LIGHT);
   };
-  m.customProgramCacheKey = () => 'figure-lit';
+  m.customProgramCacheKey = () => (cel ? 'figure-cel' : 'figure-lit');
   // A clone (wear on the player's clothes, goblins' own tints) keeps the character lighting.
   m.clone = function (this: THREE.MeshLambertMaterial) {
     const c = new THREE.MeshLambertMaterial().copy(this);
@@ -487,7 +504,7 @@ export function faceGeometry(w: number, h: number): THREE.BufferGeometry {
   return mergeGeometries([eyes, mouth]);
 }
 // One face material per figure: its map is the look's face sheet once loaded (src/render/sprites.ts).
-export function faceMaterial() { return figureMaterial({ alphaTest: 0.5, visible: false }); }
+export function faceMaterial() { return figureMaterial({ alphaTest: 0.5, visible: false }, false); }
 
 // The stagecoach (D13 BBEG placeholder): a black coach with lit lanterns. Feet at y = 0, faces +Z.
 export function buildCoach(height: number): THREE.Group {

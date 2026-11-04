@@ -197,6 +197,7 @@ float skyBand(float x) { float f = x * skyBandCount, i = floor(f); return (i + s
       sun.color.set(p.sun); sun.intensity = p.sunI;
       hemi.color.set(p.hemiSky); hemi.groundColor.set(p.hemiGround); hemi.intensity = p.hemiI;
       figureLight.shade.value.set(FIGURE_SHADE[t]);   // B43: characters dim and tint with the hour
+      figureLight.sunWorld.copy(sunDir);               // cel shading: the characters' bands follow the sun
       (scene.fog as THREE.Fog).color.set(p.fog);
       (scene.background as THREE.Color).set(p.fog);
       paintDome(p);
