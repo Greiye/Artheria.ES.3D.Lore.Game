@@ -84,6 +84,7 @@ import { roll, seedOf } from './traits/roll';
 import { dailySeed, seedFrom } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
+import { leanTarget, NO_LEAN } from './lean';
 import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
@@ -631,7 +632,7 @@ function animate(dt: number) {
     speed: state === 'play' ? player.hSpeed : 0, talking: state === 'dialogue', aiming: crossbow.equipped,
     sword: sword.equipped, swing: sword.progress, combo: sword.combo,
     airborne: player.airborne, landed, pose: dojo.pose ?? stationPose ?? (state === 'book' ? 'read' : idleSit ? 'sitground' : null),
-    look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
+    look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 }, lean: player.lean.side,
   };
   sword.held.visible = sword.equipped && !mine.pose;   // put away at a station or a drill
   // B38: characters are skinned, so three can't frustum-cull them. Off-screen ones, or ones past the fog, aren't
@@ -2299,6 +2300,7 @@ function syncMenu() {
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
   $<HTMLInputElement>('haptics').checked = settings.haptics;
   $<HTMLInputElement>('seeThrough').checked = settings.seeThrough;
+  $<HTMLInputElement>('autoLean').checked = settings.autoLean;
   $<HTMLSelectElement>('cameraLead').value = settings.cameraLead;
   $<HTMLInputElement>('lefty').checked = settings.lefty;
   $<HTMLInputElement>('buttonSize').value = String(settings.buttonSize); $('buttonSizeOut').textContent = settings.buttonSize + '%';
@@ -2330,6 +2332,7 @@ inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSetti
 const viewSel = $<HTMLSelectElement>('viewSel');
 viewSel.addEventListener('change', () => setView(VIEWS.includes(viewSel.value as View) ? viewSel.value as View : 'overhead'));
 $<HTMLSelectElement>('cameraLead').addEventListener('change', (e) => { const v = (e.target as HTMLSelectElement).value; settings.cameraLead = v === 'on' || v === 'off' ? v : 'auto'; saveSettings(settings); });
+$<HTMLInputElement>('autoLean').addEventListener('change', (e) => { settings.autoLean = (e.target as HTMLInputElement).checked; saveSettings(settings); });   // B41
 $<HTMLInputElement>('seeThrough').addEventListener('change', (e) => { settings.seeThrough = (e.target as HTMLInputElement).checked; saveSettings(settings); });
 $<HTMLInputElement>('haptics').addEventListener('change', (e) => {
   settings.haptics = (e.target as HTMLInputElement).checked; saveSettings(settings);
@@ -2494,13 +2497,16 @@ function frame() {
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     crossbow.update(dt);
+    // B41: auto-lean while aiming at a wall edge, or over low cover when crouched (Settings > Gameplay).
+    player.leanWant = settings.autoLean && !rig.inShot ? leanTarget(world.colliders, player.pos.x, player.pos.z, player.pos.y, player.yaw,
+      { aiming: crossbow.ads, crouched: player.sneaking, speed: player.hSpeed, eye: player.eyeHeight, stand: controls.eyeHeight }) : NO_LEAN;
     if (crossbow.equipped && !player.thirdPerson && !rig.inShot && !rig.switching) crossbow.applySway();   // B44
     updateSteadyRing();
     sword.update(dt);
     touch?.update();
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
-  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); updateSteadyRing(); $('coach').classList.add('hidden'); }
+  } else { lookingAt = null; crossbow.setADS(false); player.leanWant = NO_LEAN; rig.update(dt); updateSteadyRing(); $('coach').classList.add('hidden'); }
   firstDay.update(dt, { waking: waking > 0, writing: sketchPad.isOpen, making: characterForge.isOpen || weaponForge.isOpen, atFire: campfire.isOpen }, state === 'play' && inWorld && !inDungeon);
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);

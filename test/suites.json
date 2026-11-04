@@ -62,6 +62,7 @@
     "e2e-first-day",
     "e2e-see-through",
     "e2e-touch-haptics",
-    "e2e-portfolio"
+    "e2e-portfolio",
+    "e2e-lean"
   ]
 }
