@@ -7,10 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
-### v0.15 changelog, part 7: fighting Kavik in 3D (Mike 2026-11-04, "more like Tekken" + "All 6")
+### v0.15 changelog, part 8: fighting Kavik in 3D (Mike 2026-11-04, "more like Tekken" + "All 6")
 - Tap up or down to sidestep round the other fighter (hold up to hop, hold down to crouch). Straight moves miss someone who steps off their line; round kicks and sweeps track and still hit.
 - The fight turns on the mat as you circle, and the camera swings round with it, always side-on, so the stick always means toward and away.
 - Kavik sidesteps straight moves he sees coming, circles to get round you, and answers your sidesteps with round kicks and sweeps.
+
+### v0.15 changelog, part 7: the goblin hunter's statue (B49, Mike 2026-11-04)
+- A statue on the green, near the library, honours your most goblins beaten in one delve: your own figure in painted stone, sword arm raised, with a gold plaque giving the count. Beat your record and the statue takes your look of that day.
+- Read the plaque (E) for the record and how many goblins you've beaten in all. Each profile keeps its own record.
 
 ### v0.15 changelog, part 6: deeper delves pay (B48, Mike 2026-11-04)
 - Under the library, every new room you reach pays a crown per room of depth. The deepest room adds a 5-crown purse and a lore book you haven't read yet, and the chest now holds a lore book under its trinket. Each room pays once per seed, so walking the same dungeon again doesn't farm.

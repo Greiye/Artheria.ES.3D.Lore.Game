@@ -94,6 +94,7 @@ import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
+import { KillStatue, loadKills, saveKills, plaqueText } from './world/statue';
 import { DmView, type Place } from './dm/dm';
 import { watchPanels, setPanelTab } from './ui/fit-panel';
 import { riverClear } from './world/river';
@@ -719,7 +720,9 @@ function animate(dt: number) {
 const loreWords = lore.entries.filter((e) => e.type === 'lore').map((e) => e.title.split(':')[0]).filter((t) => t.length < 28);
 const forgeAuthor = () => loadAuthor() || character.name;
 let forgeFrom: State = 'play';
+let wornLook: { look: FigureLook; height: number } = { look: GOTHIC_LOOK, height: controls.eyeHeight + 0.1 };   // B49: the statue copies it
 function setPlayerLook(c: ForgeCharacter) {
+  wornLook = { look: c.look, height: c.height };
   myLook = packLook(c.look, c.height); netHello();   // multiplayer: the room sees the new look
   const fig = player.setLook(c.look, c.height);
   torch.attach(); sword.attach();
@@ -1225,7 +1228,7 @@ function enterDungeon(seed: number) {
   if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
   for (const p of pets) if (p.following) p.placeNear(dungeon.entrance());
   inDungeon = true; swordHitsAtEntry = sword.hits; sturdy = cook.consume('sturdy');
-  run = { rooms: 0, crowns: 0, books: [] }; lastRoom = -1;
+  run = { rooms: 0, crowns: 0, books: [] }; lastRoom = -1; runKills = 0; recordToasted = false;
   spawnGoblins();
   delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
   saveDelves();
@@ -1235,6 +1238,7 @@ function enterDungeon(seed: number) {
 function exitDungeon() {
   if (!inDungeon) return;
   runSummary();
+  if (statueDirty) { statueDirty = false; killStatue.set(kills); }
   if (sword.hits > swordHitsAtEntry) { gear.rustSword(); toast('Goblin blood and cellar damp: your blade is spotting with rust. The smith\'s oil will fix it.', 3600); }   // B17
   inDungeon = false;
   const set = new Set(dungeon.colliders);
@@ -1293,6 +1297,31 @@ function runSummary() {
   const books = run.books.length ? `, ${run.books.length} lore book${run.books.length > 1 ? 's' : ''} (${run.books.map((t) => `"${t}"`).join(', ')})` : '';
   toast(`This delve: ${run.rooms} new room${run.rooms === 1 ? '' : 's'}, ${run.crowns} ◎${books}.`, 6000);
   run = { rooms: 0, crowns: 0, books: [] };
+}
+// ---------- B49 (Mike 2026-11-04): most goblins in one delve, as a statue on the green near the library ----------
+const kills = loadKills();
+let runKills = 0, recordToasted = false, statueDirty = false;
+const killStatue = (() => {
+  const lib = TOWN_LOTS.find((l) => l.id === 'library')!, k = 0.42;
+  const x = FOUNTAIN.x + (lib.x - FOUNTAIN.x) * k, z = FOUNTAIN.z + (lib.z - FOUNTAIN.z) * k;
+  const st = new KillStatue(x, z, Math.atan2(FOUNTAIN.x - x, FOUNTAIN.z - z));   // faces the fountain
+  world.scene.add(st.group);
+  world.colliders.push({ kind: 'circle', x, z, r: 0.95 });
+  st.set(kills);
+  return st;
+})();
+interactables.push({ obj: killStatue.hit, verb: () => 'Read the plaque', act: () => toast(`${plaqueText(kills)}. Goblins you've beaten in all: ${kills.total}.`, 5200), when: () => !inDungeon });
+function countKill() {
+  kills.total++;
+  if (inDungeon) {
+    runKills++;
+    if (runKills > (kills.best?.count ?? 0)) {
+      kills.best = { count: runKills, name: character.name || 'A stranger', look: JSON.parse(JSON.stringify(wornLook.look)), height: wornLook.height, at: new Date().toISOString().slice(0, 10) };
+      statueDirty = true;
+      if (!recordToasted && runKills > 1) { recordToasted = true; toast('A new record for one delve! The statue on the green will show it.', 3200); }
+    }
+  }
+  saveKills(kills);
 }
 let descendSheet: HTMLElement | null = null;
 function openDescend() {
@@ -1353,6 +1382,7 @@ const goblins = new Goblins(world.scene, {
   },
   steal: () => { const n = Math.min(2, inventory.count('bolt')); if (n) inventory.take('bolt', n); return n; },
   loot: (f, crowns, bolts) => {
+    countKill();   // B49
     inventory.give(CROWN, crowns); if (bolts) inventory.give('bolt', bolts); haptics.play('pickup');
     toast(`${f.v.display} drops ${crowns} crown${crowns > 1 ? 's' : ''}${bolts ? ` and ${bolts} bolt${bolts > 1 ? 's' : ''}` : ''}.`, 2600);
   },
@@ -2903,4 +2933,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
