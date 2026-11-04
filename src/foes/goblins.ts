@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { FigureAnim } from '../anim/procedural';
+import { Lean, LEAN, NO_LEAN, leanTarget } from '../lean';
+import type { Collider } from '../world/index';
 import type { FigureRig } from '../world/figure';
 import type { Variant } from '../traits/roll';
 import { buildGoblin, goblinStats, damageRoll, RARITY_COLOUR, type GoblinStats } from '../traits/goblin';
@@ -25,6 +27,8 @@ interface FoeWorld {
   /** A goblin fell: pay out its loot. */
   loot(by: Foe, crowns: number, bolts: number): void;
   say(text: string): void;
+  /** B42: what blocks a view (the same colliders the player leans on). */
+  colliders?: Collider[];
 }
 
 type State = 'idle' | 'hidden' | 'chase' | 'back' | 'flee' | 'dead';
@@ -33,6 +37,8 @@ interface Foe {
   hp: number; state: State; t: number; cd: number; windup: number; alerted: boolean;
   stolen: number; caught: number; traps: number; called: boolean; dodge: number; deadT: number; tag: THREE.Sprite; speedNow: number;
   /** v0.08 sword: seconds left of the red hit flash, and the goblin's own body materials to tint. */
+  /** B42: leaning out past a wall edge to shoot. */
+  lean: Lean;
   hurtT: number; mats: { m: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial; base: THREE.Color }[];
 }
 interface Shot { mesh: THREE.Mesh; vel: THREE.Vector3; dmg: number; by: Foe; bomb: boolean; fuse: number; landed: boolean }
@@ -83,7 +89,7 @@ export class Goblins {
     if (this.alive.length >= MAX_FOES && !force) return null;
     const root = buildGoblin(v), st = goblinStats(v);
     root.position.copy(at); root.rotation.y = yaw; root.name = 'goblin:' + v.display;
-    const f: Foe = { v, st, root, anim: new FigureAnim(root.userData.rig as FigureRig), hp: st.hp, state: st.behaviour === 'ambusher' ? 'hidden' : 'idle', t: 0, cd: 1, windup: 0,
+    const f: Foe = { v, st, root, anim: new FigureAnim(root.userData.rig as FigureRig), lean: new Lean(), hp: st.hp, state: st.behaviour === 'ambusher' ? 'hidden' : 'idle', t: 0, cd: 1, windup: 0,
       alerted: false, stolen: 0, caught: 0, traps: st.trap ? 2 : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0, hurtT: 0, mats: [] };
     // Its own copy of the body materials, so one goblin can flash red without the others.
     const rig = root.userData.rig as FigureRig | undefined;
@@ -174,6 +180,13 @@ export class Goblins {
     }
   }
 
+  /** B42: where a goblin's eyes are when it leans (out past the edge, toward the player). */
+  private leanedFrom(f: Foe, P: THREE.Vector3): THREE.Vector3 {
+    const p = f.root.position, yaw = Math.atan2(P.x - p.x, P.z - p.z) + Math.PI, s = f.lean.side * LEAN.side;
+    return new THREE.Vector3(p.x + Math.cos(yaw) * s, p.y, p.z - Math.sin(yaw) * s);
+  }
+  /** Leaning far enough out that it can see (and so shoot) the player. */
+  private peeks(f: Foe, P: THREE.Vector3) { return Math.abs(f.lean.side) > 0.8 && this.los(this.leanedFrom(f, P), P); }
   private los(a: THREE.Vector3, b: THREE.Vector3) {
     const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(d / 0.5);
     for (let i = 1; i < n; i++) { const k = i / n; if (!this.w.walkable(a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k)) return false; }
@@ -220,6 +233,7 @@ export class Goblins {
       if (!f.alerted) {
         if (f.state === 'hidden' ? d < 4 : sees && d < SIGHT - 2) this.alert(f);
       }
+      let leanWant = NO_LEAN;
       let mx = 0, mz = 0, sp = f.st.speed, pose: 'kneel' | 'punch' | null = f.state === 'hidden' ? 'kneel' : null, aim = false;
       const ranged = f.st.range > 0, b = f.st.behaviour;
       if (f.alerted) {
@@ -246,9 +260,15 @@ export class Goblins {
             f.stolen = this.w.steal(f);
             this.w.say(f.stolen ? `${f.v.display} snatches ${f.stolen} bolt${f.stolen > 1 ? 's' : ''} and runs!` : `${f.v.display} pats your pockets, finds nothing, and runs.`);
             f.state = 'flee';
-          } else if (b === 'archer' && d < 8) { mx = -dx; mz = -dz; }
+          } else if (b === 'archer' && d < 8 && sees) { mx = -dx; mz = -dz; }   // backs off to keep its distance (B42: not while hidden at a corner)
+          // B42: a shooter at a wall edge with you out of sight holds the corner and leans out to shoot.
+          const toYaw = Math.atan2(dx, dz) + Math.PI;   // lean.ts faces along (-sin, -cos)
+          const corner = ranged && !sees && d < f.st.range && b !== 'thief' && this.w.colliders
+            ? leanTarget(this.w.colliders, p.x, p.z, 0, toYaw, { aiming: true, crouched: false, speed: 0, eye: f.st.height * 0.85, stand: f.st.height * 0.85 }) : NO_LEAN;
+          leanWant = corner;
+          if (corner.side !== 0) { /* hold the corner */ }
           else if ((d > want || !sees) && d > 0.75) { mx = dx; mz = dz; }   // never right on top of you
-          if (ranged) aim = sees && d < f.st.range;
+          if (ranged) aim = (sees || corner.side !== 0) && d < f.st.range;
           // Attacks.
           if (f.windup > 0) {
             f.windup -= dt; pose = 'punch'; mx = mz = 0;
@@ -256,7 +276,7 @@ export class Goblins {
               this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f), f, f.st.slowOnHit);
               if (b === 'skirmisher') { f.state = 'back'; f.t = 0; }
             }
-          } else if (f.cd <= 0 && sees) {
+          } else if (f.cd <= 0 && (sees || this.peeks(f, P))) {
             if (ranged && d < f.st.range && b !== 'thief') { this.fire(f, d); f.cd = f.st.cooldown; }
             else if (!ranged && d < f.st.reach + 0.3) { f.windup = 0.35; f.cd = f.st.cooldown; }
           }
@@ -274,7 +294,8 @@ export class Goblins {
       const face = f.alerted && f.state !== 'flee' && (moved < 1e-3 || f.windup > 0 || aim) ? Math.atan2(dx, dz) : moved > 1e-3 ? Math.atan2(mx, mz) : f.root.rotation.y;
       let dy = face - f.root.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
       f.root.rotation.y += dy * Math.min(1, dt * 10);
-      f.anim.update(dt, { speed: f.speedNow, pose, aiming: aim });
+      f.lean.update(dt, leanWant);
+      f.anim.update(dt, { speed: f.speedNow, pose, aiming: aim, lean: f.lean.side });
       f.tag.visible = f.state !== 'hidden' && d < 11;
     }
     this.updateShots(dt);
@@ -295,7 +316,8 @@ export class Goblins {
 
   private fire(f: Foe, d: number) {
     const p = f.root.position, P = this.w.player, bomb = f.st.weapon === 'bomb';
-    const from = new THREE.Vector3(p.x, f.st.height * 0.75, p.z);
+    const q = Math.abs(f.lean.side) > 0.05 ? this.leanedFrom(f, P) : p;   // B42: from where it leans
+    const from = new THREE.Vector3(q.x, f.st.height * 0.75, q.z);
     const to = new THREE.Vector3(P.x, bomb ? 0 : 1.2, P.z);
     let vel: THREE.Vector3;
     if (bomb) {
