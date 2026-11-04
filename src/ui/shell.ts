@@ -76,6 +76,7 @@ export const SHELL_HTML = `
       <label class="field">Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
       <label class="field">Camera follows your walk <select id="cameraLead"><option value="auto">Touch and controller</option><option value="on">Always</option><option value="off">Off</option></select></label>
+      <label class="check"><input id="autoLean" type="checkbox"> Auto-lean (aiming at a wall edge leans out; crouched behind low cover, you peek over)</label>
       <label class="check"><input id="seeThrough" type="checkbox"> See through walls (the camera stays out; walls in the way open up)</label>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
       <h4>Comfort</h4>

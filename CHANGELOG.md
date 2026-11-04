@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 4: auto-lean (B41, Mike 2026-11-04)
+- Aiming the crossbow with a wall edge just ahead leans you out past the edge, toward the open side. Your eyes, aim and view move about half a metre and the view tilts a little. Let go of aim, or move off, and you lean back in.
+- Crouched behind low cover (the low walls), aiming rises you up to peek and shoot over it.
+- It's automatic. Options > Gameplay > "Auto-lean" turns it off.
+- The geometry is shared with NPCs (`src/lean.ts`). It's a few point tests a frame while aiming and nothing on the GPU.
+- New `test/e2e-lean.mjs` (12/12).
+
 ### v0.14 changelog, part 3: your portfolio (B37, Mike 2026-11-04)
 - Extras → Portfolio lists everything this profile made: your hero from the Tailor, your crossbow, sketches, ballads, margin notes, folklore and your theory.
 - "Export portfolio" saves one page (`artheria-portfolio-<name>.html`) that opens in any browser and works offline. Pictures are inside it. Each piece's lore file is tucked under it, so it can also be sent in for review.

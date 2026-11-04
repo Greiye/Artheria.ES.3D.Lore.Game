@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LEAN } from '../lean';
 import { controls } from '../controls';
 import type { Collider } from '../world';
 import type { Player } from '../player';
@@ -107,7 +108,7 @@ export class CameraRig {
   update(dt: number) {
     const p = this.player;
     let near = false;   // follow camera pulled in so close it would sit inside the player's own head
-    this.baseQ.setFromEuler(new THREE.Euler(p.pitch, p.yaw, 0, 'YXZ'));
+    this.baseQ.setFromEuler(new THREE.Euler(p.pitch, p.yaw, p.thirdPerson ? 0 : -p.lean.side * LEAN.roll, 'YXZ'));   // B41: the view tilts with a lean
     if (!p.thirdPerson) {
       this.basePos.copy(p.eyePos);
       this.free = 0;

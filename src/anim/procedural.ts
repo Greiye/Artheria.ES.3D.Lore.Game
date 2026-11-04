@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LEAN } from '../lean';
 import type { BoneName, FigureRig } from '../world/figure';
 
 // Phase A (B1): procedural "auto" animation. Rigged figures (src/world/figure.ts) get walk/run cycles,
@@ -16,6 +17,7 @@ export interface AnimInput {
   sword?: boolean;        // v0.08: a sword in the right hand (guard)
   swing?: number | null;  // v0.08: 0..1 through a sword cut
   combo?: number;         // v0.08: 1 forehand, 2 backhand, 3 heavy overhead
+  lean?: number;          // B41/B42: -1 left … 1 right, the upper body tilts out past a wall edge
 }
 // B34 (Mike 2026-11-03): one-shot moves layered over whatever the body is doing: a wave, picking something up,
 // flinching from a hit, and idle fidgets (look round, stretch, shift weight) that idle figures play on their own.
@@ -96,7 +98,7 @@ export class FigureAnim {
     B.hips.rotation.y = s * 0.12 * loco;
     B.spine.rotation.x = 0.06 * loco + 0.18 * w.run + breathe * 0.015 * (1 - loco) + 0.12 * w.squash - 0.1 * w.air;
     B.spine.rotation.y = -s * 0.16 * loco + Math.sin(t * 0.7) * 0.03 * (1 - loco);
-    B.spine.rotation.z = Math.sin(t * 0.45) * 0.02 * (1 - loco);   // idle weight shift
+    B.spine.rotation.z = Math.sin(t * 0.45) * 0.02 * (1 - loco) + (i.lean ?? 0) * LEAN.spine;   // idle weight shift; B41 lean
     B.root.scale.y = 1 - 0.08 * w.squash;
 
     // Arms: counter-swing to the legs, elbows bend more when running; idle hang with breath.

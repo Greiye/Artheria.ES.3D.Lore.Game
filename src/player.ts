@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { controls, type Action } from './controls';
 import type { Collider } from './world';
 import type { Settings } from './settings';
+import { Lean, LEAN, NO_LEAN, type LeanWant } from './lean';
 import { buildFigure, GOTHIC_LOOK, type FigureLook } from './world/figure';
 
 const STEP = 0.35;          // m: rises up to this are walked up
@@ -35,6 +36,10 @@ export class Player {
   bodyYaw = 0;
   faceView = false;
   hSpeed = 0;                // horizontal speed, m/s, for the animator
+  /** B41: auto-lean at a wall edge or over low cover (main sets `leanWant` each frame). */
+  readonly lean = new Lean();
+  leanWant: LeanWant = NO_LEAN;
+  get eyeHeight() { return this.eye; }
   get onGround(): boolean { return this.grounded; }
   private landedFlag = false;
   get airborne() { return !this.grounded; }
@@ -175,6 +180,7 @@ export class Player {
     // D2 / F2 C: eye height eases between 1.7 m and 1.1 m.
     const target = this.sneaking ? controls.sneakEyeHeight : controls.eyeHeight;
     this.eye += (target - this.eye) * Math.min(1, dt * 12);
+    this.lean.update(dt, this.leanWant);
     this.syncBody();
   }
 
@@ -261,9 +267,12 @@ export class Player {
   // Eyes + body follow the simulation; the camera itself is placed by CameraRig (src/camera/rig.ts).
   syncNow() { this.syncBody(); }
   private syncBody() {
-    this.eyePos.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
-    this.body.position.set(this.pos.x, this.pos.y - (controls.eyeHeight - this.eye) * 0.5, this.pos.z);
-    this.body.scale.y = this.eye / controls.eyeHeight;
+    // B41: leaning moves the eyes (and so the aim line and the first-person camera) out past the edge or up over cover.
+    const ls = this.lean.side * LEAN.side, lu = this.lean.up * Math.max(0, controls.eyeHeight - this.eye);
+    this.eyePos.set(this.pos.x + Math.cos(this.yaw) * ls, this.pos.y + this.eye + lu, this.pos.z - Math.sin(this.yaw) * ls);
+    const stand = this.eye + lu;   // peeking over cover rises out of the crouch
+    this.body.position.set(this.pos.x, this.pos.y - (controls.eyeHeight - stand) * 0.5, this.pos.z);
+    this.body.scale.y = stand / controls.eyeHeight;
     this.body.rotation.y = this.bodyYaw;
   }
 }
