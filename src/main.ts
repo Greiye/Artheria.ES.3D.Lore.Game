@@ -85,6 +85,7 @@ import { dailySeed, seedFrom } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
 import { leanTarget, NO_LEAN } from './lean';
+import { Crowd, CROWD_FULL, CROWD_LOW } from './world/crowd';
 import { Torch } from './torch';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
@@ -143,6 +144,7 @@ function applyQuality() {
   renderer.shadowMap.enabled = shadows; world.setShadows(shadows);
   world.setFoliage(FOLIAGE[settings.preset] * q.foliage);
   townsfolk.setCount(isLowPreset(settings.preset) || q.folk === 'low' ? 'low' : 'full');
+  crowd.setCount(isLowPreset(settings.preset) || q.folk === 'low' ? CROWD_LOW : CROWD_FULL);
   const out = document.getElementById('autoQualityOut');
   if (out) out.textContent = autoQ.enabled && autoQ.level ? `(easing off: step ${autoQ.level} of ${STEPS.length - 1})` : '';
 }
@@ -565,6 +567,9 @@ puppets.set('player', figureOf(player.body.children[0]));
 // v0.06 T1/T4: townsfolk and the cinema band walk, spar, trade, chat and play on the procedural rig.
 const townsfolk = new Townsfolk(world.scene);
 townsfolk.setCount(isLowPreset(settings.preset) ? 'low' : 'full');
+// Town style 1: the background crowd, small pixel sprites in 8 directions (the 3D townsfolk and NPCs stay).
+const crowd = new Crowd(world.scene);
+crowd.setCount(isLowPreset(settings.preset) ? CROWD_LOW : CROWD_FULL);
 for (const f of townsfolk.folk) puppets.set(f.id, figureOf(f.root));
 let libNpc = 0;
 library.group.traverse((o) => { if (o.userData.rig) puppets.set(`library:${libNpc++}`, figureOf(o)); });
@@ -665,6 +670,7 @@ function animate(dt: number) {
   for (const a of animators.values()) a.update(dt);
   townsfolk.bandPlaying = cinema.withSound;
   townsfolk.update(dt, camera);
+  if (!inDungeon) crowd.update(dt, camera.position);
   folkVoices.update(dt);
   bannerT += dt;
   swayStation(dt);
@@ -2602,4 +2608,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

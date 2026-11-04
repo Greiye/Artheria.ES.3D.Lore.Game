@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 6: town style 1, the sprite crowd (Mike 2026-11-04, Graphics thread)
+- The town green fills up with a crowd of small 2D pixel-sprite townsfolk (44, 16 on Low), painted in 8 directions with 4 walk frames and 12 looks. They walk between the doors or stand and chat, turn the side that faces you, and dim with the hour like the 3D characters.
+- One instanced draw for all of them plus one for their shadows (draw calls 202 → 204, same frame rate).
+- Named NPCs and the player stay 3D.
+- Fix: the 3D townsfolk no longer clip the Tailor's corner (their routes are densified and pushed clear of the buildings and the well).
+- New `test/e2e-crowd.mjs` (11/11).
+
 ### v0.14 changelog, part 5: NPC lean (B42, Mike 2026-11-04)
 - Goblin shooters use the same lean as the player. A ranged goblin that is in range but can't see you past a wall edge leans out from the corner, aims, and shoots from the lean, then leans back.
 - Archers only back off from you when they can actually see you, so they hold a corner instead of drifting away.
