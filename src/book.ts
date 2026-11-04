@@ -3,6 +3,7 @@ import { resolveImage, entryById, type LoreEntry } from './lore';
 import { binds } from './controls';
 import { saveSettings, type Settings } from './settings';
 import { audio } from './audio';
+import { comics, comicBlocks, bookMode, setBookMode } from './comics';
 
 // M4 — interactive lore book. Covers F3.2–F3.7 (opening/closing input is wired in main.ts).
 // Content is paginated block by block into fixed-size pages; paragraphs and lists that do not
@@ -54,6 +55,7 @@ export class Book {
         <button class="edge prev" aria-label="Previous page"></button>
         <button class="edge next" aria-label="Next page"></button>
         <button class="book-close" aria-label="Close book">✕</button>
+        <button class="book-mode hidden" aria-label="Read as a comic"></button>
       </div>
       <div class="book-hint"></div>`;
     document.body.appendChild(this.root);
@@ -67,6 +69,7 @@ export class Book {
     this.root.querySelector('.edge.prev')!.addEventListener('click', () => this.prev());
     this.root.querySelector('.edge.next')!.addEventListener('click', () => this.next());
     this.root.querySelector('.book-close')!.addEventListener('click', () => this.close());
+    this.root.querySelector('.book-mode')!.addEventListener('click', () => this.toggleMode());   // B47
     // Touch: swipe left/right to turn pages.
     let sx = 0, sy = 0, st = 0;
     this.spread.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; st = performance.now(); }, { passive: true });
@@ -103,9 +106,14 @@ export class Book {
     this.root.classList.toggle('single', this.perView === 1);
     this.root.classList.toggle('scroll', this.scroll);
     const touch = matchMedia('(pointer: coarse)').matches;
+    const mb = this.root.querySelector<HTMLButtonElement>('.book-mode')!, comic = this.mode === 'comic';
+    mb.classList.toggle('hidden', !this.hasComic);
+    mb.textContent = comic ? '📖 Text' : '🗯 Comic';
+    mb.setAttribute('aria-label', comic ? 'Read as text' : 'Read as a comic');
+    this.root.classList.toggle('comic', comic && this.hasComic);
     this.root.querySelector('.book-hint')!.textContent = touch
       ? 'Swipe or tap a page edge to turn · ✕ to close'
-      : 'A / D or ← / → turn · click a page edge · Tab, Esc or E to close · gamepad: LB / RB, B';
+      : 'A / D or ← / → turn · click a page edge · Tab, Esc or E to close · gamepad: LB / RB, B' + (this.hasComic ? ' · C: text / comic' : '');
   }
 
   // F3.2: open on the last page read (F3.7).
@@ -128,6 +136,17 @@ export class Book {
   }
   get entryIds() { return this.entries.map((e) => e.id); }
 
+  // B47: Text / Comic. Only books with a comic change; the choice is remembered per profile.
+  get hasComic() { return this.entries.some((e) => comics.has(e.id)); }
+  get mode() { return bookMode(); }
+  toggleMode() {
+    if (!this.hasComic) return;
+    setBookMode(this.mode === 'comic' ? 'text' : 'comic');
+    this.sizeKey = '';
+    this.applyMode();
+    void this.layout(true);
+  }
+
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
@@ -141,6 +160,7 @@ export class Book {
     const k = binds;
     if ((k.pagePrev as readonly string[]).includes(code)) { this.prev(); return true; }
     if ((k.pageNext as readonly string[]).includes(code)) { this.next(); return true; }
+    if (code === 'KeyC' && this.hasComic) { this.toggleMode(); return true; }   // B47
     if ([...k.close, ...k.pause, ...k.activate].includes(code as never)) { this.close(); return true; }
     return false;
   }
@@ -231,7 +251,7 @@ export class Book {
 
   // ---------- pagination ----------
   private async layout(keepPosition: boolean) {
-    const key = `${this.measure.clientWidth}x${this.measure.clientHeight}`;
+    const key = `${this.measure.clientWidth}x${this.measure.clientHeight}:${this.mode}`;
     if (key === this.sizeKey && this.pages.length) return;
     const anchor = this.pages[this.first]?.entryId;
     this.sizeKey = key;
@@ -268,7 +288,9 @@ export class Book {
         f.textContent = 'A fragment: unfinished on purpose.';
         head.appendChild(f);
       }
-      blocks.push(head, ...renderMarkdown(stripTitle(e.body, e.title), resolveImage));
+      const comic = this.mode === 'comic' ? comics.get(e.id) : undefined;   // B47
+      if (comic) head.classList.add('comic-head');
+      blocks.push(head, ...(comic ? comicBlocks(comic) : renderMarkdown(stripTitle(e.body, e.title), resolveImage)));
       await decodeImages(blocks);
       starts.push([e.id, entryPages.length]);
       for (const p of this.paginate(blocks)) entryPages.push({ ...p, entryId: e.id });

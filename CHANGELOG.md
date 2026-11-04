@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 4: lore books as comics (B47, Mike 2026-11-04)
+- A lore book with a comic shows a Comic button (or press C): the same story as panels, with caption boxes and speech bubbles beside the speaker's portrait. Text brings the words back. Your choice is kept for your profile.
+- First comic: Natalie's Field Note, six panels. The art is placeholder cards for now; drawn panels drop into content/assets/comics/ (see its README). Every caption and line is quoted from the book's own text.
+
 ### v0.15 changelog, part 3: pause menu on the right (Mike 2026-11-04, "Move esc. Pause menu to right")
 - The Esc pause menu (Journal) now opens on the right side of the screen, like the station panels; a group's options open to its left. The controller status and version label move to the left while it's open.
 
