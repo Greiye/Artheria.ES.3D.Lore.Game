@@ -1,0 +1,31 @@
+/* UI 3 (Mike 2026-11-04, Graphics thread, "Do it"): larger body text and headings so the sheets read on a phone.
+   One size token, --rd-body: 15px on PC, 16px on touch screens and narrow windows; everything else in a sheet is
+   sized from it (titles ×1.5, small print −2px, labels in capitals −3px). On a touch screen fit-panel.ts no longer
+   shrinks a tall panel to fit: it scrolls, so the text stays this size. */
+:root { --rd-body: 15px; }
+@media (pointer: coarse), (max-width: 600px) { :root { --rd-body: 16px; } }
+
+/* Station panels */
+body .forge-panel { font-size: var(--rd-body); line-height: 1.45; }
+body .forge-panel :is(button, .shop-row, .shop-grid .shop-row, .slider, .check, label, select) { font-size: var(--rd-body); }
+/* Text boxes stay at least 16px (iOS zooms the page into anything smaller), and the caravan's answers keep theirs. */
+body .forge-panel :is(input, textarea, .es-answers button) { font-size: max(16px, var(--rd-body)); }
+body .forge-panel h2:not(#_) { font-size: calc(var(--rd-body) * 1.5); line-height: 1.2; }
+body .forge-panel h3 { font-size: calc(var(--rd-body) * 1.2); }
+body .forge-panel :is(h4, h5, .eyebrow) { font-size: calc(var(--rd-body) - 3px); }
+body .forge-panel :is(.fine, .slider span, .sk-got) { font-size: calc(var(--rd-body) - 2px); }
+body .forge-panel :is(.chip, .fp-tab) { font-size: calc(var(--rd-body) - 1px); padding-top: 6px; padding-bottom: 6px; }
+
+/* Pause menu */
+.pause-item { font-size: calc(var(--rd-body) + 3px); }
+.pause-side h1:not(#_) { font-size: calc(var(--rd-body) * 1.75); }
+.pause-panel h2:not(#_) { font-size: calc(var(--rd-body) * 1.5); }
+.pause-panel :is(label, .lead, p, select, output) { font-size: var(--rd-body); }
+.pause-panel :is(h4, .fine, .keys) { font-size: calc(var(--rd-body) - 2px); }
+.pause-panel h4 { font-size: calc(var(--rd-body) - 3px); }
+
+/* Cards (extras, What's new, dialogs) */
+.card :is(.lead, p, label, li, button.secondary) { font-size: var(--rd-body); }
+.card .fine { font-size: calc(var(--rd-body) - 2px); }
+.card h1:not(#_) { font-size: clamp(calc(var(--rd-body) * 1.6), 4.2vmin, 34px); }
+body .forge-panel .hint { font-size: calc(var(--rd-body) - 3px); }
