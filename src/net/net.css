@@ -6,3 +6,6 @@
 .net-panel .net-error { color: #9a2a1a; font-weight: 600; }
 .net-panel #netCode { text-transform: uppercase; letter-spacing: 0.15em; }
 .net-panel .net-sec { margin: 0.5em 0; }
+.net-panel .net-says { display: flex; flex-wrap: wrap; gap: 6px; }
+.net-panel .net-say { padding: 0.35em 0.7em; min-height: 36px; }
+.net-panel .net-kick { float: right; font-size: 0.8em; padding: 0.15em 0.6em; }

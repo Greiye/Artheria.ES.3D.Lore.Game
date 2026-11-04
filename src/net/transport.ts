@@ -19,7 +19,7 @@ export interface Transport {
 const APP_ID = 'artheria-es-3d-lore-game';
 
 /** Kinds of messages, kept short on the wire (Trystero caps action names at 12 bytes). */
-export const KINDS = ['hello', 'state', 'kick', 'emote', 'time'] as const;
+export const KINDS = ['hello', 'state', 'kick', 'emote', 'time', 'pet'] as const;
 
 export async function p2pTransport(code: string): Promise<Transport> {
   const { joinRoom, selfId } = await import('trystero');

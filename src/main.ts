@@ -59,7 +59,7 @@ import { FirstDay } from './quest/firstday';
 import { gatherPortfolio } from './portfolio';
 import { QuestProps } from './quest/props';
 import { Companion, loadCompanion, saveCompanion } from './quest/companion';
-import { Pet, loadPets, type PetId } from './pets/pet';
+import { Pet, loadPets, SPECIES, type PetId, type PetPrefs } from './pets/pet';
 import { PetsPanel } from './pets/panel';
 import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
 import { CampfirePanel } from './campfire/campfire';
@@ -109,9 +109,10 @@ import { glyph } from './input/glyphs';
 import { topPanel, padMove, padNudge, padPress, padBack, type PadDir } from './input/padnav';
 import { storeSet } from './store';
 import { FriendsPanel } from './net/panel';
-import { cleanCode, type Room } from './net/room';
+import { cleanCode, cleanName, type Room } from './net/room';
 import { Remote, packState, SEND_HZ } from './net/remotes';
 import { packLook } from './net/look';
+import { EMOTES, emoteAt, Bubble } from './net/emotes';
 import './ui/parchment.css';   // UI 1: parchment panels, loaded last so it skins every panel
 import './ui/ribbon.css';   // UI 2: green ribbon titles with gold lettering
 import './ui/readable.css';   // UI 3: larger text in the sheets, sized for phones
@@ -1501,26 +1502,84 @@ function openFriends(code?: string) { if (state !== 'play' && state !== 'pause')
 // Multiplayer 2: the other players in the room, as rigged figures in the puppet loop (ids 'net:<peer>').
 const remotes = new Map<string, Remote>();
 function syncRemotes(room: Room | null) {
-  for (const [id, r] of remotes) if (!room?.members.has(id)) { r.remove(); remotes.delete(id); puppets.delete('net:' + id); }
+  for (const [id, r] of remotes) if (!room?.members.has(id)) { r.remove(); remotes.delete(id); puppets.delete('net:' + id); setRemotePet(id, null); }
   if (!room) return;
   for (const m of room.members.values()) {
     let r = remotes.get(m.id);
-    if (!r) { r = new Remote(m.id, m.name, world.scene); remotes.set(m.id, r); }
+    if (!r) {
+      r = new Remote(m.id, m.name, world.scene); remotes.set(m.id, r);
+      const sw = sword.held.clone(), bk = heldBook.model.clone(); sw.visible = bk.visible = false;
+      r.hold({ sword: sw, torch: torch.cloneHeld(), book: bk });
+      room.send('pet', myPet(), m.id);                       // tell a newcomer about your pet,
+      if (room.isHost) room.send('time', world.time, m.id);  // and the host sets their sky to the room's
+    }
     if (r.name !== m.name) r.setName(m.name);
     if (m.look !== r.lookRaw && r.setLook(m.look)) puppets.set('net:' + m.id, { root: r.figure!, fig: r.fig ?? undefined });
   }
 }
+// Multiplayer 3: emotes (preset only), pets that come along, one sky for the room, and the host's Remove.
+const myBubble = new Bubble();
+player.body.add(myBubble.sprite); myBubble.sprite.position.y = controls.eyeHeight + 0.9;
+const remotePets = new Map<string, Pet>();
+function setRemotePet(peer: string, d: unknown) {
+  const o = d && typeof d === 'object' ? d as { id?: unknown; name?: unknown } : null;
+  const id = o && typeof o.id === 'string' && Object.prototype.hasOwnProperty.call(SPECIES, o.id) ? o.id as PetId : null;
+  const had = remotePets.get(peer);
+  if (had && had.id === id) { const n = cleanName(o?.name); if (n) had.prefs.names[id!] = n; return; }
+  if (had) { world.scene.remove(had.root, had.hit); remotePets.delete(peer); }
+  const r = remotes.get(peer);
+  if (!id || !r) return;
+  const prefs: PetPrefs = { friends: [id], withYou: id, stayAt: {}, names: {} };
+  const n = cleanName(o?.name); if (n) prefs.names[id] = n;
+  const p = new Pet(id, world.scene, r.root.position.clone(), r.root.rotation.y, world.colliders, () => player.bounds, prefs);
+  p.terrain = (x, z) => world.heightAt(x, z);
+  p.root.name = 'netpet:' + peer;
+  remotePets.set(peer, p);
+}
+function myPet() { const p = pets.find((q) => q.following); return p ? { id: p.id, name: p.name } : null; }
+function emote(i: number) {
+  const e = EMOTES[i], room = friends.room;
+  if (!e || !room) return;
+  room.send('emote', i);
+  myBubble.say(e.say);
+  if (e.gesture) gesture(e.gesture);
+}
+friends.emote = emote;
 friends.onRoom = (room) => {
-  if (room) { room.lookOf = () => myLook; room.onState = (from, d) => remotes.get(from)?.apply(d); }
+  if (room) {
+    room.lookOf = () => myLook;
+    room.onState = (from, d) => remotes.get(from)?.apply(d);
+    room.on('emote', (d, m) => {
+      const e = emoteAt(d), r = remotes.get(m.id);
+      if (!e || !r) return;
+      r.bubble.say(e.say);
+      if (e.gesture) r.fig?.play(e.gesture);
+      if (r.away || r.root.position.distanceTo(player.pos) > 25) toast(`${m.name}: ${e.say}`, 2600);   // too far to see the bubble
+    });
+    room.on('time', (d) => { if ((d === 'day' || d === 'sunset' || d === 'night') && d !== world.time) { setWorldTime(d); netTime = d; } });
+    room.on('pet', (d, m) => setRemotePet(m.id, d));
+    netTime = world.time; netPet = JSON.stringify(myPet());
+  }
   syncRemotes(room);
 };
+let netTime: TimeOfDay = 'day', netPet = 'null';
 netHello = () => friends.room?.sayHello();
 let netClock = 0;
 function netSend(dt: number, mine: AnimInput) {
   const room = friends.room;
+  myBubble.update(dt);
+  for (const [peer, p] of remotePets) {
+    const r = remotes.get(peer);
+    if (!r) continue;
+    p.update(dt, r.root.position, r.root.rotation.y, false);
+    p.root.visible = !r.away;
+  }
   if (!room || !inWorld || (netClock += dt) < 1 / SEND_HZ) return;
   netClock = 0;
-  room.sendState(packState(player.body, mine));
+  room.sendState(packState(player.body, mine, torch.lit));
+  if (world.time !== netTime) { netTime = world.time; room.send('time', netTime); }   // you slept: the room's sky moves on with you
+  const pet = JSON.stringify(myPet());
+  if (pet !== netPet) { netPet = pet; room.send('pet', myPet()); }
 }
 let inviteCode = cleanCode(urlFlags.get('room') ?? '');   // an invite link: the panel opens with its code on the first Begin
 // ---------- B19: real-skill mini games at the practice table by the dojo mats; cards go in the Skills book ----------

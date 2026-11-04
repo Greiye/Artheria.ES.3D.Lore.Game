@@ -58,6 +58,8 @@ export class Torch {
   }
 
   set(on: boolean) { this.lit = on; }
+  /** A copy of the hand-held torch (shared geometry) for another player's figure (multiplayer). */
+  cloneHeld() { const g = this.held.group.clone(); g.visible = false; return g; }
   toggle() { this.lit = !this.lit; }
 
   update(dt: number, firstPerson: boolean) {
