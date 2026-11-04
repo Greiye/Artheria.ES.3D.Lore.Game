@@ -64,6 +64,7 @@
     "e2e-touch-haptics",
     "e2e-portfolio",
     "e2e-lean",
-    "e2e-npc-lean"
+    "e2e-npc-lean",
+    "e2e-crowd"
   ]
 }

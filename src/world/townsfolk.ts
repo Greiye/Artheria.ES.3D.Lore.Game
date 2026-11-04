@@ -29,7 +29,7 @@ const lot = (id: TownId) => TOWN_LOTS.find((l) => l.id === id)!;
 /** A point in a lot's frame: lx along its front, lz out toward the green from its centre. */
 const lotAt = (id: TownId, lx: number, lz: number) => { const L = lot(id), c = Math.cos(L.ry), s = Math.sin(L.ry); return new THREE.Vector3(L.x + lx * c + lz * s, 0, L.z - lx * s + lz * c); };
 /** Just in front of a lot's door step, on the green side. */
-const doorStep = (id: TownId) => lotAt(id, 0, lot(id).d / 2 + 1.5);
+export const doorStep = (id: TownId) => lotAt(id, 0, lot(id).d / 2 + 1.5);
 
 
 interface Brain { route: THREE.Vector3[]; i: number; wait: number; at: TownId | null; talkT: number; face: number | null; turn: number; speed: number; linger: number; idlePose: Pose | null }
@@ -161,8 +161,42 @@ export function route(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
   let da = Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0));
   const n = Math.max(1, Math.ceil(Math.abs(da) / 0.12)), out = [loopAt(a0)];
   for (let i = 1; i <= n; i++) out.push(loopAt(a0 + da * i / n));
-  out.push(to.clone());
-  return out;
+  // Walk the whole path in half-metre steps and nudge any step that would graze a building in toward the
+  // middle of the green, so the path bends round corners (walkers used to clip the Tailor's front corner).
+  const pts = [from.clone(), ...out, to.clone()], dense: THREE.Vector3[] = [];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], k = Math.max(1, Math.ceil(a.distanceTo(b) / 0.35));
+    for (let j = 1; j <= k; j++) dense.push(a.clone().lerp(b, j / k));
+  }
+  dense.pop();   // the door step itself stays where it is
+  clearPath(dense);
+  dense.push(to.clone());
+  return dense;
+
+}
+/** Nudge path points clear of the buildings and the well (in place). */
+export function clearPath(pts: THREE.Vector3[]) {
+  for (const p of pts) {
+    for (let k = 0; k < 40; k++) {
+      const c = clearance(p.x, p.z);
+      if (c.lots >= 0.6 && c.well >= 0.5) break;
+      if (c.well < 0.5) { const dx = p.x - FOUNTAIN.x, dz = p.z - FOUNTAIN.z, d = Math.hypot(dx, dz) || 1; p.x += dx / d * 0.15; p.z += dz / d * 0.15; }
+      else pushFromLots(p, 0.15);
+    }
+  }
+}
+/** Step a point out of the nearest building's footprint, through its nearest face. */
+function pushFromLots(p: THREE.Vector3, step: number) {
+  let best: { L: typeof TOWN_LOTS[number]; lx: number; lz: number; m: number } | null = null;
+  for (const L of TOWN_LOTS) {
+    const c = Math.cos(L.ry), s = Math.sin(L.ry), lx = (p.x - L.x) * c - (p.z - L.z) * s, lz = (p.x - L.x) * s + (p.z - L.z) * c;
+    const m = Math.max(Math.abs(lx) - L.w / 2, Math.abs(lz) - L.d / 2);
+    if (!best || m < best.m) best = { L, lx, lz, m };
+  }
+  if (!best) return;
+  const { L, lx, lz } = best, c = Math.cos(L.ry), s = Math.sin(L.ry);
+  const ux = Math.abs(lx) - L.w / 2 > Math.abs(lz) - L.d / 2 ? Math.sign(lx) || 1 : 0, uz = ux ? 0 : Math.sign(lz) || 1;
+  p.x += (ux * c + uz * s) * step; p.z += (-ux * s + uz * c) * step;
 }
 /** For tests: how close a point comes to the well and to each lot's footprint (negative = inside). */
 export function clearance(x: number, z: number) {
