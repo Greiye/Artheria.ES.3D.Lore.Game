@@ -1196,6 +1196,7 @@ const DELVE_HP = 10;
 let delveHp = DELVE_HP, slowT = 0, hurtFlash = 0;
 const goblins = new Goblins(world.scene, {
   walkable: (x, z) => dungeon.walkable(x, z),
+  colliders: world.colliders,   // B42: goblins lean at the same wall edges
   player: player.pos,
   aiming: () => crossbow.ads,
   hurt: (dmg, by, slow) => {

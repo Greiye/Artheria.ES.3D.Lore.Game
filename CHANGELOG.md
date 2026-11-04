@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 5: NPC lean (B42, Mike 2026-11-04)
+- Goblin shooters use the same lean as the player. A ranged goblin that is in range but can't see you past a wall edge leans out from the corner, aims, and shoots from the lean, then leans back.
+- Archers only back off from you when they can actually see you, so they hold a corner instead of drifting away.
+- New `test/e2e-npc-lean.mjs` (6/6).
+
 ### v0.14 changelog, part 4: auto-lean (B41, Mike 2026-11-04)
 - Aiming the crossbow with a wall edge just ahead leans you out past the edge, toward the open side. Your eyes, aim and view move about half a metre and the view tilts a little. Let go of aim, or move off, and you lean back in.
 - Crouched behind low cover (the low walls), aiming rises you up to peek and shoot over it.
