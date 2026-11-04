@@ -24,6 +24,7 @@ export interface Settings {
   chars: 'hybrid' | 'sprite';   // restyle S2c: 3D bodies with pixel faces (default) or RO-style pixel sprites
   lastPage: number;
   haptics: boolean;    // v0.04: controller rumble / phone vibration
+  seeThrough: boolean; // B45: walls between the camera and you open up instead of pulling the camera in
   // UX pass (Mike 2026-10-31): comfort and reading
   lefty: boolean;       // touch: joystick on the right, buttons on the left
   buttonSize: number;   // touch buttons, 75-150 (%)
@@ -59,7 +60,7 @@ const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 
 const firstPreset: Preset = IS_IOS ? 'lowpower' : typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'medium';
 const defaults: Settings = {
   schemaVersion: 2,
-  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true,
+  sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true, seeThrough: true,
   lefty: false, buttonSize: 100, textSize: 100, readSpeed: 1,
   preset: firstPreset, ...PRESETS[firstPreset], autoQuality: true,
   audio: { ...defaultAudio },
@@ -101,6 +102,7 @@ export function loadSettings(): Settings {
       view: s.view === 'first' || s.view === 'shoulder' ? s.view : 'overhead',   // pre-v0.05 'follow' becomes overhead
       chars: s.chars === 'sprite' ? 'sprite' : 'hybrid',
       haptics: bool(s.haptics, true),
+      seeThrough: bool(s.seeThrough, true),
       lefty: bool(s.lefty, false),
       buttonSize: clamp(s.buttonSize, 75, 150, 100),
       textSize: clamp(s.textSize, 85, 150, 100),

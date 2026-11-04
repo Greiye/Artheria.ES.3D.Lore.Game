@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 3: the camera sees through walls (B45, Mike 2026-11-03)
+- The follow camera no longer pulls in when a building or prop is behind you. Walls, roofs, trees and props between the camera and you open up in a soft, dithered circle and close again once you've moved on.
+- The ground, sky, mountains and characters are never cut. It's off in first person, at stations and in the dungeon (the dungeon camera still pulls in).
+- On by default. Options > Gameplay > "See through walls" turns it off and brings back the old pull-in.
+- The cut is a cone from the camera to your chest, added to each world material's shader (`src/render/seeThrough.ts`); the rig skips colliders when it's on (`src/camera/rig.ts`).
+- New `test/e2e-see-through.mjs` (6/6).
+
 ### v0.13 changelog, part 2: iPhone performance pass (B38, Mike 2026-11-03)
 - **Low power preset.** Render scale is 40%, fog closes in at 35 m, it's capped at 30 fps, there are no shadows or glow, fewer townsfolk and less undergrowth, and one real lantern light at night. iPhones and iPads start on it. It can be changed under Options > Graphics.
 - **Off-screen characters.** Characters that are off-screen or past the fog aren't drawn or animated, on every preset. Skinned figures can't be frustum-culled by three, so each one is now checked per frame.

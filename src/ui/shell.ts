@@ -74,6 +74,7 @@ export const SHELL_HTML = `
       <label class="check"><input id="always" type="checkbox"> Always run (Caps Lock)</label>
       <label class="field">Characters <select id="charsSel"><option value="hybrid">3D bodies, drawn heads</option><option value="sprite">Pixel sprites</option></select></label>
       <label class="check"><input id="haptics" type="checkbox"> Vibration (controller rumble, phone buzz)</label>
+      <label class="check"><input id="seeThrough" type="checkbox"> See through walls (the camera stays out; walls in the way open up)</label>
       <label class="check"><input id="companionQuiet" type="checkbox"> Quiet companion (Natalie keeps her thoughts to herself)</label>
       <h4>Comfort</h4>
       <label>Text size <output id="textSizeOut"></output><input id="textSize" type="range" min="85" max="150" step="5"></label>

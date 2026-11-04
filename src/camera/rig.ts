@@ -56,6 +56,8 @@ export class CameraRig {
     this.cur = this.target = THREE.MathUtils.clamp(z, 0, 1);
     this.step = this.nearestStep(this.cur);
   }
+  /** B45: walls and objects don't pull the camera in; they open up instead (src/render/seeThrough.ts). Set by main.ts. */
+  seeThrough = false;
   // Highest the camera may go at (x, z), e.g. under the dungeon ceiling. Set by main.ts.
   ceiling: (x: number, z: number) => number = () => Infinity;
 
@@ -126,7 +128,7 @@ export class CameraRig {
         target = 0;
         for (let t = 0.05; t <= 1.0001; t += 0.05) {
           q.copy(this.look).addScaledVector(offset, t);
-          if (q.y < 0.2 || q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad, q.y))) break;
+          if (q.y < 0.2 || q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad, q.y, this.seeThrough))) break;
           target = t;
         }
         if (target * dist >= Math.min(MIN_CLEAR, dist) || elev >= 1.35) break;
@@ -138,7 +140,7 @@ export class CameraRig {
         target = 0;
         for (let t = 0.05; t <= 1.0001; t += 0.05) {
           q.copy(this.look).addScaledVector(offset, t);
-          if (q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad, q.y))) break;
+          if (q.y > this.ceiling(q.x, q.z) || (q.y < 9 && this.blocked(q.x, q.z, controls.thirdPerson.wallPad, q.y, this.seeThrough))) break;
           target = t;
         }
       }
@@ -206,8 +208,9 @@ export class CameraRig {
     return { pos, look: book.clone(), fov: 45 };
   }
 
-  private blocked(x: number, z: number, pad: number, y = 0): boolean {
+  private blocked(x: number, z: number, pad: number, y = 0, boundsOnly = false): boolean {
     if (Math.abs(x) > this.bounds - pad || Math.abs(z) > this.bounds - pad) return true;
+    if (boundsOnly) return false;
     for (const c of this.colliders) {
       if (c.top !== undefined && y > c.top + 0.3) continue;   // above a rock or low wall: clear
       if (c.kind === 'circle') { if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return true; }
