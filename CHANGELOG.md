@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 13: pets, the farm dog (Mike 2026-11-04, "Add pets" + "Go")
+- A farm dog waits outside the inn. Pet it and it wags. Give it some bread (the General Store sells it) and it is yours: it trots a step behind your right shoulder (Natalie keeps the left), runs when you run, finds its way round walls and carts, catches up if you get far ahead, follows you into the dungeon, sits when you stand still and noses about.
+- Talk to it to tell it to stay, or to call it back. Who you've befriended, who is with you and where a waiting dog sits are saved on this device.
+
 ### v0.14 changelog, part 12: crossed-quad bushes (Mike 2026-11-04, Graphics thread)
 - Meadow bushes are now crossed-quad cards like the trees: two or three upright cards each, from a pixel-art bush sheet painted in the game (five greens, a dark rim, some with red berries, white blossom or yellow flowers). One mesh for all of them; still walk-through.
 
