@@ -19,6 +19,7 @@ const G = (page, fn, arg) => page.evaluate(fn, arg);
 
 for (const [label, vp] of [['desktop', { width: 1280, height: 720 }], ['phone', { width: 844, height: 390 }]]) {
   const ctx = await browser.newContext({ viewport: vp, hasTouch: label === 'phone', isMobile: label === 'phone' });
+  await ctx.addInitScript(() => localStorage.setItem('gametool.metnatalie', '1'));   // B50: the first-meeting cinematic has its own suite (e2e-first-meet)
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));

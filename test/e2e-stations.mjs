@@ -21,6 +21,7 @@ const frames = (page, n = 3) => G(page, (n) => new Promise((r) => { const f = ()
 
 async function open(opts = { viewport: { width: 1280, height: 800 } }, pad = false) {
   const ctx = await browser.newContext(opts);
+  await ctx.addInitScript(() => localStorage.setItem('gametool.metnatalie', '1'));   // B50: the first-meeting cinematic has its own suite (e2e-first-meet)
   await ctx.addInitScript((pad) => {
     localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test', motivation: '', secret: '', created: true }));
     if (pad) {
