@@ -58,7 +58,7 @@ function saveForge(c: ForgeCharacter): void {
 // "key=value; key=value" so the lore file stays readable and the frontmatter parser needs no JSON.
 function encodeLook(c: ForgeCharacter): string {
   const l = c.look;
-  return [`species=${l.species}`, `height=${c.height.toFixed(2)}`, `build=${(l.build ?? 1).toFixed(2)}`, `skin=${l.skin}`, `hair=${l.hair}`, `hairStyle=${l.hairStyle}`,
+  return [`species=${l.species}`, `height=${c.height.toFixed(2)}`, `build=${(l.build ?? 1).toFixed(2)}`, `strength=${l.strength ?? 10}`, `endurance=${l.endurance ?? 10}`, `skin=${l.skin}`, `hair=${l.hair}`, `hairStyle=${l.hairStyle}`,
     `eyes=${l.eyes}`, `eyeStyle=${l.eyeStyle}`, `primary=${l.primary}`, `secondary=${l.secondary}`, `boots=${l.boots}`, `accent=${l.accent}`,
     `skirt=${l.skirt ? 1 : 0}`, `marks=${l.marks ?? ''}`, `feature=${l.feature ?? ''}`].join('; ');
 }
@@ -68,11 +68,13 @@ export function decodeLook(s: string): { look: FigureLook; height: number } | nu
   const look: FigureLook = {
     species: (kv.species || 'human') as Species, skin: kv.skin, hair: kv.hair || '#5A3420', primary: kv.primary || '#4F7A3A', secondary: kv.secondary || '#C9B48A',
     boots: kv.boots || '#5A3A22', accent: kv.accent || undefined, hairStyle: (kv.hairStyle || 'spiky') as FigureLook['hairStyle'], eyes: kv.eyes || undefined,
-    eyeStyle: (kv.eyeStyle || undefined) as FigureLook['eyeStyle'], build: Number(kv.build) || 1, skirt: kv.skirt === '1', marks: kv.marks || '', feature: kv.feature || undefined,
+    eyeStyle: (kv.eyeStyle || undefined) as FigureLook['eyeStyle'], build: Number(kv.build) || 1, strength: THREE_clamp(Number(kv.strength) || 10, 1, 20), endurance: THREE_clamp(Number(kv.endurance) || 10, 1, 20), skirt: kv.skirt === '1', marks: kv.marks || '', feature: kv.feature || undefined,
   };
   return { look, height: THREE_clamp(Number(kv.height) || 1.75, 1.4, 2.3) };
 }
 const THREE_clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+/** B46: a word for an attribute, 1–20, in five steps. */
+const attWord = (n: number | undefined, w: string[]) => { const v = n ?? 10; return w[v <= 4 ? 0 : v <= 8 ? 1 : v <= 12 ? 2 : v <= 16 ? 3 : 4]; };
 
 export function forgeMarkdown(c: ForgeCharacter, author: string): string {
   const sp = SPECIES.find((s) => s.id === c.look.species)?.label ?? 'Human';
@@ -176,6 +178,8 @@ export class CharacterForge {
         <section><h4>Body</h4>${this.chips('species', SPECIES.map((s) => s.id), SPECIES.map((s) => s.label))}<p class="fine">${sp.blurb}</p>
           <label class="slider">Height <input type="range" id="fgHeight" min="1.45" max="2.25" step="0.01" value="${c.height}"><span>${c.height.toFixed(2)} m</span></label>
           <label class="slider">Build <input type="range" id="fgBuild" min="0.85" max="1.25" step="0.01" value="${l.build ?? 1}"><span>${(l.build ?? 1) < 0.95 ? 'slim' : (l.build ?? 1) > 1.1 ? 'broad' : 'average'}</span></label>
+          <label class="slider">Strength <input type="range" id="fgStrength" min="1" max="20" step="1" value="${l.strength ?? 10}"><span>${l.strength ?? 10} · ${attWord(l.strength, ['frail', 'wiry', 'average', 'strong', 'bodybuilder'])}</span></label>
+          <label class="slider">Endurance <input type="range" id="fgEndurance" min="1" max="20" step="1" value="${l.endurance ?? 10}"><span>${l.endurance ?? 10} · ${attWord(l.endurance, ['slight', 'lean', 'average', 'sturdy', 'barrel-chested'])}</span></label>
         </section>
         <section><h4>Barber</h4><p class="fine">A trim, a new colour, a different look in the eye.</p>
           <h5>Hair</h5>${this.chips('hairStyle', HAIR_STYLES)}${this.swatches('hair', HAIR)}</section>
@@ -209,6 +213,8 @@ export class CharacterForge {
     });
     q<HTMLInputElement>('#fgHeight').addEventListener('change', (e) => this.set('height', (e.target as HTMLInputElement).value));
     q<HTMLInputElement>('#fgBuild').addEventListener('change', (e) => this.set('build', Number((e.target as HTMLInputElement).value)));
+    q<HTMLInputElement>('#fgStrength').addEventListener('change', (e) => this.set('strength', Number((e.target as HTMLInputElement).value)));
+    q<HTMLInputElement>('#fgEndurance').addEventListener('change', (e) => this.set('endurance', Number((e.target as HTMLInputElement).value)));
     q<HTMLInputElement>('#fgSkirt').addEventListener('change', (e) => this.set('skirt', (e.target as HTMLInputElement).checked));
     q<HTMLInputElement>('#fgDress').addEventListener('change', (e) => this.set('dress', (e.target as HTMLInputElement).checked));
     q<HTMLInputElement>('#fgPlatform').addEventListener('change', (e) => this.set('platform', (e.target as HTMLInputElement).checked));
