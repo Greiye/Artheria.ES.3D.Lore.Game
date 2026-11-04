@@ -5,6 +5,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { tuftCards, type TuftCard } from './tuftCards';
+import { buildFences } from './fenceCards';
+import { CARAVAN } from '../spanish/caravan';   // built later (main.ts): keep the fences clear of its camp
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
 import { buildFigure, buildCoach } from './figure';
@@ -13,7 +15,7 @@ import { outlineStatic } from '../render/outline';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
 import { buildSmoke, type Smoke } from './smoke';
-import { buildTown, townClear, TOWN_LOTS, type Town } from './town';
+import { buildTown, townClear, TOWN_LOTS, GATE, type Town } from './town';
 import { buildRiver, riverClear, WINDMILL, type River } from './river';
 import { buildKavik } from './kavik';
 
@@ -344,6 +346,10 @@ export function buildWorld(): World {
     return out;
   };
   // Tufts are scattered in random order, so drawing the first N keeps an even spread at any density.
+  // Quad detail 2 (Mike 2026-11-04): painted fence panels along the paths, kept off anything already standing.
+  const inCollider = (x: number, z: number, pad: number) => colliders.some((c) => c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + pad
+    : x > c.minX - pad && x < c.maxX + pad && z > c.minZ - pad && z < c.maxZ + pad);
+  buildFences(scene, heightAt, colliders, (x, z) => Math.hypot(x, z) < 5 || Math.hypot(x - CARAVAN.x, z - CARAVAN.z) < 7.5 || Math.hypot(x - GATE.x, z - GATE.z) < 4 || inCollider(x, z, 0.5));
   const undergrowth = [
     tufts(scene, 'grassBlades', scatter(2000, 1.5, 30, -0.6, 0.8), [0.6, 0.5]),
     tufts(scene, 'flowers', scatter(200, 3, 30, 0.2), [0.75, 0.62]),   // G4: fewer, bigger flower clumps
