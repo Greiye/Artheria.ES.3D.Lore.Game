@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 4: fighting Kavik, 3D-fighter rules (Mike 2026-11-04, "more like Tekken" + "All 6")
+- Four limb buttons: left hand, right hand, left foot, right foot (keys U I J K, pad X Y A B, touch buttons). A direction held changes the move: about 25 of our own moves.
+- Hold back to block highs and mids standing, down-back to block lows; highs whiff over a crouch. Both hands together throw, which beats a guard but whiffs on a crouch; press a hand in time to break it.
+- Strings (jab into cross into heel or a low rake, and more), counter hits on a move as it starts, and moves that are unsafe on block: block one and hit back before the attacker recovers.
+- Launchers pop the other fighter up for a juggle; heavy hits splat them on the walls at the edges of the mat. Hits flash and pause for a beat.
+- Kavik uses the same moves: he guards high or low by what he sees coming, punishes, throws a guard, and breaks some throws.
+- The shield bubble, dodge roll, double jump and ember bolt are gone.
+
 ### v0.15 changelog, part 3: pause menu on the right (Mike 2026-11-04, "Move esc. Pause menu to right")
 - The Esc pause menu (Journal) now opens on the right side of the screen, like the station panels; a group's options open to its left. The controller status and version label move to the left while it's open.
 
