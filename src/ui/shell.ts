@@ -64,6 +64,7 @@ export const SHELL_HTML = `
       <button id="pgSkills" class="pause-item pause-page">Skills book</button>
       <button id="pgRecipes" class="pause-item pause-page">Recipe book</button>
       <button id="pgSelf" class="pause-item pause-page">Who you are</button>
+      <button id="pgFriends" class="pause-item pause-page">Play with friends</button>
       <button id="quitToMenu" class="pause-item">Quit to Main Menu</button>
       <p class="fine">Settings are saved in this browser.</p>
     </nav>
