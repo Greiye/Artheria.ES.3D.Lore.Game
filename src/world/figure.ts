@@ -33,6 +33,10 @@ export interface FigureLook {
   // Phase B (B4 character forge):
   species?: Species;
   build?: number;       // width multiplier, 0.85 (slim) – 1.25 (broad)
+  // B46 (Mike 2026-11-04): physical attributes show in the body, 1–20 (10 = average). Strength fills out the
+  // shoulders, arms, chest and thighs (20 = bodybuilder, 2 = frail and skinny); endurance thickens the torso and waist.
+  strength?: number;
+  endurance?: number;
   eyeStyle?: 'round' | 'slit' | 'owl' | 'sleepy';
   marks?: string;       // freckles / war paint colour, '' for none
   feature?: string;     // horns / beak / wing / ear colour (defaults per species)
@@ -192,6 +196,13 @@ export function rigged(geo: THREE.BufferGeometry, bone: number): THREE.BufferGeo
 export function buildFigure(look: FigureLook, height: number, extras?: (kit: PropKit) => void): THREE.Group {
   const U = height / 1.75;   // proportions authored for a 1.75 m figure
   const W = THREE.MathUtils.clamp(look.build ?? (look.species === 'titankin' ? 1.2 : 1), 0.8, 1.3);   // body width
+  // B46: -1 (attribute 1) … 0 (10) … +1 (20); muscle grows faster than it wastes, so 20 reads as a bodybuilder.
+  const att = (n: number | undefined) => { const t = (THREE.MathUtils.clamp(n ?? 10, 1, 20) - 10) / 10; return t >= 0 ? t : t * 1.1; };
+  const st = att(look.strength), en = att(look.endurance);
+  const MUS = 1 + (st >= 0 ? 0.55 : 0.35) * st;          // arm and thigh girth: 0.65 frail … 1.55 bodybuilder
+  const SH = 1 + (st >= 0 ? 0.2 : 0.1) * st;             // shoulder breadth
+  const CH = 1 + (st >= 0 ? 0.32 : 0.16) * st;           // chest at the top of the V
+  const WA = 1 + (en >= 0 ? 0.22 : 0.12) * en;           // waist and belly
   const root = new THREE.Group();
   const parts: [THREE.BufferGeometry, string, BoneName][] = [];
   const place = (g: THREE.BufferGeometry, bone: BoneName, x: number, y: number, z: number, color: string, rz = 0, rx = 0, ry = 0) => {
@@ -231,8 +242,9 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   for (const s of [-1, 1]) {
     const side = s < 0 ? 'N' : 'P', thigh = `thigh${side}` as BoneName, shin = `shin${side}` as BoneName;
     const arm = `arm${side}` as BoneName, fore = `fore${side}` as BoneName;
-    seg(thigh, s * 0.09, 0.95, s * 0.095, 0.49, 0.078, 0.056, legs, 0, 8);
-    seg(shin, s * 0.095, 0.5, s * 0.095, 0.1, 0.054, 0.038, legs, 0, 7);
+    const TH = 1 + (MUS - 1) * 0.6;   // B46: thighs and calves fill out less than the arms
+    seg(thigh, s * 0.09, 0.95, s * 0.095, 0.49, 0.078 * TH, 0.056 * TH, legs, 0, 8);
+    seg(shin, s * 0.095, 0.5, s * 0.095, 0.1, 0.054 * TH, 0.038, legs, 0, 7);
     if (look.platform) {
       // Platform boots: a thick sole, a rounded toe and strapped stockings up the thigh.
       box(shin, 0.1, 0.06, 0.26, s * 0.095, 0.03, 0.045, '#141218', 0, 0, 0.015);
@@ -246,15 +258,15 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
       seg(shin, s * 0.095, 0.32, s * 0.095, 0.27, 0.058, 0.058, trim, 0, 7);
     }
     // Arms: sleeve, bare forearm, a glove.
-    ball(arm, 0.058, s * 0.175, 1.415, 0, look.secondary, 1, 0.85, 0.9);
-    seg(arm, s * 0.19, 1.43, s * 0.22, 1.13, 0.047, 0.04, look.secondary, 0, 7);
-    seg(fore, s * 0.22, 1.13, s * 0.235, 0.9, 0.037, 0.03, look.skin, 0, 7);
-    seg(fore, s * 0.228, 0.99, s * 0.236, 0.9, 0.041, 0.035, gloves, 0, 7);
+    ball(arm, 0.058 * MUS, s * 0.175 * SH, 1.415, 0, look.secondary, 1, 0.85, 0.9);
+    seg(arm, s * 0.19 * SH, 1.43, s * 0.22 * SH, 1.13, 0.047 * MUS, 0.04 * MUS, look.secondary, 0, 7);
+    seg(fore, s * 0.22 * SH, 1.13, s * 0.235 * SH, 0.9, 0.037 * MUS, 0.03 * Math.sqrt(MUS), look.skin, 0, 7);
+    seg(fore, s * 0.228 * SH, 0.99, s * 0.236 * SH, 0.9, 0.041 * Math.sqrt(MUS), 0.035 * Math.sqrt(MUS), gloves, 0, 7);
     box(fore, 0.045, 0.1, 0.075, s * 0.24, 0.84, 0.005, gloves, 0, 0, 0.018);
   }
   // Pelvis, torso (a V-taper, flattened front to back), neck.
-  seg('hips', 0, 0.86, 0, 1.0, 0.135, 0.14, legs, 0, 10, 0.72);
-  seg('spine', 0, 0.98, 0, 1.44, 0.135, 0.175, look.primary, 0, 10, 0.62);
+  seg('hips', 0, 0.86, 0, 1.0, 0.135 * WA, 0.14 * WA, legs, 0, 10, 0.72);
+  seg('spine', 0, 0.98, 0, 1.44, 0.135 * WA, 0.175 * CH, look.primary, 0, 10, 0.62 * (1 + (CH - 1) * 0.5));
   seg('spine', 0, 1.43, 0, 1.54, 0.045, 0.048, look.skin, 0, 7);
   box('spine', 0.12, 0.22, 0.012, 0, 1.3, 0.103, look.secondary, 0, 0, 0.004);   // shirt showing at the open vest
   if (look.dress) {
@@ -262,7 +274,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
     place(new THREE.CylinderGeometry(0.14 * W * U, 0.32 * W * U, 0.53 * U, 14), 'hips', 0, 0.715, 0, look.primary);
     place(new THREE.CylinderGeometry(0.32 * W * U, 0.335 * W * U, 0.05 * U, 14), 'hips', 0, 0.47, 0, look.secondary);
     place(new THREE.CylinderGeometry(0.335 * W * U, 0.325 * W * U, 0.025 * U, 14), 'hips', 0, 0.435, 0, '#E8E0D8');
-    for (const s of [-1, 1]) ball(s < 0 ? 'armN' : 'armP', 0.075, s * 0.19, 1.39, 0, look.secondary);
+    for (const s of [-1, 1]) ball(s < 0 ? 'armN' : 'armP', 0.075 * MUS, s * 0.19 * SH, 1.39, 0, look.secondary);
     seg('spine', 0, 1.44, 0, 1.47, 0.085, 0.07, '#E8E0D8', 0, 10, 0.8);
   } else if (look.skirt) place(new THREE.CylinderGeometry(0.15 * W * U, 0.22 * W * U, 0.38 * U, 12), 'hips', 0, 0.79, 0, look.primary);
   if (look.wings) {
@@ -272,7 +284,7 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
     }
   }
   // Belt, neckerchief (or the dress's ribbon), pouches and a satchel strap.
-  seg('hips', 0, 0.95, 0, 1.01, 0.143, 0.143, trim, 0, 10, 0.72);
+  seg('hips', 0, 0.95, 0, 1.01, 0.143 * WA, 0.143 * WA, trim, 0, 10, 0.72);
   if (!look.dress) seg('spine', 0, 1.42, 0, 1.475, 0.078, 0.066, look.scarf ?? '#A8423A', 0, 8, 0.85);
   else box('spine', 0.05, 0.04, 0.025, 0, 1.425, 0.075, look.scarf ?? '#7A2A3A', 0, 0, 0.01);
   if (look.pack !== false) {
