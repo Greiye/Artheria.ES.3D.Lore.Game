@@ -1,5 +1,6 @@
 // v0.04: haptic feedback. A connected gamepad rumbles (Chrome/Edge/Safari dual-rumble); a phone vibrates
-// (Android; iOS Safari has no vibration API). Off with Settings > Vibration.
+// (Android). iPhone Safari has no vibration API, so on iOS 18+ a tap ticks the Taptic Engine by flipping a hidden
+// system switch (<input type="checkbox" switch>), the one web-reachable haptic on iOS. Off with Settings > Vibration.
 type Haptic = 'tap' | 'jump' | 'land' | 'fire' | 'jam' | 'reload' | 'hit' | 'hurt' | 'pickup';
 
 const FX: Record<Haptic, { ms: number; strong: number; weak: number }> = {
@@ -15,6 +16,24 @@ const FX: Record<Haptic, { ms: number; strong: number; weak: number }> = {
   pickup: { ms: 30, strong: 0, weak: 0.5 },
 };
 
+// Mike 2026-11-04: "No haptic feedback for mobile buttons" (iPhone): the iOS switch tick below.
+let iosSwitch: HTMLLabelElement | null = null;
+function iosTick() {
+  if (!iosSwitch) {
+    iosSwitch = document.createElement('label');
+    iosSwitch.setAttribute('aria-hidden', 'true');
+    iosSwitch.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden';
+    const input = document.createElement('input');
+    input.type = 'checkbox'; input.setAttribute('switch', ''); input.tabIndex = -1;
+    iosSwitch.appendChild(input);
+    // The flip is ours alone: keep its clicks away from the game's own listeners.
+    iosSwitch.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(iosSwitch);
+  }
+  iosSwitch.click();
+  iosTicks++;
+}
+let iosTicks = 0;
 let enabled = true;
 let mode: 'mouse' | 'touch' | 'pad' = 'mouse';
 let count = 0;   // effects played (tests)
@@ -22,6 +41,7 @@ export const haptics = {
   setEnabled(on: boolean) { enabled = on; },
   setMode(m: 'mouse' | 'touch' | 'pad') { mode = m; },
   get played() { return count; },
+  get iosTicks() { return iosTicks; },
   last: '' as Haptic | '',
   play(kind: Haptic) {
     if (!enabled || mode === 'mouse') return;
@@ -32,6 +52,7 @@ export const haptics = {
         const act = (p as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, o: object) => Promise<unknown> } }) | null)?.vibrationActuator;
         act?.playEffect?.('dual-rumble', { duration: f.ms, strongMagnitude: f.strong, weakMagnitude: f.weak })?.catch?.(() => undefined);
       }
-    } else navigator.vibrate?.(f.ms);
+    } else if (typeof navigator.vibrate === 'function') navigator.vibrate(f.ms);
+    else iosTick();
   },
 };
