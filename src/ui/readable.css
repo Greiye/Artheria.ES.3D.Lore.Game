@@ -1,7 +1,7 @@
 /* UI 3 (Mike 2026-11-04, Graphics thread, "Do it"): larger body text and headings so the sheets read on a phone.
    One size token, --rd-body: 15px on PC, 16px on touch screens and narrow windows; everything else in a sheet is
-   sized from it (titles ×1.5, small print −2px, labels in capitals −3px). On a touch screen fit-panel.ts no longer
-   shrinks a tall panel to fit: it scrolls, so the text stays this size. */
+   sized from it (titles ×1.5, small print −2px, labels in capitals −3px). On a touch screen fit-panel.ts steps a tall
+   panel's --rd-body down (to 11px) until it fits without scrolling (Mike 2026-11-04, "Shrink to fit"). */
 :root { --rd-body: 15px; }
 @media (pointer: coarse), (max-width: 600px) { :root { --rd-body: 16px; } }
 
@@ -29,3 +29,5 @@ body .forge-panel :is(.chip, .fp-tab) { font-size: calc(var(--rd-body) - 1px); p
 .card .fine { font-size: calc(var(--rd-body) - 2px); }
 .card h1:not(#_) { font-size: clamp(calc(var(--rd-body) * 1.6), 4.2vmin, 34px); }
 body .forge-panel .hint { font-size: calc(var(--rd-body) - 3px); }
+/* A zoomed panel (fit-panel.ts sets --fz) keeps the caravan's answers 44px tall and 16px on screen. */
+body .forge-panel .es-answers button { min-height: calc(44px / var(--fz, 1)); font-size: max(calc(16px / var(--fz, 1)), var(--rd-body)); }

@@ -2,11 +2,15 @@
 //  1. Tabs: content split into <section><h4>…</h4> groups (directly in the panel, or inside a `.fp-group`) shows one
 //     group at a time under a row of tabs, the open tab remembered per panel.
 //  2. Fit: if a panel still runs past the bottom of the screen (a phone held sideways), it's scaled down to fit, to no
-//     less than minZoom() (0.7; never on a touch screen, where it scrolls instead); past that it scrolls. The panel keeps its on-screen width.
+//     less than minZoom(); past that it scrolls. On a touch screen the text size
+//     (--rd-body, UI 3) steps down first, so buttons keep their size. The panel keeps its on-screen width.
 // Panels re-render with innerHTML, so this watches the page for that and re-applies.
 const openTab = new Map<string, number>();
-// UI 3 (Mike 2026-11-04, larger text for phone): on a touch screen the panel scrolls instead of shrinking its text.
-const minZoom = () => (matchMedia('(pointer: coarse)').matches ? 1 : 0.7);
+// Touch screens may zoom further (0.6) so the long shop and tailor still fit held sideways without scrolling.
+const minZoom = () => (matchMedia('(pointer: coarse)').matches ? 0.6 : 0.7);
+// Mike 2026-11-04 ("Shrink to fit"): on a phone a tall panel shrinks to fit rather than scroll, even with UI 3's larger
+// text. It shrinks the text first (16px down to 11px), which keeps tap targets full size, and only then zooms.
+const MIN_TEXT = 11;
 
 function keyOf(p: HTMLElement): string {
   return (p.querySelector('.eyebrow')?.textContent ?? p.className).trim();
@@ -39,13 +43,19 @@ function tabify(p: HTMLElement, box: HTMLElement, key: string) {
 
 function zoomToFit(p: HTMLElement) {
   const s = p.style;
-  s.zoom = ''; s.height = ''; s.width = ''; s.bottom = '';
+  s.zoom = ''; s.height = ''; s.width = ''; s.bottom = ''; s.removeProperty('--rd-body'); s.removeProperty('--fz');
   if (p.scrollHeight <= p.clientHeight + 1) return;
+  if (matchMedia('(pointer: coarse)').matches) {
+    let px = parseFloat(getComputedStyle(p).getPropertyValue('--rd-body')) || 16;
+    while (p.scrollHeight > p.clientHeight + 1 && px > MIN_TEXT) s.setProperty('--rd-body', `${--px}px`);
+    if (p.scrollHeight <= p.clientHeight + 1) return;
+  }
   const H = p.clientHeight, W = p.getBoundingClientRect().width;
   let z = 1;
   for (let i = 0; i < 6 && p.scrollHeight > p.clientHeight + 1 && z > minZoom(); i++) {
     z = Math.max(minZoom(), z * (p.clientHeight / p.scrollHeight) - 0.005);
     s.zoom = z.toFixed(3); s.bottom = 'auto'; s.height = `${H / z}px`; s.width = `${W / z}px`;
+    s.setProperty('--fz', z.toFixed(3));   // tap targets that must stay 44px on screen divide by this (readable.css)
   }
 }
 

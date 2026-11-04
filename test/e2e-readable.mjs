@@ -29,7 +29,10 @@ const sizes = (sel) => {
 };
 // Median includes small print (body − 2px), so it is checked against body − 2. A PC still shrinks a tall panel a little
 // to fit (B27), hence its lower title floor.
-const want = { PC: { body: 13, min: 11, title: 20 }, phone: { body: 14, min: 12, title: 23 }, 'phone sideways': { body: 14, min: 12, title: 23 } };
+// Phones (Mike 2026-11-04, "Shrink to fit"): a panel too tall for the screen shrinks rather than scrolls, so the
+// long shop and tailor drop to ~7px text; short panels keep the large text.
+const shrunk = { body: 6.5, min: 4.5, title: 9.5 };
+const want = { PC: { body: 13, min: 11, title: 20 }, phone: { body: 14, min: 12, title: 23 }, 'phone sideways': { body: 13, min: 12, title: 20 } };
 for (const [name, opts] of [['PC', { viewport: { width: 1366, height: 768 } }], ['phone', { ...devices['iPhone 13'] }], ['phone sideways', { ...devices['iPhone 13 landscape'] }]]) {
   const page = await (await browser.newContext(opts)).newPage();
   page.on('pageerror', (e) => errors.push(e.message));
@@ -49,6 +52,9 @@ for (const [name, opts] of [['PC', { viewport: { width: 1366, height: 768 } }], 
   ]) {
     await G(open); await page.waitForTimeout(500);
     const s = await G(sizes, sel);
+    const scrolls = await G((q) => { const p = document.querySelector(q)?.closest('.forge-panel') ?? document.querySelector(q); return p ? p.scrollHeight - p.clientHeight : 0; }, sel);
+    check(`${name}: ${label} fits without scrolling`, scrolls <= 1, `${scrolls}px over`);
+    const w = name !== 'PC' && (label === 'shop' || label === 'tailor') ? shrunk : want[name];
     check(`${name}: ${label} typical text ≥ ${w.body}px, small print ≥ ${w.min}px, title ≥ ${w.title}px`, !!s && s.median >= w.body && s.min >= w.min && s.title >= w.title, JSON.stringify(s));
     if (close) await G(close);
     await page.keyboard.press('Escape'); await page.waitForTimeout(400);
