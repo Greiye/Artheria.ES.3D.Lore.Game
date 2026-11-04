@@ -91,9 +91,9 @@ export const SHELL_HTML = `
     <section id="graphicsSettings" class="pause-panel side-panel hidden" data-panel="graphics">
       <h2>Graphics</h2>
       <label class="field">Preset
-        <select id="preset"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+        <select id="preset"><option value="lowpower">Low power (iPhone)</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
       </label>
-      <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="50" max="100" step="5"></label>
+      <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="40" max="100" step="5"></label>
       <label class="check"><input id="shadows" type="checkbox"> Shadows</label>
       <label class="check"><input id="postFx" type="checkbox"> Post effects (glow)</label>
       <label>Fog distance <output id="fogOut"></output><input id="fogDistance" type="range" min="20" max="120" step="5"></label>

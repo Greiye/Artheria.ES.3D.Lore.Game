@@ -50,6 +50,7 @@
     "e2e-animations",
     "e2e-fight",
     "e2e-gamepad",
-    "e2e-npc-light"
+    "e2e-npc-light",
+    "e2e-lowpower"
   ]
 }

@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 2: iPhone performance pass (B38, Mike 2026-11-03)
+- **Low power preset.** Render scale is 40%, fog closes in at 35 m, it's capped at 30 fps, there are no shadows or glow, fewer townsfolk and less undergrowth, and one real lantern light at night. iPhones and iPads start on it. It can be changed under Options > Graphics.
+- **Off-screen characters.** Characters that are off-screen or past the fog aren't drawn or animated, on every preset. Skinned figures can't be frustum-culled by three, so each one is now checked per frame.
+- **Far forest.** The far forest band is hidden whenever the fog would hide it anyway.
+- **`?perf` readout.** Add `?perf` to the address, or set localStorage `gametool.perf` to `on`, to show fps, frame ms, CPU ms, draw calls, triangles and the preset. Use it to measure on a real phone.
+- The iPhone name box Mike reported was the character form on first Begin, which was removed in PR #30. e2e-iphone checks for it and passes 12/12.
+- New `test/e2e-lowpower.mjs` (8/8).
+
 ### v0.13 changelog, part 1: characters take torch and lantern light (B43, Mike 2026-11-03)
 - Characters keep their painted shading, but the hour now dims and tints them. They're full colour by day, warmer and darker at sunset, and dim blue at night, so they sit in the scene instead of glowing.
 - Nearby point lights brighten them: your torch, the campfire, the town lanterns and the dungeon torches.
