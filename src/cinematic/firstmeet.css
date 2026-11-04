@@ -1,0 +1,13 @@
+/* B50: letterbox bars and the title card for the first meeting with Natalie. */
+#letterbox { position: fixed; inset: 0; z-index: 45; pointer-events: none; display: none; --lb: 0px; }
+#letterbox.on { display: block; }
+#letterbox .lb { position: absolute; left: 0; right: 0; height: var(--lb); background: #000; }
+#letterbox .top { top: 0; } #letterbox .bottom { bottom: 0; }
+#meetCard { position: fixed; left: calc(6vw + env(safe-area-inset-left)); bottom: calc(14vh + env(safe-area-inset-bottom)); z-index: 46; pointer-events: none;
+  opacity: 0; transform: translateY(8px); transition: opacity .6s ease, transform .6s ease; color: #FFF1C8; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+#meetCard.on { opacity: 1; transform: none; }
+#meetCard .mc-name { font: 600 clamp(26px, 4.4vw, 44px) Georgia, serif; letter-spacing: .02em; }
+#meetCard .mc-role { font: italic clamp(15px, 2vw, 20px) Georgia, serif; color: #E2C98A; margin-top: 2px; }
+#meetCard .mc-skip { font: 12px var(--ui, sans-serif); color: rgba(255,241,200,.6); margin-top: 10px; letter-spacing: .08em; text-transform: uppercase; }
+body.cutscene #prompt, body.cutscene #toast, body.cutscene #coach { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { #meetCard { transition: none; } }

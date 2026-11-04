@@ -20,6 +20,7 @@ const until = (page, fn, arg, timeout = 15000) => page.waitForFunction(fn, arg, 
 const frames = (page, n = 3) => G(page, (n) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
 
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+await ctx.addInitScript(() => localStorage.setItem('gametool.metnatalie', '1'));   // B50: the first-meeting cinematic has its own suite (e2e-first-meet)
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));

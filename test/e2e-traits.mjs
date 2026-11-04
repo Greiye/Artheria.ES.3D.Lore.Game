@@ -20,6 +20,7 @@ const sim = async (page, s) => { const t0 = await G(page, () => window.__gametoo
 
 async function open(query = '') {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx.addInitScript(() => localStorage.setItem('gametool.metnatalie', '1'));   // B50: the first-meeting cinematic has its own suite (e2e-first-meet)
   await ctx.addInitScript(() => localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test', motivation: '', secret: '', created: true })));
   const page = await ctx.newPage();
   const errors = [];
