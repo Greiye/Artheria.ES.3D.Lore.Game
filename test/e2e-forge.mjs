@@ -54,6 +54,7 @@ await tab('#forge', 'Tailor');
 await page.click('#forge [data-f="primary"][data-v="#A8523A"]');
 await tab('#forge', 'Who you are');
 await page.fill('#fgName', 'Kazka Test');
+await tab('#forge', 'Backstory');   // Mike 2026-11-04: the backstory and dice have their own tab
 await page.fill('#fgStory', 'Born under a grey sky.');
 
 // ---------- B6 constraint dice ----------

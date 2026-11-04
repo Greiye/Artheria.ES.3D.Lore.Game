@@ -39,6 +39,12 @@ function tabify(p: HTMLElement, box: HTMLElement, key: string) {
   // (classList.add/remove always write the attribute, which the observer would see: only write on a change)
   secs.forEach((s, i) => { if (s.classList.contains('fp-hide') !== (i !== on)) s.classList.toggle('fp-hide', i !== on); });
   if (!box.classList.contains('fp-tabbed')) box.classList.add('fp-tabbed');
+  // On a phone the tabs are one row you swipe (readable.css): keep the open one in view.
+  const onTab = nav.children[on] as HTMLElement | undefined;
+  if (onTab && nav.scrollWidth > nav.clientWidth) {
+    const l = onTab.offsetLeft - nav.offsetLeft, r = l + onTab.offsetWidth;
+    if (l < nav.scrollLeft || r > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = Math.max(0, l - 24);
+  }
 }
 
 function zoomToFit(p: HTMLElement) {
