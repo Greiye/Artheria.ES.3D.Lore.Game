@@ -89,7 +89,22 @@
     "bread": {
       "name": "Loaf of Bread",
       "icon": "◒",
-      "note": "Yesterday's, but still good."
+      "note": "Yesterday's, but still good. The dog by the inn would not say no."
+    },
+    "fish": {
+      "name": "Dried Fish",
+      "icon": "≈",
+      "note": "Salted and stiff. Every cat in town knows the smell."
+    },
+    "jerky": {
+      "name": "Strip of Jerky",
+      "icon": "≡",
+      "note": "Tough dried meat. Owls take it from a gloved hand."
+    },
+    "mealworms": {
+      "name": "Pot of Mealworms",
+      "icon": "∴",
+      "note": "Wriggling and crunchy. A treat for something prickly."
     }
   }
 }
