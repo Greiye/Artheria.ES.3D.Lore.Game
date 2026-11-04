@@ -1,3 +1,4 @@
+import { outlineSkinned } from '../render/outline';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { paintedAtlas, toTile, type PaintKind } from '../tex/paintedAtlas';
@@ -132,6 +133,7 @@ export function buildKavik(height = 1.85): THREE.Group {
   mesh.frustumCulled = false;
   const root = new THREE.Group();
   root.add(mesh);
+  outlineSkinned(mesh);   // G2: the ink line, as on every figure
   // The drawn face over the front of his skull (0.184 m wide), as on every figure.
   const headW = 0.184, face = new THREE.Mesh(faceGeometry(FACE.w * headW * U, FACE.h * headW * U), faceMaterial());
   face.name = 'figure-face';

@@ -99,6 +99,7 @@ export const SHELL_HTML = `
       <label>Render scale <output id="renderScaleOut"></output><input id="renderScale" type="range" min="40" max="100" step="5"></label>
       <label class="check"><input id="shadows" type="checkbox"> Shadows</label>
       <label class="check"><input id="postFx" type="checkbox"> Post effects (glow)</label>
+      <label class="check"><input id="inkLines" type="checkbox"> Ink outlines (characters, buildings and props)</label>
       <label>Fog distance <output id="fogOut"></output><input id="fogDistance" type="range" min="20" max="120" step="5"></label>
       <label class="field">FPS cap
         <select id="fpsCap"><option value="30">30</option><option value="60">60</option><option value="0">∞</option></select>

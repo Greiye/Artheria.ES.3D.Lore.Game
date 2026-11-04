@@ -14,14 +14,14 @@ export const seeThroughUniforms = {
   stRadius: { value: 1.6 },                    // m, at the player
 };
 
-const PARS = /* glsl */`
+export const SEE_THROUGH_PARS = /* glsl */`
 uniform float stOn;
 uniform vec3 stTarget;
 uniform float stRadius;
 `;
 // A cone from the camera (radius 0.35 m) widening to stRadius at the player, cut only in front of the player.
 // Bayer 4x4 dithering softens the rim so the opening doesn't show a hard edge.
-const CUT = /* glsl */`
+export const SEE_THROUGH_CUT = /* glsl */`
 if (stOn > 0.5) {
   vec3 stP = -vViewPosition;
   float stLen = length(stTarget);
@@ -52,7 +52,7 @@ function patchMaterial(m: THREE.Material) {
   m.onBeforeCompile = (sh, r) => {
     prevCompile.call(m, sh, r);
     Object.assign(sh.uniforms, seeThroughUniforms);
-    sh.fragmentShader = PARS + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + CUT);
+    sh.fragmentShader = SEE_THROUGH_PARS + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + SEE_THROUGH_CUT);
   };
   m.customProgramCacheKey = () => prevKey.call(m) + '+st';
   m.needsUpdate = true;
