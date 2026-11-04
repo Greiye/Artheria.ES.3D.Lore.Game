@@ -42,6 +42,16 @@ await until(page, () => window.__gametool.fightMode.fight.phase === 'fight', nul
 const cam = await G(page, () => { const g = window.__gametool, c = g.camera.position, d = g.camera.getWorldDirection(new g.Vector3()); return { dz: d.z, dx: d.x, behind: c.z < g.player.pos.z, sameLine: Math.abs(g.player.pos.z - g.world.standees.kavik.position.z) < 0.01 }; });
 check('Side-on camera, both fighters on one line', cam.dz > 0.9 && Math.abs(cam.dx) < 0.3 && cam.behind && cam.sameLine, JSON.stringify(cam));
 
+// Tap W: a sidestep turns the line of the fight, and the camera swings round to stay side-on to it.
+await G(page, () => { const f = window.__gametool.fightMode.fight; f.a.x = -0.6; f.b.x = 0.6; window.__gametool.fightMode.ai.pad = () => ({ x: 0, up: false, down: false, lp: false, rp: false, lk: false, rk: false }); });
+await page.keyboard.press('KeyW');
+await until(page, () => Math.abs(window.__gametool.fightMode.fight.a.z) > 0.4, null, 20000);
+await page.waitForTimeout(1500);
+const cam2 = await G(page, () => { const g = window.__gametool, d = g.camera.getWorldDirection(new g.Vector3()), p = g.player.pos, k = g.world.standees.kavik.position;
+  const lx = k.x - p.x, lz = k.z - p.z, l = Math.hypot(lx, lz); return { z: g.fightMode.fight.a.z, dot: (d.x * lx + d.z * lz) / l / Math.hypot(d.x, d.z) }; });
+check('Tap up sidesteps; the camera swings round, side-on to the fighters', Math.abs(cam2.z) > 0.4 && Math.abs(cam2.dot) < 0.35, JSON.stringify(cam2));
+await G(page, () => { const fm = window.__gametool.fightMode; delete fm.ai.pad; });
+
 // Real controls: walk in and attack until something lands on Kavik.
 const hp0 = await G(page, () => window.__gametool.fightMode.fight.b.hp);
 let landed = false;

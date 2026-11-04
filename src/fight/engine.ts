@@ -5,7 +5,10 @@
 // any block but whiffs on a crouch; it breaks if the one caught presses a hand in time. Moves chain into strings,
 // some are unsafe on block (the blocker recovers first and can punish), launchers pop the other fighter up for a
 // juggle, and the edges of the mat are walls that stop a fighter knocked into them (a wall splat).
-// No drawing here. Timing is in frames at a fixed 60 Hz. Positions are in metres along the line of the fight.
+// PR 2 (same day): the fight moves in 3D on the mat. Tap up or down to sidestep around the other fighter: straight
+// (linear) moves then miss, while round kicks and sweeps track and still hit. The line between the fighters turns as
+// they circle, and the screen's right turns with it (the camera follows), so the stick always means toward / away.
+// No drawing here. Timing is in frames at a fixed 60 Hz. Positions are in metres on the mat (x along it, z across).
 
 export type Limb = 'lp' | 'rp' | 'lk' | 'rk';
 export const LIMBS: Limb[] = ['lp', 'rp', 'lk', 'rk'];
@@ -29,6 +32,7 @@ export interface Move {
   wall?: boolean;                 // hard enough to splat on a wall
   crouch?: boolean;               // done from a crouch: ducks highs while it comes out
   air?: boolean;                  // a jumping attack
+  track?: boolean;                // a round move: hits someone sidestepping it (straight moves miss them)
   next?: Partial<Record<Limb, string>>;   // string follow-ups: press this limb during the move
 }
 // Our own moves (names and frame data). Kavik uses the same list.
@@ -71,9 +75,11 @@ const COMMANDS: Record<string, string> = {
   dlp: 'lowpalm', drp: 'uppercut', dlk: 'sweep', drk: 'longsweep',
   ulp: 'dive', urp: 'dive', ulk: 'leap', urk: 'leap',
 };
+// Round moves track a sidestep.
+for (const id of ['jab3', 'shin2', 'wheel', 'hook', 'heel', 'sweep', 'longsweep', 'throw']) MOVES[id].track = true;
 export function command(dir: '' | 'f' | 'b' | 'd' | 'u', limb: Limb): Move { return MOVES[COMMANDS[dir + limb]]; }
 
-export const STAGE = { half: 3.4 };   // the walls stand at -half and +half
+export const STAGE = { half: 3.4, depth: 2.0 };   // walls at x = ±half and z = ±depth
 const F = 1 / 60;
 export const STEP = F;
 const GRAVITY = 26, HOP = 7.2, WALK = 2.4, BACK = 1.4, MAX_HP = 100, ROUND_TIME = 60;
@@ -84,13 +90,23 @@ const BREAK = 20;          // frames to break a throw by pressing a hand
 const THROW_TIME = BREAK + 10;
 const DOWN = 48;           // frames lying down after a knockdown or juggle
 const SPLAT = 34;          // frames stuck on the wall
+const TAP = 7;             // up held longer than this hops; a shorter tap of up or down sidesteps
+const SIDESTEP = 16, SIDE_SPEED = 3.4, SIDE_CANCEL = 7;   // frames, m/s, frames before a button can cut it short
+const LINEAR = BODY + 0.14;   // how far off its line a straight move still connects (m); round moves reach 1.2 m
 
-export type FState = 'idle' | 'walk' | 'crouch' | 'guard' | 'lowguard' | 'air' | 'move' | 'block' | 'stun' | 'juggle' | 'down' | 'thrown' | 'splat' | 'ko';
+export interface V2 { x: number; z: number }
+const unit = (x: number, z: number): V2 => { const l = Math.hypot(x, z) || 1; return { x: x / l, z: z / l }; };
+
+export type FState = 'idle' | 'walk' | 'crouch' | 'guard' | 'lowguard' | 'air' | 'step' | 'move' | 'block' | 'stun' | 'juggle' | 'down' | 'thrown' | 'splat' | 'ko';
 export class Fighter {
-  x: number; y = 0; vx = 0; vy = 0; facing: 1 | -1;
+  x: number; z = 0; y = 0; vx = 0; vz = 0; vy = 0;
+  /** Which way the fighter faces on the mat (a unit vector); toward the other one whenever free on the ground. */
+  face: V2;
+  /** The line a move goes along: set as it starts (a round move keeps turning toward its target in its startup). */
+  aim: V2;
   hp = MAX_HP;
   state: FState = 'idle';
-  move: Move | null = null; t = 0;   // frames into the current move
+  move: Move | null = null; t = 0;   // frames into the current move (or the sidestep)
   stun = 0;                           // frames left in block / hit stun, down, splat or a throw
   juggles = 0;                        // hits taken in the air this juggle
   hitThisMove = false;
@@ -104,7 +120,9 @@ export class Fighter {
   blockLow = false;
   /** Thrower: the fighter being thrown (the throw lands when `stun` runs out). */
   holding: Fighter | null = null;
-  constructor(readonly name: string, x: number, facing: 1 | -1) { this.x = x; this.facing = facing; }
+  /** Frames up / down have been held (taps sidestep), and the sidestep's way across: +1 into the screen, -1 out. */
+  upT = 0; downT = 0; sideDir = 0;
+  constructor(readonly name: string, x: number, facing: 1 | -1) { this.x = x; this.face = { x: facing, z: 0 }; this.aim = { ...this.face }; }
   get grounded() { return this.y <= 0 && this.vy <= 0; }
   /** Which part of the current move: startup, active or recovery (null when not in a move). */
   get phase(): 'startup' | 'active' | 'recovery' | null {
@@ -117,7 +135,7 @@ export class Fighter {
       || (!!this.move?.crouch && this.phase !== 'recovery') || this.state === 'down';
   }
   reset(x: number, facing: 1 | -1) {
-    Object.assign(this, { x, y: 0, vx: 0, vy: 0, facing, hp: MAX_HP, state: 'idle', move: null, t: 0, stun: 0, juggles: 0, hitThisMove: false, buf: [], counter: false, wallHit: false, blockLow: false, holding: null });
+    Object.assign(this, { x, z: 0, y: 0, vx: 0, vz: 0, vy: 0, face: { x: facing, z: 0 }, aim: { x: facing, z: 0 }, hp: MAX_HP, state: 'idle', move: null, t: 0, stun: 0, juggles: 0, hitThisMove: false, buf: [], counter: false, wallHit: false, blockLow: false, holding: null, upT: 0, downT: 0, sideDir: 0 });
   }
 }
 
@@ -128,6 +146,8 @@ export interface HitEvent { by: Fighter; on: Fighter; move: Move; blocked: boole
 export class Fight {
   readonly a = new Fighter('player', -1.6, 1);
   readonly b = new Fighter('kavik', 1.6, -1);
+  /** The screen's right on the mat: along the line between the fighters, turning with it (the camera follows). */
+  right: V2 = { x: 1, z: 0 };
   phase: Phase = 'intro';
   phaseT = 0;
   round = 1;
@@ -138,6 +158,8 @@ export class Fight {
   events: HitEvent[] = [];
   onHit?: (e: HitEvent) => void;
 
+  /** Into the screen, on the mat (a sidestep with up goes this way). */
+  get depth(): V2 { return { x: -this.right.z, z: this.right.x }; }
   get winner(): Fighter | null { return this.wins[0] >= 2 ? this.a : this.wins[1] >= 2 ? this.b : null; }
   get banner(): string {
     if (this.phase === 'intro') return this.phaseT < 1.0 ? `Round ${this.round}` : 'Fight!';
@@ -145,6 +167,9 @@ export class Fight {
     if (this.phase === 'matchEnd') return this.winner === this.a ? 'You win!' : 'Kavik wins';
     return '';
   }
+  /** From one fighter toward the other, on the mat. */
+  toward(f: Fighter): V2 { const o = f === this.a ? this.b : this.a; return unit(o.x - f.x, o.z - f.z); }
+  dist(): number { return Math.hypot(this.b.x - this.a.x, this.b.z - this.a.z); }
 
   step(pa: Pad, pb: Pad) {
     this.events = [];
@@ -165,6 +190,7 @@ export class Fight {
     this.push();
     this.hits(this.a, this.b); this.hits(this.b, this.a);
     this.throws(this.a); this.throws(this.b);
+    this.turnLine();
     if (this.phase === 'fight') {
       const ka = this.a.hp <= 0, kb = this.b.hp <= 0;
       if (ka || kb || this.time <= 0) {
@@ -178,10 +204,19 @@ export class Fight {
 
   startRound() {
     this.a.reset(-1.6, 1); this.b.reset(1.6, -1);
+    this.right = { x: 1, z: 0 };
     this.time = ROUND_TIME; this.roundWinner = null;
     this.setPhase('intro');
   }
   private setPhase(p: Phase) { this.phase = p; this.phaseT = 0; }
+
+  /** The screen's right follows the line between the fighters, keeping its sense (no flip as they circle). */
+  private turnLine() {
+    const ax = this.b.x - this.a.x, az = this.b.z - this.a.z;
+    if (Math.hypot(ax, az) < 0.05) return;
+    const u = unit(ax, az), s = u.x * this.right.x + u.z * this.right.z >= 0 ? 1 : -1;
+    this.right = { x: u.x * s, z: u.z * s };
+  }
 
   /** Age the press buffer and add this step's presses. */
   private press(f: Fighter, p: Pad) {
@@ -191,6 +226,9 @@ export class Fight {
   }
 
   private control(f: Fighter, o: Fighter, p: Pad) {
+    // Taps of up or down (released quickly) sidestep; count how long each is held.
+    const upTap = !p.up && f.upT > 0 && f.upT <= TAP, downTap = !p.down && f.downT > 0 && f.downT <= TAP;
+    f.upT = p.up ? f.upT + 1 : 0; f.downT = p.down ? f.downT + 1 : 0;
     if (f.state === 'ko' || f.holding) return;   // a throw plays out in throws()
     if (f.state === 'thrown') {
       // Caught: press a hand in time to break free.
@@ -203,18 +241,25 @@ export class Fight {
       f.state = 'idle';
     }
     if (f.state === 'juggle') return;   // lands in physics()
-    const fwd = p.x * f.facing > 0.4, back = p.x * f.facing < -0.4;
+    const u = this.toward(f), along = p.x * (u.x * this.right.x + u.z * this.right.z);
+    const fwd = along > 0.4, back = along < -0.4;
+    if (f.state === 'step') {
+      f.t++;
+      if (f.t < SIDE_CANCEL || (!f.buf.length && f.t < SIDESTEP)) return this.orbit(f, o);
+      f.state = 'idle'; f.vx = f.vz = 0;
+    }
     if (f.move) {
       const m = f.move;
       f.t++;
       // The other hand a frame or three after a jab or straight makes it a throw.
       const other = m.limb === 'lp' ? 'rp' : 'lp';
       if ((m.id === 'jab' || m.id === 'straight') && f.t <= THROW_WINDOW && f.buf.some((b) => b.limb === other)) { f.buf = []; return this.start(f, MOVES.throw); }
-      if (m.lunge && f.t <= m.startup) f.x += (m.lunge / m.startup) * f.facing;
+      if (m.track && f.t <= m.startup) { f.aim = u; f.face = u; }   // a round move turns to follow
+      if (m.lunge && f.t <= m.startup) { f.x += (m.lunge / m.startup) * f.aim.x; f.z += (m.lunge / m.startup) * f.aim.z; }
       // Strings: the next button, pressed any time in the move, goes once this one has had its active frames.
       if (m.next && f.t >= m.startup + m.active && f.t <= m.startup + m.active + 14) {
         const nb = f.buf.find((b) => m.next![b.limb]);
-        if (nb) { f.buf = []; return this.start(f, MOVES[m.next[nb.limb]!]); }
+        if (nb) { f.buf = []; f.face = u; return this.start(f, MOVES[m.next[nb.limb]!]); }
       }
       if (f.t < m.startup + m.active + m.recovery) return;
       f.move = null; f.state = f.grounded ? 'idle' : 'air';
@@ -225,7 +270,7 @@ export class Fight {
       return;
     }
     // Face the other fighter whenever on the ground and free.
-    f.facing = o.x >= f.x ? 1 : -1;
+    f.face = u;
     // Both hands together (or nearly) throw.
     const hands = f.buf.filter((b) => b.limb === 'lp' || b.limb === 'rp');
     if (hands.some((b) => b.limb === 'lp') && hands.some((b) => b.limb === 'rp') && hands.every((b) => b.age <= THROW_WINDOW)) { f.buf = []; return this.start(f, MOVES.throw); }
@@ -236,14 +281,27 @@ export class Fight {
       f.buf = f.buf.filter((x) => x !== b);
       return this.start(f, command(dir, b.limb));
     }
-    if (p.up) return this.hop(f, p);
-    if (p.down) { f.state = back ? 'lowguard' : 'crouch'; f.vx = 0; return; }
-    if (back) { f.vx = -f.facing * BACK; f.state = 'guard'; return; }
-    f.vx = fwd ? f.facing * WALK : 0;
+    if (upTap || downTap) { f.state = 'step'; f.t = 0; f.sideDir = upTap ? 1 : -1; return this.orbit(f, o); }
+    if (p.up && f.upT > TAP) return this.hop(f, p);
+    if (p.down) { f.state = back ? 'lowguard' : 'crouch'; f.vx = f.vz = 0; return; }
+    if (back) { f.vx = -u.x * BACK; f.vz = -u.z * BACK; f.state = 'guard'; return; }
+    f.vx = fwd ? u.x * WALK : 0; f.vz = fwd ? u.z * WALK : 0;
     f.state = fwd ? 'walk' : 'idle';
   }
-  private hop(f: Fighter, p: Pad) { f.vy = HOP; f.y = 0.01; f.vx = Math.abs(p.x) > 0.4 ? Math.sign(p.x) * 2.2 : 0; f.state = 'air'; }
-  private start(f: Fighter, m: Move) { f.move = m; f.t = 0; f.state = 'move'; f.hitThisMove = false; if (f.grounded) f.vx = 0; }
+  /** One frame of a sidestep: around the other fighter, keeping the distance. */
+  private orbit(f: Fighter, o: Fighter) {
+    const d = this.depth, r = Math.hypot(f.x - o.x, f.z - o.z);
+    f.x += d.x * f.sideDir * SIDE_SPEED * F; f.z += d.z * f.sideDir * SIDE_SPEED * F;
+    const nr = Math.hypot(f.x - o.x, f.z - o.z) || 1;
+    f.x = o.x + (f.x - o.x) * (r / nr); f.z = o.z + (f.z - o.z) * (r / nr);
+    f.vx = f.vz = 0;
+  }
+  private hop(f: Fighter, p: Pad) {
+    f.vy = HOP; f.y = 0.01; f.state = 'air';
+    const s = Math.abs(p.x) > 0.4 ? Math.sign(p.x) * 2.2 : 0;
+    f.vx = this.right.x * s; f.vz = this.right.z * s;
+  }
+  private start(f: Fighter, m: Move) { f.move = m; f.t = 0; f.state = 'move'; f.hitThisMove = false; f.aim = { ...f.face }; if (f.grounded) f.vx = f.vz = 0; }
 
   private physics(f: Fighter) {
     if (f.holding || f.state === 'thrown') return;
@@ -251,19 +309,22 @@ export class Fight {
       f.vy -= GRAVITY * (f.state === 'juggle' ? 0.85 : 1) * F; f.y += f.vy * F;   // a juggle floats a little
       if (f.y <= 0) {
         f.y = 0; f.vy = 0;
-        if (f.state === 'juggle') { f.state = 'down'; f.stun = DOWN; f.vx = 0; }
+        if (f.state === 'juggle') { f.state = 'down'; f.stun = DOWN; f.vx = f.vz = 0; }
         else if (f.state === 'air') f.state = 'idle';
         else if (f.move?.air) { f.move = null; f.state = 'idle'; }
       }
     }
-    f.x += f.vx * F;
-    if (f.grounded && f.state !== 'walk' && f.state !== 'guard') f.vx *= Math.max(0, 1 - F * 10);   // friction
+    f.x += f.vx * F; f.z += f.vz * F;
+    if (f.grounded && f.state !== 'walk' && f.state !== 'guard') { const k = Math.max(0, 1 - F * 10); f.vx *= k; f.vz *= k; }   // friction
     // The walls. A fighter knocked hard into one sticks to it for a moment, open to a follow-up.
-    if (Math.abs(f.x) > STAGE.half) {
-      const hard = Math.abs(f.vx) > 1.5 && (f.state === 'stun' || f.state === 'juggle') && f.wallHit;
-      f.x = Math.sign(f.x) * STAGE.half; f.vx = 0;
+    const outX = Math.abs(f.x) > STAGE.half, outZ = Math.abs(f.z) > STAGE.depth;
+    if (outX || outZ) {
+      const speed = Math.hypot(f.vx, f.vz);
+      const hard = speed > 1.5 && (f.state === 'stun' || f.state === 'juggle') && f.wallHit;
+      if (outX) { f.x = Math.sign(f.x) * STAGE.half; f.vx = 0; }
+      if (outZ) { f.z = Math.sign(f.z) * STAGE.depth; f.vz = 0; }
       if (hard) {
-        f.state = 'splat'; f.stun = SPLAT; f.vy = 0; f.y = 0; f.wallHit = false; f.juggles = 0;
+        f.state = 'splat'; f.stun = SPLAT; f.vx = f.vz = f.vy = 0; f.y = 0; f.wallHit = false; f.juggles = 0;
         const o = f === this.a ? this.b : this.a;
         this.events.push({ by: o, on: f, move: o.move ?? MOVES.push, blocked: false, outcome: 'splat' });
       }
@@ -271,26 +332,30 @@ export class Fight {
   }
   /** Bodies don't pass through each other. */
   private push() {
-    const a = this.a, b = this.b, gap = BODY * 2, d = b.x - a.x;
+    const a = this.a, b = this.b, gap = BODY * 2, dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
     if (a.holding || b.holding) return;
-    if (Math.abs(d) < gap && Math.abs(a.y - b.y) < 1.2) {
-      const s = (gap - Math.abs(d)) / 2 * (d >= 0 ? 1 : -1);
-      a.x -= s; b.x += s;
-      for (const [f, o] of [[a, b], [b, a]] as const) if (Math.abs(f.x) > STAGE.half) { const over = f.x - Math.sign(f.x) * STAGE.half; f.x -= over; o.x -= over; }
+    if (d < gap && Math.abs(a.y - b.y) < 1.2) {
+      const n = d > 1e-4 ? { x: dx / d, z: dz / d } : this.right, s = (gap - d) / 2;
+      a.x -= n.x * s; a.z -= n.z * s; b.x += n.x * s; b.z += n.z * s;
+      for (const [f, o] of [[a, b], [b, a]] as const) {
+        if (Math.abs(f.x) > STAGE.half) { const over = f.x - Math.sign(f.x) * STAGE.half; f.x -= over; o.x -= over; }
+        if (Math.abs(f.z) > STAGE.depth) { const over = f.z - Math.sign(f.z) * STAGE.depth; f.z -= over; o.z -= over; }
+      }
     }
   }
 
   private hits(f: Fighter, o: Fighter) {
     const m = f.move;
     if (!m || f.phase !== 'active' || f.hitThisMove || o.state === 'ko' || o.state === 'down' || o.state === 'thrown' || o.holding) return;
-    const gap = (o.x - f.x) * f.facing - BODY * 2;   // the space between the two bodies, in front
-    if (gap > m.reach || gap < -BODY * 2) return;
+    // Along the move's line, and how far off it: a straight move misses someone who stepped off its line.
+    const rx = o.x - f.x, rz = o.z - f.z, along = rx * f.aim.x + rz * f.aim.z, off = Math.abs(rx * f.aim.z - rz * f.aim.x);
+    if (along - BODY * 2 > m.reach || along < -0.1 || off > (m.track ? 1.2 : LINEAR)) return;
     if (Math.abs(o.y - f.y) > 1.4) return;
     if (m.level === 'throw') {
       if (o.low || !o.grounded || o.state === 'juggle' || o.state === 'stun' || o.state === 'block' || o.state === 'splat') return;   // whiffs on a crouch
       f.hitThisMove = true;
       f.holding = o; f.stun = THROW_TIME; o.state = 'thrown'; o.move = null; o.buf = [];
-      o.x = f.x + f.facing * BODY * 2.2;
+      const u = unit(rx, rz); o.x = f.x + u.x * BODY * 2.2; o.z = f.z + u.z * BODY * 2.2;
       return;
     }
     if (m.level === 'high' && o.low && o.grounded) return;                     // highs whiff over a crouch
@@ -304,13 +369,14 @@ export class Fight {
   /** A hit or a block. Stun comes from the move's frame advantage: at -10 on block the blocker can punish. */
   private land(f: Fighter, o: Fighter, m: Move, blocked: boolean): void {
     const left = m.startup + m.active + m.recovery - f.t;   // the attacker's frames still to go
-    const away = o.x >= f.x ? 1 : -1;
+    const away = unit(o.x - f.x, o.z - f.z);
+    const shove = (k: number) => { o.vx = away.x * k; o.vz = away.z * k; };
     let outcome: Outcome = 'block';
     if (blocked) {
       o.blockLow = o.state === 'lowguard' || (o.state === 'block' && o.blockLow);
-      o.state = 'block'; o.stun = Math.max(1, left + m.block); o.vx = away * 1.6;
+      o.state = 'block'; o.stun = Math.max(1, left + m.block); shove(1.6);
     } else {
-      const counter = !!o.move && o.phase === 'startup';
+      const counter = (!!o.move && o.phase === 'startup') || o.state === 'step';   // caught starting a move or a sidestep
       const air = o.state === 'juggle' || !o.grounded;
       const scale = air ? Math.max(0.35, 0.8 ** o.juggles) : 1;
       o.hp = Math.max(0, o.hp - Math.round(m.dmg * scale * (counter ? 1.2 : 1)));
@@ -319,11 +385,11 @@ export class Fight {
         // Launched, or hit again in the air: pop up, each hit a little lower.
         o.state = 'juggle'; o.juggles++;
         o.vy = m.launch && !air ? 9 : Math.max(2, 5.2 - o.juggles * 0.6);
-        o.y = Math.max(o.y, 0.02); o.vx = away * (m.wall ? 3.6 : m.launch && !air ? 0.4 : 1.2);   // a launch goes straight up, to follow
+        o.y = Math.max(o.y, 0.02); shove(m.wall ? 3.6 : m.launch && !air ? 0.4 : 1.2);   // a launch goes straight up, to follow
       } else if (m.knock) {
-        o.state = 'juggle'; o.juggles = 5; o.vy = 3.4; o.y = 0.02; o.vx = away * (m.wall ? 4.2 : 2.6);
+        o.state = 'juggle'; o.juggles = 5; o.vy = 3.4; o.y = 0.02; shove(m.wall ? 4.2 : 2.6);
       } else {
-        o.state = 'stun'; o.stun = Math.max(1, left + m.hit + (counter ? 8 : 0)); o.vx = away * (m.wall ? 3.4 : 1.8);
+        o.state = 'stun'; o.stun = Math.max(1, left + m.hit + (counter ? 8 : 0)); shove(m.wall ? 3.4 : 1.8);
       }
       outcome = counter ? 'counter' : 'hit';
     }
@@ -338,9 +404,11 @@ export class Fight {
     f.holding = null; f.move = null; f.state = 'idle';
     o.hp = Math.max(0, o.hp - MOVES.throw.dmg);
     o.state = 'juggle'; o.juggles = 5; o.vy = 3; o.y = 0.02; o.counter = false;
-    o.x = f.x - f.facing * 0.6; o.vx = -f.facing * 2.5;   // over the hip, landing behind
-    if (Math.abs(o.x) > STAGE.half) { o.x = Math.sign(o.x) * STAGE.half; f.x = o.x + f.facing * 0.6; }
-    f.facing = o.x >= f.x ? 1 : -1;
+    const a = f.aim;   // over the hip, landing behind
+    o.x = f.x - a.x * 0.6; o.z = f.z - a.z * 0.6; o.vx = -a.x * 2.5; o.vz = -a.z * 2.5;
+    o.x = Math.max(-STAGE.half, Math.min(STAGE.half, o.x)); o.z = Math.max(-STAGE.depth, Math.min(STAGE.depth, o.z));
+    if (Math.hypot(o.x - f.x, o.z - f.z) < 0.5) { f.x = o.x + a.x * 0.6; f.z = o.z + a.z * 0.6; }
+    f.face = unit(o.x - f.x, o.z - f.z);
     const ev: HitEvent = { by: f, on: o, move: MOVES.throw, blocked: false, outcome: 'throw' };
     this.events.push(ev); this.onHit?.(ev);
   }
@@ -349,7 +417,8 @@ export class Fight {
     if (f.holding !== o || f.stun <= THROW_TIME - BREAK) return;   // too late
     f.holding = null; f.move = null;
     for (const x of [f, o]) { x.state = 'block'; x.stun = 14; x.blockLow = false; }
-    const away = o.x >= f.x ? 1 : -1; o.vx = away * 2.5; f.vx = -away * 2.5;
+    const away = unit(o.x - f.x, o.z - f.z);
+    o.vx = away.x * 2.5; o.vz = away.z * 2.5; f.vx = -away.x * 2.5; f.vz = -away.z * 2.5;
     const ev: HitEvent = { by: f, on: o, move: MOVES.throw, blocked: true, outcome: 'break' };
     this.events.push(ev); this.onHit?.(ev);
   }
