@@ -60,13 +60,30 @@ check('The panel lists both players', both[0]?.list === 2, JSON.stringify(both.m
 await b.fill('#netName', 'Benny'); await b.dispatchEvent('#netName', 'change');
 await a.waitForFunction(() => [...window.__gametool.friends.room.members.values()].some((m) => m.name === 'Benny'), null, { timeout: 8000 }).catch(() => {});
 check('A new name reaches the room', await G(a, () => [...window.__gametool.friends.room.members.values()].map((m) => m.name).join() === 'Benny'));
+// Multiplayer 2: each sees the other as a figure with a name tag, placed where they are.
+await a.waitForFunction(() => [...window.__gametool.remotes.values()].some((r) => r.root.visible), null, { timeout: 10000 }).catch(() => {});
+const seen = await G(a, () => { const g = window.__gametool, r = [...g.remotes.values()][0]; if (!r) return null;
+  let tris = 0; r.figure?.traverse((o) => { if (o.geometry?.index) tris += o.geometry.index.count / 3; });
+  return { visible: r.root.visible, inScene: !!g.world.scene.getObjectByName(r.root.name), tag: !!r.root.getObjectByName('nameTag'), name: r.name, tris, puppet: g.puppets.has(r.root.name) }; });
+check('Players: the host sees the friend as a figure with a name tag', !!seen && seen.visible && seen.inScene && seen.tag && seen.name === 'Benny' && seen.tris > 200 && seen.puppet, JSON.stringify(seen));
+await b.click('#friendsPanel [data-net="close"]');
+await b.waitForFunction(() => window.__gametool.state !== 'forge', null, { timeout: 10000 });
+const to = await G(b, () => { const g = window.__gametool; g.player.pos.set(g.player.pos.x + 3, g.player.pos.y, g.player.pos.z - 2); g.player.syncNow(); return [g.player.body.position.x, g.player.body.position.z]; });
+await a.waitForFunction((t) => { const r = [...window.__gametool.remotes.values()][0]; return r && Math.hypot(r.root.position.x - t[0], r.root.position.z - t[1]) < 0.15; }, to, { timeout: 10000 }).catch(() => {});
+const at = await G(a, () => { const r = [...window.__gametool.remotes.values()][0]; return [r.root.position.x, r.root.position.z]; });
+check('Players: moving on one screen moves them on the other', Math.hypot(at[0] - to[0], at[1] - to[1]) < 0.15, JSON.stringify({ to, at }));
+const walk = await G(a, () => { const r = [...window.__gametool.remotes.values()][0]; const w = [r.root.position.x, r.root.position.y, r.root.position.z, 0, 1, 4.2, 1, -1, -1, 0, 0, 0, 0];
+  r.apply(w); return { speed: r.input.speed, airborne: r.input.airborne, pose: r.input.pose }; });
+check('Players: their state drives the walk / jump animation', walk.speed === 4.2 && walk.airborne && walk.pose === null, JSON.stringify(walk));
+const bad = await G(a, () => { const r = [...window.__gametool.remotes.values()][0], before = r.root.position.x; r.apply([1e9, 0, 0]); r.apply('x'); r.apply([NaN, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]); return { ok: Number.isFinite(r.root.position.x) && Math.abs(r.root.position.x - before) < 50 }; });
+check('Players: junk from a peer is ignored', bad.ok, JSON.stringify(bad));
 // A bad code is refused before any network.
 await G(b, () => window.__gametool.friends.leave());
 await G(b, () => window.__gametool.friends.open());
 await b.fill('#netCode', 'OOPS'); await b.click('#friendsPanel [data-net="join"]');
 check('A bad code is refused with a hint', await G(b, () => !window.__gametool.friends.room && /5 letters/.test(document.querySelector('.net-error')?.textContent ?? '')));
 await a.waitForFunction(() => window.__gametool.friends.room?.count === 1, null, { timeout: 8000 }).catch(() => {});
-check('Leaving removes you from the room', await G(a, () => window.__gametool.friends.room.count === 1));
+check('Leaving removes you from the room (and their figure)', await G(a, () => window.__gametool.friends.room.count === 1 && window.__gametool.remotes.size === 0 && !window.__gametool.world.scene.children.some((o) => o.name.startsWith('net:'))));
 
 // Full room: four fit, the fifth is turned away.
 await b.close();   // Ben is done (and already out of the room)

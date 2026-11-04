@@ -10,7 +10,7 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no 0/O or 1/I
 const NAME_KEY = 'gametool.net.name';
 export const NAME_MAX = 20;
 
-export interface Member { id: string; name: string; host: boolean; joinedAt: number }
+export interface Member { id: string; name: string; host: boolean; joinedAt: number; look?: unknown }
 export type RoomStatus = 'connecting' | 'open';
 
 export function newCode(): string {
@@ -42,6 +42,10 @@ export class Room {
   onJoined: (m: Member) => void = () => {};
   onLeft: (m: Member) => void = () => {};
   onClosed: (why: LeaveWhy) => void = () => {};
+  /** Another player's 12-a-second state (src/net/remotes.ts reads it). */
+  onState: (from: string, data: unknown) => void = () => {};
+  /** Your look, sent with your hello (main.ts sets it; src/net/look.ts packs it). */
+  lookOf: () => unknown = () => null;
   private closed = false;
 
   private constructor(readonly code: string, readonly t: Transport, name: string, host: boolean) {
@@ -53,6 +57,7 @@ export class Room {
       this.members.delete(id); this.onLeft(m); this.onChange();
     });
     t.on('hello', (d, from) => this.gotHello(d, from));
+    t.on('state', (d, from) => { if (this.members.has(from)) this.onState(from, d); });
     t.on('kick', (_d, from) => { if (this.members.get(from)?.host) this.close('kicked'); });
   }
 
@@ -71,19 +76,22 @@ export class Room {
     if (!n || n === this.self.name) return;
     this.self.name = n; this.t.send('hello', this.hello()); this.onChange();
   }
+  /** Tell the room your look changed (the forge, the tailor). */
+  sayHello() { if (!this.closed) this.t.send('hello', this.hello()); }
+  sendState(w: unknown) { if (!this.closed && this.members.size) this.t.send('state', w); }
   kick(id: string) { if (this.isHost && this.members.has(id)) this.t.send('kick', 1, id); }
   close(why: LeaveWhy = 'left') {
     if (this.closed) return;
     this.closed = true; this.t.leave(); this.members.clear(); this.onClosed(why);
   }
 
-  private hello() { return { name: this.self.name, host: this.self.host, at: this.self.joinedAt }; }
+  private hello() { return { name: this.self.name, host: this.self.host, at: this.self.joinedAt, look: this.lookOf() }; }
   private gotHello(d: unknown, from: string) {
     if (this.closed || !d || typeof d !== 'object') return;
-    const o = d as { name?: unknown; host?: unknown; at?: unknown };
+    const o = d as { name?: unknown; host?: unknown; at?: unknown; look?: unknown };
     const at = typeof o.at === 'number' && Number.isFinite(o.at) ? o.at : Date.now();
     const known = this.members.get(from);
-    const m: Member = { id: from, name: cleanName(o.name) || 'Traveller', host: o.host === true, joinedAt: at };
+    const m: Member = { id: from, name: cleanName(o.name) || 'Traveller', host: o.host === true, joinedAt: at, look: o.look };
     this.members.set(from, m);
     this.status = 'open';
     // Full: the first MAX_PLAYERS to have joined stay; anyone later bows out on their own phone (and the rest
