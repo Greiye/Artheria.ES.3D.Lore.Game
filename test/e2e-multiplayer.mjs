@@ -107,6 +107,19 @@ check('Remove: only the host can; the friend leaves the room', kickBtns === 1 &&
 await G(a, () => window.__gametool.friends.close());
 await G(b, (c) => window.__gametool.friends.start(c), hosted.code);   // back in, for the checks below
 await a.waitForFunction(() => window.__gametool.friends.room?.count === 2, null, { timeout: 8000 }).catch(() => {});
+// Multiplayer 4: phone polish. The room button, fewer crowd sprites per guest on Low, far players as a name tag.
+const btn = await G(a, () => { const e = document.querySelector('#roomBtn'); return { shown: !!e && !e.classList.contains('hidden'), text: e?.textContent ?? '' }; });
+check('Polish: a room button on the HUD shows the code and the count', btn.shown && btn.text.includes(hosted.code) && btn.text.includes('2/4'), JSON.stringify(btn));
+const crowdN = await G(a, () => { const g = window.__gametool, was = g.settings.preset; g.settings.preset = 'low';
+  const r = g.friends.room;
+  g.applyQuality(); const before = g.crowd.count; g.settings.preset = was; g.applyQuality(); return { before, guests: r.members.size }; });
+check('Polish: on Low, the crowd thins by 3 for a guest', crowdN.before === 13, JSON.stringify(crowdN));
+const far = await G(a, () => { const g = window.__gametool, r = [...g.remotes.values()][0], p = g.camera.position;
+  const w = [p.x + 80, 0, p.z, 0, 1, 0, 0, -1, -1, 0, 0, 0, 0]; r.apply(w); r.root.position.set(p.x + 80, 0, p.z); r.update(0.016, p);
+  const res = { figure: r.figure.visible, root: r.root.visible, tag: r.root.getObjectByName('nameTag').visible, far: r.far };
+  const n = [p.x + 2, 0, p.z, 0, 1, 0, 0, -1, -1, 0, 0, 0, 0]; r.apply(n); r.root.position.set(p.x + 2, 0, p.z); r.update(0.016, p);
+  return { ...res, nearFigure: r.figure.visible }; });
+check('Polish: a player far away is just their name tag', !far.figure && far.root && far.tag && far.far && far.nearFigure, JSON.stringify(far));
 // A bad code is refused before any network.
 await G(b, () => window.__gametool.friends.leave());
 await G(b, () => window.__gametool.friends.open());

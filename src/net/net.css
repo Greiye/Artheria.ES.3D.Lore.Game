@@ -9,3 +9,8 @@
 .net-panel .net-says { display: flex; flex-wrap: wrap; gap: 6px; }
 .net-panel .net-say { padding: 0.35em 0.7em; min-height: 36px; }
 .net-panel .net-kick { float: right; font-size: 0.8em; padding: 0.15em 0.6em; }
+/* Multiplayer 4: the room button on the HUD */
+#roomBtn { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); pointer-events: auto;
+  padding: 6px 14px; min-height: 36px; border-radius: 18px; border: 1px solid rgba(255, 240, 210, 0.5); background: rgba(30, 22, 14, 0.62);
+  color: #F6EBD2; font: 600 14px/1.2 Georgia, serif; letter-spacing: 0.04em; cursor: pointer; }
+#roomBtn.hidden { display: none; }

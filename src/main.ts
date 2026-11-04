@@ -109,7 +109,7 @@ import { glyph } from './input/glyphs';
 import { topPanel, padMove, padNudge, padPress, padBack, type PadDir } from './input/padnav';
 import { storeSet } from './store';
 import { FriendsPanel } from './net/panel';
-import { cleanCode, cleanName, type Room } from './net/room';
+import { cleanCode, cleanName, MAX_PLAYERS, type Room } from './net/room';
 import { Remote, packState, SEND_HZ } from './net/remotes';
 import { packLook } from './net/look';
 import { EMOTES, emoteAt, Bubble } from './net/emotes';
@@ -121,6 +121,7 @@ import './ui/readable.css';   // UI 3: larger text in the sheets, sized for phon
 
 
 const settings = loadSettings();
+let netGuests = 0;   // multiplayer 4: other players in the room (the low presets trade crowd sprites for them)
 const app = document.getElementById('app')!;
 
 // Belt-and-suspenders flush: saveSettings() already writes on every change, but re-save once more
@@ -154,7 +155,8 @@ function applyQuality() {
   renderer.shadowMap.enabled = shadows; world.setShadows(shadows);
   world.setFoliage(FOLIAGE[settings.preset] * q.foliage);
   townsfolk.setCount(isLowPreset(settings.preset) || q.folk === 'low' ? 'low' : 'full');
-  crowd.setCount(isLowPreset(settings.preset) || q.folk === 'low' ? CROWD_LOW : CROWD_FULL);
+  const low = isLowPreset(settings.preset) || q.folk === 'low';
+  crowd.setCount(low ? Math.max(4, CROWD_LOW - 3 * netGuests) : CROWD_FULL);
   const out = document.getElementById('autoQualityOut');
   if (out) out.textContent = autoQ.enabled && autoQ.level ? `(easing off: step ${autoQ.level} of ${STEPS.length - 1})` : '';
 }
@@ -655,7 +657,7 @@ function animate(dt: number) {
   sword.held.visible = sword.equipped && !mine.pose;   // put away at a station or a drill
   // B38: characters are skinned, so three can't frustum-cull them. Off-screen ones, or ones past the fog, aren't
   // drawn and skip their animation (CPU on phones). Their meshes are hidden, never the root (others own that).
-  for (const r of remotes.values()) r.update(dt);   // other players: smooth toward their last state (multiplayer 2)
+  for (const r of remotes.values()) r.update(dt, camera.position);   // other players: smooth toward their last state (multiplayer 2)
   netSend(dt, mine);
   camera.updateMatrixWorld();
   cullFrustum.setFromProjectionMatrix(cullPV.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -671,7 +673,7 @@ function animate(dt: number) {
       if (!show) { charsCulled++; continue; }
     }
     const remote = id.startsWith('net:') ? remotes.get(id.slice(4)) : undefined;
-    const input = id === 'player' ? (player.body.visible ? mine : null) : remote ? (remote.away ? null : remote.input)
+    const input = id === 'player' ? (player.body.visible ? mine : null) : remote ? (remote.away || remote.far ? null : remote.input)
       : fighting && id === 'kavik' ? fightInput(fightMode.fight.b) : npcInput(id, p.root);
     if (!input) continue;
     if (id !== 'player' && !remote && p.fig && state === 'play' && !input.talking && !input.pose) {   // B34: hello as you come near (npcPos: npcInput's)
@@ -1503,6 +1505,8 @@ function openFriends(code?: string) { if (state !== 'play' && state !== 'pause')
 const remotes = new Map<string, Remote>();
 function syncRemotes(room: Room | null) {
   for (const [id, r] of remotes) if (!room?.members.has(id)) { r.remove(); remotes.delete(id); puppets.delete('net:' + id); setRemotePet(id, null); }
+  if (netGuests !== (room?.members.size ?? 0)) { netGuests = room?.members.size ?? 0; applyQuality(); }   // phone polish: fewer crowd sprites per guest on Low
+  syncRoomBtn(room);
   if (!room) return;
   for (const m of room.members.values()) {
     let r = remotes.get(m.id);
@@ -1516,6 +1520,16 @@ function syncRemotes(room: Room | null) {
     if (r.name !== m.name) r.setName(m.name);
     if (m.look !== r.lookRaw && r.setLook(m.look)) puppets.set('net:' + m.id, { root: r.figure!, fig: r.fig ?? undefined });
   }
+}
+// Multiplayer 4: a small room button on the HUD while you're in a room (taps, clicks; pads use the Journal).
+const roomBtn = document.createElement('button');
+roomBtn.id = 'roomBtn'; roomBtn.className = 'hidden'; roomBtn.type = 'button';
+$('hud').appendChild(roomBtn);
+roomBtn.addEventListener('click', (e) => { e.stopPropagation(); openFriends(); });
+roomBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+function syncRoomBtn(room: Room | null) {
+  roomBtn.classList.toggle('hidden', !room);
+  if (room) roomBtn.textContent = `💬 Room ${room.code} · ${room.count}/${MAX_PLAYERS}`;
 }
 // Multiplayer 3: emotes (preset only), pets that come along, one sky for the room, and the host's Remove.
 const myBubble = new Bubble();
@@ -2820,4 +2834,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
