@@ -1418,15 +1418,18 @@ const kavikHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.9, 0.9), new THREE.
 kavikHit.position.copy(kavikRoot.position).setY(0.95);
 world.scene.add(kavikHit);
 interactables.push({ obj: kavikHit, verb: () => fightMode.record.beaten ? 'Spar with Kavik (no holding back)' : 'Spar with Kavik', act: () => openFight(), when: () => !inDungeon });
-// The fight runs along the mats; the camera looks from the -Z side, so the fight's +x is the world's -x.
+// The fight runs on the mats: its x along them (the world's -x), its z across (the world's +z). The camera starts on
+// the -Z side, side-on, and swings round with the line between the fighters as they sidestep.
 const RING = { x: DOJO.x, y: 0.24, z: DOJO.z - 0.3 };
 const ringX = (f: { x: number }) => RING.x - f.x;
+const ringZ = (f: { z: number }) => RING.z + f.z;
 let kavikWas: { x: number; y: number; z: number; ry: number } | null = null, fightView: boolean | null = null;
 const fightFx = new THREE.Group(); fightFx.name = 'fight-fx'; world.scene.add(fightFx);
 // A flash where a hit lands: gold on a hit, pale on a block, red on a counter hit.
 const sparkMat = new THREE.MeshBasicMaterial({ color: '#FFE08A', transparent: true, depthWrite: false });
 const spark = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), sparkMat); spark.visible = false; fightFx.add(spark);
 let sparkT = 0;
+const fightCam = { x: 0, z: 0 };
 function openFight() {
   if (state !== 'play') return;
   enterForge();
@@ -1447,7 +1450,7 @@ fightMode.onHit = (e) => {
   if (e.on === fightMode.fight.a || e.by === fightMode.fight.a) haptics.play(e.blocked ? 'tap' : 'hurt');
   if (e.outcome !== 'break') {
     const m = e.move, hy = m.level === 'low' ? 0.35 : m.level === 'high' ? 1.5 : 1.05;
-    spark.position.set(ringX({ x: (e.by.x + e.on.x) / 2 }), RING.y + e.on.y + hy, RING.z);
+    spark.position.set(ringX({ x: (e.by.x + e.on.x) / 2 }), RING.y + e.on.y + hy, ringZ({ z: (e.by.z + e.on.z) / 2 }));
     sparkMat.color.set(e.blocked ? '#CFE8FF' : e.outcome === 'counter' ? '#FF6A4A' : '#FFE08A');
     sparkT = e.blocked ? 0.12 : 0.2;
     if (!e.blocked) fightMode.hitStop = e.outcome === 'counter' || m.launch ? 0.09 : 0.05;   // a beat's pause, for weight
@@ -1460,7 +1463,7 @@ function fightInput(f: Fighter): AnimInput {
   if (m) k = f.t < m.startup ? (f.t / m.startup) * 0.5 : f.t < m.startup + m.active ? 0.5 : 0.5 + ((f.t - m.startup - m.active) / m.recovery) * 0.5;
   const thrower = !!f.holding;
   return {
-    speed: f.state === 'walk' || f.state === 'guard' ? Math.abs(f.vx) : 0,
+    speed: f.state === 'walk' || f.state === 'guard' ? Math.hypot(f.vx, f.vz) : f.state === 'step' ? 2.4 : 0,
     airborne: !f.grounded || f.state === 'juggle' || f.state === 'thrown',
     fight: f.state !== 'ko' && f.state !== 'down',
     crouch: f.low && f.state !== 'down',
@@ -1473,13 +1476,17 @@ function syncFight(dt: number) {
   if (!fightMode.isOpen) return;
   fightMode.update(dt);
   const F = fightMode.fight, a = F.a, b = F.b;
-  player.pos.set(ringX(a), RING.y + a.y, RING.z); player.yaw = player.bodyYaw = a.facing * Math.PI / 2; player.pitch = 0; player.syncNow();
-  kavikRoot.position.set(ringX(b), RING.y + b.y, RING.z); kavikRoot.rotation.y = -b.facing * Math.PI / 2;
+  // Facing on the mat to a yaw in the world (the mat's x is the world's -x).
+  player.pos.set(ringX(a), RING.y + a.y, ringZ(a)); player.yaw = player.bodyYaw = Math.atan2(a.face.x, -a.face.z); player.pitch = 0; player.syncNow();
+  kavikRoot.position.set(ringX(b), RING.y + b.y, ringZ(b)); kavikRoot.rotation.y = Math.atan2(-b.face.x, b.face.z);
   fightFx.visible = true;
   sparkT -= dt; spark.visible = sparkT > 0;
   if (spark.visible) { spark.scale.setScalar(1 + (0.2 - sparkT) * 6); sparkMat.opacity = Math.min(1, sparkT * 8); }
-  const mid = (ringX(a) + ringX(b)) / 2, gap = Math.abs(a.x - b.x), up = Math.max(a.y, b.y) * 0.6;   // follow a jump up
-  rig.setShot({ pos: new THREE.Vector3(mid, 1.7 + up, RING.z - 4.8 - gap * 0.45), look: new THREE.Vector3(mid, 1.15 + up, RING.z), fov: 46 });
+  // Side-on to the line between the fighters, from the side the screen's right says: it swings round as they circle.
+  const mx = (ringX(a) + ringX(b)) / 2, mz = (ringZ(a) + ringZ(b)) / 2, gap = F.dist(), up = Math.max(a.y, b.y) * 0.6;   // follow a jump up
+  const rx = -F.right.x, rz = F.right.z, back = 4.8 + gap * 0.45;   // the screen's right in the world; the camera sits behind it
+  fightCam.x = mx - rz * back; fightCam.z = mz + rx * back;
+  rig.setShot({ pos: new THREE.Vector3(fightCam.x, 1.7 + up, fightCam.z), look: new THREE.Vector3(mx, 1.15 + up, mz), fov: 46 });
 }
 
 // ---------- B16: the Spanish caravan by the coach road (never translated; a phrasebook in the Journal) ----------

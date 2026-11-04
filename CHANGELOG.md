@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 5: fighting Kavik in 3D (Mike 2026-11-04, "more like Tekken" + "All 6")
+- Tap up or down to sidestep round the other fighter (hold up to hop, hold down to crouch). Straight moves miss someone who steps off their line; round kicks and sweeps track and still hit.
+- The fight turns on the mat as you circle, and the camera swings round with it, always side-on, so the stick always means toward and away.
+- Kavik sidesteps straight moves he sees coming, circles to get round you, and answers your sidesteps with round kicks and sweeps.
+
 ### v0.15 changelog, part 4: fighting Kavik, 3D-fighter rules (Mike 2026-11-04, "more like Tekken" + "All 6")
 - Four limb buttons: left hand, right hand, left foot, right foot (keys U I J K, pad X Y A B, touch buttons). A direction held changes the move: about 25 of our own moves.
 - Hold back to block highs and mids standing, down-back to block lows; highs whiff over a crouch. Both hands together throw, which beats a guard but whiffs on a crouch; press a hand in time to break it.

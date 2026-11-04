@@ -1,7 +1,8 @@
 // Fight rework (Mike 2026-11-04, "more like Tekken"): the rules of the fight engine (src/fight/engine.ts), driven
 // frame by frame with set inputs inside the built game: four limb buttons, highs / mids / lows against standing and
 // crouching guards, throws and throw breaks, strings, punishing a move that is unsafe on block, a launcher and a
-// juggle, a wall splat and a counter hit.
+// juggle, a wall splat and a counter hit; on the 3D mat (PR 2), sidesteps that make straight moves miss, round
+// moves that track them, the line between the fighters turning, and Kavik sidestepping.
 // Usage: node test/e2e-fight-rules.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
 import path from 'node:path';
@@ -35,7 +36,7 @@ await page.evaluate(() => {
       for (const e of f.events) log.push({ i, by: e.by.name, on: e.on.name, move: e.move.id, blocked: e.blocked, outcome: e.outcome });
       if (f.__probe) f.__probe(i, f);
     }
-    return { log, a: { hp: f.a.hp, state: f.a.state, x: f.a.x }, b: { hp: f.b.hp, state: f.b.state, x: f.b.x, juggles: f.b.juggles }, seen: f.__seen ?? null };
+    return { log, a: { hp: f.a.hp, state: f.a.state, x: f.a.x }, b: { hp: f.b.hp, state: f.b.state, x: f.b.x, z: f.b.z, juggles: f.b.juggles }, right: f.right, seen: f.__seen ?? null };
   };
 });
 const run = (src) => page.evaluate(src);
@@ -93,6 +94,28 @@ r = await page.evaluate(() => {
   return { moves, hits, hp: f.a.hp };
 });
 check('Kavik walks in and attacks with the limb moves', r.moves >= 3 && r.hits >= 1, JSON.stringify(r));
+// 10. Sidesteps (3D mat): a tap of up steps round the other fighter; a straight jab then misses, a round kick still hits.
+r = await run(() => window.__run(null, (i) => [{ lp: i === 2 }, { up: i === 0 }], 40));
+check('Tap up sidesteps: the fighter moves across the mat and a straight jab misses', Math.abs(r.b.z) > 0.4 && r.b.hp === 100 && r.log.length === 0, JSON.stringify({ b: r.b, log: r.log }));
+r = await run(() => window.__run(null, (i) => [{ lp: i === 2 }, {}], 40));
+check('...the same jab hits without the sidestep', r.b.hp < 100);
+r = await run(() => window.__run(null, (i) => [{ rk: i === 2 }, { down: i === 0 }], 50));
+check('A round kick (right foot) tracks the sidestep and hits', Math.abs(r.b.z) > 0.4 && r.b.hp < 100 && r.log.some((e) => e.move === 'wheel' && !e.blocked), JSON.stringify({ b: r.b, log: r.log }));
+check('The line between the fighters turns with the sidestep (the camera follows it)', Math.abs(r.right.z) > 0.2, JSON.stringify(r.right));
+r = await run(() => window.__run(null, (i) => [{}, { up: i < 20 }], 40));
+check('Holding up still hops (no sidestep)', Math.abs(r.b.z) < 0.01, JSON.stringify(r.b));
+// 11. Fair Kavik sidesteps straight moves sometimes.
+r = await page.evaluate(() => {
+  const g = window.__gametool, Fight = g.fightMode.fight.constructor, AI = g.fightMode.ai.constructor;
+  let steps = 0;
+  for (let k = 0; k < 6; k++) {
+    const f = new Fight(); f.phase = 'fight'; f.a.x = -0.5; f.b.x = 0.5; const ai = new AI('fair', () => Math.random());
+    const idle = { x: 0, up: false, down: false, lp: false, rp: false, lk: false, rk: false };
+    for (let i = 0; i < 60 * 8; i++) { f.step({ ...idle, rp: i % 40 === 0 }, ai.pad(f)); if (f.b.state === 'step' && f.b.t === 1) steps++; }
+  }
+  return { steps };
+});
+check('Fair Kavik sidesteps straight moves he sees coming', r.steps >= 1, JSON.stringify(r));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 await browser.close();
