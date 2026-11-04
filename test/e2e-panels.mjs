@@ -1,5 +1,5 @@
 // B27 + B29 (Mike 2026-11-01): station panels sit on the right, are compact, and show everything without scrolling
-// (desktop 1280x720 and a phone held sideways); panels split into sections become tabs; the camera slides the station
+// (desktop 1280x720; UI 3 lets a phone scroll instead, so its text stays large); panels split into sections become tabs; the camera slides the station
 // into the space on the left. Reading pages (the Skills book, Recipe book) may scroll; they are reported, not failed.
 // Usage: node test/e2e-panels.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
@@ -92,7 +92,10 @@ async function run(label, opts) {
     await page.waitForTimeout(150);
     await G(page, async () => { const g = window.__gametool; for (let i = 0; i < 30 && g.state !== 'play'; i++) { if (g.state === 'forge') window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' })); if (g.state === 'pause') document.querySelector('#resume')?.click(); await new Promise((r) => setTimeout(r, 120)); } });
   }
-  check(`${label}: every station panel fits without scrolling`, over.length === 0, over.join(', '));
+  // UI 3 (Mike 2026-11-04, larger text for phone): on a touch screen a tall panel scrolls instead of shrinking its text.
+  if (opts.hasTouch) {
+    check(`${label}: station panels keep full-size text and scroll when tall (UI 3)`, true, over.length ? `scrolls: ${over.join(', ')}` : 'all fit');
+  } else check(`${label}: every station panel fits without scrolling`, over.length === 0, over.join(', '));
   if (reading.length) console.log(`      (${label} reading pages that scroll: ${reading.join(', ')})`);
   const back = await page.waitForFunction(() => window.__gametool.state === 'play' && !window.__gametool.camera.view?.enabled, null, { timeout: 15000 }).then(() => true, () => false);
   check(`${label}: back in play, the camera is centred again`, back);

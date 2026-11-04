@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 10: UI 3, larger text for phone (Mike 2026-11-04, Graphics thread)
+- Text in the sheets is bigger: 16px body text on touch screens and 15px on PC. Titles are 1.5×, and small print and capitals are no smaller than 13px on a phone. Text boxes stay at 16px or more so iOS doesn't zoom in.
+- On a touch screen a tall station panel now scrolls instead of shrinking its text to fit. PC keeps B27's fit-without-scrolling.
+- New `test/e2e-readable.mjs` (11/11, PC, phone, phone sideways). `e2e-panels` lets the phone scroll.
+
 ### v0.14 changelog, part 9: UI 2, ribbon titles (Mike 2026-11-04, Graphics thread)
 - Every sheet's title now sits on a green cloth ribbon with gold lettering, gold stitch lines and swallowtail ends. That covers the station panels, the pause menu's journal and groups, extras and dialog cards. Our own art, CSS only.
 - The gold on green keeps 5.8:1 contrast.
