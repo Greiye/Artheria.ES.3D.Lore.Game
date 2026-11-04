@@ -18,6 +18,7 @@ const G = (page, fn, arg) => page.evaluate(fn, arg);
 const until = (page, fn, arg, timeout = 15000) => page.waitForFunction(fn, arg, { timeout, polling: 100 }).then(() => true, () => false);
 
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+await ctx.addInitScript(() => localStorage.setItem('gametool.metnatalie', '1'));   // B50: the first-meeting cinematic has its own suite (e2e-first-meet)
 await ctx.addInitScript(() => localStorage.setItem('gametool.character', JSON.stringify({ name: 'Test', motivation: '', secret: '', created: true })));
 const page = await ctx.newPage();
 const errors = [];

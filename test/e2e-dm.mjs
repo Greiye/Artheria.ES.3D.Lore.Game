@@ -17,6 +17,7 @@ const check = (id, ok, detail = '') => { results.push({ id, ok }); console.log(`
 const G = (page, fn, arg) => page.evaluate(fn, arg);
 
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+await ctx.addInitScript(() => localStorage.setItem('gametool.metnatalie', '1'));   // B50: the first-meeting cinematic has its own suite (e2e-first-meet)
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
