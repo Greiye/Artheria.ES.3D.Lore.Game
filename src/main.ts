@@ -173,7 +173,7 @@ const FOLIAGE = { lowpower: 0.2, low: 0.35, medium: 0.6, high: 1 } as const;   /
 const LIGHTS = { lowpower: 1, low: 2, medium: 4, high: 4 } as const;   // real lantern lights at night (B38: 1 on Low power)
 world.setFoliage(FOLIAGE[settings.preset]);
 // v0.06 W3: lantern halos, brighter windows and a few real lights at night.
-const nightLights = new NightLights(world.scene, world.lanterns, world.town.windows);
+const nightLights = new NightLights(world.scene, world.lanterns, world.town.windows, world.town.windowSpots);
 nightLights.setMax(LIGHTS[settings.preset]);
 nightLights.setTime(world.time);
 // UX pass (Mike 2026-10-31): no clock. The sky shows the hour, and the bell in the library spire tolls when it

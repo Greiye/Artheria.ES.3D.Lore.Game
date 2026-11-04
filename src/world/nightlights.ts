@@ -18,19 +18,27 @@ function haloTexture(): THREE.CanvasTexture {
 
 export class NightLights {
   readonly halos: THREE.InstancedMesh;
+  /** G3 (graphics batch, Mike 2026-11-03): a soft warm glow in front of every lit window, from dusk. */
+  readonly windowHalos: THREE.InstancedMesh;
   readonly lights: THREE.PointLight[] = [];
   private max = 4;
   private time: TimeOfDay = 'day';
   private pick = 0;
   private windowBase: THREE.Color;
 
-  constructor(scene: THREE.Scene, readonly anchors: THREE.Vector3[], private windows: THREE.MeshBasicMaterial) {
+  constructor(scene: THREE.Scene, readonly anchors: THREE.Vector3[], private windows: THREE.MeshBasicMaterial, readonly windowSpots: THREE.Vector3[] = []) {
     // Camera-facing quads, one instanced draw (point sprites can be clamped to a few pixels on some GPUs).
     this.halos = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.9, 1.9), new THREE.MeshBasicMaterial({
       map: haloTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false, toneMapped: false,
     }), anchors.length);
     this.halos.name = 'night-halos'; this.halos.raycast = () => {}; this.halos.frustumCulled = false;
     scene.add(this.halos);
+    this.windowHalos = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.3, 2.3), new THREE.MeshBasicMaterial({
+      map: (this.halos.material as THREE.MeshBasicMaterial).map, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false, toneMapped: false,
+    }), Math.max(1, windowSpots.length));
+    this.windowHalos.count = windowSpots.length;
+    this.windowHalos.name = 'window-halos'; this.windowHalos.raycast = () => {}; this.windowHalos.frustumCulled = false;
+    scene.add(this.windowHalos);
     for (let i = 0; i < 4; i++) {
       const l = new THREE.PointLight(WARM, 0, 10, 1.7);
       l.castShadow = false; l.visible = false; l.name = 'night-light';
@@ -46,9 +54,12 @@ export class NightLights {
   setTime(t: TimeOfDay) {
     this.time = t;
     const night = t === 'night', dusk = t === 'sunset';
-    (this.halos.material as THREE.MeshBasicMaterial).opacity = night ? 0.85 : dusk ? 0.4 : 0;
+    (this.halos.material as THREE.MeshBasicMaterial).opacity = night ? 0.85 : dusk ? 0.55 : 0;
     this.halos.visible = night || dusk;
-    this.lights.forEach((l, i) => { l.visible = night && i < this.max; });
+    (this.windowHalos.material as THREE.MeshBasicMaterial).opacity = night ? 0.5 : dusk ? 0.35 : 0;
+    this.windowHalos.visible = (night || dusk) && this.windowSpots.length > 0;
+    // G3: the real lantern lights come on at dusk too (softer), so walls by the lanterns warm up as the sun goes.
+    this.lights.forEach((l, i) => { l.visible = (night || dusk) && i < this.max; });
     this.windows.color.copy(this.windowBase).multiplyScalar(night ? 1.9 : dusk ? 1.3 : 1);
     this.pick = 0;
   }
@@ -60,13 +71,16 @@ export class NightLights {
     if (!this.halos.visible) return;
     this.anchors.forEach((a, i) => this.halos.setMatrixAt(i, this.m.compose(a, camera.quaternion, this.one)));
     this.halos.instanceMatrix.needsUpdate = true;
-    if (this.time !== 'night') return;
+    this.windowSpots.forEach((a, i) => this.windowHalos.setMatrixAt(i, this.m.compose(a, camera.quaternion, this.one)));
+    this.windowHalos.instanceMatrix.needsUpdate = true;
+    if (this.time !== 'night' && this.time !== 'sunset') return;
     if ((this.pick -= dt) <= 0) {
       this.pick = 0.5;
       const near = this.anchors.map((a, i) => ({ i, d: (a.x - x) ** 2 + (a.z - z) ** 2 })).sort((a, b) => a.d - b.d);
       this.lights.forEach((l, k) => { const a = near[k] && this.anchors[near[k].i]; if (a) l.position.set(a.x, a.y - 0.25, a.z); });
     }
     // A slow candle flicker so it doesn't read as electric.
-    this.lights.forEach((l, k) => { l.intensity = l.visible ? 7 * (0.92 + Math.sin(t * 7.3 + k * 1.9) * 0.05 + Math.sin(t * 13.1 + k) * 0.03) : 0; });
+    const full = this.time === 'night' ? 7 : 3;
+    this.lights.forEach((l, k) => { l.intensity = l.visible ? full * (0.92 + Math.sin(t * 7.3 + k * 1.9) * 0.05 + Math.sin(t * 13.1 + k) * 0.03) : 0; });
   }
 }
