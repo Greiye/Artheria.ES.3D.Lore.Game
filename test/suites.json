@@ -67,6 +67,7 @@
     "e2e-npc-lean",
     "e2e-crowd",
     "e2e-town-pixel",
-    "e2e-parchment"
+    "e2e-parchment",
+    "e2e-ribbon"
   ]
 }

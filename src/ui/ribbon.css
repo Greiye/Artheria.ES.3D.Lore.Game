@@ -1,0 +1,24 @@
+/* UI 2 (Mike 2026-11-04, Graphics thread, "Do it"): each sheet's title sits on a green cloth ribbon with gold lettering
+   and swallowtail ends, pinned across the top of the parchment. Our own art: CSS only (a green fold gradient, gold
+   stitch lines, notched ends by clip-path), no images, no GPU cost. One title per sheet: the station panels' h2, the
+   pause groups' h2, the journal's h1 and the cards' h1. */
+:root { --rb-green: #335A25; --rb-green-l: #4E7E38; --rb-green-d: #24421A; --rb-gold: #F7D986; --rb-gold-d: #B8862E; --rb-notch: 14px; }
+:is(body .forge-panel h2, .pause-panel h2, .pause-side h1, .card h1, .pp-ribbon):not(#_) {   /* :not(#_) outranks the parchment heading rule */
+  position: relative; display: block; box-sizing: border-box;
+  margin-left: calc(-1 * var(--rb-out, 10px)); margin-right: calc(-1 * var(--rb-out, 10px));
+  padding: .32em calc(var(--rb-notch) + 12px) .38em; text-align: center;
+  font-family: Georgia, var(--serif); font-weight: 700; letter-spacing: .03em;
+  color: var(--rb-gold); -webkit-text-fill-color: var(--rb-gold);
+  text-shadow: 0 1px 0 var(--rb-green-d), 0 2px 3px rgba(0,0,0,.45);
+  background:
+    linear-gradient(var(--rb-gold-d), var(--rb-gold-d)) 0 3px / 100% 1px no-repeat,                  /* top stitch */
+    linear-gradient(var(--rb-gold-d), var(--rb-gold-d)) 0 calc(100% - 3px) / 100% 1px no-repeat,     /* bottom stitch */
+    linear-gradient(var(--rb-green-l), var(--rb-green) 45%, var(--rb-green-d));
+  -webkit-background-clip: border-box; background-clip: border-box; filter: drop-shadow(0 2px 2px rgba(60,40,15,.45));
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--rb-notch)) 50%, 100% 100%, 0 100%, var(--rb-notch) 50%);
+}
+/* The forge panel's eyebrow line sits above its ribbon; keep the ribbon close to it. */
+body .forge-panel h2:not(#_) { --rb-out: 6px; margin-top: 2px; margin-bottom: clamp(6px, 1.2vh, 10px); }
+.pause-side h1:not(#_) { --rb-out: 4px; margin-bottom: 16px; }
+.pause-panel h2:not(#_) { --rb-out: 6px; margin-bottom: 10px; }
+.card h1:not(#_) { --rb-out: 12px; }

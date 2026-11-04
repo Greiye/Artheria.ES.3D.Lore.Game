@@ -107,6 +107,7 @@ import { glyph } from './input/glyphs';
 import { topPanel, padMove, padNudge, padPress, padBack, type PadDir } from './input/padnav';
 import { storeSet } from './store';
 import './ui/parchment.css';   // UI 1: parchment panels, loaded last so it skins every panel
+import './ui/ribbon.css';   // UI 2: green ribbon titles with gold lettering
 
 // Private, all rights reserved (D8). Not open source.
 
