@@ -55,6 +55,7 @@ import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sk
 import { stampBanner, buildBookmarks } from './writing/stamps';
 import { QUEST, loadQuest, saveQuest, clueById, support, ending, tagLabel, type Theory } from './quest/quest';
 import { Casebook } from './quest/casebook';
+import { FirstDay } from './quest/firstday';
 import { QuestProps } from './quest/props';
 import { Companion, loadCompanion, saveCompanion } from './quest/companion';
 import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
@@ -337,6 +338,7 @@ async function begin() {
   setView('overhead');                          // v0.06 M7: every Begin starts in the overhead camera
   setState('play');                             // in the world immediately, even before lock resolves
   if (wakeIntro()) wakeUp(lastRest);            // B31: fade in on the player getting up from the bed or bedroll
+  if (firstDayOn()) firstDay.begin(!save);      // B36: a new profile's first day (or the rest of one)
   // Mike 2026-10-30: Begin goes straight into the game. What's new moved to Extras (it read as a menu in the way).
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
@@ -990,6 +992,17 @@ campfire.onCook = () => { campfire.el.classList.add('hidden'); cook.open(); };
 const recipeBook = station(new RecipeBook(cook, () => leaveForge()));
 function openRecipeBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); recipeBook.open(); }
 let sturdy = false;   // B18: a "well fed" delve
+// B36: the first-day guided quest. Natalie points the way; test browsers skip it unless gametool.firstdaytest = 'on'.
+const firstDay = new FirstDay(world.scene, {
+  write: () => world.town.doors.scriptorium.position,
+  make: () => world.town.doors.tailor.position,
+  fire: () => world.stations.campfire.position,
+}, (text) => { companion.say(text, { force: true, ms: 5200 }); }, (skipped) => { if (!skipped) earn(10, 'for your first day', 'firstday'); });
+function firstDayOn() {
+  try { return !navigator.webdriver || localStorage.getItem('gametool.firstdaytest') === 'on'; } catch { return !navigator.webdriver; }
+}
+casebook.extra = () => firstDay.casebookHtml();
+casebook.onExtra = (id) => { if (id === 'fdSkip') firstDay.skip(); };
 const campfireClosed = campfire.onClose;
 // v0.06 C3: the band's note keys show pad buttons while a controller is in use, and swap back live.
 const NOTE_BUTTONS = (() => { const B = controls.gamepad.buttons; return [B.reload, B.jump, B.zoomIn, B.zoomOut, B.aim, B.fire]; })();
@@ -2476,6 +2489,7 @@ function frame() {
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
   } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); updateSteadyRing(); $('coach').classList.add('hidden'); }
+  firstDay.update(dt, { waking: waking > 0, writing: sketchPad.isOpen, making: characterForge.isOpen || weaponForge.isOpen, atFire: campfire.isOpen }, state === 'play' && inWorld && !inDungeon);
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
   audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);
@@ -2569,4 +2583,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

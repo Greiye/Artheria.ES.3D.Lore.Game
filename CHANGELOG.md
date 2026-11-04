@@ -2,10 +2,17 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
-## Live builds 0.03 to 0.13 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
+## Live builds 0.03 to 0.14 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
+
+### v0.14 changelog, part 1: your first day (B36, Mike 2026-11-04)
+- A new profile gets a short guided first day that teaches the main loop: get up, write something at the Scriptorium, make something at the Tailor or the Smithy, then sit at the campfire.
+- Natalie points the way. Her lines appear under the screen, and a gold marker floats over the next door. A small card in the top-left shows the step you're on ("First day · 2 of 4").
+- Finishing the day earns 10 crowns. The casebook (J) lists the four steps and has "Skip the first day".
+- It runs once per profile (B24). Profiles that already have a save don't get it. The work is in `src/quest/firstday.ts`.
+- New `test/e2e-first-day.mjs` (10/10).
 
 ### v0.13 changelog, part 10: banded painted sky (graphics G5, Mike 2026-11-03)
 - The sky is painted in soft flat bands, pale at the horizon and bluer toward the top, instead of a smooth airbrushed gradient. The band edges are soft and wave a little near the horizon, like brushwork. The sun's glow stays smooth. Dusk and night use the same bands in their own colours.
