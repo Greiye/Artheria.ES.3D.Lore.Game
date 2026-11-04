@@ -52,6 +52,7 @@
     "e2e-gamepad",
     "e2e-npc-light",
     "e2e-lowpower",
+    "e2e-camera-lead",
     "e2e-see-through"
   ]
 }

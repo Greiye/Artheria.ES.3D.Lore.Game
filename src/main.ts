@@ -2261,6 +2261,7 @@ function syncMenu() {
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
   $<HTMLInputElement>('haptics').checked = settings.haptics;
   $<HTMLInputElement>('seeThrough').checked = settings.seeThrough;
+  $<HTMLSelectElement>('cameraLead').value = settings.cameraLead;
   $<HTMLInputElement>('lefty').checked = settings.lefty;
   $<HTMLInputElement>('buttonSize').value = String(settings.buttonSize); $('buttonSizeOut').textContent = settings.buttonSize + '%';
   $<HTMLInputElement>('textSize').value = String(settings.textSize); $('textSizeOut').textContent = settings.textSize + '%';
@@ -2289,6 +2290,7 @@ fov.addEventListener('input', () => {
 inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSettings(settings); });
 const viewSel = $<HTMLSelectElement>('viewSel');
 viewSel.addEventListener('change', () => setView(VIEWS.includes(viewSel.value as View) ? viewSel.value as View : 'overhead'));
+$<HTMLSelectElement>('cameraLead').addEventListener('change', (e) => { const v = (e.target as HTMLSelectElement).value; settings.cameraLead = v === 'on' || v === 'off' ? v : 'auto'; saveSettings(settings); });
 $<HTMLInputElement>('seeThrough').addEventListener('change', (e) => { settings.seeThrough = (e.target as HTMLInputElement).checked; saveSettings(settings); });
 $<HTMLInputElement>('haptics').addEventListener('change', (e) => {
   settings.haptics = (e.target as HTMLInputElement).checked; saveSettings(settings);
@@ -2471,6 +2473,8 @@ function frame() {
   updateSprites(renderer, world.scene, camera, dt);
   // B45: walls between the follow camera and the player open up (the rig no longer pulls in for them).
   rig.seeThrough = settings.seeThrough && !inDungeon;
+  // B39: the follow camera leads toward where you walk (by default only for touch and controller players).
+  rig.lead = state === 'play' && (settings.cameraLead === 'on' || (settings.cameraLead === 'auto' && inputMode !== 'mouse'));
   camera.updateMatrixWorld();
   updateSeeThrough(rig.seeThrough && player.thirdPerson && state === 'play', camera, stChest.copy(player.pos).setY(player.pos.y + 1.1));
   post!.render(world.scene, camera);
