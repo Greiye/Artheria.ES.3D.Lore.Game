@@ -23,6 +23,8 @@ export function packLook(look: FigureLook, height: number): NetLook {
   if (look.art) out.art = look.art;
   if (look.build !== undefined) out.build = look.build;
   if (look.headScale !== undefined) out.headScale = look.headScale;
+  if (look.strength !== undefined) out.strength = look.strength;
+  if (look.endurance !== undefined) out.endurance = look.endurance;
   return { look: out as unknown as FigureLook, height };
 }
 
@@ -39,5 +41,7 @@ export function cleanLook(raw: unknown): NetLook | null {
   if (typeof l.art === 'string' && /^[a-z0-9-]{1,32}$/.test(l.art)) out.art = l.art;
   if (l.build !== undefined) out.build = clamp(l.build, 0.85, 1.25, 1);
   if (l.headScale !== undefined) out.headScale = clamp(l.headScale, 0.8, 1.4, 1);
+  if (l.strength !== undefined) out.strength = Math.round(clamp(l.strength, 1, 20, 10));
+  if (l.endurance !== undefined) out.endurance = Math.round(clamp(l.endurance, 1, 20, 10));
   return { look: out as unknown as FigureLook, height: clamp(r.height, 1.2, 2.4, 1.75) };
 }
