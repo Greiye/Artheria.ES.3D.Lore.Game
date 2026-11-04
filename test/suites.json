@@ -72,6 +72,7 @@
     "e2e-readable",
     "e2e-pets",
     "e2e-pets-sense",
-    "e2e-multiplayer"
+    "e2e-multiplayer",
+    "e2e-fight-rules"
   ]
 }

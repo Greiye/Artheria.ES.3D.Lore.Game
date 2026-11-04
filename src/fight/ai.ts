@@ -1,31 +1,38 @@
-import { type Fight, type Fighter, type Pad, IDLE_PAD, MOVES } from './engine';
+import { type Fight, type Fighter, type Limb, type Pad, IDLE_PAD } from './engine';
 
 // B35: Kavik's brain, a small state machine: approach, poke, block, punish, anti-air, back off. Mike 2026-11-03:
-// easy until you win your first match, then one fixed "fair" level for good. Fair blocks, anti-airs and punishes
-// some whiffs, but it reacts like a person (a delay before it sees things) and leaves openings after its attacks.
+// easy until you win your first match, then one fixed "fair" level for good. Reworked 2026-11-04 for the limb
+// buttons: he blocks standing or low depending on what he sees coming, punishes moves left unsafe on block, mixes
+// highs, mids, lows and throws, and leaves openings after his own attacks. He reacts like a person (a delay
+// before he sees things), so a fast mix still gets through.
 export type Level = 'easy' | 'fair';
-interface Tuning { react: number; block: number; antiAir: number; punish: number; aggro: number; rest: [number, number]; read: number }
+interface Tuning { react: number; block: number; lowRead: number; antiAir: number; punish: number; aggro: number; rest: [number, number]; read: number; breakThrow: number }
 const TUNING: Record<Level, Tuning> = {
-  easy: { react: 0.55, block: 0.08, antiAir: 0.1, punish: 0.1, aggro: 0.35, rest: [0.6, 1.2], read: 0 },
-  fair: { react: 0.24, block: 0.5, antiAir: 0.55, punish: 0.5, aggro: 0.6, rest: [0.25, 0.6], read: 0.6 },
+  easy: { react: 0.5, block: 0.12, lowRead: 0.2, antiAir: 0.1, punish: 0.1, aggro: 0.35, rest: [0.6, 1.2], read: 0, breakThrow: 0.1 },
+  fair: { react: 0.24, block: 0.55, lowRead: 0.55, antiAir: 0.5, punish: 0.6, aggro: 0.6, rest: [0.25, 0.6], read: 0.6, breakThrow: 0.45 },
 };
-// `read`: how often it learns from habit. Jabs come out faster than anyone can react, so a fair Kavik counts how
-// often you've attacked lately; against a button-masher it shields first, then punishes the recovery.
+// `read`: how often he learns from habit. A jab comes out faster than anyone can react, so a fair Kavik counts
+// how often you've attacked lately; against a button-masher he guards first, then punishes the recovery.
 
 /** What Kavik "sees" of you: a snapshot from `react` seconds ago. */
-interface Seen { x: number; y: number; vy: number; attacking: boolean; startup: boolean; recovering: boolean; air: boolean; shield: boolean }
+interface Seen { x: number; air: boolean; low: boolean; startup: boolean; recovering: boolean; lowMove: boolean; guarding: boolean; unsafe: boolean }
+
+type Plan = { dir: '' | 'f' | 'b' | 'd'; limb: Limb } | 'throw';
+// What he throws out when he pokes: weighted toward safe moves, with lows and a throw to open a guard.
+const POKES: [Plan, number][] = [
+  [{ dir: '', limb: 'lp' }, 3], [{ dir: '', limb: 'lk' }, 2], [{ dir: 'f', limb: 'lp' }, 2], [{ dir: 'b', limb: 'lk' }, 1],
+  [{ dir: 'd', limb: 'lk' }, 2], [{ dir: 'f', limb: 'lk' }, 1], [{ dir: '', limb: 'rk' }, 1], [{ dir: 'f', limb: 'rk' }, 1], ['throw', 1],
+];
 
 export class KavikAI {
   state: 'approach' | 'poke' | 'block' | 'punish' | 'antiair' | 'back' | 'rest' = 'approach';
   private t = 0;
   private seen: { at: number; s: Seen }[] = [];
   private clock = 0;
-  private wantJump = false;
-  private starts: number[] = [];       // when it saw your attacks begin (for reads)
-  private lastAttacking = false;
-  private wasStunned = false;
+  private starts: number[] = [];       // when he saw your attacks begin (for reads)
   private prev: Seen | null = null;
-  private armedAntiAir = false;
+  private lowGuard = false;
+  private follow: Limb | null = null;  // the next button of a string he's in
   constructor(public level: Level, private rnd: () => number = Math.random) {}
 
   /** Kavik's buttons for this step. */
@@ -35,64 +42,79 @@ export class KavikAI {
     this.seen.push({ at: this.clock, s: snap(you) });
     while (this.seen.length > 1 && this.seen[1].at <= this.clock - T.react) this.seen.shift();
     const s = this.seen[0].s;
-    if (s.attacking && !this.lastAttacking) this.starts.push(this.clock);
-    this.lastAttacking = s.attacking;
-    this.starts = this.starts.filter((at) => at > this.clock - 2);
-    if (me.state === 'stun') this.wasStunned = true;
-    if (fight.phase !== 'fight' || me.state === 'stun' || me.state === 'ko' || me.move) return IDLE_PAD;
-    const d = s.x - me.x, dist = Math.abs(d), toward = Math.sign(d) || 1;
     const p: Pad = { ...IDLE_PAD };
+    if (fight.phase !== 'fight' || me.state === 'ko') return p;
+    // Caught in a throw: maybe press a hand in time to break it.
+    if (me.state === 'thrown') { if (this.rnd() < T.breakThrow / 10) p.lp = true; return p; }
+    if (s.startup && !this.prev?.startup) this.starts.push(this.clock);
+    this.starts = this.starts.filter((at) => at > this.clock - 2);
+    const d = s.x - me.x, dist = Math.abs(d), toward = Math.sign(d) || 1;
     this.t -= 1 / 60;
-    // Just out of a hit: a fair Kavik covers up or backs off instead of walking straight back in.
-    if (this.wasStunned) { this.wasStunned = false; if (this.rnd() < T.read) this.go(this.rnd() < 0.6 ? 'block' : 'back', 0.3 + this.rnd() * 0.3); }
-    // A read: you've been attacking a lot up close, so shield before the next one and punish after it.
-    if (this.state === 'approach' && dist < 1.5 && this.starts.length >= 3 && this.rnd() < T.read * 0.12) this.go('block', 0.4);
-    // Reactions, rolled once per thing seen (an attack starting, a recovery starting, a jump), not every frame.
-    const seenStart = s.startup && !this.prev?.startup, seenRecover = s.recovering && !this.prev?.recovering, seenJump = s.air && !this.prev?.air;
+    // Strings: press the next button once the first one is out.
+    if (me.move && this.follow) { if (me.phase !== 'startup') { p[this.follow] = true; this.follow = null; } return p; }
+    if (me.state === 'stun' || me.state === 'juggle' || me.state === 'down' || me.state === 'splat' || me.move) { this.follow = null; return p; }
+    // Blocking: if what he blocked left you open, punish it.
+    if (me.state === 'block') {
+      if (you.move && s.unsafe && this.rnd() < T.punish * 0.25) this.go('punish', 0.05);
+      this.hold(p, toward, this.lowGuard);
+      return p;
+    }
+    // Reactions, rolled once per thing seen (an attack starting, a recovery starting, a hop), not every frame.
+    const seenStart = s.startup && !this.prev?.startup, seenRecover = s.recovering && !this.prev?.recovering, seenHop = s.air && !this.prev?.air;
     this.prev = s;
-    if (seenJump && dist < 2.6 && this.rnd() < T.antiAir) this.armedAntiAir = true;
-    if (this.armedAntiAir && s.air && s.vy < 2 && dist < 1.6) { this.armedAntiAir = false; this.go('antiair', 0.1); }
-    if (!s.air) this.armedAntiAir = false;
-    if (seenStart && dist < 1.8 && this.rnd() < T.block) this.go('block', 0.35);
-    else if (seenRecover && dist < 2.2 && this.rnd() < T.punish) this.go('punish', 0.1);
+    if (seenHop && dist < 2.4 && this.rnd() < T.antiAir) this.go('antiair', 0.05);
+    if (seenStart && dist < 2 && this.rnd() < T.block) { this.lowGuard = s.lowMove && this.rnd() < T.lowRead / T.block + 0.2; this.go('block', 0.4); }
+    else if (seenRecover && dist < 1.6 && this.rnd() < T.punish) this.go('punish', 0.05);
+    if (this.state === 'approach' && dist < 1.4 && this.starts.length >= 3 && this.rnd() < T.read * 0.1) { this.lowGuard = false; this.go('block', 0.5); }
     switch (this.state) {
       case 'approach':
-        if (dist > 1.1) p.x = toward;
-        else if (this.rnd() < T.aggro * 0.08) this.go('poke', 0.05);
-        else if (this.rnd() < 0.01) this.go('back', 0.4);
-        if (dist > 3.2 && this.rnd() < 0.004 * (this.level === 'fair' ? 2 : 1)) p.special = true;   // an ember bolt from range
-        if (this.rnd() < 0.002) this.wantJump = true;
+        if (dist > 1.25) p.x = toward;
+        else if (this.rnd() < T.aggro * 0.08) this.go('poke', 0);
+        else if (this.rnd() < 0.012) this.go('back', 0.35);
         break;
       case 'poke': {
-        const r = this.rnd();
-        if (s.shield && this.level === 'fair' && r < 0.4) p.grab = true;
-        else if (r < 0.55) p.attack = true;
-        else if (r < 0.75) { p.attack = true; p.x = toward; }
-        else if (r < 0.9) { p.attack = true; p.down = true; }
-        else { p.special = true; p.x = toward; }
-        this.go('rest', T.rest[0] + this.rnd() * (T.rest[1] - T.rest[0]));   // the opening it leaves
+        const plan: Plan = s.guarding && !s.low && this.level === 'fair' && this.rnd() < 0.35 ? 'throw'
+          : s.guarding && s.low && this.rnd() < 0.5 ? { dir: 'f', limb: 'lk' }   // a mid opens a low guard
+          : pick(POKES, this.rnd);
+        this.act(p, plan, toward);
+        if (plan !== 'throw' && plan.dir === '' && this.level === 'fair' && this.rnd() < 0.4) this.follow = plan.limb === 'lp' ? 'rp' : plan.limb === 'lk' ? 'rk' : null;
+        this.go('rest', T.rest[0] + this.rnd() * (T.rest[1] - T.rest[0]));   // the opening he leaves
         break;
       }
       case 'block':
-        p.shield = true;
-        if (s.recovering && dist < 1.3 && this.rnd() < T.punish) this.go('punish', 0.1);   // blocked it: now punish
-        else if (this.t <= 0) this.go('approach', 0);
+        this.hold(p, toward, this.lowGuard);
+        if (this.t <= 0) this.go('approach', 0);
         break;
-      case 'antiair': p.attack = true; p.up = true; this.go('rest', T.rest[0]); break;
+      case 'antiair': this.act(p, { dir: 'f', limb: 'rp' }, toward); this.go('rest', T.rest[0]); break;
       case 'punish':
-        if (dist > 1.3) { p.special = true; p.x = toward; } else if (s.shield) p.grab = true; else { p.attack = true; p.x = toward; }
-        this.go('rest', T.rest[0]);
+        if (dist > 1.3) p.x = toward;
+        else { const close = dist < 0.9; this.act(p, close ? { dir: '', limb: 'lp' } : { dir: 'f', limb: 'rp' }, toward); this.follow = close ? 'rp' : null; this.go('rest', T.rest[0]); }
         break;
       case 'back': p.x = -toward; if (this.t <= 0) this.go('approach', 0); break;
       case 'rest': if (this.t <= 0) this.go('approach', 0); break;
     }
-    if (this.wantJump && me.grounded) { p.jump = true; this.wantJump = false; }
     return p;
+  }
+  private hold(p: Pad, toward: number, low: boolean) { p.x = -toward; p.down = low; }
+  private act(p: Pad, plan: Plan, toward: number) {
+    if (plan === 'throw') { p.lp = p.rp = true; return; }
+    p[plan.limb] = true;
+    if (plan.dir === 'f') p.x = toward; else if (plan.dir === 'b') p.x = -toward; else if (plan.dir === 'd') p.down = true;
   }
   private go(s: KavikAI['state'], t: number) { this.state = s; this.t = t; }
 }
 
+function pick<T>(list: [T, number][], rnd: () => number): T {
+  let r = rnd() * list.reduce((n, [, w]) => n + w, 0);
+  for (const [v, w] of list) if ((r -= w) < 0) return v;
+  return list[0][0];
+}
+
 function snap(f: Fighter): Seen {
-  const ph = f.phase;
-  return { x: f.x, y: f.y, vy: f.vy, attacking: !!f.move, startup: ph === 'startup' && !MOVES.grab.id.includes(f.move?.id ?? '-'), recovering: ph === 'recovery', air: !f.grounded, shield: f.state === 'shield' };
+  const ph = f.phase, m = f.move;
+  return {
+    x: f.x, air: !f.grounded, low: f.low, startup: ph === 'startup', recovering: ph === 'recovery',
+    lowMove: m?.level === 'low', guarding: f.state === 'guard' || f.state === 'lowguard' || f.state === 'block',
+    unsafe: !!m && m.block <= -10,
+  };
 }

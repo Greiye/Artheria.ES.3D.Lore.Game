@@ -1422,10 +1422,10 @@ const RING = { x: DOJO.x, y: 0.24, z: DOJO.z - 0.3 };
 const ringX = (f: { x: number }) => RING.x - f.x;
 let kavikWas: { x: number; y: number; z: number; ry: number } | null = null, fightView: boolean | null = null;
 const fightFx = new THREE.Group(); fightFx.name = 'fight-fx'; world.scene.add(fightFx);
-const shieldMat = new THREE.MeshBasicMaterial({ color: '#8FD0FF', transparent: true, opacity: 0.28, depthWrite: false });
-const shields = [0, 1].map(() => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 8), shieldMat); m.visible = false; fightFx.add(m); return m; });
-const boltMat = new THREE.MeshBasicMaterial({ color: '#FFB347' });
-const boltMeshes: THREE.Mesh[] = [];
+// A flash where a hit lands: gold on a hit, pale on a block, red on a counter hit.
+const sparkMat = new THREE.MeshBasicMaterial({ color: '#FFE08A', transparent: true, depthWrite: false });
+const spark = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), sparkMat); spark.visible = false; fightFx.add(spark);
+let sparkT = 0;
 function openFight() {
   if (state !== 'play') return;
   enterForge();
@@ -1442,17 +1442,29 @@ fightMode.onClose = () => {
 };
 fightMode.onResult = (won, crowns, first) => { if (crowns) earn(crowns, first ? 'your first win over Kavik' : 'a win over Kavik'); };
 fightMode.onHit = (e) => {
-  gesture('hit', e.on === fightMode.fight.a ? 'player' : 'kavik');
+  if (!e.blocked) gesture('hit', e.on === fightMode.fight.a ? 'player' : 'kavik');
   if (e.on === fightMode.fight.a || e.by === fightMode.fight.a) haptics.play(e.blocked ? 'tap' : 'hurt');
+  if (e.outcome !== 'break') {
+    const m = e.move, hy = m.level === 'low' ? 0.35 : m.level === 'high' ? 1.5 : 1.05;
+    spark.position.set(ringX({ x: (e.by.x + e.on.x) / 2 }), RING.y + e.on.y + hy, RING.z);
+    sparkMat.color.set(e.blocked ? '#CFE8FF' : e.outcome === 'counter' ? '#FF6A4A' : '#FFE08A');
+    sparkT = e.blocked ? 0.12 : 0.2;
+    if (!e.blocked) fightMode.hitStop = e.outcome === 'counter' || m.launch ? 0.09 : 0.05;   // a beat's pause, for weight
+  }
 };
-/** How a fighter's state shows on its figure: walking, jumping, sword-style cuts by direction, a guard, down. */
+/** How a fighter's state shows on its figure: fists up, walking, hopping, a crouch, the strike, down. */
 function fightInput(f: Fighter): AnimInput {
-  const m = f.move, total = m ? m.startup + m.active + m.recovery : 1;
+  const m = f.move;
+  let k = 0;
+  if (m) k = f.t < m.startup ? (f.t / m.startup) * 0.5 : f.t < m.startup + m.active ? 0.5 : 0.5 + ((f.t - m.startup - m.active) / m.recovery) * 0.5;
+  const thrower = !!f.holding;
   return {
-    speed: f.state === 'walk' ? Math.abs(f.vx) : 0, airborne: !f.grounded || f.state === 'roll',
-    sword: true, swing: m && !m.counter ? Math.min(1, f.t / total) : null,
-    combo: m ? (/up$/.test(m.id) ? 3 : /(side|down)$/.test(m.id) ? 2 : 1) : 1,
-    pose: f.state === 'ko' ? 'sitground' : f.state === 'shield' || m?.counter ? 'stance' : null, look: null,
+    speed: f.state === 'walk' || f.state === 'guard' ? Math.abs(f.vx) : 0,
+    airborne: !f.grounded || f.state === 'juggle' || f.state === 'thrown',
+    fight: f.state !== 'ko' && f.state !== 'down',
+    crouch: f.low && f.state !== 'down',
+    strike: thrower ? { limb: 'throw', aim: 'grab', k: 0.5 } : m ? { limb: m.limb, aim: m.aim, k: Math.min(1, k) } : null,
+    pose: f.state === 'ko' || f.state === 'down' ? 'sitground' : null, look: null,
   };
 }
 /** Run the fight and put both fighters, the shields, the bolts and the camera where the fight says. */
@@ -1463,9 +1475,8 @@ function syncFight(dt: number) {
   player.pos.set(ringX(a), RING.y + a.y, RING.z); player.yaw = player.bodyYaw = a.facing * Math.PI / 2; player.pitch = 0; player.syncNow();
   kavikRoot.position.set(ringX(b), RING.y + b.y, RING.z); kavikRoot.rotation.y = -b.facing * Math.PI / 2;
   fightFx.visible = true;
-  [a, b].forEach((f, i) => { const m = shields[i]; m.visible = f.state === 'shield'; m.position.set(ringX(f), RING.y + f.y + 0.95, RING.z); m.scale.setScalar(0.6 + 0.4 * f.shieldHp); });
-  while (boltMeshes.length < F.bolts.length) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 0), boltMat); fightFx.add(m); boltMeshes.push(m); }
-  boltMeshes.forEach((m, i) => { const bo = F.bolts[i]; m.visible = !!bo; if (bo) m.position.set(ringX(bo), RING.y + bo.y, RING.z); });
+  sparkT -= dt; spark.visible = sparkT > 0;
+  if (spark.visible) { spark.scale.setScalar(1 + (0.2 - sparkT) * 6); sparkMat.opacity = Math.min(1, sparkT * 8); }
   const mid = (ringX(a) + ringX(b)) / 2, gap = Math.abs(a.x - b.x), up = Math.max(a.y, b.y) * 0.6;   // follow a jump up
   rig.setShot({ pos: new THREE.Vector3(mid, 1.7 + up, RING.z - 4.8 - gap * 0.45), look: new THREE.Vector3(mid, 1.15 + up, RING.z), fov: 46 });
 }

@@ -1,5 +1,5 @@
 // B35 (Mike 2026-11-03): fighter mode vs Kavik. Talk to Kavik at the dojo, fight side-on, best of 3 with health
-// bars. He goes easy until your first win, then fights fair for good. The fight logic itself (src/fight/engine.ts)
+// bars; four limb buttons, hold back to guard (2026-11-04). He goes easy until your first win, then fights fair for good. The fight logic itself (src/fight/engine.ts)
 // is driven here through the game, with real key presses for the controls.
 // Usage: node test/e2e-fight.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
@@ -54,14 +54,18 @@ for (let i = 0; i < 40 && !landed; i++) {
   landed = await G(page, (h) => window.__gametool.fightMode.fight.b.hp < h, hp0);
 }
 await page.screenshot({ path: path.join(shots, 'b35-fight.png') });
-check('Walking in and pressing Attack lands hits on Kavik', landed);
+check('Walking in and pressing Left foot (J) lands hits on Kavik', landed);
 check('Kavik fights back (his AI moves and attacks)', await until(page, () => { const f = window.__gametool.fightMode.fight; return f.a.hp < 100 || !!f.b.move; }, null, 30000));
 
-// Shield: holding L puts up the shield.
-await page.keyboard.down('KeyL');
-const shielding = await until(page, () => window.__gametool.fightMode.fight.a.state === 'shield', null, 5000);
-await page.keyboard.up('KeyL');
-check('Holding Shield raises a shield', shielding);
+// Guard: holding back (away from Kavik) guards; down-back guards low.
+await until(page, () => { const a = window.__gametool.fightMode.fight.a; return a.state === 'idle' || a.state === 'walk'; }, null, 15000);
+const backKey = await G(page, () => { const f = window.__gametool.fightMode.fight; return f.b.x > f.a.x ? 'KeyA' : 'KeyD'; });
+await page.keyboard.down(backKey);
+const guarding = await until(page, () => { const s = window.__gametool.fightMode.fight.a.state; return s === 'guard' || s === 'block'; }, null, 8000);
+await page.keyboard.down('KeyS');
+const lowGuard = await until(page, () => { const a = window.__gametool.fightMode.fight.a; return a.state === 'lowguard' || (a.state === 'block' && a.blockLow); }, null, 8000);
+await page.keyboard.up('KeyS'); await page.keyboard.up(backKey);
+check('Holding back guards; down-back guards low', guarding && lowGuard);
 
 // Win the match (the fight state is set to the last blow) and get the first-win reward.
 const crowns0 = await G(page, () => window.__gametool.purse.crowns);
@@ -93,7 +97,7 @@ const left = await until(page, () => window.__gametool.state === 'play' && !wind
 check('Esc leaves the fight and returns to play', left);
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 
-// Touch: the Attack / Special / Shield / Jump pad shows for touch input.
+// Touch: the four limb buttons and Throw show for touch input.
 await page.close();   // one game at a time on a slow machine
 const t = await (await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })).newPage();
 await t.route(/^https?:/, (r) => r.abort());
@@ -104,14 +108,19 @@ await t.tap('#begin');
 await t.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 60000 });
 await G(t, () => window.__gametool.openFight());
 const pad = await G(t, () => [...document.querySelectorAll('#fight .fx-b')].filter((b) => b.offsetParent).map((b) => b.dataset.b));
-check('Touch: Attack, Special, Shield and Jump buttons', ['attack', 'special', 'shield', 'jump'].every((b) => pad.includes(b)), pad.join());
+check('Touch: Left hand, Right hand, Left foot, Right foot and Throw buttons', ['lp', 'rp', 'lk', 'rk', 'throw'].every((b) => pad.includes(b)), pad.join());
 await until(t, () => window.__gametool.fightMode.fight.phase === 'fight', null, 30000);
-await t.tap('#fight [data-b="jump"]');
-check('Touch: tapping Jump jumps', await until(t, () => window.__gametool.fightMode.fight.a.y > 0.1, null, 5000));
+// A move can start and finish inside one slow frame, so watch what reaches the fight engine.
+await G(t, () => { const f = window.__gametool.fightMode.fight, step = f.step.bind(f); window.__got = []; f.step = (p, q) => { for (const k of ['lp', 'rp', 'lk', 'rk']) if (p[k]) window.__got.push(k); return step(p, q); }; });
+await t.tap('#fight [data-b="rk"]');
+check('Touch: tapping Right foot presses it', await until(t, () => window.__got.join() === 'rk', null, 5000), await G(t, () => window.__got.join()));
+await G(t, () => { window.__got = []; });
+await t.tap('#fight [data-b="throw"]');
+check('Touch: Throw presses both hands at once', await until(t, () => window.__got.join() === 'lp,rp', null, 5000), await G(t, () => window.__got.join()));
 await t.screenshot({ path: path.join(shots, 'b35-fight-touch.png') });
 
 
-// Gamepad (mocked standard-mapping pad): stick moves, Y jumps, a shoulder shields, A attacks, Start leaves.
+// Gamepad (mocked standard-mapping pad): the stick moves, hops and guards, X/Y/A/B are the limbs, RB throws, Start leaves.
 await t.close();
 const gctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
 await gctx.addInitScript(() => {
@@ -135,19 +144,22 @@ await G(gp, () => { window.__pad.axes[0] = 1; });
 const moved = await until(gp, (x0) => window.__gametool.fightMode.fight.a.x > x0 + 0.3, x0, 10000);
 await G(gp, () => { window.__pad.axes[0] = 0; });
 check('Pad: left stick walks', moved);
-await btn(3, true);
-check('Pad: Y jumps', await until(gp, () => window.__gametool.fightMode.fight.a.y > 0.1, null, 5000));
-await btn(3, false);
+await G(gp, () => { window.__pad.axes[1] = -1; });
+check('Pad: stick up hops', await until(gp, () => window.__gametool.fightMode.fight.a.y > 0.1, null, 5000));
+await G(gp, () => { window.__pad.axes[1] = 0; });
 await until(gp, () => window.__gametool.fightMode.fight.a.grounded, null, 5000);
-await btn(4, true);
-check('Pad: holding LB raises the shield', await until(gp, () => window.__gametool.fightMode.fight.a.state === 'shield', null, 5000));
-await btn(4, false);
-await until(gp, () => window.__gametool.fightMode.fight.a.state !== 'shield', null, 5000);
+const back = await G(gp, () => { const f = window.__gametool.fightMode.fight; return f.b.x > f.a.x ? -1 : 1; });
+await G(gp, (b) => { window.__pad.axes[0] = b; }, back);
+check('Pad: holding the stick back guards', await until(gp, () => { const s = window.__gametool.fightMode.fight.a.state; return s === 'guard' || s === 'block'; }, null, 5000));
+await G(gp, () => { window.__pad.axes[0] = 0; });
 // A move can start and finish inside one slow frame, so watch what reaches the fight engine instead.
-await G(gp, () => { const f = window.__gametool.fightMode.fight, step = f.step.bind(f); window.__atk = 0; f.step = (p, q) => { if (p.attack) window.__atk++; return step(p, q); }; });
+await G(gp, () => { const f = window.__gametool.fightMode.fight, step = f.step.bind(f); window.__got = []; f.step = (p, q) => { for (const k of ['lp', 'rp', 'lk', 'rk']) if (p[k]) window.__got.push(k); return step(p, q); }; });
 await btn(0, true);
-check('Pad: A attacks (one press, one attack)', await until(gp, () => window.__atk === 1, null, 5000) && await G(gp, () => new Promise((r) => setTimeout(() => r(window.__atk === 1), 500))));
+check('Pad: A is the left foot (one press, one kick)', await until(gp, () => window.__got.join() === 'lk', null, 5000) && await G(gp, () => new Promise((r) => setTimeout(() => r(window.__got.join() === 'lk'), 500))));
 await btn(0, false);
+await btn(2, true); await until(gp, () => window.__got.length > 1, null, 5000); await btn(2, false);
+await btn(5, true); await until(gp, () => window.__got.length > 3, null, 5000); await btn(5, false);
+check('Pad: X is the left hand, RB throws (both hands)', await G(gp, () => window.__got.join()) === 'lk,lp,lp,rp', await G(gp, () => window.__got.join()));
 const help = await G(gp, () => { const v = (s) => !!document.querySelector(s).offsetParent; return { pad: v('#fight .fx-help-pad'), keys: v('#fight .fx-help-keys'), mode: document.body.dataset.input }; });
 check('Pad: the controls line shows pad buttons', help.pad && !help.keys, JSON.stringify(help));
 await btn(9, true);
