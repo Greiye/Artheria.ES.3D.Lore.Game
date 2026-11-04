@@ -1,0 +1,8 @@
+/* Play with friends (multiplayer PR 1) */
+.net-panel .net-code { font: 700 2.2em/1.1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.18em; margin: 0.2em 0; user-select: all; }
+.net-panel .net-list { list-style: none; padding: 0; margin: 0.4em 0 0; }
+.net-panel .net-list li { padding: 0.25em 0; border-bottom: 1px dashed rgba(90, 60, 30, 0.25); }
+.net-panel .net-host { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.08em; padding: 0 0.4em; border-radius: 4px; background: rgba(60, 110, 60, 0.18); }
+.net-panel .net-error { color: #9a2a1a; font-weight: 600; }
+.net-panel #netCode { text-transform: uppercase; letter-spacing: 0.15em; }
+.net-panel .net-sec { margin: 0.5em 0; }

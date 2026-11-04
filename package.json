@@ -14,7 +14,8 @@
     "test:e2e": "node scripts/e2e-run.mjs"
   },
   "dependencies": {
-    "three": "0.160.0"
+    "three": "0.160.0",
+    "trystero": "0.26.0"
   },
   "devDependencies": {
     "@mediapipe/tasks-vision": "0.10.21",

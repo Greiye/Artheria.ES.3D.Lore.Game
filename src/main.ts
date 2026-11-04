@@ -108,6 +108,8 @@ import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph } from './input/glyphs';
 import { topPanel, padMove, padNudge, padPress, padBack, type PadDir } from './input/padnav';
 import { storeSet } from './store';
+import { FriendsPanel } from './net/panel';
+import { cleanCode } from './net/room';
 import './ui/parchment.css';   // UI 1: parchment panels, loaded last so it skins every panel
 import './ui/ribbon.css';   // UI 2: green ribbon titles with gold lettering
 import './ui/readable.css';   // UI 3: larger text in the sheets, sized for phones
@@ -348,6 +350,7 @@ async function begin() {
   setState('play');                             // in the world immediately, even before lock resolves
   if (wakeIntro()) wakeUp(lastRest);            // B31: fade in on the player getting up from the bed or bedroll
   if (firstDayOn()) firstDay.begin(!save);      // B36: a new profile's first day (or the rest of one)
+  if (inviteCode) { const c = inviteCode; inviteCode = null; setTimeout(() => { if (state === 'play' && !friends.room) openFriends(c); }, 600); }
   // Mike 2026-10-30: Begin goes straight into the game. What's new moved to Extras (it read as a menu in the way).
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio
   if (inputMode === 'touch') {
@@ -1481,6 +1484,12 @@ function openCaravan(id: string) {
 }
 for (const f of caravanFolk) interactables.push({ obj: f.hit, verb: () => f.talk.verb, act: () => openCaravan(f.id), when: () => !inDungeon });
 const phrasebook = station(new Phrasebook(caravan, () => leaveForge()));
+// ---------- Multiplayer (Mike 2026-11-04, "Make this game multiplayer!" + "Do it"): friends-only rooms, src/net/ ----------
+// `?net=local` keeps rooms inside this browser (tabs talk over BroadcastChannel): tests, and trying it on one PC.
+const friends = station(new FriendsPanel(() => character.name, () => (urlFlags.get('net') === 'local' ? 'local' : 'p2p'), () => leaveForge()));
+friends.toast = (m) => toast(m, 3200);
+function openFriends(code?: string) { if (state !== 'play' && state !== 'pause') return; enterForge(); friends.open(code); }
+let inviteCode = cleanCode(urlFlags.get('room') ?? '');   // an invite link: the panel opens with its code on the first Begin
 // ---------- B19: real-skill mini games at the practice table by the dojo mats; cards go in the Skills book ----------
 const skillTable = buildSkillTable(world.scene, world.colliders, world.heightAt);
 const skills = station(new SkillsPanel((s) => earn(s.reward, `${s.name} card`, 'skill:' + s.id), () => leaveForge()));
@@ -1998,6 +2007,7 @@ $('quitToMenu').addEventListener('click', () => quitToMenu());
 // UX pass: the pause menu is your journal; its last pages are the casebook, the map and the bag.
 $('pgCasebook').addEventListener('click', () => openCasebook());
 $('pgPhrases').addEventListener('click', () => openPhrasebook());   // B16
+$('pgFriends').addEventListener('click', () => openFriends());
 $('pgSkills').addEventListener('click', () => openSkillsBook());   // B19
 $('pgRecipes').addEventListener('click', () => openRecipeBook());   // B18
 $('pgSelf').addEventListener('click', () => openWhoYouAre());   // B25 / B22: optional; the form now lives at the tailor
@@ -2718,4 +2728,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
