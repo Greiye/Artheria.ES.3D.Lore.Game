@@ -5,6 +5,7 @@ import { updateSprites, setSpriteCharacters, faceExpression } from './render/spr
 import './style.css';
 import { buildWorld } from './world';
 import { buildFigure, figureLight, type FigureLook } from './world/figure';
+import { enableSeeThrough, updateSeeThrough, seeThroughUniforms } from './render/seeThrough';
 import { Player } from './player';
 import { Book } from './book';
 import { lore, entryById } from './lore';
@@ -2259,6 +2260,7 @@ function syncMenu() {
   fov.value = String(settings.fov); $('fovOut').textContent = settings.fov + '°';
   inv.checked = settings.invertY; always.checked = settings.alwaysRun;
   $<HTMLInputElement>('haptics').checked = settings.haptics;
+  $<HTMLInputElement>('seeThrough').checked = settings.seeThrough;
   $<HTMLInputElement>('lefty').checked = settings.lefty;
   $<HTMLInputElement>('buttonSize').value = String(settings.buttonSize); $('buttonSizeOut').textContent = settings.buttonSize + '%';
   $<HTMLInputElement>('textSize').value = String(settings.textSize); $('textSizeOut').textContent = settings.textSize + '%';
@@ -2287,6 +2289,7 @@ fov.addEventListener('input', () => {
 inv.addEventListener('change', () => { settings.invertY = inv.checked; saveSettings(settings); });
 const viewSel = $<HTMLSelectElement>('viewSel');
 viewSel.addEventListener('change', () => setView(VIEWS.includes(viewSel.value as View) ? viewSel.value as View : 'overhead'));
+$<HTMLInputElement>('seeThrough').addEventListener('change', (e) => { settings.seeThrough = (e.target as HTMLInputElement).checked; saveSettings(settings); });
 $<HTMLInputElement>('haptics').addEventListener('change', (e) => {
   settings.haptics = (e.target as HTMLInputElement).checked; saveSettings(settings);
   haptics.setEnabled(settings.haptics);
@@ -2401,6 +2404,7 @@ function libraryVerb(h: LibraryHit): string {
 }
 const promptVerb = $('promptVerb');
 const perf = { frames: 0, cpuMs: 0, worstMs: 0, simSeconds: 0 };
+const stChest = new THREE.Vector3();
 const SIM_STEP = 1 / 120;
 let simAcc = 0;
 let stepTimer = 0;
@@ -2465,6 +2469,10 @@ function frame() {
   updateAmmoHud();
   updateDelve(dt);
   updateSprites(renderer, world.scene, camera, dt);
+  // B45: walls between the follow camera and the player open up (the rig no longer pulls in for them).
+  rig.seeThrough = settings.seeThrough && !inDungeon;
+  camera.updateMatrixWorld();
+  updateSeeThrough(rig.seeThrough && player.thirdPerson && state === 'play', camera, stChest.copy(player.pos).setY(player.pos.y + 1.1));
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
@@ -2502,6 +2510,7 @@ void (async () => {
   const hidden = [player.body, crossbow.viewmodel].filter((o) => !o.visible);
   hidden.forEach((o) => { o.visible = true; });
   dust.mesh.count = 1;
+  enableSeeThrough(world.scene);   // B45: before compiling, so the cut is in the first shaders
   try { await renderer.compileAsync(world.scene, camera); } catch { renderer.compile(world.scene, camera); }
   hidden.forEach((o) => { o.visible = false; });
   dust.mesh.count = 0;
@@ -2538,4 +2547,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
