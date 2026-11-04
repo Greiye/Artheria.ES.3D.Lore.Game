@@ -18,6 +18,11 @@ export interface AnimInput {
   swing?: number | null;  // v0.08: 0..1 through a sword cut
   combo?: number;         // v0.08: 1 forehand, 2 backhand, 3 heavy overhead
   lean?: number;          // B41/B42: -1 left … 1 right, the upper body tilts out past a wall edge
+  // Fight (B35, limbs 2026-11-04): fists up, a crouch, and a strike with one limb. k runs 0..0.5 through the move's
+  // startup (wind up, then out), stays at 0.5 while it is active and runs 0.5..1 through the recovery.
+  fight?: boolean;
+  crouch?: boolean;
+  strike?: { limb: 'lp' | 'rp' | 'lk' | 'rk' | 'throw'; aim: 'high' | 'mid' | 'low' | 'up' | 'grab'; k: number } | null;
 }
 // B34 (Mike 2026-11-03): one-shot moves layered over whatever the body is doing: a wave, picking something up,
 // flinching from a hit, and idle fidgets (look round, stretch, shift weight) that idle figures play on their own.
@@ -36,7 +41,7 @@ const smooth = (cur: number, target: number, rate: number, dt: number) => cur + 
 export class FigureAnim {
   private phase = 0;
   private t = Math.random() * 10;   // de-sync idle breathing between figures
-  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0, sword: 0 };
+  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0, sword: 0, fight: 0, crouch: 0 };
   private pose: Pose = 'stance';
   private poseT = 0;
   private head = { yaw: 0, pitch: 0 };
@@ -60,6 +65,51 @@ export class FigureAnim {
     g.t += dt;
     if (g.t >= T) { this.gesture = null; return; }
     gestureBones(this.B, this.rest, g.kind, g.t, T);
+  }
+
+  /** Fists up, crouching, and strikes with a hand or a foot (the fight with Kavik). */
+  private fight_(dt: number, i: AnimInput) {
+    const w = this.w, B = this.B, L = THREE.MathUtils.lerp, H = this.rest.hips.y / 0.93;
+    w.fight = smooth(w.fight, i.fight ? 1 : 0, 10, dt);
+    w.crouch = smooth(w.crouch, i.crouch ? 1 : 0, 18, dt);
+    const f = w.fight;
+    if (f < 0.01) return;
+    // Guard: fists up by the chin, elbows in.
+    const lerpRot = (b: BoneName, x: number, z: number | null, k: number) => { const r = B[b].rotation; r.x = L(r.x, x, k); if (z !== null) r.z = L(r.z, z, k); };
+    lerpRot('armN', -0.45, 0.3, f); lerpRot('armP', -0.3, -0.3, f);
+    lerpRot('foreN', -1.95, null, f); lerpRot('foreP', -2.05, null, f);
+    // Crouch: knees deep, hips down, a forward lean.
+    const c = w.crouch * f;
+    if (c > 0.01) {
+      lerpRot('thighN', -1.25, null, c); lerpRot('thighP', -1.15, null, c); lerpRot('shinN', 1.9, null, c); lerpRot('shinP', 1.8, null, c);
+      B.hips.position.y -= 0.36 * H * c; B.spine.rotation.x += 0.3 * c;
+    }
+    const st = i.strike;
+    if (!st) return;
+    const k = st.k, ease = (x: number) => { x = THREE.MathUtils.clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+    const wind = k < 0.3 ? ease(k / 0.3) : 1 - ease((k - 0.3) / 0.15);                         // pull back
+    const out = k < 0.3 ? 0 : k < 0.5 ? ease((k - 0.3) / 0.2) : k < 0.6 ? 1 : 1 - ease((k - 0.6) / 0.4);   // out and back
+    if (st.limb === 'throw') {
+      for (const [a, fo, z] of [['armN', 'foreN', 0.15], ['armP', 'foreP', -0.15]] as const) { lerpRot(a, -1.35, z, out); lerpRot(fo, -0.35, null, out); }
+      B.spine.rotation.x += 0.2 * out - 0.25 * Math.max(0, (k - 0.6) / 0.4) * (1 - out);
+      return;
+    }
+    const hand = st.limb === 'lp' || st.limb === 'rp', N = st.limb === 'lp' || st.limb === 'lk';
+    if (hand) {
+      const arm = N ? 'armN' : 'armP', fore = N ? 'foreN' : 'foreP';
+      const reach = st.aim === 'up' ? -2.5 : st.aim === 'high' ? -1.6 : -1.3, bend = st.aim === 'up' ? -1.0 : -0.08;
+      lerpRot(arm, 0.15, null, wind * 0.6); lerpRot(fore, -2.2, null, wind * 0.6);
+      lerpRot(arm, reach, N ? 0.12 : -0.12, out); lerpRot(fore, bend, null, out);
+      B.spine.rotation.y += (N ? -0.35 : 0.35) * out;   // the shoulder turns into it
+      if (st.aim === 'up') { B.spine.rotation.x -= 0.15 * out; B.hips.position.y += 0.06 * H * out; }
+    } else {
+      const thigh = N ? 'thighN' : 'thighP', shin = N ? 'shinN' : 'shinP';
+      const lift = st.aim === 'high' ? -1.95 : st.aim === 'low' ? -0.75 : -1.45;
+      lerpRot(thigh, lift * 0.75, null, wind); lerpRot(shin, 1.7, null, wind);   // chamber the knee
+      lerpRot(thigh, lift, null, out); lerpRot(shin, st.aim === 'low' ? 0.2 : 0.08, null, out);
+      B.spine.rotation.x -= (st.aim === 'high' ? 0.35 : st.aim === 'low' ? -0.1 : 0.18) * out;   // lean away from the kick
+      B.spine.rotation.y += (N ? 0.3 : -0.3) * out;
+    }
   }
 
   update(dt: number, i: AnimInput) {
@@ -134,6 +184,7 @@ export class FigureAnim {
     B.armN.rotation.set(aN - 0.4 * w.air, 0, zN - 0.5 * w.air);
     B.armP.rotation.set(aP - 0.4 * w.air, 0, zP + 0.5 * w.air);
     B.foreN.rotation.x = fN; B.foreP.rotation.x = fP;
+    this.fight_(dt, i);
 
     // Head: look-at target (clamped), a nod while talking, a small idle drift.
     const ly = THREE.MathUtils.clamp(i.look?.yaw ?? 0, -1.1, 1.1), lp = THREE.MathUtils.clamp(i.look?.pitch ?? 0, -0.5, 0.5);
