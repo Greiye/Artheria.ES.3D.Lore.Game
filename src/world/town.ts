@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pixelTexture, rng, type TexName } from '../tex/pixel';
+import { pixelArtTexture, rng, type TexName } from '../tex/pixel';
 import { Batch } from './batch';
 import { buildFigure } from './figure';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -138,7 +138,7 @@ export interface Town {
 export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[]): Town {
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
   const tinted = new Map<string, THREE.MeshLambertMaterial>();
-  const tint = (t: TexName, color: string) => tinted.get(t + color) ?? (tinted.set(t + color, new THREE.MeshLambertMaterial({ map: pixelTexture(t), color })), tinted.get(t + color)!);
+  const tint = (t: TexName, color: string) => tinted.get(t + color) ?? (tinted.set(t + color, new THREE.MeshLambertMaterial({ map: pixelArtTexture(t), color })), tinted.get(t + color)!);
   const glow = new THREE.MeshBasicMaterial({ color: '#F2C27A' });
   const lanternMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#FFC878').multiplyScalar(1.7) });
   const lanterns: THREE.Vector3[] = [], chimneys: THREE.Vector3[] = [], windowSpots: THREE.Vector3[] = [];

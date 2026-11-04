@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pixelTexture, rng, type TexName } from '../tex/pixel';
+import { pixelTexture, pixelArtTexture, rng, type TexName } from '../tex/pixel';
 import { Batch } from './batch';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildSky, type TimeOfDay } from './sky';
@@ -70,6 +70,9 @@ export function buildWorld(): World {
   // One lit material per pixel texture (Lambert: cheap on phones, takes shadows).
   const mats = new Map<TexName, THREE.MeshLambertMaterial>();
   const tex = (n: TexName) => mats.get(n) ?? (mats.set(n, new THREE.MeshLambertMaterial({ map: pixelTexture(n) })), mats.get(n)!);
+  // Town style 2: the town's own materials use the pixel-art cut of the same tiles (the countryside stays painted).
+  const townMats = new Map<TexName, THREE.MeshLambertMaterial>();
+  const townTex = (n: TexName) => townMats.get(n) ?? (townMats.set(n, new THREE.MeshLambertMaterial({ map: pixelArtTexture(n) })), townMats.get(n)!);
   const B = new Batch();
   const solids: THREE.Object3D[] = [];
   const shadowCasters: THREE.Object3D[] = [];
@@ -297,7 +300,7 @@ export function buildWorld(): World {
     }
   }
 
-  const town = buildTown(scene, B, tex, colliders);   // v0.04
+  const town = buildTown(scene, B, townTex, colliders);   // v0.04
   const river = buildRiver(scene, B, tex, colliders);   // references review (Willowbrook)
   const smoke = buildSmoke(scene, town.chimneys);   // UX pass
   const statics = B.flush(scene, 'static');

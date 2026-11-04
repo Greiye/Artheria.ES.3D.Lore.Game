@@ -65,6 +65,7 @@
     "e2e-portfolio",
     "e2e-lean",
     "e2e-npc-lean",
-    "e2e-crowd"
+    "e2e-crowd",
+    "e2e-town-pixel"
   ]
 }

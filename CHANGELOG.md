@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 7: town style 2, pixel-art town and lamp light (Mike 2026-11-04, Graphics thread)
+- The town's buildings, roofs, doors, timber and street are pixel art now: each painted tile is cut to 32 pixels a metre with its own 6-colour palette, drawn with crisp pixels up close. The countryside keeps its painted look; the player and named NPCs are unchanged.
+- From dusk every lantern throws a warm pool of light on the ground under it, drawn as pixel-art rings (softer at dusk, brighter at night). One draw call for all of them.
+- New `test/e2e-town-pixel.mjs` (9/9).
+
 ### v0.14 changelog, part 6: town style 1, the sprite crowd (Mike 2026-11-04, Graphics thread)
 - The town green fills up with a crowd of small 2D pixel-sprite townsfolk (44, 16 on Low), painted in 8 directions with 4 walk frames and 12 looks. They walk between the doors or stand and chat, turn the side that faces you, and dim with the hour like the 3D characters.
 - One instanced draw for all of them plus one for their shadows (draw calls 202 → 204, same frame rate).
