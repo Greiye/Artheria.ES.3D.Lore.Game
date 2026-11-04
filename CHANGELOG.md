@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 16: pets 3, a pet that helps (Mike 2026-11-04)
+- The pet with you warns you when a goblin is near below: it stops, faces it and growls, hisses, hoots or rolls into a ball of spines.
+- It sniffs out what's hidden near you, an unfound clue up top or an unopened chest below, and trots over to sit by it until you take it.
+
 ### v0.14 changelog, part 15: pets 2, the cat, the owl and Shadow (Mike 2026-11-04)
 - Three more pets to befriend, one with you at a time: a grey tabby barn cat by the General Store (dried fish), a little owl on the grass by the Ruined Library that is only out from dusk (jerky; it flies at your shoulder), and Shadow, a giant hedgehog the size of a dog, snuffling by the campfire (mealworms). The store sells all their food.
 - Talk to a pet you've befriended for the pets page: give it a name, tell it to stay or come, or call one of your others. Names are saved on this device.

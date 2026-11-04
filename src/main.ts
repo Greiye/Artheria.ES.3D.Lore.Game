@@ -683,6 +683,7 @@ function animate(dt: number) {
   for (const p of pets) p.update(dt, player.pos, player.bodyYaw, state !== 'play');
   questProps.update(bannerT);
   barkTick(dt);
+  petSense(dt);
   gateCheck();
   // The library's interior (shelves, books, furniture: ~18 draw calls) only draws once the camera is near its door.
   library.group.visible = !inDungeon && camera.position.z < -4;
@@ -1545,6 +1546,46 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
 // Natalie thinks out loud: one line per place, then the odd idle thought (25 s cooldown, mutable).
 let barkClock = 0, stillFor = 0;
 const lastPos = new THREE.Vector3();
+// Pets PR 3 (Mike 2026-11-04): the pet with you warns of goblins near you below, and sniffs out what's hidden: a
+// clue you haven't found up top, an unopened chest below. It trots over and sits by it until you take it.
+let senseClock = 0;
+const warnedFoe = new WeakMap<object, number>();
+const sniffed = new Set<string>();
+let lastWarn = -1e9;
+function petSense(dt: number) {
+  senseClock += dt;
+  if (senseClock < 0.4) return;
+  senseClock = 0;
+  const p = pets.find((q) => q.following);
+  if (!p || state !== 'play') return;
+  const me = player.pos, now = performance.now(), who = cap(p.label);
+  let warned = false;
+  if (inDungeon) {
+    let near: { root: THREE.Object3D } | null = null, best = 9;
+    for (const f of goblins.alive) { const d = f.root.position.distanceTo(me); if (d < best) { best = d; near = f; } }
+    if (near && now - (warnedFoe.get(near) ?? -1e9) > 15000) {
+      warnedFoe.set(near, now); warned = true; lastWarn = now;
+      p.alert(near.root.position);
+      toast(p.sp.kind === 'cat' ? `${who} arches its back and hisses.` : p.sp.kind === 'owl' ? `${who} hoots a warning.` : p.sp.kind === 'hedgehog' ? `${who} rolls into a ball of spines, huffing.` : `${who} growls low at the dark ahead.`, 2400);
+    }
+  }
+  // What's still hidden near you: an unopened chest below, an unfound clue up top.
+  let lead: THREE.Vector3 | null = null, key = '';
+  if (inDungeon) {
+    const seed = dungeon.layout?.seed, chest = dungeon.spots.find((sp) => sp.kind === 'chest');
+    if (seed !== undefined && chest && !delves[seed]?.chest && chest.hit.position.distanceTo(me) < 12) { lead = chest.hit.position; key = 'chest:' + seed; }
+  } else {
+    for (const c of QUEST.clues) {
+      const hb = questProps.hitboxes.get(c.id);
+      if (!quest.clues.includes(c.id) && hb && hb.position.distanceTo(me) < 8) { lead = hb.position; key = 'clue:' + c.id; break; }
+    }
+  }
+  p.lead = lead;
+  if (lead && !warned && now - lastWarn > 3000 && !sniffed.has(key)) {   // (a warning comes first; the find is said after)
+    sniffed.add(key);
+    toast(p.sp.kind === 'cat' ? `${who} paws at something nearby.` : p.sp.kind === 'owl' ? `${who} circles something below.` : p.sp.kind === 'hedgehog' ? `${who} snuffles at something here.` : `${who} has its nose down: something's here.`, 2800);
+  }
+}
 function barkTick(dt: number) {
   barkClock += dt;
   if (barkClock < 1 || !companion.prefs.follow || state !== 'play') return;
