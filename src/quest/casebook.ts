@@ -16,6 +16,9 @@ function theoryMarkdown(th: Theory, author: string): string {
 
 export class Casebook {
   owner: () => string = () => '';   // B25: the hero's name from the Journal (blank = just "Casebook")
+  /** B36: the first-day page (HTML) shown above the clues, and what its buttons do. */
+  extra: () => string = () => '';
+  onExtra: (id: string) => void = () => {};
   readonly el: HTMLDivElement;
   private pick: Partial<Record<Axis, string>> = {};
   private text = '';
@@ -62,6 +65,7 @@ export class Casebook {
     }
     else if (t.id === 'cbSubmit') { const th = this.state().theory; if (th) openSubmitSheet({ kind: 'theory', title: `A theory: ${tagLabel('who', th.who)}`, markdown: theoryMarkdown(th, this.author()) }); }
     else if (t.id === 'cbClose') this.close();
+    else if (t.id.startsWith('fd')) { this.onExtra(t.id); this.render(); }
   }
 
   private renderReading() {
@@ -109,6 +113,7 @@ export class Casebook {
       <div class="forge-panel casebook-panel">
         <div class="eyebrow">${this.owner() ? `Casebook of ${escapeHtml(this.owner())}` : 'Casebook'} · J</div>
         <h2>${escapeHtml(q.title)}</h2>
+        ${this.extra()}
         <p class="fine">${escapeHtml(q.intro)}</p>
         <h4>Clues · ${s.clues.length} of ${q.clues.length}</h4>
         <ul class="cb-clues">${clues || '<li class="fine">Nothing yet. Look for things that are out of place (E).</li>'}</ul>
