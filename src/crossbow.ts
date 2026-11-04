@@ -20,6 +20,12 @@ const GRAVITY = 9.8;
 const BOLT_GEO = new THREE.BoxGeometry(0.02, 0.02, 0.4);
 const BOLT_MAT = new THREE.MeshLambertMaterial({ color: 0xD9D8CC });
 const ADS_FOV_DROP = 15;              // F4.1
+// B44 (Mike 2026-11-03): steady aim, body-cam style. There's no crosshair to snap to: the aim wanders with a slow
+// drift and the breathing cycle. Holding still (best while aiming down the sights) fills a stability meter that
+// calms both; walking, jumping, turning fast or firing unsettles it. A ring shows how steady you are.
+const D = THREE.MathUtils.degToRad;
+const SWAY = { drift: D(1.6), breath: D(0.7), breathSec: 3.6, steadyMin: 0.12, hipMul: 1.6 };
+const STEADY = { fillSec: 1.6, hipCap: 0.45, moveDrain: 1.4, fireKeep: 0.3, spread: D(1.5) };
 
 export interface Bolt { mesh: THREE.Mesh; origin: THREE.Vector3; vel: THREE.Vector3; stuck: boolean; age: number; damage: number; hitbox: THREE.Mesh }
 type ReloadState = { active: false } | { active: true; t: number; mode: 'normal' | 'fast' | 'jam'; total: number };
@@ -29,6 +35,12 @@ export class Crossbow {
   loaded = false;
   ads = false;
   bonusNextShot = false;
+  /** B44: 0 (shaky) .. 1 (steady). */
+  stability = 0;
+  /** B44: the aim's wander from the view, radians. */
+  readonly sway = { yaw: 0, pitch: 0 };
+  private swayT = Math.random() * 100;
+  private lastYaw = 0;
   /** B17: a frayed string throws bolts slower (1 = a sound string). */
   power = 1;
   reload: ReloadState = { active: false };
@@ -82,6 +94,10 @@ export class Crossbow {
     this.loaded = false;
     const dir = new THREE.Vector3();
     this.player.lookDir(dir);   // R3: aim follows the player's view even while the camera rig is blending
+    // B44: the bolt goes where the wandering aim points, plus a little spread when you're not steady.
+    const spread = STEADY.spread * (1 - this.stability), a = Math.random() * Math.PI * 2, r = spread * Math.sqrt(Math.random());
+    dir.set(0, 0, -1).applyEuler(new THREE.Euler(this.player.pitch + this.sway.pitch + Math.sin(a) * r, this.player.yaw + this.sway.yaw + Math.cos(a) * r, 0, 'YXZ'));
+    this.stability *= STEADY.fireKeep;   // the kick unsettles you
     const start = this.player.eyePos.clone().addScaledVector(dir, 0.45);
     const mesh = new THREE.Mesh(BOLT_GEO, BOLT_MAT);
     mesh.position.copy(start);
@@ -170,6 +186,7 @@ export class Crossbow {
       b.mesh.position.copy(to);
       b.mesh.lookAt(to.clone().add(b.vel));
     }
+    this.updateSway(dt);
     // F4.1 ADS: lerp the FOV down 15°; viewmodel visible only in first person with the crossbow in hand.
     const target = this.ads ? ADS_FOV_DROP : 0;
     this.fovOffset += (target - this.fovOffset) * Math.min(1, dt * 12);
@@ -178,6 +195,32 @@ export class Crossbow {
     this.viewmodel.visible = this.equipped && !this.player.thirdPerson;
     this.loadedBolt.visible = this.loaded;
     this.placeViewmodel(this.fovOffset / ADS_FOV_DROP);
+  }
+
+  // B44: the stability meter and the sway it allows.
+  private updateSway(dt: number) {
+    const p = this.player;
+    const turn = Math.abs(Math.atan2(Math.sin(p.yaw - this.lastYaw), Math.cos(p.yaw - this.lastYaw))) / Math.max(dt, 1e-3);
+    this.lastYaw = p.yaw;
+    if (!this.equipped) { this.stability = 0; this.sway.yaw = this.sway.pitch = 0; return; }
+    const moving = p.hSpeed > 0.3 || !p.onGround, cap = this.ads ? 1 : STEADY.hipCap;
+    if (moving || turn > 1.5) this.stability = Math.max(0, this.stability - dt * STEADY.moveDrain * (moving ? 1 : 0.5));
+    else if (this.stability < cap) this.stability = Math.min(cap, this.stability + dt / STEADY.fillSec);
+    else this.stability = Math.max(cap, this.stability - dt / STEADY.fillSec);
+    this.swayT += dt;
+    const t = this.swayT, amp = THREE.MathUtils.lerp(1, SWAY.steadyMin, this.stability) * (this.ads ? 1 : SWAY.hipMul);
+    // Slow drift: incommensurate sines read as noise. Breathing: a slow rise and fall, mostly vertical.
+    const nx = Math.sin(t * 0.73) * 0.6 + Math.sin(t * 1.37 + 1.3) * 0.3 + Math.sin(t * 2.91 + 4.1) * 0.1;
+    const ny = Math.sin(t * 0.61 + 2.2) * 0.6 + Math.sin(t * 1.53 + 0.4) * 0.3 + Math.sin(t * 3.17 + 2.9) * 0.1;
+    const breath = Math.sin(t * Math.PI * 2 / SWAY.breathSec);
+    this.sway.yaw = nx * SWAY.drift * amp;
+    this.sway.pitch = (ny * 0.6 * SWAY.drift + breath * SWAY.breath) * amp;
+  }
+  /** B44: tilt the first-person view by the sway (after the camera rig has placed it), so the view itself wanders. */
+  applySway() {
+    if (!this.equipped) return;
+    this.camera.rotateY(this.sway.yaw);
+    this.camera.rotateX(this.sway.pitch);
   }
 
   private placeViewmodel(k: number) {

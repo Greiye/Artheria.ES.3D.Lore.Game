@@ -497,6 +497,17 @@ function updateAmmoHud() {
   if (r.active) reloadFill.style.width = Math.min(100, (r.t / (r.mode === 'normal' ? 2 : r.total)) * 100) + '%';
   reloadBar.classList.toggle('jam', r.active && r.mode === 'jam');
 }
+// B44: the steadiness ring replaces the crosshair while the crossbow is in hand in first person.
+const steadyRing = $('steady');
+let steadyShown = false;
+function updateSteadyRing() {
+  const on = state === 'play' && crossbow.equipped && !player.thirdPerson;
+  if (on !== steadyShown) { steadyShown = on; steadyRing.classList.toggle('hidden', !on); document.body.classList.toggle('steadyAim', on); }
+  if (!on) return;
+  const s = crossbow.stability;
+  steadyRing.style.transform = `scale(${(0.3 + 0.7 * (1 - s)).toFixed(3)})`;
+  steadyRing.classList.toggle('steady', s > 0.85);
+}
 function fire() {
   if (state === 'play' && sword.equipped) { sword.swing(); return; }
   if (state !== 'play' || !crossbow.equipped) return;
@@ -2454,11 +2465,13 @@ function frame() {
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     crossbow.update(dt);
+    if (crossbow.equipped && !player.thirdPerson && !rig.inShot && !rig.switching) crossbow.applySway();   // B44
+    updateSteadyRing();
     sword.update(dt);
     touch?.update();
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
-  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); $('coach').classList.add('hidden'); }
+  } else { lookingAt = null; crossbow.setADS(false); rig.update(dt); updateSteadyRing(); $('coach').classList.add('hidden'); }
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
   audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);

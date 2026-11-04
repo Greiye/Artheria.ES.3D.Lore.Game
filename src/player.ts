@@ -35,6 +35,7 @@ export class Player {
   bodyYaw = 0;
   faceView = false;
   hSpeed = 0;                // horizontal speed, m/s, for the animator
+  get onGround(): boolean { return this.grounded; }
   private landedFlag = false;
   get airborne() { return !this.grounded; }
   // v0.04 (Mirror's Edge): a vault over / climb onto a ledge, eased along an arc. null when not vaulting.
