@@ -12,7 +12,7 @@ import { buildLibrary, type LibraryHit } from './library';
 import { setLinkResolver } from './markdown';
 import greyBooks from '../content/rolltables/grey-books.json';
 import { controls, actionFor, binds, REBINDABLE, bindKey, resetKeys, keyLabel, type Action } from './controls';
-import { loadSettings, saveSettings, flushSettings, PRESETS, type Preset, type FpsCap, type View } from './settings';
+import { loadSettings, saveSettings, flushSettings, PRESETS, isLowPreset, type Preset, type FpsCap, type View } from './settings';
 import { AutoQuality, STEPS } from './render/autoQuality';
 import { audio } from './audio';
 import { VERSION, AUTHOR } from './version';
@@ -121,7 +121,7 @@ window.addEventListener('pagehide', () => flushSettings(settings));
 // ---------- renderer / camera (D2, D4) ----------
 const coarse = matchMedia('(pointer: coarse)').matches;
 // MSAA costs fill rate on phones and on Low; it is set once, when the canvas is made (a preset change applies next load).
-const renderer = new THREE.WebGLRenderer({ antialias: !coarse && settings.preset !== 'low', powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: !coarse && !isLowPreset(settings.preset), powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.type = THREE.BasicShadowMap;   // Mike 2026-11-03: hard-edged, pixel-stepped shadows (no soft PCF blur)
 // F1.1: device pixel ratio capped (phones hold frame rate), then scaled by the render-scale setting.
@@ -137,7 +137,7 @@ function applyQuality() {
   applyRenderScale();
   renderer.shadowMap.enabled = shadows; world.setShadows(shadows);
   world.setFoliage(FOLIAGE[settings.preset] * q.foliage);
-  townsfolk.setCount(settings.preset === 'low' || q.folk === 'low' ? 'low' : 'full');
+  townsfolk.setCount(isLowPreset(settings.preset) || q.folk === 'low' ? 'low' : 'full');
   const out = document.getElementById('autoQualityOut');
   if (out) out.textContent = autoQ.enabled && autoQ.level ? `(easing off: step ${autoQ.level} of ${STEPS.length - 1})` : '';
 }
@@ -167,11 +167,12 @@ progress(80);
 renderer.shadowMap.enabled = settings.shadows;
 world.setShadows(settings.shadows);
 world.setFogDistance(settings.fogDistance);
-const FOLIAGE = { low: 0.35, medium: 0.6, high: 1 } as const;   // R3 perf: undergrowth density per preset
+const FOLIAGE = { lowpower: 0.2, low: 0.35, medium: 0.6, high: 1 } as const;   // R3 perf: undergrowth density per preset
+const LIGHTS = { lowpower: 1, low: 2, medium: 4, high: 4 } as const;   // real lantern lights at night (B38: 1 on Low power)
 world.setFoliage(FOLIAGE[settings.preset]);
 // v0.06 W3: lantern halos, brighter windows and a few real lights at night.
 const nightLights = new NightLights(world.scene, world.lanterns, world.town.windows);
-nightLights.setMax(settings.preset === 'low' ? 2 : 4);
+nightLights.setMax(LIGHTS[settings.preset]);
 nightLights.setTime(world.time);
 // UX pass (Mike 2026-10-31): no clock. The sky shows the hour, and the bell in the library spire tolls when it
 // changes: three for morning, two for sunset, one for nightfall.
@@ -204,6 +205,9 @@ const modelSlots: ModelSlot[] = [
 // Mike 2026-11-03: crossed-quad card trees (from the 99.Miles forest tree pack) dress the hills on every preset,
 // clear of the river and the coach road out to the gate.
 const forestCards = plantForestCards(world.scene, world.heightAt, (x, z) => riverClear(x, z, 1) || (x < -36 && Math.abs(z - GATE.z) < 5));
+// B38: the far forest band (45–64 m) is all inside the fog on Low power, so it isn't drawn there.
+const syncForest = () => { forestCards.mesh.visible = settings.fogDistance > 40; };
+syncForest();
 const modelsReady = fillSlots(modelSlots).then((r) => {
   // The nub only marks "forward" on the capsule; a real model shows its own front.
   if (loadedModels.has('player')) player.body.children[1].visible = false;
@@ -534,12 +538,15 @@ let viewBeforeCrossbow: boolean | null = null;
 // .glb without clips moves as a whole (BodyAnim); the built-in rigged figures run the procedural rig.
 interface Puppet { root: THREE.Object3D; fig?: FigureAnim; body?: BodyAnim }
 const puppets = new Map<string, Puppet>();
+const cullFrustum = new THREE.Frustum(), cullPV = new THREE.Matrix4(), cullSphere = new THREE.Sphere(new THREE.Vector3(), 1.3);
+const cullMeshes = new WeakMap<THREE.Object3D, THREE.Object3D[]>();
+let charsCulled = 0;
 const figureOf = (o: THREE.Object3D): Puppet => ({ root: o, fig: o.userData.rig ? new FigureAnim(o.userData.rig) : undefined });
 for (const [id, o] of Object.entries(world.standees)) puppets.set(id, figureOf(o));
 puppets.set('player', figureOf(player.body.children[0]));
 // v0.06 T1/T4: townsfolk and the cinema band walk, spar, trade, chat and play on the procedural rig.
 const townsfolk = new Townsfolk(world.scene);
-townsfolk.setCount(settings.preset === 'low' ? 'low' : 'full');
+townsfolk.setCount(isLowPreset(settings.preset) ? 'low' : 'full');
 for (const f of townsfolk.folk) puppets.set(f.id, figureOf(f.root));
 let libNpc = 0;
 library.group.traverse((o) => { if (o.userData.rig) puppets.set(`library:${libNpc++}`, figureOf(o)); });
@@ -610,7 +617,21 @@ function animate(dt: number) {
     look: { yaw: wrapAngle(player.yaw - player.bodyYaw), pitch: -player.pitch * 0.6 },
   };
   sword.held.visible = sword.equipped && !mine.pose;   // put away at a station or a drill
+  // B38: characters are skinned, so three can't frustum-cull them. Off-screen ones, or ones past the fog, aren't
+  // drawn and skip their animation (CPU on phones). Their meshes are hidden, never the root (others own that).
+  camera.updateMatrixWorld();
+  cullFrustum.setFromProjectionMatrix(cullPV.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  const cullDist = Math.min(70, settings.fogDistance + 6);
+  charsCulled = 0;
   for (const [id, p] of puppets) {
+    if (id !== 'player') {
+      p.root.getWorldPosition(cullSphere.center).y += 0.9;
+      const show = fighting || (cullSphere.center.distanceTo(camera.position) < cullDist && cullFrustum.intersectsSphere(cullSphere));
+      let ms = cullMeshes.get(p.root);
+      if (!ms) { ms = []; p.root.traverse((o) => { if ((o as THREE.Mesh).isMesh && o.visible) ms!.push(o); }); cullMeshes.set(p.root, ms); }
+      if (ms.length && ms[0].visible !== show) for (const m of ms) m.visible = show;
+      if (!show) { charsCulled++; continue; }
+    }
     const input = id === 'player' ? (player.body.visible ? mine : null) : fighting && id === 'kavik' ? fightInput(fightMode.fight.b) : npcInput(id, p.root);
     if (!input) continue;
     if (id !== 'player' && p.fig && state === 'play' && !input.talking && !input.pose) {   // B34: hello as you come near (npcPos: npcInput's)
@@ -2306,12 +2327,12 @@ presetSel.addEventListener('change', () => {
   settings.preset = p;
   Object.assign(settings, PRESETS[p]);
   saveSettings(settings); syncMenu();
-  applyQuality(); post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance); nightLights.setMax(p === 'low' ? 2 : 4);
+  applyQuality(); post?.setEnabled(settings.postFx); world.setFogDistance(settings.fogDistance); syncForest(); nightLights.setMax(LIGHTS[p]);
 });
 renderScaleEl.addEventListener('input', () => { settings.renderScale = Number(renderScaleEl.value); saveSettings(settings); syncMenu(); applyRenderScale(); });
 shadowsEl.addEventListener('change', () => { settings.shadows = shadowsEl.checked; saveSettings(settings); applyQuality(); });
 postFxEl.addEventListener('change', () => { settings.postFx = postFxEl.checked; saveSettings(settings); post?.setEnabled(settings.postFx); });
-fogDistanceEl.addEventListener('input', () => { settings.fogDistance = Number(fogDistanceEl.value); saveSettings(settings); syncMenu(); world.setFogDistance(settings.fogDistance); });
+fogDistanceEl.addEventListener('input', () => { settings.fogDistance = Number(fogDistanceEl.value); saveSettings(settings); syncMenu(); world.setFogDistance(settings.fogDistance); syncForest(); });
 fpsCapSel.addEventListener('change', () => { settings.fpsCap = Number(fpsCapSel.value) as FpsCap; saveSettings(settings); });
 autoQualityEl.addEventListener('change', () => { settings.autoQuality = autoQualityEl.checked; saveSettings(settings); autoQ.setEnabled(settings.autoQuality); });
 
@@ -2447,6 +2468,26 @@ function frame() {
   post!.render(world.scene, camera);
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
+  if (perfHud) perfTick(now, ms);
+}
+// B38: an on-screen frame-time readout for measuring on a real phone. Add ?perf to the address (or set
+// localStorage gametool.perf = 'on'). Twice a second: frames per second, frame-to-frame ms, CPU ms, draw calls.
+const perfHud: HTMLDivElement | null = (() => {
+  let on = new URLSearchParams(location.search).has('perf');
+  try { on ||= localStorage.getItem('gametool.perf') === 'on'; } catch { /* storage blocked */ }
+  if (!on) return null;
+  const d = document.createElement('div'); d.id = 'perfHud'; document.body.appendChild(d);
+  return d;
+})();
+let perfWin = { at: 0, frames: 0, gap: 0, cpu: 0, prev: 0 };
+function perfTick(now: number, cpu: number) {
+  const w = perfWin;
+  if (w.prev) { w.gap += now - w.prev; w.frames++; w.cpu += cpu; }
+  w.prev = now;
+  if (now - w.at < 500 || !w.frames) return;
+  const info = renderer.info.render;
+  perfHud!.textContent = `${Math.round(1000 * w.frames / (now - w.at))} fps · ${(w.gap / w.frames).toFixed(1)} ms · cpu ${(w.cpu / w.frames).toFixed(1)} ms · ${info.calls} calls · ${Math.round(info.triangles / 1000)}k tris · ${settings.preset}`;
+  perfWin = { at: now, frames: 0, gap: 0, cpu: 0, prev: now };
 }
 // v0.05 boot: splash → title → main menu. Automated test browsers go straight to the menu unless a test asks
 // for the intro (localStorage gametool.intro = 'on').
@@ -2497,4 +2538,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

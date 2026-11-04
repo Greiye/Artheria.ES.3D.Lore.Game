@@ -1,6 +1,10 @@
 // F2.3 / F3.7 / §4 Settings: persisted to localStorage key 'gametool.settings'. §0 rule 7 (H7):
 // a schemaVersion tags the blob so a later format change can migrate instead of discarding it.
-export type Preset = 'low' | 'medium' | 'high';
+export type Preset = 'lowpower' | 'low' | 'medium' | 'high';
+/** B38: the two phone-friendly presets (fewer townsfolk and lights, no antialiasing). */
+export const isLowPreset = (p: Preset) => p === 'low' || p === 'lowpower';
+/** iPhone and iPad (iPadOS reports a Mac with touch). */
+export const IS_IOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 export type FpsCap = 30 | 60 | 0; // 0 = uncapped (F1.1 "∞")
 
 interface AudioSettings {
@@ -40,6 +44,9 @@ export interface Settings {
 // F1.1: each preset is a bundle of starting values for the sliders/toggles above it.
 // Picking a preset just fills the sliders — the owner can still fine-tune afterward.
 export const PRESETS: Record<Preset, Pick<Settings, 'renderScale' | 'shadows' | 'postFx' | 'fogDistance' | 'fpsCap'>> = {
+  // B38 (Mike 2026-11-03): iPhones start here. A lower render scale and a shorter view (fewer characters and
+  // trees drawn); picked automatically on iOS the first time the game runs.
+  lowpower: { renderScale: 40, shadows: false, postFx: false, fogDistance: 35, fpsCap: 30 },
   low: { renderScale: 50, shadows: false, postFx: false, fogDistance: 45, fpsCap: 30 },
   medium: { renderScale: 75, shadows: false, postFx: false, fogDistance: 85, fpsCap: 0 },   // v0.06 W4: uncapped (was 60)
   high: { renderScale: 100, shadows: true, postFx: true, fogDistance: 120, fpsCap: 0 },
@@ -47,8 +54,9 @@ export const PRESETS: Record<Preset, Pick<Settings, 'renderScale' | 'shadows' | 
 
 const KEY = 'gametool.settings';
 const defaultAudio: AudioSettings = { master: 70, music: 60, sfx: 80, dialogue: 90, muteMaster: false, muteMusic: false, muteSfx: false, muteDialogue: false };
-// Phones and tablets start on Low; desktops on Medium. Either can be changed in the pause menu.
-const firstPreset: Preset = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'medium';
+// iPhones and iPads start on Low power (B38), other phones and tablets on Low, desktops on Medium. Any of them
+// can be changed in the pause menu.
+const firstPreset: Preset = IS_IOS ? 'lowpower' : typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'medium';
 const defaults: Settings = {
   schemaVersion: 2,
   sensitivity: 1.0, fov: 75, invertY: false, alwaysRun: true, view: 'overhead', chars: 'hybrid', lastPage: 0, haptics: true,
@@ -81,9 +89,9 @@ export function loadSettings(): Settings {
     if (!raw) return structuredCloneSettings(defaults);
     lastWritten = raw;
     const s = JSON.parse(raw) as Partial<Settings>;
-    const preset: Preset = s.preset === 'low' || s.preset === 'medium' || s.preset === 'high' ? s.preset : defaults.preset;
+    const preset: Preset = s.preset === 'lowpower' || s.preset === 'low' || s.preset === 'medium' || s.preset === 'high' ? s.preset : defaults.preset;
     // v0.06 W4: a version-1 save holding Medium's old 60 cap moves to the new uncapped default.
-    const oldCap = s.schemaVersion !== 2 && preset !== 'low' && s.fpsCap === 60;
+    const oldCap = s.schemaVersion !== 2 && !isLowPreset(preset) && s.fpsCap === 60;
     return {
       schemaVersion: 2,
       sensitivity: clamp(s.sensitivity, 0.1, 3, defaults.sensitivity),
@@ -99,7 +107,7 @@ export function loadSettings(): Settings {
       readSpeed: clamp(s.readSpeed, 0.5, 2, 1),
       lastPage: Number.isInteger(s.lastPage) && (s.lastPage as number) >= 0 ? (s.lastPage as number) : 0,
       preset,
-      renderScale: clamp(s.renderScale, 50, 100, PRESETS[preset].renderScale),
+      renderScale: clamp(s.renderScale, 40, 100, PRESETS[preset].renderScale),
       shadows: bool(s.shadows, PRESETS[preset].shadows),
       // Saved before the rebuild: the old outlines toggle carries over as the post-effects choice.
       postFx: bool(s.postFx ?? (s as { outlines?: unknown }).outlines, PRESETS[preset].postFx),
