@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 6: deeper delves pay (B48, Mike 2026-11-04)
+- Under the library, every new room you reach pays a crown per room of depth. The deepest room adds a 5-crown purse and a lore book you haven't read yet, and the chest now holds a lore book under its trinket. Each room pays once per seed, so walking the same dungeon again doesn't farm.
+- Climbing out shows what the delve paid: new rooms, crowns and the books you found.
+
 ### v0.15 changelog, part 5: lore books as comics (B47, Mike 2026-11-04)
 - A lore book with a comic shows a Comic button (or press C): the same story as panels, with caption boxes and speech bubbles beside the speaker's portrait. Text brings the words back. Your choice is kept for your profile.
 - First comic: Natalie's Field Note, six panels. The art is placeholder cards for now; drawn panels drop into content/assets/comics/ (see its README). Every caption and line is quoted from the book's own text.

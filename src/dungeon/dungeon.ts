@@ -151,6 +151,13 @@ export class Dungeon {
     }
     return true;
   }
+  /** B48: index of the room the world point (x, z) stands in, or -1 in a corridor. */
+  roomOf(x: number, z: number): number {
+    const L = this.layout;
+    if (!L) return -1;
+    const cx = (x - ORIGIN.x) / CELL + N / 2, cy = (z - ORIGIN.z) / CELL + N / 2;
+    return L.rooms.findIndex((r) => cx >= r.x && cx < r.x + r.w && cy >= r.y && cy < r.y + r.h);
+  }
   /** World position of a room cell. */
   roomAt(r: Room, dx = 0, dy = 0) { return cellToWorld(r.cx + dx, r.cy + dy); }
   update(t: number) { if (this.flames && this.group.visible) this.flames.scale.y = 1 + Math.sin(t * 17) * 0.03; }

@@ -699,6 +699,7 @@ function animate(dt: number) {
   questProps.update(bannerT);
   barkTick(dt);
   petSense(dt);
+  delveTick();   // B48
   gateCheck();
   // The library's interior (shelves, books, furniture: ~18 draw calls) only draws once the camera is near its door.
   library.group.visible = !inDungeon && camera.position.z < -4;
@@ -1210,7 +1211,7 @@ trapHit.position.copy(TRAPDOOR).setY(0.3); world.scene.add(trapHit);
 let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
 // The follow camera stays under the dungeon ceiling, and (v0.06 W2) under the library's and gallery's while the player is inside.
 rig.ceiling = (x, z) => { if (inDungeon) return 2.9; const r = roofOver(player.pos.x, player.pos.z); return r && roofOver(x, z, 1) === r ? r.y - 0.3 : Infinity; };
-const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; quick?: 'won' | 'lost'; at: string }>; } catch { return {}; } })();
+const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; quick?: 'won' | 'lost'; at: string; rooms?: number[]; deep?: boolean }>; } catch { return {}; } })();
 const saveDelves = () => { storeSet('gametool.delves', JSON.stringify(delves)); };
 function enterDungeon(seed: number) {
   const L = dungeon.build(seed);
@@ -1224,6 +1225,7 @@ function enterDungeon(seed: number) {
   if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
   for (const p of pets) if (p.following) p.placeNear(dungeon.entrance());
   inDungeon = true; swordHitsAtEntry = sword.hits; sturdy = cook.consume('sturdy');
+  run = { rooms: 0, crowns: 0, books: [] }; lastRoom = -1;
   spawnGoblins();
   delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
   saveDelves();
@@ -1232,6 +1234,7 @@ function enterDungeon(seed: number) {
 }
 function exitDungeon() {
   if (!inDungeon) return;
+  runSummary();
   if (sword.hits > swordHitsAtEntry) { gear.rustSword(); toast('Goblin blood and cellar damp: your blade is spotting with rust. The smith\'s oil will fix it.', 3600); }   // B17
   inDungeon = false;
   const set = new Set(dungeon.colliders);
@@ -1244,6 +1247,52 @@ function exitDungeon() {
   player.spawn(TRAPDOOR.clone().add(new THREE.Vector3(0, 0, 1.6)), 0);
   if (companion.prefs.follow) natalieRoot().position.copy(TRAPDOOR).add(new THREE.Vector3(1.4, 0, 1.4));
   for (const p of pets) if (p.following) p.placeNear(TRAPDOOR, -1.4, 1.4);
+}
+// ---------- B48 (Mike 2026-11-04): delving deeper pays, in crowns and lore books ----------
+// Each room you reach pays 1 crown per room of depth (the entrance pays nothing), once per room per seed, so walking
+// the same dungeon again doesn't farm. The chest and the deepest room each give a lore book you haven't read yet (an
+// extra purse when you've read them all). Climbing out shows what the run paid.
+let run = { rooms: 0, crowns: 0, books: [] as string[] }, lastRoom = -1;
+const DEEP_PURSE = 5, READ_ALL_PURSE = 4;
+function delvePay(n: number) { if (n <= 0) return; inventory.give(CROWN, n); run.crowns += n; }
+function dropLoreBook(where: string, seed: number): string | null {
+  const unread = lore.entries.filter((e) => e.type === 'lore' && !seen.includes('entry:' + e.id));
+  if (!unread.length) { delvePay(READ_ALL_PURSE); toast(`+${READ_ALL_PURSE} ◎ ${where}: you've read every lore book, so it's a purse instead.`, 3600); return null; }
+  const e = unread[(seed + run.books.length * 7) % unread.length];
+  markSeen('entry:' + e.id); refreshGallery();
+  run.books.push(e.title);
+  haptics.play('pickup');
+  toast(`A lore book ${where}: "${e.title}" by ${e.credit_as}. It's on its shelf in the Ruined Library and in the gallery.`, 5200);
+  return e.id;
+}
+function delveTick() {
+  if (!inDungeon || !dungeon.layout) return;
+  const i = dungeon.roomOf(player.pos.x, player.pos.z);
+  if (i < 0 || i === lastRoom) return;
+  lastRoom = i;
+  const L = dungeon.layout, seed = L.seed, d = delves[seed], r = L.rooms[i];
+  if (!d) return;
+  const reached = d.rooms ?? (d.rooms = []);
+  if (reached.includes(i)) return;
+  reached.push(i); run.rooms++;
+  const pay = Math.max(0, r.depth);
+  const deepest = r.depth > 0 && r.depth === Math.max(...L.rooms.map((x) => x.depth));
+  delvePay(pay);
+  if (deepest && !d.deep) {
+    d.deep = true; delvePay(DEEP_PURSE);
+    toast(`+${pay + DEEP_PURSE} ◎ the deepest room (depth ${r.depth}).`, 2600);
+    saveDelves();
+    setTimeout(() => { if (inDungeon) dropLoreBook('in the deepest room', seed); }, 1400);
+    return;
+  }
+  saveDelves();
+  if (pay) { haptics.play('pickup'); toast(`+${pay} ◎ room ${r.depth} deep`, 1800); }
+}
+function runSummary() {
+  if (!run.rooms && !run.crowns && !run.books.length) return;
+  const books = run.books.length ? `, ${run.books.length} lore book${run.books.length > 1 ? 's' : ''} (${run.books.map((t) => `"${t}"`).join(', ')})` : '';
+  toast(`This delve: ${run.rooms} new room${run.rooms === 1 ? '' : 's'}, ${run.crowns} ◎${books}.`, 6000);
+  run = { rooms: 0, crowns: 0, books: [] };
 }
 let descendSheet: HTMLElement | null = null;
 function openDescend() {
@@ -1670,6 +1719,7 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
       d.chest = true; saveDelves();
       inventory.give('trinket', 1); haptics.play('pickup'); gesture('pickup');
       hint(`A trinket from below! Into the bag with it (${keyName('bag')}). Magister Greer would love its story.`, 'A trinket from below (I: inventory). Magister Greer would love to hear its story.', 4500);
+      setTimeout(() => { if (inDungeon) dropLoreBook('under the trinket', seed); }, 4700);   // B48
       return;
     }
     if (s.kind === 'shrine') {
@@ -2846,4 +2896,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
