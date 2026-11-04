@@ -24,6 +24,7 @@ const audit = (sel) => {
     if (!e.offsetParent || !e.childNodes.length || ![...e.childNodes].some((t) => t.nodeType === 3 && t.textContent.trim())) continue;
     if (e.closest('button.primary, kbd, select, .swatch, .qd-svg, svg')) continue;
     const s = getComputedStyle(e); if (s.opacity === '0' || s.visibility === 'hidden') continue;
+    if (s.backgroundImage !== 'none') continue;   // own fill (UI 2 ribbons)
     const bg = s.backgroundColor; if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg) && !/rgba\([^)]*, 0\.[0-6]\d*\)/.test(bg)) continue;   // own solid fill
     const L = lum(s.color), r = (Math.max(L, paper) + 0.05) / (Math.min(L, paper) + 0.05); n++;
     if (r < worst) { worst = r; worstText = e.textContent.trim().slice(0, 30) + ' ' + s.color; }

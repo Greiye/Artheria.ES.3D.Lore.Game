@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 9: UI 2, ribbon titles (Mike 2026-11-04, Graphics thread)
+- Every sheet's title now sits on a green cloth ribbon with gold lettering, gold stitch lines and swallowtail ends. That covers the station panels, the pause menu's journal and groups, extras and dialog cards. Our own art, CSS only.
+- The gold on green keeps 5.8:1 contrast.
+- New `test/e2e-ribbon.mjs` (14/14, PC and phone). `e2e-parchment` skips text with its own fill.
+
 ### v0.14 changelog, part 8: UI 1, parchment panels (Mike 2026-11-04, Graphics thread)
 - Menus and station panels (pause menu, shop, casebook, forges, cooking, skills, gear, dojo, caravan, campfire, extras and dialogs) are now parchment paper in a gold frame, with dark ink text. Our own art: CSS paper with an SVG grain, a gold double rule and a burnt edge. No image files, no GPU cost.
 - Every text on the paper keeps at least 4.5:1 contrast. The title screen menu and the HUD keep their look.
