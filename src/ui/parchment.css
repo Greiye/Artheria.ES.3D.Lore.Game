@@ -1,0 +1,69 @@
+/* UI 1 (Mike 2026-11-04, Graphics thread, "Do it"): menus and station panels become parchment paper in a gold frame,
+   with dark ink text. Our own art: a CSS paper (two soft washes plus an SVG grain made here), a gold double rule and
+   a burnt edge. Loaded last, so it re-skins every panel without touching their layouts. The title screen's menu
+   (over the carved wall) and the HUD keep their own look.
+   Inside a sheet the colour tokens flip: what was light text on dark is now ink on paper. */
+:root {
+  --pp-paper: #EEDFB9; --pp-paper-l: #F6EBCD; --pp-paper-d: #DCC593;
+  --pp-ink: #2C2215; --pp-ink-2: #5B4730; --pp-ink-3: #69512F;
+  --pp-gold: #C99A45; --pp-gold-l: #EBC874; --pp-gold-d: #7A4E14; --pp-edge: #6B4A24;
+  --pp-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='7'/><feColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .12 0 0 0 .55 0'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='.35'/></svg>");
+}
+body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet {
+  --parchment: var(--pp-ink); --parchment-d: var(--pp-paper-d);
+  --stone-l: var(--pp-ink-2); --stone: var(--pp-ink-3); --stone-d: rgba(107,74,36,.45);
+  --rune: var(--pp-gold-d); --gold: var(--pp-gold-d);
+  color: var(--pp-ink);
+  background:
+    var(--pp-grain),
+    radial-gradient(ellipse at 20% 0%, rgba(255,250,230,.55), rgba(255,250,230,0) 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(160,110,50,.22), rgba(160,110,50,0) 60%),
+    linear-gradient(170deg, var(--pp-paper-l), var(--pp-paper) 45%, var(--pp-paper-d));
+  border: 3px solid var(--pp-gold);
+  box-shadow:
+    inset 0 0 0 2px var(--pp-paper-l), inset 0 0 0 3px var(--pp-gold-d),   /* the inner gold rule */
+    inset 0 0 26px rgba(107,74,36,.38),                                     /* burnt edge */
+    0 0 0 1px var(--pp-edge), 0 10px 34px rgba(0,0,0,.45);
+}
+/* Station panels: a sheet on the right with a gilt left edge (bottom sheet on a phone held upright). */
+body .forge-panel { border-right: 0; border-top: 0; border-bottom: 0; border-radius: 10px 0 0 10px; }
+@media (max-width: 600px) { body .forge-panel { border: 3px solid var(--pp-gold); border-bottom: 0; border-radius: 12px 12px 0 0; } }
+/* Pause: two sheets side by side (groups, then the open group's options). */
+.pause-side { border-left: 0; border-radius: 0 10px 10px 0; margin: 8px 0; }
+.pause-panel { border-radius: 10px; margin: 8px; }
+.pause-side:not(.hidden) + .pause-panel { margin-left: 6px; }
+#pause { background: linear-gradient(90deg, rgba(10,7,4,.45), rgba(10,7,4,.1)); }
+.card { border-radius: 12px; }
+
+/* Text that was hard-coded light in the dark skin. */
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(.lead, label, .keys td, output) { color: var(--pp-ink-2); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) .fine { color: var(--pp-ink-3); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) .keys td:nth-child(odd) { color: var(--pp-ink); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(h1, .pause-side h1) {
+  color: var(--pp-ink); background: none; -webkit-background-clip: border-box; background-clip: border-box; filter: none; text-shadow: 0 1px 0 rgba(255,250,230,.7); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(h2, h3) { color: var(--pp-ink); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) .eyebrow { color: var(--pp-gold-d); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) section { border-top-color: rgba(107,74,36,.3); }
+.pause-side { border-right: 3px solid var(--pp-gold); }
+.pause-item { color: var(--pp-ink-2); }
+.pause-item:hover, .pause-item:focus-visible { color: var(--pp-ink); background: linear-gradient(90deg, rgba(201,154,69,.30), transparent); }
+.pause-item.on { color: var(--pp-ink); border-left-color: var(--pp-gold-d); background: linear-gradient(90deg, rgba(201,154,69,.42), transparent); }
+.pause-rule { background: linear-gradient(90deg, rgba(138,92,28,.6), transparent); }
+
+/* Buttons on paper: the carved-wood primary stays; secondary, chips and tabs become inked outlines. */
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) button.secondary { color: var(--pp-ink); border-color: rgba(138,92,28,.6); background: rgba(255,250,230,.35); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) button.secondary:hover { color: var(--pp-ink); border-color: var(--pp-gold-d); background: rgba(235,200,116,.35); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(.chip, .fp-tab) { background: rgba(255,250,230,.4); color: var(--pp-ink); border-color: rgba(107,74,36,.45); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(.chip.on, .fp-tab.on) { background: rgba(235,200,116,.55); border-color: var(--pp-gold-d); box-shadow: inset 0 0 0 1px var(--pp-gold-d); }
+/* Fields: pale paper wells with an ink rule. */
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(input:not([type=range]):not([type=checkbox]):not([type=radio]), textarea, select) {
+  color: var(--pp-ink); background: rgba(255,250,232,.75); border: 1px solid rgba(107,74,36,.5); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(input, textarea)::placeholder { color: var(--pp-ink-3); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(input[type=range], input[type=checkbox], input[type=radio]) { accent-color: var(--pp-gold-d); }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) a { color: #7A3E12; }
+:is(body .forge-panel, .pause-side, .pause-panel, .card, .pp-sheet) :is(button, input, select, textarea, summary):focus-visible { outline-color: var(--pp-gold-d); }
+body[data-input="pad"] :is(body .forge-panel, .pause-side, .pause-panel, .card) :is(button, input, select, textarea, summary, a[href], [tabindex="0"]):focus { outline-color: #A8321C !important; }
+/* Gold and green text from the dark skin, re-inked so it reads on paper. */
+:is(body .forge-panel, .pause-panel, .card, .pp-sheet) :is(.shop-purse, .prof-note, .chip.legendary, .qd-loot, .kt-drama) { color: var(--pp-gold-d); text-shadow: none; }
+:is(body .forge-panel, .pause-panel, .card, .pp-sheet) :is(.sk-got, .sk-steps button.ok) { color: #3E6B2A; border-color: #5E8B3A; }
+:is(body .forge-panel, .pause-panel, .card, .pp-sheet) :is(.insp, .daily) { background: rgba(255,250,230,.4); }

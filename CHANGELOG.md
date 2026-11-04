@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 8: UI 1, parchment panels (Mike 2026-11-04, Graphics thread)
+- Menus and station panels (pause menu, shop, casebook, forges, cooking, skills, gear, dojo, caravan, campfire, extras and dialogs) are now parchment paper in a gold frame, with dark ink text. Our own art: CSS paper with an SVG grain, a gold double rule and a burnt edge. No image files, no GPU cost.
+- Every text on the paper keeps at least 4.5:1 contrast. The title screen menu and the HUD keep their look.
+- New `test/e2e-parchment.mjs` (11/11, PC and phone). `e2e-menus` now checks the parchment sheet instead of the old dark gradient.
+
 ### v0.14 changelog, part 7: town style 2, pixel-art town and lamp light (Mike 2026-11-04, Graphics thread)
 - The town's buildings, roofs, doors, timber and street are pixel art now: each painted tile is cut to 32 pixels a metre with its own 6-colour palette, drawn with crisp pixels up close. The countryside keeps its painted look; the player and named NPCs are unchanged.
 - From dusk every lantern throws a warm pool of light on the ground under it, drawn as pixel-art rings (softer at dusk, brighter at night). One draw call for all of them.
