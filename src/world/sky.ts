@@ -92,8 +92,40 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
     }
     col.needsUpdate = true;
   };
+  // G5 (Mike 2026-11-03, graphics batch): a painted sky in soft bands instead of a smooth airbrushed gradient.
+  // The fragment shader works the same horizon -> upper -> zenith blend per pixel, steps it into bands with soft
+  // edges, and lets the band edges wave a little around the horizon like brushwork. The sun's glow stays smooth.
+  const skyBands = {
+    skyZenith: { value: new THREE.Color(SKY.zenith) }, skyUpper: { value: new THREE.Color(SKY.upper) },
+    skyHorizon: { value: new THREE.Color(SKY.horizon) }, skyGlow: { value: new THREE.Color(SKY.glow) },
+    skySun: { value: sunDir }, skyBandCount: { value: 6 },
+  };
   paintDome(SKY);
-  const dome = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+  const domeMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
+  domeMat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, skyBands);
+    sh.vertexShader = 'varying vec3 vSkyDir;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSkyDir = position;');
+    sh.fragmentShader = `varying vec3 vSkyDir;
+uniform vec3 skyZenith, skyUpper, skyHorizon, skyGlow, skySun;
+uniform float skyBandCount;
+float skyBand(float x) { float f = x * skyBandCount, i = floor(f); return (i + smoothstep(0.38, 0.62, f - i)) / skyBandCount; }
+` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+  {
+    vec3 d = normalize(vSkyDir);
+    float up = clamp(d.y, 0.0, 1.0), az = atan(d.z, d.x);
+    float wave = (sin(az * 3.0 + 1.3) * 0.022 + sin(az * 7.0 + 0.4) * 0.010) * (1.0 - up);
+    float u = clamp(up + wave, 0.0, 1.0);
+    // Step the height itself (in a space that gives the low sky more bands), then paint the usual gradient at
+    // that stepped height: every band is one flat colour, getting bluer toward the top.
+    float uq = pow(skyBand(pow(u, 0.6)), 1.0 / 0.6);
+    vec3 c = mix(skyHorizon, skyUpper, pow(uq, 0.45));
+    c = mix(c, skyZenith, pow(uq, 1.6));
+    c = mix(c, skyGlow, pow(max(0.0, dot(d, skySun)), 8.0) * 0.9);
+    diffuseColor.rgb = c;
+  }`);
+  };
+  domeMat.customProgramCacheKey = () => 'sky-bands';
+  const dome = new THREE.Mesh(skyGeo, domeMat);
   dome.name = 'sky';
   dome.renderOrder = 10;   // drawn after the world, so depth testing skips every pixel already covered
   dome.raycast = noRaycast;
@@ -168,6 +200,7 @@ export function buildSky(scene: THREE.Scene, elevDeg: number, azDeg: number): Sk
       (scene.fog as THREE.Fog).color.set(p.fog);
       (scene.background as THREE.Color).set(p.fog);
       paintDome(p);
+      skyBands.skyZenith.value.set(p.zenith); skyBands.skyUpper.value.set(p.upper); skyBands.skyHorizon.value.set(p.horizon); skyBands.skyGlow.value.set(p.glow);
       disc.position.copy(sunDir).multiplyScalar(170); disc.lookAt(0, 0, 0);
       (disc.material as THREE.MeshBasicMaterial).color.set(p.disc).multiplyScalar(t === 'night' ? 1.1 : 1.5);
       disc.scale.setScalar(t === 'night' ? 0.55 : 1);

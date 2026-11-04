@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 10: banded painted sky (graphics G5, Mike 2026-11-03)
+- The sky is painted in soft flat bands, pale at the horizon and bluer toward the top, instead of a smooth airbrushed gradient. The band edges are soft and wave a little near the horizon, like brushwork. The sun's glow stays smooth. Dusk and night use the same bands in their own colours.
+- It's per pixel in the sky dome's shader (the dome is drawn last, so only visible sky pixels pay).
+- New `test/e2e-banded-sky.mjs` (3/3).
+
 ### v0.13 changelog, part 9: chunkier foliage (graphics G4, Mike 2026-11-03)
 - Bushes are fewer and bigger: each is two or three fat lumps (a dark base with lighter tops), so they sit with the card trees. The triangle budget is about the same as before.
 - Flowers are fewer, bigger clumps with three large flower heads each (cream, gold or pink) and a dark rim so they read from afar. Ferns are a little bigger and fewer.
