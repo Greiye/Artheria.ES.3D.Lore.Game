@@ -16,16 +16,16 @@ declare const __PORTRAITS__: string[];
 const PORTRAIT_FILES: string[] = typeof __PORTRAITS__ === 'undefined' ? [] : __PORTRAITS__;
 export const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 /** The portrait file for a speaker id and mood, or null for the placeholder. */
-function portraitFile(id: string, mood?: string): string | null {
+export function portraitFile(id: string, mood?: string): string | null {
   const find = (base: string) => PORTRAIT_FILES.find((f) => f.replace(/\.[a-z]+$/i, '').toLowerCase() === base);
   return (mood && find(`${id}-${slug(mood)}`)) || find(id) || null;
 }
-function placeholder(name: string): string {
+export function placeholder(name: string): string {
   let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const hue = h % 360, initial = (name.trim()[0] ?? '?').toUpperCase();
   const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-  return `<svg viewBox="0 0 80 100" aria-hidden="true"><defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue} 35% 34%)"/><stop offset="1" stop-color="hsl(${hue} 30% 18%)"/></linearGradient></defs>
-    <rect width="80" height="100" fill="url(#pg)"/><circle cx="40" cy="38" r="17" fill="hsl(${hue} 20% 12% / .75)"/><path d="M8 100 C10 72 24 62 40 62 C56 62 70 72 72 100 Z" fill="hsl(${hue} 20% 12% / .75)"/>
+  return `<svg viewBox="0 0 80 100" aria-hidden="true"><defs><linearGradient id="pg${hue}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue} 35% 34%)"/><stop offset="1" stop-color="hsl(${hue} 30% 18%)"/></linearGradient></defs>
+    <rect width="80" height="100" fill="url(#pg${hue})"/><circle cx="40" cy="38" r="17" fill="hsl(${hue} 20% 12% / .75)"/><path d="M8 100 C10 72 24 62 40 62 C56 62 70 72 72 100 Z" fill="hsl(${hue} 20% 12% / .75)"/>
     <text x="40" y="45" text-anchor="middle" font-size="18" font-family="Georgia, serif" fill="hsl(${hue} 60% 82%)">${esc(initial)}</text></svg><span class="d-pname">${esc(name)}</span>`;
 }
 

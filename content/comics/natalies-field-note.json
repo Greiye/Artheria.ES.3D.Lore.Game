@@ -1,0 +1,11 @@
+{
+  "book": "natalies-field-note",
+  "panels": [
+    { "scene": "The Ruined Library at dusk. Smoke still curls from the stone.", "caption": "Field note. The Ruined Library, at the door. Dusk.", "wide": true },
+    { "scene": "Scorched shelves just inside the doorway.", "caption": "The orcs burned this place long ago, and it still hasn't finished burning. You can smell it in the stone." },
+    { "scene": "Natalie sits on the step outside, writing. Her hands shake.", "caption": "Four of us went in at noon.", "say": [{ "who": "natalie", "name": "Natalie", "text": "I came out alone." }] },
+    { "scene": "A small, quick goblin mid-leap with a knife. A crossbow string snaps.", "caption": "It doesn't fight like a soldier. It fights like a child who found a knife and made up a game.", "say": [{ "who": "natalie", "name": "Natalie", "text": "It bit through the Archer's crossbow string." }] },
+    { "scene": "The goblin hugs a stack of red books between the shelves.", "caption": "What I don't know: why it stays.", "say": [{ "who": "natalie", "name": "Natalie", "text": "This one keeps the red books." }] },
+    { "scene": "Natalie looks up from the page, straight at you.", "say": [{ "who": "natalie", "name": "Natalie", "text": "If you are reading this, you are about to go in. Stay low. Leave the red ones be until it looks away." }], "caption": "I will finish this note when I find them.", "wide": true }
+  ]
+}
