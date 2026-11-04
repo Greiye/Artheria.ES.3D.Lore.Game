@@ -2217,7 +2217,17 @@ window.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => player.held.clear());
 
 // ---------- mouse look ----------
-window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') setMode('mouse'); else if (e.pointerType === 'touch') setMode('touch'); });   // B32: a touch after a key press brings the touch buttons back
+window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') setMode('mouse'); else if (e.pointerType === 'touch') setMode('touch'); });
+// Mike 2026-11-04: every button buzzes under a finger, not just the touch HUD's (which buzz from src/input/touch.ts):
+// menus, panels, chips, toggles and sliders. Same short "tap" as the HUD.
+const TAPPABLE = 'button, [role="button"], .chip, a[href], select, label.check, input[type="checkbox"], input[type="radio"], input[type="range"], summary';
+window.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return;
+  const t = e.target as HTMLElement | null;
+  const hit = t?.closest?.(TAPPABLE) as HTMLElement | null;
+  if (!hit || hit.closest('.t-btn') || (hit as HTMLButtonElement).disabled) return;
+  haptics.play('tap');
+});   // B32: a touch after a key press brings the touch buttons back
 window.addEventListener('mousedown', (e) => {
   if (state !== 'play') return;
   if (e.button === 0) {

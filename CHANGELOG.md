@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.14 changelog, part 2: buttons buzz on phones (Mike 2026-11-04)
+- Every button you tap on a phone now gives a short buzz: menus, pause, panels, chips, toggles and sliders, as well as the touch HUD.
+- iPhone Safari has no vibration API. On iOS 18 and later a tap now ticks the Taptic Engine through a hidden system switch, the one haptic a web page can reach on iPhone. Older iOS stays silent.
+- Settings > Vibration still turns it all off. The work is in `src/input/haptics.ts`, plus one listener in `src/main.ts`.
+- New `test/e2e-touch-haptics.mjs` (7/7).
+
 ### v0.14 changelog, part 1: your first day (B36, Mike 2026-11-04)
 - A new profile gets a short guided first day that teaches the main loop: get up, write something at the Scriptorium, make something at the Tailor or the Smithy, then sit at the campfire.
 - Natalie points the way. Her lines appear under the screen, and a gold marker floats over the next door. A small card in the top-left shows the step you're on ("First day · 2 of 4").
