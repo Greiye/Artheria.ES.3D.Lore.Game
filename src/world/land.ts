@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pixelTexture, rng, type TexName } from '../tex/pixel';
+import { pixelTexture, brushLayerTexture, rng, type TexName } from '../tex/pixel';
 import type { Batch } from './batch';
 import type { Collider } from './index';
 
@@ -53,11 +53,11 @@ function pathMask(): THREE.CanvasTexture {
 /** The ground's material: painted grass, with dirt blended in along the paths (one draw call). */
 export function groundMaterial(): THREE.MeshLambertMaterial {
   const m = new THREE.MeshLambertMaterial({ map: pixelTexture('grass') });
-  const mask = pathMask(), dirt = pixelTexture('dirt');
+  const mask = pathMask(), dirt = pixelTexture('dirt'), brush = brushLayerTexture();
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.pathMask = { value: mask }; sh.uniforms.dirtMap = { value: dirt };
+    sh.uniforms.pathMask = { value: mask }; sh.uniforms.dirtMap = { value: dirt }; sh.uniforms.brushMap = { value: brush };
     sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying vec2 vGroundXZ;\nvoid main() {\n  vGroundXZ = position.xz;');
-    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform sampler2D pathMask;\nuniform sampler2D dirtMap;\nvarying vec2 vGroundXZ;\nvoid main() {')
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform sampler2D pathMask;\nuniform sampler2D dirtMap;\nuniform sampler2D brushMap;\nvarying vec2 vGroundXZ;\nvoid main() {')
       .replace('#include <map_fragment>', `#include <map_fragment>
       {
         float pm = texture2D(pathMask, (vGroundXZ + ${(SPAN / 2).toFixed(1)}) / ${SPAN.toFixed(1)}).r;
@@ -65,6 +65,10 @@ export function groundMaterial(): THREE.MeshLambertMaterial {
         // A ragged edge: the dirt's own brightness decides which side of the fade a texel falls.
         float k = smoothstep(0.25, 0.7, pm + (dirt.r - 0.5) * 0.35);
         diffuseColor.rgb = mix(diffuseColor.rgb, dirt.rgb * vec3(1.02, 0.97, 0.9), k);
+        // G1: broad painted strokes at two scales (the second turned), lighter ones warm, darker ones cool.
+        vec2 bq = vGroundXZ;
+        float b = 0.5 * (texture2D(brushMap, bq / 14.0).r + texture2D(brushMap, vec2(bq.x * 0.8 - bq.y * 0.6, bq.x * 0.6 + bq.y * 0.8) / 23.0 + 0.37).r);
+        diffuseColor.rgb *= mix(vec3(0.74, 0.80, 0.92), vec3(1.22, 1.17, 0.95), clamp((b - 0.5) * 2.0 + 0.5, 0.0, 1.0));
       }`);
   };
   m.customProgramCacheKey = () => 'ground-paths';

@@ -322,6 +322,35 @@ function dilated(c: HTMLCanvasElement): THREE.DataTexture | null {
   return t;
 }
 
+// G1 (Mike 2026-11-03, "painted ground"): a big, soft layer of broad brush strokes in grey (128 = no change),
+// laid over the ground at ~14 m and ~23 m scales so the meadow reads as hand-painted, not as a repeating 1 m tile.
+let brushLayer: THREE.CanvasTexture | null = null;
+export function brushLayerTexture(): THREE.CanvasTexture {
+  if (brushLayer) return brushLayer;
+  const W = 256, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d')!, R = rng(4242);
+  g.fillStyle = '#808080'; g.fillRect(0, 0, W, H);
+  // Big soft washes first, then strokes in a few loose directions, like a painter blocking in a field.
+  scatter(26, W, H, R, (x, y) => dab(g, W, H, x, y, 22 + R() * 30, R() < 0.5 ? '#5A5A5A' : '#A8A8A8', 0.35));
+  const dirs = [-0.35, 0.15, 0.6];
+  scatter(260, W, H, R, (x, y, i) => {
+    const light = R() < 0.5, v = light ? 150 + Math.floor(R() * 40) : 70 + Math.floor(R() * 40);
+    const col = '#' + v.toString(16).padStart(2, '0').repeat(3);
+    stroke(g, W, H, x, y, dirs[i % 3] + (R() - 0.5) * 0.5, 16 + R() * 30, 5 + R() * 7, col, 0.22 + R() * 0.18, (R() - 0.5) * 8);
+  });
+  // Stretch to the full range so the shader controls the strength (soft alpha strokes alone stay close to grey).
+  const img = g.getImageData(0, 0, W, H), d = img.data;
+  let lo = 255, hi = 0;
+  for (let i = 0; i < d.length; i += 4) { lo = Math.min(lo, d[i]); hi = Math.max(hi, d[i]); }
+  for (let i = 0; i < d.length; i += 4) { const v = Math.round((d[i] - lo) / Math.max(1, hi - lo) * 255); d[i] = d[i + 1] = d[i + 2] = v; }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+  brushLayer = t;
+  return t;
+}
+
 export function pixelTexture(name: TexName): THREE.Texture {
   let t = cache.get(name);
   if (t) return t;

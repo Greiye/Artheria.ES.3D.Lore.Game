@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 6: painted ground (graphics G1, Mike 2026-11-03)
+- The meadow, town grass and paths carry a broad layer of soft brush strokes: lighter warm patches and darker cool ones, at two crossing scales, so the ground reads as hand-painted instead of one repeating tile.
+- Cost: one 256 px texture and two extra texture reads in the ground shader, on every preset.
+- New `test/e2e-painted-ground.mjs` (3/3).
+
 ### v0.13 changelog, part 5: steady aim with the crossbow (B44, Mike 2026-11-03)
 - With the crossbow in first person there's no crosshair. The aim (and the view with it) wanders with a slow drift and your breathing, body-cam style.
 - Holding still fills a stability meter that calms it. Aiming down the sights steadies you fully in about 1.6 s; from the hip it only gets part way.
