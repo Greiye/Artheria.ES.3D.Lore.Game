@@ -127,6 +127,8 @@ export interface Town {
   lanterns: THREE.Vector3[];
   /** The lit-window material (brighter at night). */
   windows: THREE.MeshBasicMaterial;
+  /** G3: a point just in front of each lit window, for its dusk/night glow. */
+  windowSpots: THREE.Vector3[];
   /** UX pass: the top of every chimney (smoke rises from these; src/world/smoke.ts). */
   chimneys: THREE.Vector3[];
   /** UX pass: the fingerpost where the lane meets the green, one arm per building. */
@@ -139,7 +141,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const tint = (t: TexName, color: string) => tinted.get(t + color) ?? (tinted.set(t + color, new THREE.MeshLambertMaterial({ map: pixelTexture(t), color })), tinted.get(t + color)!);
   const glow = new THREE.MeshBasicMaterial({ color: '#F2C27A' });
   const lanternMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#FFC878').multiplyScalar(1.7) });
-  const lanterns: THREE.Vector3[] = [], chimneys: THREE.Vector3[] = [];
+  const lanterns: THREE.Vector3[] = [], chimneys: THREE.Vector3[] = [], windowSpots: THREE.Vector3[] = [];
   let bed = { x: 0, z: 0, yaw: 0 };
   const doors = {} as Record<TownId, THREE.Object3D>;
   const local = (L: Spot) => { const c = Math.cos(L.ry), s = Math.sin(L.ry); return (lx: number, y: number, lz: number) => V(L.x + lx * c + lz * s, y, L.z - lx * s + lz * c); };
@@ -168,6 +170,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
       // Two lit windows upstairs on the front.
       for (const x of [-Wt * 0.28, Wt * 0.28]) {
         B.add(glow, new THREE.BoxGeometry(0.8, 0.8, 0.06), at(x, PLINTH + WALL + UPPER * 0.52, Dt / 2 + 0.03), undefined, L.ry);
+        windowSpots.push(at(x, PLINTH + WALL + UPPER * 0.52, Dt / 2 + 0.35));
         B.add(wood, new THREE.BoxGeometry(0.08, 0.8, 0.1), at(x, PLINTH + WALL + UPPER * 0.52, Dt / 2 + 0.06), undefined, L.ry);
       }
     }
@@ -200,6 +203,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     lanterns.push(at(0.95, PLINTH + 2.22, D / 2 + 0.3));
     for (const x of [-W * 0.36, W * 0.36]) {
       B.add(glow, new THREE.BoxGeometry(0.9, 0.9, 0.06), at(x, PLINTH + 1.7, D / 2 + 0.03), undefined, L.ry);
+      windowSpots.push(at(x, PLINTH + 1.7, D / 2 + 0.35));
       B.add(wood, new THREE.BoxGeometry(1.08, 0.12, 0.14), at(x, PLINTH + 1.2, D / 2 + 0.06), undefined, L.ry);
       B.add(wood, new THREE.BoxGeometry(0.08, 0.9, 0.1), at(x, PLINTH + 1.7, D / 2 + 0.07), undefined, L.ry);
     }
@@ -299,7 +303,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const shopkeeperHit = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
   shopkeeperHit.position.copy(sa(2.0, 0.9, shop.d / 2 + 2.55)); shopkeeperHit.rotation.y = shop.ry; shopkeeperHit.name = 'shopkeeper';
   scene.add(shopkeeperHit);
-  return { doors, shopkeeper, shopkeeperHit, cinema: cin, bed, lanterns, windows: glow, chimneys, fingerpost };
+  return { doors, shopkeeper, shopkeeperHit, cinema: cin, bed, lanterns, windows: glow, windowSpots, chimneys, fingerpost };
 }
 
 // ---------- Style pass 2: storybook dressing (window boxes, pots, awnings, barrels, a well, bunting) ----------
