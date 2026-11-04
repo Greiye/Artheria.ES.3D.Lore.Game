@@ -113,7 +113,8 @@ check('v0.06 W6 the prompt sits between the middle and the bottom (about 65–70
 await G(page, () => window.__gametool.openShop());
 await until(page, () => window.__gametool.shop.isOpen);
 const grad = await G(page, () => [document.querySelector('.shop-panel'), document.querySelector('#pause .pause-side')].map((e) => getComputedStyle(e).backgroundImage));
-check('v0.06 P3 side panels (shop, pause sidebar) share the edge-to-centre opacity gradient (B29: station panels run from the right edge)', grad.every((g) => /linear-gradient\((?:90|270)deg, rgba\(36, 25, 15, 0\.97\), rgba\(36, 25, 15, 0\.62\)\)/.test(g)), grad[0].slice(0, 90));
+// UI 1 (Mike 2026-11-04) replaced P3's dark edge-to-centre gradient: side panels (shop, pause sidebar) share the parchment sheet.
+check('UI 1 side panels (shop, pause sidebar) share the parchment sheet', grad.every((g) => /svg\+xml/.test(g) && /linear-gradient\(170deg/.test(g)) && grad[0] === grad[1], grad[0].slice(0, 90));
 await page.click('[data-act="close"]');
 await until(page, () => window.__gametool.state === 'play');
 

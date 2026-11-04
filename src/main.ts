@@ -106,6 +106,7 @@ import { NEXT_TIME, type TimeOfDay } from './world/sky';
 import { glyph } from './input/glyphs';
 import { topPanel, padMove, padNudge, padPress, padBack, type PadDir } from './input/padnav';
 import { storeSet } from './store';
+import './ui/parchment.css';   // UI 1: parchment panels, loaded last so it skins every panel
 
 // Private, all rights reserved (D8). Not open source.
 
