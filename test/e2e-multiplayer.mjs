@@ -13,14 +13,18 @@ const results = [];
 const check = (id, ok, detail = '') => { results.push({ id, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${id}${detail ? '  — ' + detail : ''}`); };
 const ctx = await browser.newContext({ viewport: { width: 1100, height: 680 } });
 const errors = [];
-const open = async (query = '') => {
+// Extra players for the full-room check skip Begin and use a tiny window: on CI's software renderer six full game
+// pages at once starve each other.
+const open = async (query = '', { begin = true } = {}) => {
   const page = await ctx.newPage();
+  if (!begin) await page.setViewportSize({ width: 160, height: 120 });
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.route(/^https?:/, (r) => r.abort());
   await page.goto('file://' + file + '?net=local' + query, { timeout: 180000 });
   await page.waitForFunction(() => window.__gametool, null, { timeout: 180000 });
   await page.waitForTimeout(300);
+  if (!begin) return page;
   await page.evaluate(() => document.querySelector('#begin').click());
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 180000 });
   return page;
@@ -65,9 +69,10 @@ await a.waitForFunction(() => window.__gametool.friends.room?.count === 1, null,
 check('Leaving removes you from the room', await G(a, () => window.__gametool.friends.room.count === 1));
 
 // Full room: four fit, the fifth is turned away.
+await b.close();   // Ben is done (and already out of the room)
 const extra = [];
 for (const n of ['C', 'D', 'E', 'F']) {   // (Ben left above: Ana + C, D, E make four; F is the fifth)
-  const p = await open();
+  const p = await open('', { begin: false });
   await G(p, ([code, name]) => { localStorage.setItem('gametool.net.name', name); return window.__gametool.friends.start(code); }, [hosted.code, n]);
   await p.waitForTimeout(600);
   extra.push(p);
