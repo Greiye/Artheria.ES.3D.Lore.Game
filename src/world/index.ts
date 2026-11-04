@@ -236,11 +236,17 @@ export function buildWorld(): World {
   }
   shadowCasters.push(cardMesh(scene, cardGeos, 'tree-cards'));
   // Bushes: low leaf blocks, walk-through (soft foliage, see assumptions).
-  for (let i = 0; i < 110; i++) {
+  // G4 (Mike 2026-11-03, graphics batch): chunkier and simpler, to sit with the card trees. Fewer, bigger bushes,
+  // each two or three fat lumps (a dark base and a lighter top), about the same triangle budget as before.
+  for (let i = 0; i < 75; i++) {
     const x = (R() * 2 - 1) * (HALF - 1), z = (R() * 2 - 1) * (HALF - 1);
-    if (clear(x, z, 1)) continue;
-    const s = 0.6 + R() * 0.7;
-    leafB.add(R() < 0.5 ? canopyLight : canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, heightAt(x, z) + s * 0.4, z), V(s * 1.3, s * 0.85, s * 1.2), R() * 3);
+    if (clear(x, z, 1.4)) continue;
+    const s = 0.9 + R() * 0.6, gy = heightAt(x, z), n = R() < 0.5 ? 2 : 3, ry = R() * 3;
+    leafB.add(canopyDark, new THREE.IcosahedronGeometry(0.62, 0), V(x, gy + s * 0.38, z), V(s * 1.45, s * 0.8, s * 1.3), ry);
+    for (let k = 1; k < n; k++) {
+      const a = ry + k * 2.3, d = s * 0.45;
+      leafB.add(canopyLight, new THREE.IcosahedronGeometry(0.62, 0), V(x + Math.cos(a) * d, gy + s * 0.62, z + Math.sin(a) * d), V(s * 0.9, s * 0.7, s * 0.85), R() * 3);
+    }
   }
   leafB.flush(scene, 'canopy').forEach((m) => { m.raycast = () => {}; shadowCasters.push(m); });
 
@@ -314,8 +320,8 @@ export function buildWorld(): World {
   // Tufts are scattered in random order, so drawing the first N keeps an even spread at any density.
   const undergrowth = [
     tufts(scene, 'grassBlades', scatter(2000, 1.5, 30, -0.6, 0.8), [0.6, 0.5]),
-    tufts(scene, 'flowers', scatter(320, 3, 30, 0.2), [0.5, 0.45]),
-    tufts(scene, 'fern', scatter(300, 4, 40, 0.6), [1.1, 0.8], 0.05),
+    tufts(scene, 'flowers', scatter(200, 3, 30, 0.2), [0.75, 0.62]),   // G4: fewer, bigger flower clumps
+    tufts(scene, 'fern', scatter(240, 4, 40, 0.6), [1.35, 1.0], 0.05),
   ];
   const fullCounts = undergrowth.map((m) => m.count);
 
