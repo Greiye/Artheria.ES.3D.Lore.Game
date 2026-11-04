@@ -105,6 +105,11 @@
       "name": "Pot of Mealworms",
       "icon": "∴",
       "note": "Wriggling and crunchy. A treat for something prickly."
+    },
+    "seeds": {
+      "name": "Bag of Sunflower Seeds",
+      "icon": "⁖",
+      "note": "Striped and salty. Something with big cheeks would carry off the lot."
     }
   }
 }

@@ -14,8 +14,8 @@ const STOCK: Ware[] = [
   { id: 'ocarina', n: 1, price: 18 },
   { id: 'violin', n: 1, price: 40 },
 ];
-/** v0.06 E2: everyday sundries, listed faded below the main stock. Bread, dried fish, jerky and mealworms befriend the pets. */
-const SUNDRIES: Ware[] = ['candle', 'wax', 'lampOil', 'soap', 'twine', 'chalk', 'salt', 'bread', 'fish', 'jerky', 'mealworms'].map((id, i) => ({ id, n: 1, price: 1 + (i % 3) }));
+/** v0.06 E2: everyday sundries, listed faded below the main stock. Bread, dried fish, jerky, mealworms and sunflower seeds befriend the pets. */
+const SUNDRIES: Ware[] = ['candle', 'wax', 'lampOil', 'soap', 'twine', 'chalk', 'salt', 'bread', 'fish', 'jerky', 'mealworms', 'seeds'].map((id, i) => ({ id, n: 1, price: 1 + (i % 3) }));
 /** What the shopkeeper pays for one of each. */
 const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };
 

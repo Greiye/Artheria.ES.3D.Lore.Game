@@ -83,6 +83,20 @@ for (const [name, opts] of [['PC', { viewport: { width: 1280, height: 720 } }], 
   const vol = (a) => a[0] * a[1] * a[2];
   check(`${name}: Shadow the giant hedgehog, dog-sized, takes mealworms and joins you`, hog.name === 'Shadow' && hog.v0 === 'Pet Shadow' && hog.v === 'Give Shadow some mealworms' && hog.friend && hog.with
     && vol(hog.size) > vol(hog.dog) * 0.6 && vol(hog.size) < vol(hog.dog) * 1.8, JSON.stringify(hog));
+  // Mike's seven named dogs (Kona a chihuahua) and the giant hamster: each its own pet at its own spot, clear of walls.
+  const pack = await G(() => { const g = window.__gametool, ids = ['princess', 'milo', 'hotdog', 'brandy', 'buster', 'peanut', 'kona', 'hamster'];
+    const size = (o) => { const b = new g.Box3().setFromObject(o); return +((b.max.x - b.min.x) * (b.max.y - b.min.y) * (b.max.z - b.min.z)).toFixed(3); };
+    const inWall = (p) => g.world.colliders.some((c) => c.kind === 'circle' ? Math.hypot(p.x - c.x, p.z - c.z) < c.r : c.kind === 'box' && p.x > c.minX && p.x < c.maxX && p.z > c.minZ && p.z < c.maxZ);
+    const ps = ids.map((id) => g.pets.find((p) => p.id === id));
+    const spots = ps.map((p) => [p.pos.x, p.pos.z]);
+    const apart = spots.every((a, i) => spots.every((b, j) => i === j || Math.hypot(a[0] - b[0], a[1] - b[1]) > 2));
+    return { names: ps.map((p) => p?.name), apart, walls: ps.filter((p) => inWall(p.pos)).map((p) => p.id), kona: size(ps[6].root), dog: size(g.dog.root), hamster: size(ps[7].root), konaKind: ps[6].sp.kind };
+  });
+  check(`${name}: seven named dogs and a giant hamster, each at its own spot`, pack.names.join() === 'Princess,Milo,Hot Dog,Brandy,Buster,Peanut,Kona,' && pack.apart && !pack.walls.length, JSON.stringify(pack));
+  check(`${name}: Kona is a chihuahua (tiny), the hamster is dog-sized`, pack.konaKind === 'chihuahua' && pack.kona < pack.dog * 0.25 && pack.hamster > pack.dog * 0.6 && pack.hamster < pack.dog * 2, JSON.stringify(pack));
+  const kona = await G(() => { const g = window.__gametool, k = g.pets.find((p) => p.id === 'kona'), t = g.interactables.find((i) => i.obj === k.hit);
+    g.inventory.give('bread', 1); const v = t.verb(); t.act(); return { v, friend: k.friend, with: k.following }; });
+  check(`${name}: Kona takes bread and joins you`, kona.v === 'Give Kona some bread' && kona.friend && kona.with, JSON.stringify(kona));
   // The owl: not out by day; at night it is, and jerky befriends it; it flies at shoulder height when you move.
   const owlDay = await G(() => { const g = window.__gametool, o = g.pets.find((p) => p.id === 'owl'); g.world.setTime('day'); return { shown: o.shown(), canTalk: g.interactables.find((i) => i.obj === o.hit).when() }; });
   await G(() => window.__gametool.world.setTime('night'));

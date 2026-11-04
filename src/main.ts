@@ -903,6 +903,15 @@ const pets = ([
   ['cat', outFrom(world.town.doors.shop, 1.9, -2.2), world.town.doors.shop.rotation.y + 0.6],
   ['owl', new THREE.Vector3(3.6, 0, -16.6), Math.PI * 0.85],   // on the grass by the Ruined Library's steps
   ['hedgehog', world.stations.campfire.position.clone().add(new THREE.Vector3(3.2, 0, 2.4)), -2.2],   // Shadow, snuffling by the campfire
+  // Mike 2026-11-04: seven named dogs, each by its own door, and a giant hamster by the Cartographer's.
+  ['princess', outFrom(world.town.doors.gallery, 2.2, 1.6), world.town.doors.gallery.rotation.y],
+  ['milo', outFrom(world.town.doors.smithy, 2.4, -1.8), world.town.doors.smithy.rotation.y + 0.5],
+  ['hotdog', outFrom(world.town.doors.scriptorium, 2.2, 1.7), world.town.doors.scriptorium.rotation.y - 0.4],
+  ['brandy', outFrom(world.town.doors.library, 2.6, 2.2), world.town.doors.library.rotation.y],
+  ['buster', outFrom(world.town.doors.dojo, 2.6, -1.9), world.town.doors.dojo.rotation.y + 0.3],
+  ['peanut', outFrom(world.town.doors.tailor, 2.0, -1.6), world.town.doors.tailor.rotation.y],
+  ['kona', outFrom(world.town.doors.inn, 2.2, -1.7), world.town.doors.inn.rotation.y - 0.5],
+  ['hamster', outFrom(world.town.doors.cartographer, 2.3, 1.8), world.town.doors.cartographer.rotation.y + 0.4],
 ] as [PetId, THREE.Vector3, number][]).map(([id, home, ry]) => {
   const p = new Pet(id, world.scene, home, ry, world.colliders, () => player.bounds, petPrefs);
   p.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
@@ -924,18 +933,22 @@ for (const p of pets) interactables.push({ obj: p.hit, when: () => (!inDungeon |
     if (!p.friend) {
       const food = ITEMS[p.sp.food]?.name.toLowerCase() ?? p.sp.foodName;
       if (!inventory.take(p.sp.food)) {
-        toast(p.id === 'dog' ? `The dog sniffs your hand and wags. It looks hungry: the General Store sells ${food}.`
-          : p.id === 'cat' ? `The cat lets you scratch behind one ear, then looks at your empty hand. The General Store sells ${food}.`
-            : p.id === 'owl' ? `The owl blinks at your empty hand. The General Store sells ${food}.`
-              : `Shadow huffs at your hand and raises a few spines, then snuffles your pockets for food. The General Store sells ${food}.`, 3600);
+        const who = cap(p.label);
+        toast(p.sp.kind === 'cat' ? `${who} lets you scratch behind one ear, then looks at your empty hand. The General Store sells ${food}.`
+          : p.sp.kind === 'owl' ? `The owl blinks at your empty hand. The General Store sells ${food}.`
+            : p.sp.kind === 'hedgehog' ? `${who} huffs at your hand and raises a few spines, then snuffles your pockets for food. The General Store sells ${food}.`
+              : p.sp.kind === 'hamster' ? `${who} sniffs your fingers, whiskers going, and stuffs nothing into its cheeks. The General Store sells ${food}.`
+                : `${who} sniffs your hand and wags. ${p.name ? 'They look' : 'It looks'} hungry: the General Store sells ${food}.`, 3600);
         return;
       }
       for (const o of pets) if (o.following) o.follow(false);
       p.befriend(); haptics.play('pickup');
-      toast(p.id === 'dog' ? 'The dog wolfs the bread down. It\'s yours now, and it trots after you. Talk to it to give it a name.'
-        : p.id === 'cat' ? 'The cat eats the fish in three bites and winds round your ankles. It\'s yours now. Talk to it to give it a name.'
-          : p.id === 'owl' ? 'The owl takes the jerky from your fingers and settles on your shoulder. It\'s yours now. Talk to it to give it a name.'
-            : 'Shadow crunches through the mealworms, smooths down every spine and trundles after you. Shadow is yours now.', 4200);
+      const who = cap(p.label), nm = p.name ? '' : ' Talk to it to give it a name.';
+      toast(p.sp.kind === 'cat' ? `${who} eats the fish in three bites and winds round your ankles. It's yours now.${nm}`
+        : p.sp.kind === 'owl' ? `${who} takes the jerky from your fingers and settles on your shoulder. It's yours now.${nm}`
+          : p.sp.kind === 'hedgehog' ? `${who} crunches through the mealworms, smooths down every spine and trundles after you. ${who} is yours now.`
+            : p.sp.kind === 'hamster' ? `${who} crams every seed into its bulging cheeks and waddles after you. ${who} is yours now.${nm}`
+              : `${who} wolfs the bread down and trots after you, tail going. ${p.name ? who + ' is' : "It's"} yours now.${nm}`, 4200);
       return;
     }
     enterForge();
@@ -1566,7 +1579,7 @@ function petSense(dt: number) {
     if (near && now - (warnedFoe.get(near) ?? -1e9) > 15000) {
       warnedFoe.set(near, now); warned = true; lastWarn = now;
       p.alert(near.root.position);
-      toast(p.sp.kind === 'cat' ? `${who} arches its back and hisses.` : p.sp.kind === 'owl' ? `${who} hoots a warning.` : p.sp.kind === 'hedgehog' ? `${who} rolls into a ball of spines, huffing.` : `${who} growls low at the dark ahead.`, 2400);
+      toast(p.sp.kind === 'cat' ? `${who} arches its back and hisses.` : p.sp.kind === 'owl' ? `${who} hoots a warning.` : p.sp.kind === 'hedgehog' ? `${who} rolls into a ball of spines, huffing.` : p.sp.kind === 'hamster' ? `${who} freezes and squeaks a warning.` : `${who} growls low at the dark ahead.`, 2400);
     }
   }
   // What's still hidden near you: an unopened chest below, an unfound clue up top.
@@ -1583,7 +1596,7 @@ function petSense(dt: number) {
   p.lead = lead;
   if (lead && !warned && now - lastWarn > 3000 && !sniffed.has(key)) {   // (a warning comes first; the find is said after)
     sniffed.add(key);
-    toast(p.sp.kind === 'cat' ? `${who} paws at something nearby.` : p.sp.kind === 'owl' ? `${who} circles something below.` : p.sp.kind === 'hedgehog' ? `${who} snuffles at something here.` : `${who} has its nose down: something's here.`, 2800);
+    toast(p.sp.kind === 'cat' ? `${who} paws at something nearby.` : p.sp.kind === 'owl' ? `${who} circles something below.` : p.sp.kind === 'hedgehog' ? `${who} snuffles at something here.` : p.sp.kind === 'hamster' ? `${who} digs at something here.` : `${who} has its nose down: something's here.`, 2800);
   }
 }
 function barkTick(dt: number) {
