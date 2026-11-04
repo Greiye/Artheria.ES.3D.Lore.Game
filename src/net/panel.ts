@@ -1,6 +1,7 @@
 import { escapeHtml } from '../submit';
 // (Blocks are .net-sec divs, not <section>s: fit-panel would turn sections into tabs, and host / join / name belong on one page.)
 import { Room, MAX_PLAYERS, NAME_MAX, cleanCode, newCode, loadNetName, saveNetName, type LeaveWhy } from './room';
+import { EMOTES } from './emotes';
 import './net.css';
 
 // Play with friends (Mike 2026-11-04, multiplayer PR 1): host a room or join one by code; see who's in it; leave.
@@ -14,6 +15,8 @@ export class FriendsPanel {
   /** Called whenever the room starts, changes or ends (main.ts adds and removes the other players). */
   onRoom: (room: Room | null, why?: LeaveWhy) => void = () => {};
   toast: (msg: string) => void = () => {};
+  /** Say a preset phrase or do an emote (multiplayer 3; main.ts sends it and shows your bubble). */
+  emote: (i: number) => void = () => {};
 
   constructor(private fallbackName: () => string, private mode: () => 'p2p' | 'local', private onClose: () => void) {
     this.el = document.createElement('div');
@@ -108,7 +111,8 @@ export class FriendsPanel {
           <label class="field">Room code<input id="netCode" type="text" maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="K7MPQ"></label>
           <div class="forge-actions"><button class="primary" data-net="join" ${this.busy ? 'disabled' : ''}>${this.busy ? 'Joining…' : 'Join'}</button></div></div>`;
     } else {
-      const who = r.everyone.map((m) => `<li>${escapeHtml(m.name)}${m === r.self ? ' <span class="fine">(you)</span>' : ''}${m.host ? ' <span class="net-host">host</span>' : ''}</li>`).join('');
+      const who = r.everyone.map((m) => `<li>${escapeHtml(m.name)}${m === r.self ? ' <span class="fine">(you)</span>' : ''}${m.host ? ' <span class="net-host">host</span>' : ''}${r.isHost && m !== r.self ? ` <button class="net-kick" data-kick="${escapeHtml(m.id)}" aria-label="Remove ${escapeHtml(m.name)} from the room">Remove</button>` : ''}</li>`).join('');
+      const says = EMOTES.map((e, i) => `<button class="net-say" data-emote="${i}">${escapeHtml(e.label)}</button>`).join('');
       const status = r.status === 'connecting'
         ? (slow ? 'Still looking for the room. Check the code with your friend; strict school or work Wi-Fi can block rooms.' : 'Looking for the room…')
         : r.count === 1 ? 'Waiting for friends to join.' : `${r.count} of ${MAX_PLAYERS} players.`;
@@ -117,6 +121,8 @@ export class FriendsPanel {
           <div class="forge-actions"><button class="secondary" data-net="copy">Copy invite link</button></div>
           <p class="fine" id="netStatus" aria-live="polite">${status}</p>
           <ul class="net-list">${who}</ul></div>
+        <div class="net-sec"><h4>Say</h4><div class="net-says">${says}</div>
+          <p class="fine">Pick a phrase: it shows over your head for everyone in the room.</p></div>
         <div class="net-sec"><h4>Who you are</h4>${nameField}</div>
         <div class="forge-actions"><button class="secondary" data-net="leave">Leave the room</button></div>`;
     }
@@ -133,6 +139,12 @@ export class FriendsPanel {
     const b = (e.target as HTMLElement).closest('button') as HTMLButtonElement | null;
     if (!b) return;
     const act = b.dataset.net;
+    if (b.dataset.emote !== undefined) { const i = Number(b.dataset.emote); this.close(); this.emote(i); return; }
+    if (b.dataset.kick && this.room) {
+      const m = this.room.members.get(b.dataset.kick);
+      if (m) { this.room.kick(m.id); this.toast(`${m.name} was removed from the room`); }
+      return;
+    }
     if (act === 'close') this.close();
     else if (act === 'host') void this.start(null);
     else if (act === 'join') void this.join();

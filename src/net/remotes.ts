@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { buildFigure } from '../world/figure';
 import { FigureAnim, type AnimInput, type Pose } from '../anim/procedural';
 import { cleanLook, type NetLook } from './look';
+import { Bubble } from './emotes';
+
+/** Held things, cloned from the player's own (shared geometry): main.ts supplies them. */
+export interface Props { sword: THREE.Object3D; torch: THREE.Object3D; book: THREE.Object3D }
 
 // The other players in the room (multiplayer PR 2): each is a rigged figure like a townsperson, placed from the
 // 12-a-second state its owner sends and smoothed in between. The rig, culling and drawing are main.ts's usual
@@ -15,8 +19,8 @@ const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** One frame of what you're doing, packed small: [x, y, z, yaw, scaleY, speed, flags, pose, swing, combo, lookYaw, lookPitch, lean]. */
 export type Wire = number[];
-export function packState(body: THREE.Object3D, i: AnimInput): Wire {
-  const f = (i.airborne ? 1 : 0) | (i.aiming ? 2 : 0) | (i.sword ? 4 : 0) | (i.talking ? 8 : 0);
+export function packState(body: THREE.Object3D, i: AnimInput, torch = false): Wire {
+  const f = (i.airborne ? 1 : 0) | (i.aiming ? 2 : 0) | (i.sword ? 4 : 0) | (i.talking ? 8 : 0) | (torch ? 16 : 0);
   const r = (n: number, k = 100) => Math.round(n * k) / k;
   return [r(body.position.x), r(body.position.y), r(body.position.z), r(body.rotation.y, 1000), r(body.scale.y), r(i.speed), f,
     i.pose ? POSES.indexOf(i.pose) : -1, i.swing == null ? -1 : r(i.swing), i.combo ?? 0, r(i.look?.yaw ?? 0), r(i.look?.pitch ?? 0), r(i.lean ?? 0)];
@@ -33,12 +37,16 @@ export class Remote {
   private quiet = 0;
   private tag: THREE.Sprite;
   private tagY = 2.1;
+  readonly bubble = new Bubble();
+  torch = false;
+  private props: Props | null = null;
   lookRaw: unknown = undefined;
   constructor(readonly id: string, public name: string, private scene: THREE.Scene) {
     this.root.name = 'net:' + id;
     this.root.visible = false;
     this.tag = nameTag(name);
     this.root.add(this.tag);
+    this.root.add(this.bubble.sprite);
     scene.add(this.root);
   }
   get away() { return !this.seen || this.quiet > AWAY_AFTER; }
@@ -54,7 +62,18 @@ export class Remote {
     this.figure = fig;
     this.fig = fig.userData.rig ? new FigureAnim(fig.userData.rig) : null;
     this.tagY = this.tag.position.y = nl.height + 0.35;
+    this.bubble.sprite.position.y = nl.height + 0.8;
+    if (this.props) this.hold(this.props);
     return true;
+  }
+  /** Put the held things in this figure's hands (again after a new look rebuilds it). */
+  hold(p: Props) {
+    this.props = p;
+    const bones = (this.figure?.userData.rig as { bones: Record<string, THREE.Bone> } | undefined)?.bones;
+    if (!bones) return;
+    bones.foreN.add(p.sword); p.sword.position.set(-0.03, -0.3, 0.05); p.sword.rotation.set(Math.PI / 2, 0, 0);
+    bones.foreP.add(p.torch); p.torch.position.set(0.03, -0.3, 0.06); p.torch.rotation.set(0.35, 0, 0);
+    bones.spine.add(p.book); p.book.position.set(0, 0.22, 0.3); p.book.rotation.set(-0.75, 0, 0); p.book.scale.setScalar(1.4);
   }
   setName(name: string) {
     this.name = name;
@@ -77,6 +96,7 @@ export class Remote {
       pose: POSES[pose] ?? null, swing: swing < 0 ? null : Math.min(1, swing), combo: Math.min(3, Math.max(0, num(w[9]) | 0)),
       look: { yaw: Math.max(-1.7, Math.min(1.7, num(w[10]))), pitch: Math.max(-1, Math.min(1, num(w[11]))) }, lean: Math.max(-1, Math.min(1, num(w[12]))),
     };
+    this.torch = !!(f & 16);
     this.root.scale.y = Math.min(1.2, Math.max(0.4, num(w[4], 1)));
     if (!this.seen) { this.root.position.copy(this.target); this.root.rotation.y = this.yaw; }   // first sight: no slide in from the origin
     this.seen = true; this.quiet = 0;
@@ -84,6 +104,13 @@ export class Remote {
 
   update(dt: number) {
     this.quiet += dt;
+    this.bubble.update(dt);
+    if (this.props) {
+      const i = this.input;
+      this.props.sword.visible = !!i.sword && !i.pose;
+      this.props.torch.visible = this.torch && !i.pose;
+      this.props.book.visible = i.pose === 'read';
+    }
     const show = !this.away && !!this.figure;
     if (this.root.visible !== show) this.root.visible = show;
     if (!show) return;

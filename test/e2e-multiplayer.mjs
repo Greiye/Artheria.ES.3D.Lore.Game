@@ -77,6 +77,36 @@ const walk = await G(a, () => { const r = [...window.__gametool.remotes.values()
 check('Players: their state drives the walk / jump animation', walk.speed === 4.2 && walk.airborne && walk.pose === null, JSON.stringify(walk));
 const bad = await G(a, () => { const r = [...window.__gametool.remotes.values()][0], before = r.root.position.x; r.apply([1e9, 0, 0]); r.apply('x'); r.apply([NaN, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]); return { ok: Number.isFinite(r.root.position.x) && Math.abs(r.root.position.x - before) < 50 }; });
 check('Players: junk from a peer is ignored', bad.ok, JSON.stringify(bad));
+// Multiplayer 3: preset phrases, held things, pets, one sky, and the host's Remove.
+await G(b, () => window.__gametool.openFriends());
+const says = await G(b, () => document.querySelectorAll('#friendsPanel [data-emote]').length);
+await b.click('#friendsPanel [data-emote="1"]');   // "Hello!"
+await a.waitForFunction(() => [...window.__gametool.remotes.values()][0]?.bubble.text === 'Hello!', null, { timeout: 8000 }).catch(() => {});
+const bub = await G(a, () => [...window.__gametool.remotes.values()][0].bubble.text);
+check('Say: a preset phrase shows over the friend\'s head', says >= 8 && bub === 'Hello!', JSON.stringify({ says, bub }));
+check('Say: no free-text box in the room panel', await G(b, () => { window.__gametool.openFriends(); const n = document.querySelectorAll('#friendsPanel input[type=text]').length; window.__gametool.friends.close(); return n === 1; }));   // just your name
+await G(b, () => window.__gametool.torch.set(true));
+await a.waitForFunction(() => [...window.__gametool.remotes.values()][0]?.torch, null, { timeout: 8000 }).catch(() => {});
+check('Held: a lit torch shows in the friend\'s hand', await G(a, () => { const r = [...window.__gametool.remotes.values()][0]; let vis = false; r.figure.traverse((o) => { if (o.parent?.isBone && o.visible && o.type === 'Group') vis = true; }); return r.torch && vis; }));
+await G(b, () => window.__gametool.torch.set(false));
+await G(b, () => { const g = window.__gametool; g.dog.befriend(); g.callPet(g.dog, true); g.dog.rename('Biscuit'); });
+await a.waitForFunction(() => !!window.__gametool.world.scene.children.find((o) => o.name.startsWith('netpet:')), null, { timeout: 8000 }).catch(() => {});
+check('Pets: the friend\'s pet comes along on your screen', await G(a, () => !!window.__gametool.world.scene.children.find((o) => o.name.startsWith('netpet:'))));
+await G(b, () => window.__gametool.world.setTime('night'));
+await a.waitForFunction(() => window.__gametool.world.time === 'night', null, { timeout: 8000 }).catch(() => {});
+check('Sky: one time of day for the room (a friend slept)', await G(a, () => window.__gametool.world.time === 'night'));
+await G(a, () => window.__gametool.world.setTime('day'));
+await b.waitForFunction(() => window.__gametool.world.time === 'day', null, { timeout: 8000 }).catch(() => {});
+await G(a, () => window.__gametool.openFriends());
+const kickBtns = await G(a, () => document.querySelectorAll('#friendsPanel [data-kick]').length);
+const bKick = await G(b, () => { window.__gametool.openFriends(); const n = document.querySelectorAll('#friendsPanel [data-kick]').length; window.__gametool.friends.close(); return n; });
+await a.click('#friendsPanel [data-kick]');
+await b.waitForFunction(() => !window.__gametool.friends.room, null, { timeout: 8000 }).catch(() => {});
+await a.waitForFunction(() => window.__gametool.remotes.size === 0, null, { timeout: 8000 }).catch(() => {});
+check('Remove: only the host can; the friend leaves the room', kickBtns === 1 && bKick === 0 && await G(b, () => !window.__gametool.friends.room) && await G(a, () => window.__gametool.remotes.size === 0 && !window.__gametool.world.scene.children.some((o) => o.name.startsWith('netpet:'))), JSON.stringify({ kickBtns, bKick }));
+await G(a, () => window.__gametool.friends.close());
+await G(b, (c) => window.__gametool.friends.start(c), hosted.code);   // back in, for the checks below
+await a.waitForFunction(() => window.__gametool.friends.room?.count === 2, null, { timeout: 8000 }).catch(() => {});
 // A bad code is refused before any network.
 await G(b, () => window.__gametool.friends.leave());
 await G(b, () => window.__gametool.friends.open());
