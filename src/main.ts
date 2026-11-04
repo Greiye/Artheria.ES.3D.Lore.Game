@@ -59,6 +59,7 @@ import { FirstDay } from './quest/firstday';
 import { gatherPortfolio } from './portfolio';
 import { QuestProps } from './quest/props';
 import { Companion, loadCompanion, saveCompanion } from './quest/companion';
+import { Pet, loadPets } from './pets/pet';
 import { FolklorePanel, folkItems, pedlarScript } from './quest/folklore';
 import { CampfirePanel } from './campfire/campfire';
 import { QuickDungeon, buildQuick } from './dungeon/quick';
@@ -678,6 +679,7 @@ function animate(dt: number) {
   bannerT += dt;
   swayStation(dt);
   companion.update(dt, player.pos, player.bodyYaw, state !== 'play');
+  dog.update(dt, player.pos, player.bodyYaw, state !== 'play');
   questProps.update(bannerT);
   barkTick(dt);
   gateCheck();
@@ -889,6 +891,27 @@ const companion = new Companion(natalieRoot, world.natalieTarget, world.collider
 companion.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
 ($('companionQuiet') as HTMLInputElement).checked = companion.prefs.quiet;
 $('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
+// ---------- Pets (Mike 2026-11-04, "Add pets" + "Go"): the farm dog by the inn joins you once you feed it bread ----------
+const petPrefs = loadPets();
+const dog = (() => {
+  const door = world.town.doors.inn, ry = door.rotation.y;
+  // Out in front of the inn door and a little to one side, lying in wait.
+  const home = new THREE.Vector3(door.position.x + Math.sin(ry) * 2.4 + Math.cos(ry) * 1.8, 0, door.position.z + Math.cos(ry) * 2.4 - Math.sin(ry) * 1.8);
+  return new Pet('dog', world.scene, home, ry, world.colliders, () => player.bounds, petPrefs);
+})();
+dog.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
+interactables.push({ obj: dog.hit, when: () => !inDungeon || dog.following,
+  verb: () => !dog.friend ? (inventory.count('bread') ? 'Give the dog some bread' : 'Pet the dog') : dog.following ? 'Tell the dog to stay' : 'Call the dog',
+  act: () => {
+    if (!dog.friend) {
+      if (!inventory.take('bread')) { toast('The dog sniffs your hand and wags. It looks hungry: the General Store sells bread.', 3600); return; }
+      dog.befriend(); haptics.play('pickup');
+      toast('The dog wolfs the bread down. It\'s yours now, and it trots after you.', 3600);
+      return;
+    }
+    dog.follow(!dog.following);
+    toast(dog.following ? 'The dog bounds over to your side.' : 'The dog sits down to wait for you here.', 2200);
+  } });
 const seen = (() => { try { return JSON.parse(localStorage.getItem('gametool.seen') ?? '[]') as string[]; } catch { return [] as string[]; } })();
 function markSeen(id: string) { if (!seen.includes(id)) { seen.push(id); storeSet('gametool.seen', JSON.stringify(seen)); } }
 const casebook = station(new Casebook(() => quest, (th: Theory) => {
@@ -1141,6 +1164,7 @@ function enterDungeon(seed: number) {
   fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
   player.spawn(dungeon.entrance(), dungeon.entranceYaw());
   if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
+  if (dog.following) dog.placeNear(dungeon.entrance());
   inDungeon = true; swordHitsAtEntry = sword.hits; sturdy = cook.consume('sturdy');
   spawnGoblins();
   delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
@@ -1161,6 +1185,7 @@ function exitDungeon() {
   goblins.clear(); slowT = 0; player.speedMul = 1; sturdy = false;
   player.spawn(TRAPDOOR.clone().add(new THREE.Vector3(0, 0, 1.6)), 0);
   if (companion.prefs.follow) natalieRoot().position.copy(TRAPDOOR).add(new THREE.Vector3(1.4, 0, 1.4));
+  if (dog.following) dog.placeNear(TRAPDOOR, -1.4, 1.4);
 }
 let descendSheet: HTMLElement | null = null;
 function openDescend() {
@@ -2611,4 +2636,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, petPrefs, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
