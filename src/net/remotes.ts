@@ -13,7 +13,8 @@ export interface Props { sword: THREE.Object3D; torch: THREE.Object3D; book: THR
 
 export const SEND_HZ = 12;
 const POSES: Pose[] = ['stance', 'punch', 'hang', 'plank', 'pushup', 'read', 'sit', 'smith', 'mirror', 'write', 'kneel', 'fiddle', 'drum', 'pipe', 'wake', 'wakeroll', 'sitground'];
-const AWAY_AFTER = 5;   // seconds with no state: they're at a menu, or their phone slept; hide them
+const AWAY_AFTER = 5;
+const FAR = 45;        // metres: further than this a player is just their name tag   // seconds with no state: they're at a menu, or their phone slept; hide them
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -50,6 +51,7 @@ export class Remote {
     scene.add(this.root);
   }
   get away() { return !this.seen || this.quiet > AWAY_AFTER; }
+  get far() { return !!this.figure && !this.figure.visible && this.root.visible; }
 
   setLook(raw: unknown): boolean {
     this.lookRaw = raw;
@@ -102,7 +104,7 @@ export class Remote {
     this.seen = true; this.quiet = 0;
   }
 
-  update(dt: number) {
+  update(dt: number, eye?: THREE.Vector3) {
     this.quiet += dt;
     this.bubble.update(dt);
     if (this.props) {
@@ -114,6 +116,10 @@ export class Remote {
     const show = !this.away && !!this.figure;
     if (this.root.visible !== show) this.root.visible = show;
     if (!show) return;
+    // Phone polish: past FAR only the name tag shows where they are (the figure isn't drawn or animated).
+    const far = !!eye && this.root.position.distanceTo(eye) > FAR;
+    if (this.figure && this.figure.visible === far) this.figure.visible = !far;
+    this.tag.scale.set(far ? 2.4 : 1.2, far ? 0.6 : 0.3, 1);
     // Smooth toward the last state: fast enough to keep up at a run, slow enough to hide the 12 Hz steps.
     const k = 1 - Math.exp(-14 * dt);
     const p = this.root.position;

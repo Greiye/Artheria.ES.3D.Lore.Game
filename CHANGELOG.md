@@ -2,10 +2,18 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
-## Live builds 0.03 to 0.14 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
+## Live builds 0.03 to 0.15 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.14,
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
+
+### v0.15 changelog, part 1: play with friends (Mike 2026-11-04, "Make this game multiplayer!" + "Do it")
+- Journal → Play with friends: host a room and share its 5-letter code or invite link, or join a friend's. Up to 4 players in a room; friends only, nobody finds a room without its code.
+- Everyone in the room walks the same world: you see each other's characters, looks and name tags, walking, running, jumping, sitting, reading, aiming and swinging a sword, with a lit torch in hand and the pet that's with them following along.
+- Say something with a preset phrase or a wave (no free typing): it shows in a bubble over your head on every screen.
+- One sky for the room: when anyone sleeps, morning (or sunset, or night) comes for everyone. The host can remove a player.
+- Phones connect straight to each other. Only your room name, look and moves are shared, and only with the room; your writing, saves, bag and quests stay on your device. A room button at the top of the screen shows the code and how many are in.
+- On Low and Low power the background crowd thins a little for each guest, and players far away show only their name tag, so the frame rate holds.
 
 ### v0.14 changelog, part 17: pets 4, the pack (Mike 2026-11-04)
 - Seven more dogs live around town, each its own breed and colours: Princess by the gallery, Milo by the smithy, Hot Dog by the scriptorium, Brandy by the library, Buster by the dojo, Peanut by the tailor, and Kona, a tiny big-eared chihuahua, by the inn.
