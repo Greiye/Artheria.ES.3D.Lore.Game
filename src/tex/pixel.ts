@@ -227,10 +227,12 @@ const PAINTERS = {
   },
   flowers(g, W, H, R) {
     PAINTERS.grassBlades(g, W, H, R);
-    scatter(4, W - 16, H * 0.4, R, (x0, y0) => {
-      const x = x0 + 8, y = y0 + 6, c = R() < 0.5 ? '#F6F0DA' : '#F4CE52';
-      for (let k = 0; k < 5; k++) dab(g, W * 10, H * 10, x + Math.cos(k * 1.26) * 2.4, y + Math.sin(k * 1.26) * 2.4, 2.2, c, 1);
-      dab(g, W * 10, H * 10, x, y, 1.6, '#E4962E', 1);
+    // G4: three chunky flower heads (big flat petals, a dark rim so they read from afar) instead of four small dots.
+    scatter(3, W - 24, H * 0.36, R, (x0, y0) => {
+      const x = x0 + 12, y = y0 + 9, c = ['#F6F0DA', '#F4CE52', '#E98AA0'][Math.floor(R() * 3)];
+      for (let k = 0; k < 5; k++) dab(g, W * 10, H * 10, x + Math.cos(k * 1.26) * 4, y + Math.sin(k * 1.26) * 4, 4.4, '#5A4A2A', 0.5);
+      for (let k = 0; k < 5; k++) dab(g, W * 10, H * 10, x + Math.cos(k * 1.26) * 3.6, y + Math.sin(k * 1.26) * 3.6, 3.6, c, 1);
+      dab(g, W * 10, H * 10, x, y, 2.4, '#E4962E', 1);
     });
   },
   planks(g, W, H, R) {

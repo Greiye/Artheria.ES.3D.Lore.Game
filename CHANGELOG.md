@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.13,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.13 changelog, part 9: chunkier foliage (graphics G4, Mike 2026-11-03)
+- Bushes are fewer and bigger: each is two or three fat lumps (a dark base with lighter tops), so they sit with the card trees. The triangle budget is about the same as before.
+- Flowers are fewer, bigger clumps with three large flower heads each (cream, gold or pink) and a dark rim so they read from afar. Ferns are a little bigger and fewer.
+- New `test/e2e-chunky-foliage.mjs` (3/3).
+
 ### v0.13 changelog, part 8: warm windows and lanterns at dusk (graphics G3, Mike 2026-11-03)
 - Every lit window gets a soft warm glow from sunset (stronger at night), one instanced draw for all 26.
 - The real lantern lights now come on at dusk too, at under half their night strength, so walls and paths by the lanterns warm up as the sun goes down. Lantern halos are a little brighter at dusk.
