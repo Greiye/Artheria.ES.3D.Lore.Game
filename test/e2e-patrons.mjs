@@ -32,7 +32,7 @@ await G(() => { const g = window.__gametool; g.inventory.give('sword', 1); g.han
 // A hero falls on floor 6 with a sword and a mace: goblins carry them off.
 await G(() => { const g = window.__gametool; g.inventory.give('sword', 1); g.inventory.give('mace', 1); g.inventory.give('bread', 1); g.hands.set('right', 'sword'); });
 await G(() => window.__gametool.startDescent());
-await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, null, { timeout: 20000 });
 await G(() => { window.__gametool.descent.floor = 6; const R = Math.random; Math.random = () => 0.1; window.__gametool.heroFalls('Grub'); Math.random = R; });
 await page.waitForFunction(() => !document.getElementById('lastWords').classList.contains('hidden'), null, { timeout: 8000 });
 await page.click('#lastWords [data-act="skip"]');
@@ -45,7 +45,7 @@ await page.waitForFunction(() => window.__gametool.state === 'play', null, { tim
 
 // The next hero, on floor 7: a goblin carries the mace and uses it.
 await G(() => { window.__gametool.startDescent(7); });
-await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, null, { timeout: 20000 });
 await frames(2);
 const armed = await G(() => window.__gametool.goblins.alive.filter((f) => f.gear).map((f) => ({ gear: f.gear, name: f.v.display, dmg: f.gearDmg, block: f.st.block })));
 const mace = armed.find((a) => a.gear === 'mace');
@@ -73,14 +73,14 @@ await frames(2);
 const kit = await G((b0) => ({ xb: window.__gametool.inventory.count('crossbow'), bolts: window.__gametool.inventory.count('bolt') - b0, again: document.querySelectorAll('#descend [data-act="kit"]').length }), bolts0);
 check('Taking a kit: crossbow and 15 bolts, once per hero', kit.xb >= 1 && kit.bolts === 15 && kit.again === 0, JSON.stringify(kit));
 await page.click('#descend [data-act="go"]');
-await page.waitForFunction(() => window.__gametool.inDungeon, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.descendCine.active, null, { timeout: 20000 });
 await frames(2);
 check("The patrons' scroll: a choice before the first step", await G(() => window.__gametool.scrollPicker.isOpen && document.querySelectorAll('#scrolls [data-scroll]').length >= 2));
 await page.click('#scrolls [data-scroll="none"]');
 await G(() => window.__gametool.exitDungeon());
 const crowns0 = await G(() => window.__gametool.inventory.count('crown'));
 await G(() => { window.__gametool.startDescent(); });
-await page.waitForFunction(() => window.__gametool.inDungeon, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.descendCine.active, null, { timeout: 20000 });
 await G(() => { const g = window.__gametool; if (g.scrollPicker.isOpen) g.scrollPicker.close(); g.heroFalls('Grub'); });
 await page.waitForFunction(() => !document.getElementById('lastWords').classList.contains('hidden'), null, { timeout: 8000 });
 await page.click('#lastWords [data-act="skip"]');
