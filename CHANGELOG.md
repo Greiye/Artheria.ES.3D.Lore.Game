@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 19: chimney smoke (decoration 7, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Chimney smoke is now chunky low-poly puffs that swell, turn and fade as they drift up in the wind, instead of flat cards. One instanced mesh for the whole town.
+
 ### v0.16 changelog, part 18: ivy and moss (decoration 6, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Ivy climbs the low stone walls and the library ruin, and moss creeps along wall tops, feet and house plinths. Flat low-poly leaves, two merged meshes.
 
