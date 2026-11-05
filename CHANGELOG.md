@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 17: wells and signposts (decoration 5, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Two stone wells with a roof, winch and bucket, and a wooden signpost at the start of each footpath out of town. One merged mesh, with colliders.
+
 ### v0.16 changelog, part 16: woodpiles, hay and carts (decoration 4, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Woodpiles stand behind the smithy, inn, dojo, cartographer and library; hand carts by the inn, smithy, tailor and gallery; hay stacks by the inn, dojo, scriptorium and shop. None blocks a path. One merged mesh.
 
