@@ -4,6 +4,7 @@ import { Batch } from './batch';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildSky, type TimeOfDay } from './sky';
 import { tufts, leafMaterial, wind, type Tuft } from './foliage';
+import { tuftCards, type TuftCard } from './tuftCards';
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
 import { buildFigure, buildCoach } from './figure';
@@ -315,11 +316,39 @@ export function buildWorld(): World {
     }
     return out;
   };
+  // Quad detail 1 (Mike 2026-11-04): painted tuft cards on their own random stream (the rest of the layout stays put).
+  // Grass of three kinds everywhere, clover low between, and wildflowers in patches of one kind. Shuffled at the
+  // end so drawing the first N (lower quality presets) still spreads them evenly.
+  const meadowTufts = () => {
+    const TR = rng(31337), out: (Tuft & { card: TuftCard })[] = [];
+    const ok = (x: number, z: number, pad: number) => Math.abs(x) <= HALF + 8 && Math.abs(z) <= HALF + 8 && !clear(x, z, pad);
+    const at = (x: number, z: number, card: TuftCard, s: number) => out.push({ x, z, card, s, ry: TR() * Math.PI, y: heightAt(x, z) });
+    for (let i = 0; i < 9000 && out.length < 2600; i++) {
+      const a = TR() * Math.PI * 2, r = 2 + Math.pow(TR(), 0.75) * 34, x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (!ok(x, z, -0.4)) continue;
+      const k = TR();
+      at(x, z, k < 0.45 ? 'short' : k < 0.72 ? 'tall' : k < 0.86 ? 'seed' : 'clover', 0.75 + TR() * 0.55);
+    }
+    const FLOWERS: TuftCard[] = ['daisy', 'buttercup', 'bluebell', 'poppy'];
+    for (let p = 0, tries = 0; p < 70 && tries < 600; tries++) {
+      const a = TR() * Math.PI * 2, r = 4 + Math.pow(TR(), 0.8) * 32, cx = Math.cos(a) * r, cz = Math.sin(a) * r;
+      if (!ok(cx, cz, 0.4)) continue;
+      p++;
+      const card = FLOWERS[Math.floor(TR() * FLOWERS.length)], n = 5 + Math.floor(TR() * 9), spread = 0.8 + TR() * 1.4;
+      for (let j = 0; j < n; j++) {
+        const x = cx + (TR() - 0.5) * 2 * spread, z = cz + (TR() - 0.5) * 2 * spread;
+        if (ok(x, z, 0.2)) at(x, z, card, 0.8 + TR() * 0.4);
+      }
+    }
+    for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(TR() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+    return out;
+  };
   // Tufts are scattered in random order, so drawing the first N keeps an even spread at any density.
   const undergrowth = [
     tufts(scene, 'grassBlades', scatter(2000, 1.5, 30, -0.6, 0.8), [0.6, 0.5]),
     tufts(scene, 'flowers', scatter(200, 3, 30, 0.2), [0.75, 0.62]),   // G4: fewer, bigger flower clumps
     tufts(scene, 'fern', scatter(240, 4, 40, 0.6), [1.35, 1.0], 0.05),
+    tuftCards(scene, meadowTufts(), 0.62),   // quad detail 1: denser, more varied grass and flower patches
   ];
   const fullCounts = undergrowth.map((m) => m.count);
 
