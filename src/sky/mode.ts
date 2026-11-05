@@ -5,6 +5,7 @@ import { Plane, FoeAI, fireBolt, BOLT, type Bolt, type Ctl } from './flight';
 import { mulberry32 } from '../dungeon/gen';
 import { haptics } from '../input/haptics';
 import { storeSet } from '../store';
+import { Tilt } from './tilt';
 import './sky.css';
 
 // Skyrunner (Mike 2026-11-05): "ride a fixed-wing plane and pilot it on a random gen map ... get from point A to
@@ -22,6 +23,8 @@ export function loadSkyRecord(): SkyRecord {
   catch { return { runs: 0, wins: 0, kills: 0, foes: 0, best: {} }; }
 }
 const VIEW_KEY = 'gametool.sky.view';
+const TILT_KEY = 'gametool.sky.tilt';
+const loadTilt = () => { try { return localStorage.getItem(TILT_KEY) === 'on'; } catch { return false; } };
 const loadFirstPerson = () => { try { return localStorage.getItem(VIEW_KEY) === 'first'; } catch { return false; } };
 const loadInvert = () => { try { return localStorage.getItem(INVERT_KEY) === 'on'; } catch { return false; } };
 
@@ -60,6 +63,9 @@ export class SkyRun {
   invert = loadInvert();
   /** First-person view from the pilot's seat (V, Back, or the View button); remembered on the device. */
   cockpit = loadFirstPerson();
+  /** Motion steering on a phone (the gyro); remembered, but iPhone asks again each visit. */
+  readonly tilt = new Tilt();
+  tiltWanted = loadTilt();
   /** For tests: force (true) or forbid (false) the encounter on the next runs; null = the 1 in 20 roll. */
   forceFoe: boolean | null = new URLSearchParams(location.search).has('dogfight') ? true : null;
   onClose: () => void = () => {};
@@ -105,7 +111,7 @@ export class SkyRun {
         <button class="sk-b" data-b="surge">Surge</button>
         <button class="sk-b" data-b="back">Look back</button>
       </div>
-      <div class="sk-tools"><button class="secondary" id="skView"></button><button class="secondary" id="skInvert"></button><button class="secondary" id="skQuit">Leave</button></div>`;
+      <div class="sk-tools"><button class="secondary only-touch" id="skTilt"></button><button class="secondary only-touch hidden" id="skRecenter">Recenter</button><button class="secondary" id="skView"></button><button class="secondary" id="skInvert"></button><button class="secondary" id="skQuit">Leave</button></div>`;
     document.body.appendChild(this.el);
     const q = <T extends HTMLElement>(s: string) => this.el.querySelector<T>(s)!;
     q('#skAgain').addEventListener('click', () => this.start(this.map?.seed ?? newSeed()));
@@ -114,9 +120,12 @@ export class SkyRun {
     q('#skQuit').addEventListener('click', () => this.close());
     q('#skInvert').addEventListener('click', () => this.setInvert(!this.invert));
     q('#skView').addEventListener('click', () => this.setView(!this.cockpit));
+    q('#skTilt').addEventListener('click', () => { void this.setTilt(!this.tilt.on); });
+    q('#skRecenter').addEventListener('click', () => this.tilt.recenter());
     q('#skSeedGo').addEventListener('click', () => { const n = parseInt(q<HTMLInputElement>('#skSeed').value, 10); if (n > 0) this.start(n); });
     this.setInvert(this.invert);
     this.setView(this.cockpit);
+    this.tiltLabel();
     window.addEventListener('keydown', (e) => this.key(e, true), true);
     window.addEventListener('keyup', (e) => this.key(e, false), true);
     this.el.addEventListener('mousedown', (e) => { if (e.button === 0 && !(e.target as Element).closest('button, input, .sk-result')) this.mouseFire = true; });
@@ -151,6 +160,20 @@ export class SkyRun {
     this.cockpit = first; storeSet(VIEW_KEY, first ? 'first' : 'chase');
     this.el.querySelector('#skView')!.textContent = first ? 'View: first person' : 'View: chase';
   }
+  /** Tilt steering on or off (a tap: iPhone shows its motion permission prompt the first time). */
+  async setTilt(on: boolean) {
+    if (on) {
+      const ok = await this.tilt.enable();
+      this.tiltWanted = ok;
+      if (!ok) this.banner('Motion not allowed', 1.5);
+    } else { this.tilt.disable(); this.tiltWanted = false; }
+    storeSet(TILT_KEY, this.tiltWanted ? 'on' : 'off');
+    this.tiltLabel();
+  }
+  private tiltLabel() {
+    this.el.querySelector('#skTilt')!.textContent = this.tilt.on ? 'Tilt: on' : this.tiltWanted ? 'Tilt: tap to allow' : 'Tilt: off';
+    this.el.querySelector('#skRecenter')!.classList.toggle('hidden', !this.tilt.on);
+  }
   private setInvert(on: boolean) {
     this.invert = on; storeSet(INVERT_KEY, on ? 'on' : 'off');
     this.el.querySelector('#skInvert')!.textContent = on ? 'Pitch: inverted' : 'Pitch: normal';
@@ -163,6 +186,7 @@ export class SkyRun {
     this.el.classList.remove('hidden');
     document.body.classList.add('skyrunning');
     this.gp.prev = this.padButtons();   // the A press that opened the run isn't a shot
+    if (this.tiltWanted && !this.tilt.on) void this.tilt.enable().then(() => this.tiltLabel());
     this.start(seed ?? newSeed());
   }
   close() {
@@ -170,6 +194,7 @@ export class SkyRun {
     this.isOpen = false;
     this.el.classList.add('hidden');
     document.body.classList.remove('skyrunning');
+    this.tilt.disable(); this.tiltLabel();
     this.held.clear(); this.mouseFire = false; this.touch = { fire: false, surge: false, back: false };
     this.sky?.dispose(); this.sky = null;
     this.onClose();
@@ -246,11 +271,11 @@ export class SkyRun {
   /** The player's controls from keys, mouse, touch and pad, together. */
   private controls(dt: number): Ctl & { back: boolean } {
     const h = (...k: string[]) => k.some((c) => this.held.has(c)) ? 1 : 0;
-    const touching = this.stick.id !== -1 || this.touch.fire || this.touch.surge;
+    const touching = this.stick.id !== -1 || this.touch.fire || this.touch.surge || this.tilt.on;
     // Stick forward (up the screen) dives, the way a flight stick does; "Pitch: inverted" swaps it.
-    let pitch = h('KeyS', 'ArrowDown') - h('KeyW', 'ArrowUp') - this.gp.y - this.stick.y;
+    let pitch = h('KeyS', 'ArrowDown') - h('KeyW', 'ArrowUp') - this.gp.y - this.stick.y - this.tilt.y;
     if (this.invert) pitch = -pitch;
-    const roll = h('KeyD', 'ArrowRight') - h('KeyA', 'ArrowLeft') + this.gp.x + this.stick.x;
+    const roll = h('KeyD', 'ArrowRight') - h('KeyA', 'ArrowLeft') + this.gp.x + this.stick.x + this.tilt.x;
     let throttle = this.me.throttle + (h('ShiftLeft', 'ShiftRight') - h('KeyZ')) * 0.7 * dt;
     if (this.gp.rt > 0.05 || this.gp.lt > 0.05) throttle = 0.5 + this.gp.rt * 0.5 - this.gp.lt * 0.5;
     else if (touching) throttle += (0.5 - throttle) * Math.min(1, dt * 2);   // touch: auto-throttle back to cruise
@@ -271,7 +296,7 @@ export class SkyRun {
     if (this.phase === 'ready') {
       this.readyT -= dt;
       this.banner(this.readyT > 0 ? String(Math.ceil(this.readyT)) : 'Go!');
-      if (this.readyT <= 0) { this.phase = 'fly'; this.me.speed = CRUISE * 0.9; this.me.throttle = 0.5; }
+      if (this.readyT <= 0) { this.tilt.recenter(); this.phase = 'fly'; this.me.speed = CRUISE * 0.9; this.me.throttle = 0.5; }
     } else if (this.phase === 'fly') {
       this.time -= dt; this.flown += dt;
       if (this.me.step(c, dt)) { this.bolts.push(fireBolt(this.me, this.foe, 0.105, 0, this.rand, true)); haptics.play('tap'); }
