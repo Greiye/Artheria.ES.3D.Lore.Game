@@ -7,17 +7,32 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
-### v0.16 changelog, part 22: the map shows what there is to do (Mike 2026-11-05, "Mark it on the map. Update the map so that new players can see what the game has to offer")
+### v0.16 changelog, part 25: the map shows what there is to do (Mike 2026-11-05, "Mark it on the map. Update the map so that new players can see what the game has to offer")
 - The living map (M) now marks every place to visit from the start, over the fog: the knight frame (grey and locked until it wakes), the skyrunner perch, the descent's trapdoor, Natalie, the camp (campfire, mirror, anvil, sketchbook), Kavik, the caravan, the practice table, the grindstone, the cinema and the record statue.
 - Beside it, a **What's here** list gives each one a line on what you do there (and, for the frame, how to wake it).
 - The town is drawn as it is now: every house on the green to scale, with its name, and the four roads out (the Ranlean and Amethyst Peak gates marked shut). The old glade-era labels are gone.
 
-### v0.16 changelog, part 21: the knight frame, a pilotable mech (Mike 2026-11-05, "Robots? Can you add pilotable mechs?")
+### v0.16 changelog, part 24: the knight frame, a pilotable mech (Mike 2026-11-05, "Robots? Can you add pilotable mechs?")
 - A **knight frame** kneels asleep in the treeline east of the green: ten feet of elvish bronze gone green, the same make as the Caerne's *Telandor Savior* (Tales Part I), with a dark gem in its chest. **Clear the descent's third floor** (take the stairs down from floor 3) and it wakes and stands. The wake is saved with your profile. For testing, `?mech` on the URL wakes it straight away.
 - **Climb in** at it with E / A / Use; the same button **climbs out** of the back hatch. It stays where you leave it.
 - Inside, you move as usual (Alt / L3 / the sprint button pushes it to a stomping run; it turns slowly). **Strike** with LMB / RT / Strike, **guard** with the shield arm on RMB / LT / Guard, **ground-slam** with Space / Y / jump, and a **rune pulse** that staggers everything near on Q / D-pad up / ✦ (6 s to recharge). Footfalls rumble the pad and shake up dust. The camera pulls back and up; there is no first person inside.
+- Like the other side games, climbing in waits until a new friend's first day is done (lore first); `?mech` skips that too.
 - It can't use doors, the trapdoor or the roads out of Aralon (climb out first). No passengers and no multiplayer sync yet (next round). Low poly: 588 triangles, ink outlines, never cut away by see-through.
 - New `test/e2e-knight-frame.mjs` (17/17, with the map checks).
+### v0.16 changelog, part 23: sending your work to Mike (lore-first round, item 5, Mike 2026-11-05)
+- Every piece in **Your works** (formerly Portfolio) has a **Send** button. The send sheet now says plainly that Mike adds it to the game with your name on it.
+- On phones and other browsers that can, **Share…** opens the device's own share sheet (Messages, WhatsApp, email) with the piece and its lore file, so no GitHub account is needed. GitHub, download and copy are still there.
+- **Your works · send to Mike** is in the pause menu too, and Back returns you there.
+
+### v0.16 changelog, part 22: lore first (lore-first round, item 4, Mike 2026-11-05)
+- A new friend's first day now starts with the stories. Right after getting up, Natalie sends them to read a tale in the Library, and only then to the Scriptorium, the Tailor or Smithy, and the campfire (five steps).
+- The side games (dojo, sparring with Kavik, sky runs, the trapdoor) wait until the first day is done or skipped. Their prompts still show, marked "after your first day". Profiles from before the first day existed are not affected, and a day part-way through keeps its place (save upgrade 1→2).
+- Extras now leads with the lore: Write lore, Your works and Wiki first, then What's new, Profiles, Inspirations and Evolution.
+
+### v0.16 changelog, part 21: saves that last for years (lore-first round, item 3, Mike 2026-11-05)
+- Saves are versioned. Every profile on the device is upgraded to the current shape when the game starts, and so is any profile or backup file you import, so a save from years ago still opens. A v0.16 profile is kept as a test fixture that must keep loading forever (`test/e2e-longevity.mjs`).
+- Extras → Profiles → **Keep it for years**: **Back up everything** saves one file with all three profiles and your settings (never the GitHub token). **Restore a backup** brings it all back, on this device or a new one. The page says when you last backed up and nudges you after two months.
+- On Begin, the game asks the browser to keep its data even when space runs low (installed apps usually agree without asking).
 
 ### v0.16 changelog, part 20: the skyrunner (Mike 2026-11-05, "ride a fixed-wing plane ... A to B within 1 minute")
 - A launch perch (a timber tower with a glider on the deck) stands in the meadow east of the library. "Fly a sky run" takes you up in a **skyrunner**: a one-seat glider with mana-sail wings and a gem in the nose (airships and mana-borne flight are both in the public lore).
@@ -26,6 +41,7 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - **Dogfight**: one run in twenty, a **hexed skyrunner** (black sails, violet bolts) comes for you 10 s in. Both planes fire mana bolts, with a little aim help and a heat bar that jams for 1.5 s if you hold the trigger too long. You take 5 hits, it takes 4, and you can out-turn it. You don't have to shoot it down to win. `?dogfight` forces it.
 - **First person** (Mike 2026-11-05): V, Back on a gamepad, or the View button (also on touch) puts you in the pilot's seat. You see the cowl, the nose gem and a brass sighting ring, and the view rolls with the wings. The choice is remembered.
 - **Tilt steering** (Mike 2026-11-05, "motion control"): on a phone, the Tilt button lets the gyro fly the glider. Tip the phone left or right to bank, and forward or back to dive or climb. It levels to however you're holding the phone when the run starts, and Recenter resets it mid-flight. It works held upright or sideways, the stick still works alongside it, and the game remembers the choice (an iPhone asks for motion permission on the first tap).
+- **Lenju and Taitai** (Mike 2026-11-05): two new characters at the foot of the perch. Lenju is the pilot who flies the skyrunner; he explains how it flies, gives tips, and "Let me fly it" sends you up. Taitai is a carpenter and Lenju's close friend; he built the perch, the ramp, the beacon towers and the glider frame with him, and works at a sawhorse beside it.
 - **Controls**: keyboard W A S D or the arrows (W dives; "Pitch: inverted" swaps it), Shift / Z throttle, Space or click fires, Q surges. On a gamepad: left stick, RT / LT, A or RB fire, Y surge, Start leaves. On touch: a stick on the left, Fire, Surge and Look back on the right, and the throttle sorts itself out. Rumble on hits and crashes.
 - Pays 20 crowns a win, +30 with the hexed skyrunner shot down. Runs, wins, kills and best times are saved on the device. New `test/e2e-sky.mjs` (22/22).
 

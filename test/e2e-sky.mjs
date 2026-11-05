@@ -36,6 +36,34 @@ await G(page, () => { const g = window.__gametool; g.player.spawn(new g.Vector3(
 await page.waitForTimeout(800);
 await page.screenshot({ path: path.join(shots, 'sky-perch.png') });
 
+// Lenju the pilot and Taitai the carpenter stand by the perch; Lenju can send you up.
+const folk = await G(page, () => { const g = window.__gametool; return g.skyFolk.map((h) => g.interactables.find((i) => i.obj === h)?.verb()); });
+check('Lenju and Taitai stand by the perch, ready to talk', folk[0] === 'Talk to Lenju' && folk[1] === 'Talk to Taitai', JSON.stringify(folk));
+await G(page, () => { const g = window.__gametool; g.interactables.find((i) => i.obj === g.skyFolk[1]).act(); });
+await page.waitForFunction(() => !window.__gametool.dialogue.typing, null, { timeout: 8000 });
+const tai = await G(page, () => ({ state: window.__gametool.state, name: document.querySelector('#dialogue .d-name').textContent, text: document.querySelector('#dialogue .d-text').textContent }));
+check('Taitai: the carpenter who built the perch', tai.state === 'dialogue' && tai.name === 'Taitai' && /carpenter/i.test(tai.text), JSON.stringify(tai));
+await page.click('#dialogue .d-choice >> nth=1');   // How do you know Lenju?
+await page.waitForFunction(() => !window.__gametool.dialogue.typing, null, { timeout: 8000 });
+check('Taitai and Lenju are old friends', /Since we were small/.test(await G(page, () => document.querySelector('#dialogue .d-text').textContent)));
+await page.screenshot({ path: path.join(shots, 'sky-taitai.png') });
+await page.click('#dialogue .d-text'); await page.waitForTimeout(300);
+await page.click('#dialogue .d-choice >> nth=2');   // Goodbye
+await page.waitForTimeout(300);
+await page.click('#dialogue .d-text').catch(() => {});
+await until(page, () => window.__gametool.state === 'play', null, 8000);
+await G(page, () => { const g = window.__gametool; g.interactables.find((i) => i.obj === g.skyFolk[0]).act(); });
+await page.waitForFunction(() => !window.__gametool.dialogue.typing, null, { timeout: 8000 });
+const len = await G(page, () => ({ name: document.querySelector('#dialogue .d-name').textContent, text: document.querySelector('#dialogue .d-text').textContent, choices: [...document.querySelectorAll('#dialogue .d-choice')].map((b) => b.textContent) }));
+check('Lenju: the pilot of the skyrunner', len.name === 'Lenju' && /skyrunner/.test(len.text) && len.choices.some((c) => /Let me fly it/.test(c)), JSON.stringify(len));
+await page.screenshot({ path: path.join(shots, 'sky-lenju.png') });
+await page.click('#dialogue .d-choice >> nth=3');   // Let me fly it.
+await page.waitForTimeout(300);
+for (let i = 0; i < 3 && !(await G(page, () => window.__gametool.sky.isOpen)); i++) { await page.click('#dialogue .d-text').catch(() => {}); await page.waitForTimeout(400); }
+check('"Let me fly it" sends you up in the skyrunner', await until(page, () => window.__gametool.sky.isOpen && window.__gametool.state === 'forge', null, 8000));
+await G(page, () => window.__gametool.sky.close());
+await until(page, () => window.__gametool.state === 'play', null, 8000);
+
 // Same seed, same map.
 await G(page, () => { window.__gametool.sky.forceFoe = false; window.__gametool.openSky(424242); });
 const open = await G(page, () => { const g = window.__gametool, s = g.sky; return { state: g.state, open: s.isOpen, seed: s.map.seed, dist: s.map.dist, phase: s.phase, rings: s.map.rings.length, clock: document.querySelector('#skyRun .sk-clock').textContent }; });
@@ -191,7 +219,7 @@ const tilt = await G(t, async () => {
   const x = s.tilt.x, phase = s.phase;
   s.me.pos.y = 300; s.time = 50;
   // Keep holding it there while the glider answers.
-  for (let i = 0; i < 6; i++) { await new Promise((ok) => setTimeout(ok, 100)); window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', right)); }
+  for (let i = 0; i < 30 && s.me.bank() < 0.2; i++) { await new Promise((ok) => setTimeout(ok, 100)); window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', right)); s.me.pos.y = 300; }
   return { angle, x, xAfter: s.tilt.x, bank: s.me.bank(), phase, label: document.querySelector('#skTilt').textContent, recenter: !!document.querySelector('#skRecenter').offsetParent };
 });
 check('Tilt on: tipping the phone right banks the glider right', tilt.x > 0.6 && tilt.xAfter > 0.6 && tilt.bank > 0.1 && /on/.test(tilt.label) && tilt.recenter, JSON.stringify(tilt));

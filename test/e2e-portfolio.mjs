@@ -62,6 +62,26 @@ async function open(seed) {
   check('An empty profile says how to start, with no Export button', /Nothing yet/.test(t) && !(await page.$('#pfExport')));
   await ctx.close();
 }
+// Lore-first item 5 (Mike 2026-11-05): every piece has a Send button, and Your works opens from the pause menu.
+{
+  const { ctx, page } = await open(SEED);
+  const sends = await page.$$eval('.pf [data-act="pfSend"]', (l) => l.length);
+  await page.click('.pf:nth-child(3) [data-act="pfSend"]');
+  const sheet = await page.evaluate(() => { const s = document.querySelector('.submit-sheet'); return s ? { text: s.textContent, href: s.querySelector('[data-act=issue]').href } : null; });
+  check('Every piece has a Send button that opens the send-to-Mike sheet with its lore file', sends === 7 && !!sheet && /Send ".+" to Mike/.test(sheet.text) && /issues\/new/.test(sheet.href), JSON.stringify({ sends, text: sheet?.text.slice(0, 60) }));
+  await page.click('.submit-sheet [data-act=close]');
+  await page.evaluate(() => window.__gametool.extras.close());
+  await page.click('#begin');
+  await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 90000 });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.__gametool.state === 'pause', null, { timeout: 10000 });
+  await page.evaluate(() => document.getElementById('openWorks').click());
+  const opened = await page.evaluate(() => ({ works: window.__gametool.extras.isOpen && window.__gametool.extras.tab === 'portfolio', pauseHidden: document.getElementById('pause').classList.contains('hidden') }));
+  await page.click('#extras [data-act="back"]');
+  const after = await page.evaluate(() => ({ state: window.__gametool.state, pause: !document.getElementById('pause').classList.contains('hidden'), extras: window.__gametool.extras.isOpen }));
+  check('Pause → "Your works" opens the list, and Back returns to the pause menu', opened.works && opened.pauseHidden && after.state === 'pause' && after.pause && !after.extras, JSON.stringify({ opened, after }));
+  await ctx.close();
+}
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;

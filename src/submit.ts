@@ -29,18 +29,32 @@ export function entryMarkdown(o: { title: string; author: string; type: string; 
 export function openSubmitSheet(s: Submission, onClose: () => void = () => undefined): HTMLElement {
   const el = document.createElement('div');
   el.className = 'submit-sheet';
+  // Lore-first item 5 (Mike 2026-11-05): sending a piece to Mike should be dead simple. On phones (and browsers that
+  // can), "Share…" opens the device's own share sheet (Messages, WhatsApp, email…) with the piece and its lore file,
+  // so a friend needs no GitHub account. GitHub, download and copy stay for everyone else.
+  const canShare = typeof navigator.share === 'function';
   el.innerHTML = `
     <div class="submit-card" role="dialog" aria-label="Submit">
-      <h3>Submit "${escapeHtml(s.title)}"</h3>
-      <p>It stays saved on this device. To share it with everyone, send it to the maintainer: they review it and
-      add it to the game with your name on it. Nothing is published until then.</p>
+      <h3>Send "${escapeHtml(s.title)}" to Mike</h3>
+      <p>It stays saved on this device. Send it to Mike and he'll add it to the game with your name on it. Nothing is
+      published until he does.</p>
       <div class="submit-actions">
+        ${canShare ? '<button class="btn primary" data-act="share">Share… (message or email)</button>' : ''}
         <a class="btn" data-act="issue" target="_blank" rel="noopener">Send for review (GitHub)</a>
         <button class="btn" data-act="download">Download .md</button>
         <button class="btn" data-act="copy">Copy text</button>
         <button class="btn ghost" data-act="close">Close</button>
       </div>
     </div>`;
+  el.querySelector('[data-act=share]')?.addEventListener('click', async (e) => {
+    const file = new File([s.markdown], `${slugify(s.title)}.md`, { type: 'text/markdown' });
+    const data: ShareData = { title: `${s.kind}: ${s.title}`, text: `A ${s.kind.toLowerCase()} for Tales of Artheria:\n\n${s.markdown}` };
+    try {
+      if (navigator.canShare?.({ files: [file] })) data.files = [file];
+      await navigator.share(data);
+      (e.target as HTMLElement).textContent = 'Shared';
+    } catch { /* the friend closed the share sheet */ }
+  });
   (el.querySelector('[data-act=issue]') as HTMLAnchorElement).href = issueUrl(s);
   el.querySelector('[data-act=download]')!.addEventListener('click', () => downloadMarkdown(slugify(s.title), s.markdown));
   el.querySelector('[data-act=copy]')!.addEventListener('click', async (e) => {

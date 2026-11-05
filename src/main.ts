@@ -1,3 +1,4 @@
+import './bootMigrate';   // must run before anything reads a saved profile
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import './render/grade';   // style pass 1: global colour grade (patches a shader chunk, so it must load first)
@@ -47,7 +48,7 @@ import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
 import { FigureAnim, BodyAnim, type AnimInput, type Pose, type Gesture } from './anim/procedural';
 import { Dust } from './fx/dust';
-import { activeSlot, slotInfo, slotLabel } from './profiles';
+import { activeSlot, slotInfo, slotLabel, askToKeepData } from './profiles';
 import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
 import { attachItemCards } from './ui/itemcard';
 import { WeaponForge, loadWeapon, type WeaponCosmetic, type SwordCosmetic } from './forge/weapon';
@@ -441,12 +442,15 @@ $('openCharacterForge').addEventListener('click', () => openCharacterForge());
 $('openWeaponForge').addEventListener('click', () => openWeaponForge());
 $('openSketchbook').addEventListener('click', () => openSketchbook());
 $('openCasebook').addEventListener('click', () => openCasebook());
+// Lore-first item 5: everything you made, one tap from the pause menu, each piece with a Send button.
+$('openWorks').addEventListener('click', () => { show('pause', false); extras.open('portfolio', () => { if (state === 'pause') { show('pause', true); focusMenu(0); } }); focusMenu(0); });
 $('openMap').addEventListener('click', () => openMap());
 
 $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
   // 2026-10-31 (Mike): character creation is rolled back (backlog B25). Begin always goes straight into play;
   // the form and its Pause > Character button stay in the code, hidden, until it returns as its own step.
+  void askToKeepData();   // lore-first item 3: ask the browser to keep this device's saves when space runs low
   void begin();
 });
 
@@ -722,7 +726,7 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
   const folk = root.userData.folk as import('./world/townsfolk').Folk | undefined;
   if (folk) return folk.active ? { speed: folk.speed, talking: folk.talking, pose: folk.pose, look: folk.speed > 0.3 || folk.pose ? null : look } : null;
-  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
+  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar' || id === 'lenju' || id === 'taitai') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
   return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
@@ -1222,6 +1226,7 @@ function openRecipeBook() { if (state !== 'play' && state !== 'pause') return; e
 let sturdy = false;   // B18: a "well fed" delve
 // B36: the first-day guided quest. Natalie points the way; test browsers skip it unless gametool.firstdaytest = 'on'.
 const firstDay = new FirstDay(world.scene, {
+  read: () => world.town.doors.library.position,
   write: () => world.town.doors.scriptorium.position,
   make: () => world.town.doors.tailor.position,
   fire: () => world.stations.campfire.position,
@@ -1230,6 +1235,13 @@ function firstDayOn() {
   try { return !navigator.webdriver || localStorage.getItem('gametool.firstdaytest') === 'on'; } catch { return !navigator.webdriver; }
 }
 casebook.extra = () => firstDay.casebookHtml();
+// Lore-first item 4: the side games (dojo, spar, sky run, trapdoor) wait until a new friend's first day is done, so the
+// first thing they meet is the lore. The prompt still shows, so they know it's there for later.
+function sideGate(verb: string) { return firstDay.sideGamesOpen ? verb : `${verb} (after your first day)`; }
+function sideGo(open: () => void) {
+  if (firstDay.sideGamesOpen) { open(); return; }
+  companion.say('That can wait for tomorrow. Today is for stories: follow the gold light. (Or skip the first day in the casebook.)', { force: true, ms: 4800 });
+}
 casebook.onExtra = (id) => { if (id === 'fdSkip') firstDay.skip(); };
 const campfireClosed = campfire.onClose;
 // v0.06 C3: the band's note keys show pad buttons while a controller is in use, and swap back live.
@@ -1938,7 +1950,7 @@ function openDojo() {
   rig.setShot({ pos: new THREE.Vector3(DOJO.x - 1.7, 1.6, DOJO.z + 3.2), look: new THREE.Vector3(DOJO.x - 2, 1, DOJO.z), fov: 44 });
   dojo.open();
 }
-interactables.push({ obj: dojoBoard, verb: () => 'Train at the dojo', act: () => openDojo(), when: () => !inDungeon });
+interactables.push({ obj: dojoBoard, verb: () => sideGate('Train at the dojo'), act: () => sideGo(openDojo), when: () => !inDungeon });
 
 // ---------- B35 (Mike 2026-11-03): fighter mode vs Kavik, side-on on the dojo mats (src/fight/) ----------
 const fightMode = station(new FightMode());
@@ -1946,7 +1958,7 @@ const kavikRoot = world.standees.kavik;
 const kavikHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.9, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
 kavikHit.position.copy(kavikRoot.position).setY(0.95);
 world.scene.add(kavikHit);
-interactables.push({ obj: kavikHit, verb: () => fightMode.record.beaten ? 'Spar with Kavik (no holding back)' : 'Spar with Kavik', act: () => openFight(), when: () => !inDungeon });
+interactables.push({ obj: kavikHit, verb: () => sideGate(fightMode.record.beaten ? 'Spar with Kavik (no holding back)' : 'Spar with Kavik'), act: () => sideGo(openFight), when: () => !inDungeon });
 // The fight runs on the mats: its x along them (the world's -x), its z across (the world's +z). The camera starts on
 // the -Z side, side-on, and swings round with the line between the fighters as they sidestep.
 const RING = { x: DOJO.x, y: 0.24, z: DOJO.z - 0.3 };
@@ -1994,7 +2006,7 @@ const sky = station(new SkyRun());
 const perch = buildPerch();
 world.scene.add(perch.group, perch.hit);
 world.colliders.push({ kind: 'box', minX: PERCH.x - 1.75, maxX: PERCH.x + 1.75, minZ: PERCH.z - 1.75, maxZ: PERCH.z + 1.75 });
-interactables.push({ obj: perch.hit, verb: () => sky.record.wins ? `Fly a sky run (${sky.record.wins} won)` : 'Fly a sky run', act: () => openSky(), when: () => !inDungeon });
+interactables.push({ obj: perch.hit, verb: () => sideGate(sky.record.wins ? `Fly a sky run (${sky.record.wins} won)` : 'Fly a sky run'), act: () => sideGo(() => openSky()), when: () => !inDungeon });
 function openSky(seed?: number) {
   if (state !== 'play') return;
   enterForge();
@@ -2005,6 +2017,56 @@ sky.onClose = () => {
   leaveForge();
 };
 sky.onResult = (won, crowns, why) => { if (won && crowns) earn(crowns, why); };
+// Mike 2026-11-05: Lenju the pilot (he flies the skyrunner) and Taitai the carpenter, his close friend, who helped
+// him build the perch, the ramp and the beacon towers. Talk to either at the foot of the perch.
+const skyFolk = (['lenju', 'taitai'] as const).map((id) => {
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.copy(world.standees[id].position).setY(0.9); hit.name = id + '-hit';
+  world.scene.add(hit);
+  interactables.push({ obj: hit, verb: () => `Talk to ${id === 'lenju' ? 'Lenju' : 'Taitai'}`, act: () => talkTo(id, hit.position, id === 'lenju' ? lenjuScript() : taitaiScript()), when: () => !inDungeon });
+  return hit;
+});
+function lenjuScript(): DialogueScript {
+  const r = sky.record, flown = r.runs > 0;
+  return { speaker: 'Lenju', start: 'hi', nodes: {
+    hi: { text: flown ? (r.wins ? `Back for more sky? ${r.wins} beacon${r.wins > 1 ? 's' : ''} reached. Not bad for someone who walks most days.` : 'You came back down in one piece. That counts as a first lesson.') : "I'm Lenju. I fly the skyrunner, the glider up on the perch. Mana-sail wings, a gem in the nose, no engine at all.", choices: [
+      { text: 'How does it fly?', next: 'how' },
+      { text: 'Who built all this?', next: 'built' },
+      { text: 'Any tips?', next: 'tips' },
+      { text: 'Let me fly it.', next: 'fly' },
+      { text: 'Later.', next: 'bye' },
+    ] },
+    how: { text: "The sails catch the mana in the air, the way the old fairies' wings did. Bank and it turns, let go and it levels out. You have sixty breaths to reach the blue beacon before the sails run dry.", next: 'hi2' },
+    built: { text: 'Taitai. Best carpenter this side of the river and my oldest friend. He built the perch, the ramp, every beacon tower. I just fall off them with style.', next: 'hi2' },
+    tips: { text: "Fly through the golden wind rings, they buy you time. Stay above the hills. And if a black-sailed skyrunner shows up, bank hard and pull. It can't turn as tight as you.", next: 'hi2' },
+    hi2: { text: 'Anything else?', choices: [
+      { text: 'How does it fly?', next: 'how' },
+      { text: 'Who built all this?', next: 'built' },
+      { text: 'Any tips?', next: 'tips' },
+      { text: 'Let me fly it.', next: 'fly' },
+      { text: 'Later.', next: 'bye' },
+    ] },
+    fly: { text: "Up the ladder, then. Taitai checked the straps this morning. I think.", actions: ['sky:fly'], end: true },
+    bye: { text: 'The sky will keep.', end: true },
+  } };
+}
+function taitaiScript(): DialogueScript {
+  return { speaker: 'Taitai', start: 'hi', nodes: {
+    hi: { text: "Taitai, carpenter. Mind the offcuts. Lenju had an idea about flying and needed somewhere to fall from, so I built him one.", choices: [
+      { text: 'You built the perch?', next: 'perch' },
+      { text: 'How do you know Lenju?', next: 'friend' },
+      { text: 'Goodbye.', next: 'bye' },
+    ] },
+    perch: { text: 'The perch, the ramp, and the stone-footed towers that hold the beacons out past the hills. Oak legs, cross-braced twice. The glider frame too. Lenju only trusts my joints.', next: 'hi2' },
+    friend: { text: "Since we were small. He climbed things, I built them taller. Somebody has to keep him from flying off a roof that isn't finished.", next: 'hi2' },
+    hi2: { text: 'Anything else?', choices: [
+      { text: 'You built the perch?', next: 'perch' },
+      { text: 'How do you know Lenju?', next: 'friend' },
+      { text: 'Goodbye.', next: 'bye' },
+    ] },
+    bye: { text: "Tell Lenju to bring the glider back in one piece. I'm out of good ash.", end: true },
+  } };
+}
 /** How a fighter's state shows on its figure: fists up, walking, hopping, a crouch, the strike, down. */
 function fightInput(f: Fighter): AnimInput {
   const m = f.move;
@@ -2211,7 +2273,7 @@ const wikiLectern = buildWikiLectern(library.group, world.colliders);
 function openWiki() { if (state !== 'play') return; enterForge(); wiki.open(() => leaveForge(), 'library'); }
 interactables.push({ obj: wikiLectern, verb: () => 'Read the wiki', act: () => openWiki(), when: () => !inDungeon });
 function openPhrasebook() { if (state !== 'play' && state !== 'pause') return; enterForge(); phrasebook.open(); }
-interactables.push({ obj: trapHit, verb: () => 'Open the trapdoor', act: () => openDescend(), when: () => !inDungeon });
+interactables.push({ obj: trapHit, verb: () => sideGate('Open the trapdoor'), act: () => sideGo(openDescend), when: () => !inDungeon });
 const shrineLines = lore.entries.filter((e) => e.type === 'lore' && e.body.length > 80);
 for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
   const spotOf = () => dungeon.spots.find((s) => s.hit === hit);
@@ -2532,6 +2594,7 @@ dialogue.onAction = (a) => {
     companion.prefs.follow = id === 'follow'; saveCompanion(companion.prefs);
   } else if (verb === 'folklore' && id === 'open') afterDialogue = openFolklore;
   else if (verb === 'casebook' && id === 'open') afterDialogue = openCasebook;
+  else if (verb === 'sky' && id === 'fly') afterDialogue = () => { setState('play'); openSky(); };
   else console.warn('Unknown dialogue action', a);
 };
 dialogue.onLine = () => audio.pageTurn();
@@ -3065,10 +3128,10 @@ function wakeFrame() {
 const frameExit: Interactable = { obj: knight.hit, verb: () => 'Climb out', act: () => exitFrame() };
 interactables.push({
   obj: knight.hit, when: () => !inDungeon && !knight.piloted && regions.current === 'town',
-  verb: () => knight.awake ? (knight.standing ? 'Climb into the knight frame' : 'The knight frame is waking...') : 'A rusted knight frame (asleep)',
+  verb: () => knight.awake ? (knight.standing ? (urlFlags.has('mech') ? 'Climb into the knight frame' : sideGate('Climb into the knight frame')) : 'The knight frame is waking...') : 'A rusted knight frame (asleep)',
   act: () => {
     if (!knight.awake) { toast('A knight frame, ten feet of elvish bronze gone green, kneeling in the ferns. The gem in its chest is dark. Clear the third floor of the descent and something down there might wake it.', 6000); return; }
-    if (knight.standing) enterFrame();
+    if (knight.standing) { if (urlFlags.has('mech')) enterFrame(); else sideGo(enterFrame); }   // a side game: waits for the first day (lore first), unless ?mech
   },
 });
 let viewBeforeFrame: View | null = null;
@@ -3617,7 +3680,7 @@ function frame() {
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
   } else { lookingAt = null; crossbow.setADS(false); handDown.left = handDown.right = false; player.leanWant = NO_LEAN; rig.update(dt); updateSteadyRing(); $('coach').classList.add('hidden'); }
-  firstDay.update(dt, { waking: waking > 0, writing: sketchPad.isOpen, making: characterForge.isOpen || weaponForge.isOpen, atFire: campfire.isOpen }, state === 'play' && inWorld && !inDungeon);
+  firstDay.update(dt, { waking: waking > 0, reading: state === 'book', writing: sketchPad.isOpen, making: characterForge.isOpen || weaponForge.isOpen, atFire: campfire.isOpen }, state === 'play' && inWorld && !inDungeon);
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
   audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);
@@ -3713,4 +3776,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, sky, openSky, perch, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
