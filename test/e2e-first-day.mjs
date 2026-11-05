@@ -37,13 +37,21 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
 // 1) A new profile walks the whole day.
 {
   const { ctx, page } = await boot();
-  const up = await stepIs(page, 'write');
+  const up = await stepIs(page, 'read');
   const d1 = await day(page);
   check('New profile: the day starts and "Get up" ticks off', up && d1.state?.step === 1, JSON.stringify(d1));
-  const near = await page.evaluate(() => { const g = window.__gametool, m = g.firstDay.marker.position, d = g.world.town.doors.scriptorium.position; return Math.hypot(m.x - d.x, m.z - d.z); });
-  check('Goal card and gold marker point at the Scriptorium', d1.hud && d1.marker && /Scriptorium/.test(d1.text) && near < 0.5, `${d1.text} · ${near.toFixed(2)}`);
+  const near = await page.evaluate(() => { const g = window.__gametool, m = g.firstDay.marker.position, d = g.world.town.doors.library.position; return Math.hypot(m.x - d.x, m.z - d.z); });
+  check('Lore first: the goal card and gold marker point at the Library', d1.hud && d1.marker && /Library/.test(d1.text) && near < 0.5, `${d1.text} · ${near.toFixed(2)}`);
   const line = await page.evaluate(() => window.__gametool.companion.lastLine);
-  check('Natalie points the way', /Scriptorium/.test(line), line);
+  check('Natalie points the way to the stories', /Library/.test(line), line);
+  // The side games wait: the prompt says so, and using it doesn't start the game.
+  const gated = await page.evaluate(() => { const g = window.__gametool, it = g.interactables.find((i) => /Spar with Kavik/.test(i.verb())); const v = it.verb(); it.act(); return { v, state: g.state }; });
+  check('Side games wait for the first day (spar shows "after your first day" and stays shut)', /after your first day/.test(gated.v) && gated.state === 'play', JSON.stringify(gated));
+  await page.evaluate(() => window.__gametool.townAct.library());
+  const r = await stepIs(page, 'write');
+  await page.evaluate(() => window.__gametool.book.close());
+  await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 20000 });
+  check('Reading in the Library moves on to the Scriptorium', r && /Scriptorium/.test((await day(page)).text));
   await page.evaluate(() => window.__gametool.townAct.scriptorium());
   const w = await stepIs(page, 'make');
   await page.evaluate(() => window.__gametool.sketchPad.close());
@@ -60,6 +68,8 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
   const d4 = await day(page);
   const coins1 = await page.evaluate(() => window.__gametool.purse.crowns);
   check('The campfire ends the day: done, marker and card gone, a reward', d4.state.done && !d4.state.skipped && !d4.marker && d4.step === null && (coins0 === null || coins1 > coins0), `${JSON.stringify(d4.state)} coins ${coins0}→${coins1}`);
+  const open = await page.evaluate(() => window.__gametool.interactables.find((i) => /Spar with Kavik/.test(i.verb())).verb());
+  check('After the first day the side games open', !/after your first day/.test(open), open);
   await page.evaluate(() => window.__gametool.campfire.close());
   await page.reload();
   await page.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
@@ -74,12 +84,12 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
 // 2) Skip from the casebook.
 {
   const { ctx, page } = await boot();
-  await stepIs(page, 'write');
+  await stepIs(page, 'read');
   await page.evaluate(() => { const g = window.__gametool; g.casebook.open(); });
   const listed = await page.evaluate(() => document.querySelectorAll('#casebook .fd-steps li').length);
   await page.click('#fdSkip');
   const d = await day(page);
-  check('The casebook lists the four steps and Skip ends it', listed === 4 && d.state.done && d.state.skipped && d.step === null, `${listed} ${JSON.stringify(d.state)}`);
+  check('The casebook lists the five steps and Skip ends it', listed === 5 && d.state.done && d.state.skipped && d.step === null, `${listed} ${JSON.stringify(d.state)}`);
   await ctx.close();
 }
 // 3) An old profile (a save, no first-day key) doesn't get it.

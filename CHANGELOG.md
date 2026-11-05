@@ -7,10 +7,35 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
-### v0.16 changelog, part 20: stair cinematics and floor hints (Mike 2026-11-05, thread "Add dungeon floor cinematics and hints")
+### v0.16 changelog, part 24: stair cinematics and floor hints (Mike 2026-11-05, thread "Add dungeon floor cinematics and hints")
 - Dropping through the trapdoor and going down each floor's stairs now plays a short cinematic (about 4 s and 3 s): the camera rides down a torch-lit spiral stair while a card reads "Leaving Floor 3 / Floor 4 of 30". Any key, click, tap or pad button skips it; with reduced motion the camera holds still.
 - Each card carries up to two hints of what's below, felt rather than told and always true to the floor just built: damp and sweating walls for a flooded floor, moist air where there are many pools, a guttering torch for a dark one, heat and smoke for a burning one, breath fogging on a Frost floor, roots on a Verdant one, deep breathing before a guardian, woodsmoke before a camp, goblin sign when a tougher band starts, and gold-light before the hoard.
 - The stair shaft is dressed to match (fog colour, torch strength, drips, embers, frost, leaves or dust), with footsteps on stone and drips, crackle or a low rumble. If Natalie is following, she says a line about it at the bottom.
+### v0.16 changelog, part 23: sending your work to Mike (lore-first round, item 5, Mike 2026-11-05)
+- Every piece in **Your works** (formerly Portfolio) has a **Send** button. The send sheet now says plainly that Mike adds it to the game with your name on it.
+- On phones and other browsers that can, **Share…** opens the device's own share sheet (Messages, WhatsApp, email) with the piece and its lore file, so no GitHub account is needed. GitHub, download and copy are still there.
+- **Your works · send to Mike** is in the pause menu too, and Back returns you there.
+
+### v0.16 changelog, part 22: lore first (lore-first round, item 4, Mike 2026-11-05)
+- A new friend's first day now starts with the stories. Right after getting up, Natalie sends them to read a tale in the Library, and only then to the Scriptorium, the Tailor or Smithy, and the campfire (five steps).
+- The side games (dojo, sparring with Kavik, sky runs, the trapdoor) wait until the first day is done or skipped. Their prompts still show, marked "after your first day". Profiles from before the first day existed are not affected, and a day part-way through keeps its place (save upgrade 1→2).
+- Extras now leads with the lore: Write lore, Your works and Wiki first, then What's new, Profiles, Inspirations and Evolution.
+
+### v0.16 changelog, part 21: saves that last for years (lore-first round, item 3, Mike 2026-11-05)
+- Saves are versioned. Every profile on the device is upgraded to the current shape when the game starts, and so is any profile or backup file you import, so a save from years ago still opens. A v0.16 profile is kept as a test fixture that must keep loading forever (`test/e2e-longevity.mjs`).
+- Extras → Profiles → **Keep it for years**: **Back up everything** saves one file with all three profiles and your settings (never the GitHub token). **Restore a backup** brings it all back, on this device or a new one. The page says when you last backed up and nudges you after two months.
+- On Begin, the game asks the browser to keep its data even when space runs low (installed apps usually agree without asking).
+
+### v0.16 changelog, part 20: the skyrunner (Mike 2026-11-05, "ride a fixed-wing plane ... A to B within 1 minute")
+- A launch perch (a timber tower with a glider on the deck) stands in the meadow east of the library. "Fly a sky run" takes you up in a **skyrunner**: a one-seat glider with mana-sail wings and a gem in the nose (airships and mana-borne flight are both in the public lore).
+- Every run is its own **seeded map**: about 3 km of low-poly hills, lakes, forest and rock spires, with mountains round the edge. You start on the perch (A); the **beacon** (B), a stone tower with a pillar of blue fire, is 1.6 to 2 km away. Reach it inside **60 seconds**. Four wind rings along the way add 2 s each. Hit the ground or a spire and you crash. The result card shows the map number and your best time on it: "Again" flies the same map, "New map" rolls another, or type a map number a friend sends you.
+- **Flight**: arcade, not a sim. It turns where it banks and levels out when you let go. Throttle sets the speed (90 to 200 km/h). A mana **surge** gives +40% for 2 s (6 s cooldown). Chase camera, a cockpit view (V / Back), and look back (R / R3).
+- **Dogfight**: one run in twenty, a **hexed skyrunner** (black sails, violet bolts) comes for you 10 s in. Both planes fire mana bolts, with a little aim help and a heat bar that jams for 1.5 s if you hold the trigger too long. You take 5 hits, it takes 4, and you can out-turn it. You don't have to shoot it down to win. `?dogfight` forces it.
+- **First person** (Mike 2026-11-05): V, Back on a gamepad, or the View button (also on touch) puts you in the pilot's seat. You see the cowl, the nose gem and a brass sighting ring, and the view rolls with the wings. The choice is remembered.
+- **Tilt steering** (Mike 2026-11-05, "motion control"): on a phone, the Tilt button lets the gyro fly the glider. Tip the phone left or right to bank, and forward or back to dive or climb. It levels to however you're holding the phone when the run starts, and Recenter resets it mid-flight. It works held upright or sideways, the stick still works alongside it, and the game remembers the choice (an iPhone asks for motion permission on the first tap).
+- **Lenju and Taitai** (Mike 2026-11-05): two new characters at the foot of the perch. Lenju is the pilot who flies the skyrunner; he explains how it flies, gives tips, and "Let me fly it" sends you up. Taitai is a carpenter and Lenju's close friend; he built the perch, the ramp, the beacon towers and the glider frame with him, and works at a sawhorse beside it.
+- **Controls**: keyboard W A S D or the arrows (W dives; "Pitch: inverted" swaps it), Shift / Z throttle, Space or click fires, Q surges. On a gamepad: left stick, RT / LT, A or RB fire, Y surge, Start leaves. On touch: a stick on the left, Fire, Surge and Look back on the right, and the throttle sorts itself out. Rumble on hits and crashes.
+- Pays 20 crowns a win, +30 with the hexed skyrunner shot down. Runs, wins, kills and best times are saved on the device. New `test/e2e-sky.mjs` (22/22).
 
 ### v0.16 changelog, part 19: chimney smoke (decoration 7, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Chimney smoke is now chunky low-poly puffs that swell, turn and fade as they drift up in the wind, instead of flat cards. One instanced mesh for the whole town.

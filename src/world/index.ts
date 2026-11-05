@@ -8,6 +8,7 @@ import { tuftCards, type TuftCard } from './tuftCards';
 import { buildFences } from './fenceCards';
 import { buildSkyCards } from './skyCards';
 import { CARAVAN } from '../spanish/caravan';   // built later (main.ts): keep the fences clear of its camp
+import { PERCH } from '../sky/perch';   // skyrunner launch perch: keep trees and rocks off it
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
 import { buildFigure, buildCoach } from './figure';
@@ -220,7 +221,8 @@ export function buildWorld(): World {
     || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad)   // Phase F dojo
     || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad)   // v0.04 rock climb
     || townClear(x, z, pad)   // v0.04 town
-    || riverClear(x, z, pad);   // references review: the river and the windmill
+    || riverClear(x, z, pad)   // references review: the river and the windmill
+    || Math.hypot(x - PERCH.x, z - PERCH.z) < PERCH.r + pad;   // the skyrunner perch
   // Style pass 2: the meadow gets gentle bumps, except where something stands on flat ground.
   const flatSpots: [number, number, number][] = [
     ...QUEST.clues.map((c) => [c.at[0], c.at[2], 2.5] as [number, number, number]),
@@ -399,6 +401,20 @@ export function buildWorld(): World {
   place('natalie', buildFigure({ art: 'natalie', skin: '#EBC2A0', hair: '#3A2418', primary: '#7A3A5A', secondary: '#C9A36B', boots: '#4A2E22', accent: '#2B2A24', eyes: '#5A3A7A', hairStyle: 'long', skirt: true }, 1.75), NAT.x, NAT.z, 0.35, 0.35);
   // Phase D (B12): Magister Greer, Aralon's wizard-trader (half the time a rooster), by the coach road (Mike's pick for the Curio Pedlar).
   place('pedlar', buildFigure({ art: 'pedlar', skin: '#F2EEE6', hair: '#F2EEE6', primary: '#4A3A7A', secondary: '#5A4A8A', boots: '#3A2E22', accent: '#C8423A', hairStyle: 'hood', skirt: true, species: 'owlkin', eyeStyle: 'round', feature: '#E0A020', marks: '#C8423A', build: 1.1 }, 1.6), -7.8, -5.4, 0.9, 0.4);
+  // Skyrunner (Mike 2026-11-05): Lenju the pilot stands at the foot of the launch perch, and his close friend Taitai,
+  // the carpenter who built it (and the beacons) with him, works at a sawhorse beside it.
+  place('lenju', buildFigure({ skin: '#D9A77A', hair: '#2A1E16', primary: '#7A4A2A', secondary: '#4FA6D8', boots: '#3A2A1E', accent: '#C9A23A', eyes: '#3A2A1E', hairStyle: 'cap', build: 0.95 }, 1.78), PERCH.x - 2.6, PERCH.z + 3.4, 0.5, 0.35);
+  place('taitai', buildFigure({ skin: '#C98E62', hair: '#1E1A16', primary: '#5E6E3A', secondary: '#B08A5A', boots: '#4A3420', accent: '#8A5A32', eyes: '#2A2018', hairStyle: 'short', build: 1.2 }, 1.74), PERCH.x + 3.2, PERCH.z + 3.0, -0.6, 0.4);
+  { // Taitai's sawhorse with a plank on it, and a few offcuts.
+    const wood = new THREE.MeshLambertMaterial({ color: '#9A6A3E' }), x = PERCH.x + 4.4, z = PERCH.z + 2.0;
+    const g = new THREE.Group(); g.name = 'taitai-sawhorse';
+    for (const sx of [-0.45, 0.45]) for (const sz of [-0.18, 0.18]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.7, 0.06), wood); leg.position.set(sx, 0.33, sz * 1.4); leg.rotation.x = sz > 0 ? -0.25 : 0.25; g.add(leg); }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.1), wood); beam.position.y = 0.68; g.add(beam);
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.04, 0.24), new THREE.MeshLambertMaterial({ color: '#C8955A' })); plank.position.set(0.15, 0.74, 0); plank.rotation.y = 0.12; g.add(plank);
+    for (let i = 0; i < 3; i++) { const cut = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.12), wood); cut.position.set(-0.3 + i * 0.35, 0.02, 0.6 + (i % 2) * 0.15); cut.rotation.y = i; g.add(cut); }
+    g.position.set(x, 0, z); g.rotation.y = -0.4; scene.add(g);
+    colliders.push({ kind: 'circle', x, z, r: 0.7 });
+  }
   // References review models (CC0, Quaternius): public/models/witch.glb and sword.glb replace these placeholders.
   // The Witch (a placeholder NPC, role name only) keeps the windmill on the far bank.
   place('witch', buildFigure({ skin: '#E8C8A8', hair: '#1E1A22', primary: '#5A3A7A', secondary: '#C9A23A', boots: '#3A2A1E', accent: '#C9A23A', hairStyle: 'long', dress: true }, 1.7), WINDMILL.x + 3.4, WINDMILL.z - 1.4, Math.PI / 2 + 0.3, 0.35);

@@ -60,6 +60,7 @@
     "e2e-witch-face",
     "e2e-animations",
     "e2e-fight",
+    "e2e-sky",
     "e2e-gamepad",
     "e2e-npc-light",
     "e2e-lowpower",
@@ -90,6 +91,7 @@
     "e2e-delve-rewards",
     "e2e-kill-statue",
     "e2e-first-meet",
-    "e2e-decor"
+    "e2e-decor",
+    "e2e-longevity"
   ]
 }
