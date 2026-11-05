@@ -1,0 +1,40 @@
+/* Skyrunner (Mike 2026-11-05): the sky run's HUD. Same parchment-on-dark look as the fight with Kavik. */
+#skyRun { position: fixed; inset: 0; z-index: 40; pointer-events: auto; color: var(--parchment, #F3E6C8); font-family: Georgia, serif; touch-action: none; user-select: none; }
+#skyRun.hidden, #skyRun .hidden { display: none; }
+#skyRun .sk-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; align-items: flex-start; gap: 12px; pointer-events: none; }
+#skyRun .sk-left, #skyRun .sk-right { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 14px; text-shadow: 0 1px 2px #000; }
+#skyRun .sk-right { align-items: flex-end; }
+#skyRun .sk-hp { font-size: 18px; letter-spacing: 2px; color: #FFE08A; }
+#skyRun .sk-heat { display: block; width: 120px; height: 8px; background: rgba(20,14,8,.75); border: 1px solid rgba(232,200,120,.6); border-radius: 3px; overflow: hidden; }
+#skyRun .sk-heat i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #9FE4FF, #FF9A5A); }
+#skyRun .sk-heat i.jam { background: #E0563A; }
+#skyRun .sk-surge { opacity: .7; }
+#skyRun .sk-surge.ready { opacity: 1; color: #9FE4FF; }
+#skyRun .sk-surge.on { color: #FFE08A; }
+#skyRun .sk-clock { font: 700 28px/1 Georgia, serif; min-width: 58px; text-align: center; background: rgba(20,14,8,.75); border-radius: 6px; padding: 4px 8px; }
+#skyRun .sk-clock.low { color: #FF8A6A; }
+#skyRun .sk-banner { position: absolute; top: 30%; left: 0; right: 0; text-align: center; font: 700 clamp(26px, 6vw, 58px)/1 Georgia, serif; text-shadow: 0 3px 0 #2B1A10, 0 0 18px rgba(0,0,0,.6); pointer-events: none; }
+#skyRun .sk-mark { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; font-size: 12px; text-shadow: 0 1px 2px #000; pointer-events: none; color: #9FE4FF; }
+#skyRun .sk-mark b { font-size: 16px; line-height: 1; }
+#skyRun .sk-foe { color: #D7A6FF; }
+#skyRun .sk-result { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(20,14,8,.92); border: 1px solid rgba(232,200,120,.6); border-radius: 10px; padding: 14px 18px; text-align: center; width: min(460px, calc(100vw - 32px)); box-sizing: border-box; }
+#skyRun .sk-result h3 { margin: 0 0 6px; font-size: 24px; }
+#skyRun .sk-r-map { opacity: .8; font-size: 13px; margin: 4px 0; }
+#skyRun .sk-r-row { display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+#skyRun .sk-r-row button { width: auto; margin: 0; padding: 8px 12px; }
+#skyRun .sk-r-seed { font-size: 13px; align-items: center; }
+#skyRun .sk-r-seed input { width: 7ch; font: inherit; padding: 4px; }
+#skyRun .sk-help { position: absolute; bottom: calc(8px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; font-size: 13px; text-shadow: 0 1px 2px #000; margin: 0; pointer-events: none; }
+#skyRun .sk-tools { position: absolute; top: calc(70px + env(safe-area-inset-top)); right: 12px; display: flex; gap: 6px; }
+#skyRun .sk-tools button { width: auto; margin: 0; padding: 6px 12px; font-size: 13px; }
+#skyRun .sk-stick { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 2px solid rgba(243,230,200,.4); display: none; pointer-events: none; }
+#skyRun .sk-stick.on { display: block; }
+#skyRun .sk-knob { position: absolute; left: 33px; top: 33px; width: 44px; height: 44px; border-radius: 50%; background: rgba(243,230,200,.5); }
+#skyRun .sk-pad { position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(30px + env(safe-area-inset-bottom)); display: none; grid-template-columns: repeat(2, 66px); gap: 10px; }
+#skyRun .sk-b { width: 66px; height: 66px; border-radius: 50%; padding: 0; margin: 0; font-size: 12px; background: rgba(20,14,8,.7); border: 2px solid rgba(232,200,120,.6); color: inherit; }
+#skyRun .sk-b.on { background: rgba(232,200,120,.5); }
+#skyRun .sk-fire { grid-column: 1 / -1; width: 100%; height: 76px; border-radius: 38px; border-color: #9FE4FF; font-size: 15px; }
+body[data-input="touch"] #skyRun .sk-pad { display: grid; }
+body[data-input="touch"] #skyRun .sk-help { display: none; }
+body[data-input="pad"] #skyRun .sk-help-keys { display: none; }
+body:not([data-input="pad"]) #skyRun .sk-help-pad { display: none; }
