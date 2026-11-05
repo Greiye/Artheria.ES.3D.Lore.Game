@@ -194,16 +194,22 @@ export function buildWallLanterns(scene: THREE.Scene, T: DecorTown, lanterns: TH
   return [iron.mesh(scene, 'decor-lantern-iron')!, g];
 }
 
+function segDist(x: number, z: number, [ax, az]: [number, number], [bx, bz]: [number, number]) {
+  const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+  return Math.hypot(x - ax - dx * t, z - az - dz * t);
+}
+/** Is (x, z) within r (+ half a path's width) of a footpath? */
+function onPath(x: number, z: number, r: number) { return PATHS.some((line) => line.some((p, i) => i > 0 && segDist(x, z, line[i - 1], p) < r + 1.4)); }
+/** Clear of paths and of everything with a collider. */
+function isFree(T: DecorTown, x: number, z: number, r: number) {
+  return !onPath(x, z, r) && !T.colliders.some((c) => c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + r
+    : x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r);
+}
+
 /** 4. Rustic clutter behind the houses: split-log woodpiles against the back walls, a hand cart, stacked hay bales. */
 export function buildRustic(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
   const P = new Painter(7401), R = rng(7402), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-  const segDist = (x: number, z: number, [ax, az]: [number, number], [bx, bz]: [number, number]) => {
-    const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
-    return Math.hypot(x - ax - dx * t, z - az - dz * t);
-  };
-  const onPath = (x: number, z: number, r: number) => PATHS.some((line) => line.some((p, i) => i > 0 && segDist(x, z, line[i - 1], p) < r + 1.4));
-  const free = (x: number, z: number, r: number) => !onPath(x, z, r) && !T.colliders.some((c) => c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + r
-    : x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r);
+  const free = (x: number, z: number, r: number) => isFree(T, x, z, r);
   const LOG = ['#6A4A2C', '#7A5634', '#5E3E24'], END = '#C8A06A', HAY = ['#D8B65A', '#C8A44A', '#E2C46C'], STRING = '#8A6A3A';
   // A woodpile: rows of split logs (6-sided), pale cut ends facing out, under a little plank roof.
   const woodpile = (L: DecorLot) => {
@@ -261,5 +267,62 @@ export function buildRustic(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
   }
   const m = P.mesh(scene, 'decor-rustic')!;
   m.userData = { carts, stacks };
+  return [m];
+}
+
+/** 5. Wayside pieces: stone wells with a little roof and a windlass, and signposts where the footpaths set off. */
+export function buildWayside(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
+  const P = new Painter(7501), R = rng(7502), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const STONE = ['#8A8478', '#7A746A', '#9A948A', '#6E685E'], MOSS = '#5E7A3A', WOOD = '#6A4828', DARK = '#4A3220', ROOF = '#7A4A32';
+  const well = (x: number, z: number, ry: number) => {
+    const y = heightAt(x, z), c = Math.cos(ry), sn = Math.sin(ry), at = (lx: number, ly: number, lz: number) => V(x + lx * c + lz * sn, y + ly, z - lx * sn + lz * c);
+    // A ring of rough stones in three courses, staggered, a mossy coping, dark water inside.
+    for (let row = 0; row < 3; row++) for (let k = 0; k < 10; k++) {
+      const a = ((k + (row % 2) * 0.5) / 10) * Math.PI * 2;
+      P.add(new THREE.BoxGeometry(0.42, 0.26, 0.24), STONE[Math.floor(R() * 4)], at(Math.sin(a) * 0.72, 0.13 + row * 0.26, Math.cos(a) * 0.72), ry + a, 0, (R() - 0.5) * 0.08);
+    }
+    P.add(new THREE.TorusGeometry(0.72, 0.1, 4, 10).rotateX(Math.PI / 2), MOSS, at(0, 0.82, 0), ry);
+    P.add(new THREE.CircleGeometry(0.62, 10).rotateX(-Math.PI / 2), '#1E2A30', at(0, 0.5, 0), ry);
+    // Two posts, a crossbeam with the windlass and its crank, a rope and bucket, a small gabled roof.
+    for (const sx of [-0.85, 0.85]) P.add(new THREE.BoxGeometry(0.12, 2.0, 0.12), WOOD, at(sx, 1.0, 0), ry);
+    P.add(new THREE.CylinderGeometry(0.07, 0.07, 1.62, 6).rotateZ(Math.PI / 2), '#8A6A40', at(0, 1.55, 0), ry);
+    P.add(new THREE.BoxGeometry(0.04, 0.3, 0.04), IRON, at(0.92, 1.45, 0), ry);
+    P.add(new THREE.BoxGeometry(0.2, 0.04, 0.04), IRON, at(1.0, 1.31, 0), ry);
+    P.add(new THREE.CylinderGeometry(0.012, 0.012, 0.75, 3), '#A08A5A', at(0.1, 1.15, 0), ry);
+    P.add(new THREE.CylinderGeometry(0.13, 0.1, 0.22, 7), '#7A5430', at(0.1, 0.72, 0), ry);
+    for (const sd of [-1, 1]) P.add(new THREE.BoxGeometry(2.0, 0.05, 0.85), ROOF, at(0, 2.18, sd * 0.33), ry, sd * 0.62);
+    P.add(new THREE.BoxGeometry(2.0, 0.1, 0.1), DARK, at(0, 2.42, 0), ry);
+    T.colliders.push({ kind: 'circle', x, z, r: 0.92, top: 0.85 });
+  };
+  // A signpost: a post with one or two arrow boards pointing along the path, a cap on top.
+  const sign = (x: number, z: number, dirs: number[]) => {
+    const y = heightAt(x, z);
+    P.add(new THREE.BoxGeometry(0.12, 1.9, 0.12), WOOD, V(x, y + 0.95, z));
+    P.add(new THREE.ConeGeometry(0.12, 0.14, 4), DARK, V(x, y + 1.97, z), Math.PI / 4);
+    dirs.forEach((a, i) => {
+      const yy = y + 1.62 - i * 0.3, ry = a - Math.PI / 2, c = Math.cos(ry), sn = Math.sin(ry), at = (lx: number) => V(x + lx * c, yy, z - lx * sn);
+      P.add(new THREE.BoxGeometry(0.7, 0.2, 0.04), i % 2 ? '#9A7A4E' : '#B08C5A', at(0.38), ry);
+      P.add(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 3).rotateX(Math.PI / 2), i % 2 ? '#9A7A4E' : '#B08C5A', at(0.78), ry, 0, -Math.PI / 2);   // the point
+      P.add(new THREE.BoxGeometry(0.4, 0.04, 0.045), '#5A3C22', at(0.36), ry);   // a carved line
+    });
+    T.colliders.push({ kind: 'circle', x, z, r: 0.18 });
+  };
+  // Signposts at the start of every footpath, set beside it and pointing along it.
+  let signs = 0, wells = 0;
+  PATHS.forEach((line, i) => {
+    const [a, b] = [line[0], line[1]], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz), ang = Math.atan2(dx, dz);
+    for (const side of [1, -1]) {
+      const x = a[0] + dx / l * 0.9 - dz / l * 1.5 * side, z = a[1] + dz / l * 0.9 + dx / l * 1.5 * side;
+      if (Math.hypot(x, z) < 3 || !T.colliders.every((c) => c.kind !== 'circle' || Math.hypot(x - c.x, z - c.z) > c.r + 0.4)) continue;
+      sign(x, z, i % 3 === 0 ? [ang, ang + 2.2] : [ang]); signs++; break;
+    }
+  });
+  // Wells: beside the lane up to town and out by the footbridge path, wherever the ground is clear.
+  for (const [x, z] of [[4.2, 12.5], [-3.6, 13.5], [-27, 23], [-26, 30.5], [33, 30], [12, 1.5]] as [number, number][]) {
+    if (wells >= 2 || !isFree(T, x, z, 1.4)) continue;
+    well(x, z, R() * Math.PI); wells++;
+  }
+  const m = P.mesh(scene, 'decor-wayside')!;
+  m.userData = { signs, wells };
   return [m];
 }
