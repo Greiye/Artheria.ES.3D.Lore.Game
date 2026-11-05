@@ -40,8 +40,10 @@ export interface Descent {
   /** The goblins learn your habits (band 5): what you've been hitting them with this run. */
   swordHits: number; boltHits: number;
   started: string;
+  /** This floor: twisted or not, and whether its camp has been rested at. */
+  flux?: Flux; rested?: boolean;
 }
-export interface Record_ { deepest: number; delivered: number; heroes: number; runs: number }
+export interface Record_ { deepest: number; delivered: number; heroes: number; runs: number; guardians: number[]; ropes: number[] }
 export interface Fallen { name: string; floor: number; books: number; by: string; at: string; words: string }
 export interface Survivor { name: string; at: string; art: string | null; kavik?: boolean; line?: string }
 
@@ -49,10 +51,10 @@ const K = { run: 'gametool.descent', rec: 'gametool.descent.record', tally: 'gam
 const read = <T>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) as T : d; } catch { return d; } };
 const write = (k: string, v: unknown) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage blocked */ } };
 
-export const newDescent = (): Descent => ({ floor: 1, books: [], hoard: false, swordHits: 0, boltHits: 0, started: new Date().toISOString().slice(0, 10) });
+export const newDescent = (from = 1): Descent => ({ floor: from, books: [], hoard: false, swordHits: 0, boltHits: 0, started: new Date().toISOString().slice(0, 10) });
 export const loadDescent = () => read<Descent | null>(K.run, null);
 export const saveDescent = (d: Descent | null) => write(K.run, d);
-export const loadRecord = () => ({ deepest: 0, delivered: 0, heroes: 1, runs: 0, ...read<Partial<Record_>>(K.rec, {}) });
+export const loadRecord = (): Record_ => { const r = { deepest: 0, delivered: 0, heroes: 1, runs: 0, guardians: [] as number[], ropes: [] as number[], ...read<Partial<Record_>>(K.rec, {}) }; if (!r.guardians.length) r.guardians = rollGuardians(); return r; };
 export const saveRecord = (r: Record_) => write(K.rec, r);
 export const loadTally = () => read<Fallen[]>(K.tally, []);
 export function addFallen(f: Fallen) { const t = loadTally(); t.unshift(f); write(K.tally, t.slice(0, 60)); }
@@ -81,4 +83,27 @@ export function drawKavik(g: CanvasRenderingContext2D, w: number, h: number) {
   for (let i = 0; i < 9; i++) line([[-30 + i * 2, 50 + i * 3], [-24 + i * 2, 44 + i * 3]], 0.8);
   g.fillStyle = 'rgba(40,30,30,.9)'; g.font = `italic ${Math.round(12 * s)}px Georgia, serif`; g.textAlign = 'center';
   g.fillText('Kavik', w / 2, h - 10 * s);
+}
+
+// ---------- E2 (Mike 2026-11-05): guardians and their ropes, rest camps, flux floors ----------
+/** Guardian floors, rolled once and kept: each 7 to 10 floors after the last (so up to 3 early of every tenth,
+ *  never more than 10 apart), all above the hoard. Beating one ties Natalie's rope there: a start point. */
+export function rollGuardians(R: () => number = Math.random): number[] {
+  const out: number[] = [];
+  for (let at = 7 + Math.floor(R() * 4); at < FLOORS; at += 7 + Math.floor(R() * 4)) out.push(at);
+  return out;
+}
+export const GUARDIAN_NAMES = ['Gnash the Binder', 'Old Mother Mildew', 'Skreel Who Counts the Stairs', 'Varg Ink-Tooth', 'The Margin-Eater'];
+export const isCamp = (floor: number) => floor > 0 && floor < FLOORS && floor % 5 === 0;
+export type Flux = 'none' | 'dark' | 'flooded' | 'burning' | 'light';
+export const FLUX_NOTE: Record<Flux, string> = {
+  none: '', dark: 'This floor is pitch dark. Keep your torch up.', flooded: 'This floor is flooded to the knee: slow going.',
+  burning: 'The shelves on this floor are burning. Keep moving, the heat bites.', light: 'Something is wrong with the weight of things here. You float.',
+};
+/** Some floors come out twisted; more often deeper down. Never the camps, the guardians' floors or the hoard. */
+export function fluxFor(floor: number, guardians: number[], R: () => number = Math.random): Flux {
+  if (floor < 3 || floor >= FLOORS || isCamp(floor) || guardians.includes(floor)) return 'none';
+  if (R() > Math.min(0.45, 0.06 + floor * 0.014)) return 'none';
+  const kinds: Flux[] = ['dark', 'flooded', 'burning', 'light'];
+  return kinds[Math.floor(R() * kinds.length)];
 }

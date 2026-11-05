@@ -18,7 +18,7 @@ const THEME: Record<Theme, { floor: string; wall: string; torch: string; liquid:
 };
 const cellToWorld = (x: number, y: number, out = new THREE.Vector3()) => out.set(ORIGIN.x + (x - N / 2) * CELL + CELL / 2, 0, ORIGIN.z + (y - N / 2) * CELL + CELL / 2);
 
-interface DungeonSpot { kind: 'stairs' | 'chest' | 'shrine' | 'nest' | 'down' | 'hoard'; room: Room; hit: THREE.Mesh }
+interface DungeonSpot { kind: 'stairs' | 'chest' | 'shrine' | 'nest' | 'down' | 'hoard' | 'camp'; room: Room; hit: THREE.Mesh }
 
 export class Dungeon {
   readonly group = new THREE.Group();
@@ -34,11 +34,11 @@ export class Dungeon {
     this.group.visible = false;
     scene.add(this.group);
     // Reused hitboxes (stairs, chest, nest, up to four shrines).
-    for (let i = 0; i < 9; i++) { const h = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 1.4), this.hidden); h.visible = false; scene.add(h); this.hits.push(h); }
+    for (let i = 0; i < 10; i++) { const h = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 1.4), this.hidden); h.visible = false; scene.add(h); this.hits.push(h); }
   }
 
   /** Mike 2026-11-05: `down` puts stairs down in the deepest room (the descent); `hoard` heaps the dragon's gold there (floor 30). */
-  build(seed: number, extra: { down?: boolean; hoard?: boolean } = {}): Layout {
+  build(seed: number, extra: { down?: boolean; hoard?: boolean; camp?: boolean } = {}): Layout {
     const L = generate(seed), T = THEME[L.theme];
     this.layout = L;
     this.group.clear();
@@ -105,6 +105,14 @@ export class Dungeon {
         for (let s = 0; s < 5; s++) tg.push(paint(new THREE.BoxGeometry(1.6, 0.3 * (s + 1), 0.5).translate(ctr.x, 0.15 * (s + 1), ctr.z - 1.2 - s * 0.5), s % 2 ? '#4A443C' : '#57504A'));
         this.colliders.push({ kind: 'box', minX: ctr.x - 0.8, maxX: ctr.x + 0.8, minZ: ctr.z - 3.5, maxZ: ctr.z - 0.95 });
         spot('stairs', r, new THREE.Vector3(ctr.x, 0, ctr.z - 1.3));
+        if (extra.camp) {   // E2: a rest camp by the stairs: a ring of stones, logs, a fire, a bedroll
+          const at = cellToWorld(r.cx + 1, r.cy + 1);
+          for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; tg.push(paint(new THREE.BoxGeometry(0.18, 0.12, 0.18).translate(at.x + Math.cos(a) * 0.45, 0.06, at.z + Math.sin(a) * 0.45), '#77706A')); }
+          for (const a of [0.3, 1.9, 3.6]) tg.push(paint(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 5).rotateZ(Math.PI / 2).rotateY(a).translate(at.x, 0.1, at.z), '#5A3E26'));
+          flameG.push(paint(new THREE.ConeGeometry(0.22, 0.55, 6).translate(at.x, 0.38, at.z), '#FF9A3A'), paint(new THREE.ConeGeometry(0.12, 0.35, 5).translate(at.x, 0.5, at.z), '#FFE08A'));
+          tg.push(paint(new THREE.BoxGeometry(0.7, 0.06, 1.6).translate(at.x - 1.1, 0.03, at.z), '#6A4A6A'));
+          spot('camp', r, at);
+        }
       } else if (r.tag === 'treasure') {
         tg.push(paint(new THREE.BoxGeometry(0.9, 0.5, 0.6).translate(ctr.x, 0.25, ctr.z), '#7A4A26'), paint(new THREE.BoxGeometry(0.94, 0.12, 0.64).translate(ctr.x, 0.55, ctr.z), '#C9A23A'));
         this.colliders.push({ kind: 'circle', x: ctr.x, z: ctr.z, r: 0.5 });

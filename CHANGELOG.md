@@ -7,6 +7,18 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 9: guardians, rest camps and flux floors (Mike 2026-11-05)
+- **Guardians**: a named boss goblin (Gnash the Binder, Old Mother Mildew, ...) waits in the deepest room of its
+  floor. Guardian floors are rolled once: each 7 to 10 floors after the last, so up to 3 early, never more than 10
+  apart. Beat one and Natalie ties a rope there: the trapdoor then offers that floor as a start point. Ropes are kept
+  from hero to hero.
+- **Rest camps** on floors 5, 10, 15, 20 and 25, by the stairs: rest once to heal fully, oil the blade and restring
+  the crossbow.
+- **Flux floors**: some floors come out twisted, more often deeper down (never camps, guardians or the hoard):
+  pitch dark, flooded to the knee (slow), burning shelves (the heat bites now and then), or light (you fall slowly
+  and jump high). The load screen warns you.
+- Test: `e2e-descent-extras`.
+
 ### v0.16 changelog, part 8: the descent, a roguelike under the library (Mike 2026-11-05)
 - The trapdoor now offers **the descent**. The library is in flux (the witch in the ruins): every floor is a new
   layout each time. They say it goes 30 floors deep, with a dragon's hoard at the bottom. Stairs down sit in the

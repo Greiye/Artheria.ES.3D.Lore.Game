@@ -38,8 +38,8 @@ interface FoeWorld {
   hex?(kind: 'dark' | 'slow', by: Foe): void;
 }
 /** Mike 2026-11-05: what a goblin does on the deeper floors, beyond its rolled behaviour (see src/delve/descent.ts). */
-export type Role = 'none' | 'slinger' | 'guard' | 'dropper' | 'shaman' | 'captain' | 'keeper';
-const ROLE_TITLE: Record<Role, string> = { none: '', slinger: 'Slinger', guard: 'Pot-lid Guard', dropper: 'Shelf-lurker', shaman: 'Shaman', captain: 'Captain', keeper: 'Hoard-keeper' };
+export type Role = 'none' | 'slinger' | 'guard' | 'dropper' | 'shaman' | 'captain' | 'keeper' | 'guardian';
+const ROLE_TITLE: Record<Role, string> = { none: '', slinger: 'Slinger', guard: 'Pot-lid Guard', dropper: 'Shelf-lurker', shaman: 'Shaman', captain: 'Captain', keeper: 'Hoard-keeper', guardian: 'Guardian' };
 
 type State = 'idle' | 'hidden' | 'chase' | 'back' | 'flee' | 'dead';
 interface Foe {
@@ -117,18 +117,20 @@ export class Goblins {
 
   /** The most at once (deeper floors allow more). */
   maxFoes = MAX_FOES;
-  spawn(v: Variant, at: THREE.Vector3, yaw = 0, force = false, want?: Role): Foe | null {
+  spawn(v: Variant, at: THREE.Vector3, yaw = 0, force = false, want?: Role, name?: string): Foe | null {
     if (this.alive.length >= this.maxFoes && !force) return null;
     const root = buildGoblin(v), st = goblinStats(v);
     const role = want ?? this.roleFor(v, st);
     // Deeper floors: tougher, and each role changes the kit.
-    st.hp = Math.max(2, Math.round(st.hp * this.hpMul * (role === 'captain' ? 1.6 : role === 'keeper' ? 2.2 : 1)));
+    st.hp = Math.max(2, Math.round(st.hp * this.hpMul * (role === 'captain' ? 1.6 : role === 'keeper' ? 2.2 : role === 'guardian' ? 2.4 : 1)));
     if (role === 'slinger') { st.range = 8; st.shot = 13; st.cooldown = 2.1; st.weapon = 'sling'; }
     if (role === 'guard') st.block = true;
     if (role === 'keeper') { st.armour += 1; st.block = true; st.leader = true; }
     if (role === 'captain') st.leader = true;
+    if (role === 'guardian') { st.armour += 1; st.block = true; st.leader = true; st.height *= 1.35; root.scale.setScalar(1.35); }
     if (this.band >= 5 && this.habits.bolt > this.habits.sword * 2 + 4 && st.behaviour !== 'thief' && ((v.seed >>> 3) & 3) === 0) st.behaviour = 'mimic';   // they learned to dodge your bolts
-    if (role !== 'none') v = { ...v, display: `${v.display}, ${ROLE_TITLE[role]}` };
+    if (name) v = { ...v, display: name };
+    else if (role !== 'none') v = { ...v, display: `${v.display}, ${ROLE_TITLE[role]}` };
     root.position.copy(at); root.rotation.y = yaw; root.name = 'goblin:' + v.display;
     const f: Foe = { v, st, root, anim: new FigureAnim(root.userData.rig as FigureRig), lean: new Lean(), hp: st.hp, state: st.behaviour === 'ambusher' ? 'hidden' : 'idle', t: 0, cd: 1, windup: 0,
       alerted: false, stolen: 0, caught: 0, traps: st.trap ? (this.band >= 1 ? 3 : 2) : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0, hurtT: 0, mats: [],
