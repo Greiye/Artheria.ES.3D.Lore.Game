@@ -21,7 +21,7 @@ interface FoeWorld {
   player: THREE.Vector3;
   aiming(): boolean;
   /** A goblin hurt the player. `slow` is seconds of slow, if any. */
-  hurt(dmg: number, by: Foe, slow: number): void;
+  hurt(dmg: number, by: Foe, slow: number, from?: THREE.Vector3 | null): void;   // `from`: where the blow came from (null: from below, unblockable)
   /** A thief grabs what it can; returns how many bolts it took. */
   steal(by: Foe): number;
   /** A goblin fell: pay out its loot. */
@@ -273,7 +273,7 @@ export class Goblins {
           if (f.windup > 0) {
             f.windup -= dt; pose = 'punch'; mx = mz = 0;
             if (f.windup <= 0 && d < f.st.reach + 0.6) {
-              this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f), f, f.st.slowOnHit);
+              this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f), f, f.st.slowOnHit, f.root.position);
               if (b === 'skirmisher') { f.state = 'back'; f.t = 0; }
             }
           } else if (f.cd <= 0 && (sees || this.peeks(f, P))) {
@@ -302,7 +302,7 @@ export class Goblins {
     // Snares: step in one and it bites and holds you a moment.
     for (const s of [...this.snares]) {
       if (Math.hypot(P.x - s.mesh.position.x, P.z - s.mesh.position.z) < 0.45) {
-        this.w.hurt(damageRoll(s.die), s.by, 2); this.w.say('A snare snaps shut on your ankle!');
+        this.w.hurt(damageRoll(s.die), s.by, 2, null); this.w.say('A snare snaps shut on your ankle!');
         this.group.remove(s.mesh); this.snares.splice(this.snares.indexOf(s), 1);
       }
     }
@@ -346,7 +346,7 @@ export class Goblins {
         }
         if (s.fuse <= 0) {
           const r = s.by.st.blast || 2;
-          if (Math.hypot(P.x - m.position.x, P.z - m.position.z) < r) this.w.hurt(s.dmg, s.by, 0);
+          if (Math.hypot(P.x - m.position.x, P.z - m.position.z) < r) this.w.hurt(s.dmg, s.by, 0, m.position);
           const b = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), BLAST_MAT.clone()); b.position.copy(m.position); b.raycast = () => {};
           this.group.add(b); this.blasts.push({ mesh: b, t: 0 });
           gone();
@@ -355,7 +355,7 @@ export class Goblins {
       }
       m.position.addScaledVector(s.vel, dt);
       m.lookAt(this.tmp.copy(m.position).add(s.vel));
-      if (Math.hypot(P.x - m.position.x, P.z - m.position.z) < 0.4 && m.position.y > 0 && m.position.y < 1.8) { this.w.hurt(s.dmg, s.by, 0); gone(); continue; }
+      if (Math.hypot(P.x - m.position.x, P.z - m.position.z) < 0.4 && m.position.y > 0 && m.position.y < 1.8) { this.w.hurt(s.dmg, s.by, 0, m.position.clone().sub(s.vel)); gone(); continue; }
       if (!this.w.walkable(m.position.x, m.position.z) || s.fuse < -2) gone();
     }
   }

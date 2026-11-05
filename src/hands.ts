@@ -6,13 +6,14 @@
 import type { Crossbow } from './crossbow';
 import type { Sword } from './sword';
 import type { Torch } from './torch';
+import type { Shield } from './shield';
 import { storeSet } from './store';
 
 export type Hand = 'left' | 'right';
-export type HandItem = 'none' | 'torch' | 'sword' | 'crossbow';
+export type HandItem = 'none' | 'torch' | 'sword' | 'crossbow' | 'shield' | 'buckler';
 /** The order the D-pad cycles through (unowned things are skipped). */
-export const HAND_ITEMS: HandItem[] = ['none', 'sword', 'crossbow', 'torch'];
-export const HAND_LABEL: Record<HandItem, string> = { none: 'Empty', torch: 'Torch', sword: 'Sword', crossbow: 'Crossbow' };
+export const HAND_ITEMS: HandItem[] = ['none', 'sword', 'crossbow', 'shield', 'buckler', 'torch'];
+export const HAND_LABEL: Record<HandItem, string> = { none: 'Empty', torch: 'Torch', sword: 'Sword', crossbow: 'Crossbow', shield: 'Round shield', buckler: 'Buckler' };
 const sideOf = (h: Hand): 1 | -1 => (h === 'right' ? 1 : -1);
 const KEY = 'gametool.hands';
 
@@ -23,7 +24,7 @@ export class Hands {
   private syncing = false;
 
   constructor(private bows: [Crossbow, Crossbow], private swords: [Sword, Sword], private torches: [Torch, Torch],
-    private owns: (item: HandItem) => boolean) {
+    private shields: [Shield, Shield], private owns: (item: HandItem) => boolean) {
     // Older code (and the 1 / 2 / 3 keys) equips A directly: keep the hands in step with it.
     const resync = () => { if (!this.syncing) this.readBack(); };
     for (const x of [...bows, ...swords]) { const prev = x.onChange; x.onChange = () => { prev(); resync(); }; }
@@ -33,6 +34,8 @@ export class Hands {
   /** The crossbow / sword / torch in that hand, if it holds one. */
   bowIn(h: Hand) { return this.bows.find((b) => b.equipped && b.side === sideOf(h)) ?? null; }
   swordIn(h: Hand) { return this.swords.find((s) => s.equipped && s.side === sideOf(h)) ?? null; }
+  shieldIn(h: Hand) { return this.shields.find((s) => s.equipped && s.side === sideOf(h)) ?? null; }
+  get shieldPair() { return this.shields; }
   /** Both hands hold the same kind. */
   both(item: HandItem) { return this.held.left === item && this.held.right === item; }
   /** The hand's button aims the crossbow (it holds nothing to use, and a crossbow is held). */
@@ -76,6 +79,16 @@ export class Hands {
     if (ba.dual) ba.setADS(false);
     pair('sword', this.swords, (x, yes) => { if (yes && !x.equipped) x.equip(); else if (!yes && x.equipped) x.unequip(); }, (x, s) => x.setSide(s));
     pair('torch', this.torches, (x, yes) => x.set(yes), (x, s) => x.setSide(s));
+    // Shields: both kinds share the pair of shield instances, one per hand that holds either.
+    const sh = (['right', 'left'] as Hand[]).filter((h) => this.held[h] === 'shield' || this.held[h] === 'buckler');
+    this.shields.forEach((x, i) => {
+      const h = sh[i];
+      x.equipped = !!h;
+      if (!h) { x.blocking = false; return; }
+      x.setSide(sideOf(h));
+      const kind = this.held[h] as 'shield' | 'buckler';
+      if (x.kind !== kind) x.setKind(kind);
+    });
     const [ta, tb] = this.torches;
     ta.boost = tb.lit ? 1.35 : 1;
     this.syncing = false;
@@ -91,6 +104,8 @@ export class Hands {
       if (this.bows.some((b) => b.equipped && b.side === s)) return 'crossbow';
       if (this.swords.some((x) => x.equipped && x.side === s)) return 'sword';
       if (this.torches.some((t) => t.lit && t.side === s)) return 'torch';
+      const sh = this.shields.find((x) => x.equipped && x.side === s);
+      if (sh) return sh.kind;
       return 'none';
     };
     // A newly drawn crossbow or sword takes over its hand: put away whatever else was there.

@@ -20,6 +20,8 @@ export interface AnimInput {
   swordP?: boolean;       // Mike 2026-11-05: a sword in the left hand too (or instead), mirrored
   swingP?: number | null;
   comboP?: number;
+  blockN?: boolean;       // Mike 2026-11-05: that arm holds a shield (or sword) up in front to block
+  blockP?: boolean;
   lean?: number;          // B41/B42: -1 left … 1 right, the upper body tilts out past a wall edge
   // Fight (B35, limbs 2026-11-04): fists up, a crouch, and a strike with one limb. k runs 0..0.5 through the move's
   // startup (wind up, then out), stays at 0.5 while it is active and runs 0.5..1 through the recovery.
@@ -44,7 +46,7 @@ const smooth = (cur: number, target: number, rate: number, dt: number) => cur + 
 export class FigureAnim {
   private phase = 0;
   private t = Math.random() * 10;   // de-sync idle breathing between figures
-  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0, sword: 0, swordP: 0, fight: 0, crouch: 0 };
+  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0, sword: 0, swordP: 0, blockN: 0, blockP: 0, fight: 0, crouch: 0 };
   private pose: Pose = 'stance';
   private poseT = 0;
   private head = { yaw: 0, pitch: 0 };
@@ -201,6 +203,10 @@ export class FigureAnim {
       aP = q.a; zP = q.z; fP = q.f;
       if (bal) { aN = THREE.MathUtils.lerp(aN, -0.4, bal); zN = THREE.MathUtils.lerp(zN, -0.45, bal); }
     }
+    // Blocking: the forearm comes up across the front of the body.
+    w.blockN = smooth(w.blockN, i.blockN ? 1 : 0, 16, dt); w.blockP = smooth(w.blockP, i.blockP ? 1 : 0, 16, dt);
+    if (w.blockN > 0.01) { aN = THREE.MathUtils.lerp(aN, -1.25, w.blockN); fN = THREE.MathUtils.lerp(fN, -1.15, w.blockN); zN = THREE.MathUtils.lerp(zN, 0.45, w.blockN); }
+    if (w.blockP > 0.01) { aP = THREE.MathUtils.lerp(aP, -1.25, w.blockP); fP = THREE.MathUtils.lerp(fP, -1.15, w.blockP); zP = THREE.MathUtils.lerp(zP, -0.45, w.blockP); }
     // Airborne: arms rise for balance.
     B.armN.rotation.set(aN - 0.4 * w.air, 0, zN - 0.5 * w.air);
     B.armP.rotation.set(aP - 0.4 * w.air, 0, zP + 0.5 * w.air);

@@ -91,6 +91,7 @@ import { leanTarget, NO_LEAN } from './lean';
 import { Crowd, CROWD_FULL, CROWD_LOW } from './world/crowd';
 import { Torch } from './torch';
 import { Hands, HAND_LABEL, type Hand, type HandItem } from './hands';
+import { Shield, BLOCK_ARC, BLOCK_LEAK, buildShield } from './shield';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel } from './cinema';
@@ -517,8 +518,10 @@ for (const s of [sword, sword2]) {
   s.onHit = (n, heavy) => { gear.wearSword(n); audio.swordHit(heavy); haptics.play('hit'); hitStop = heavy ? 0.09 : 0.05; };
 }
 // Mike 2026-11-05: what each hand holds, in any combination (src/hands.ts).
-const hands = new Hands([crossbow, crossbow2], [sword, sword2], [torch, torch2], (item) =>
-  item === 'torch' ? true : item === 'sword' ? sword.owned : item === 'crossbow' ? inventory.count('crossbow') > 0 : true);
+// Mike 2026-11-05: shields (src/shield.ts), one per hand.
+const shield = new Shield(camera, player), shield2 = new Shield(camera, player);
+const hands = new Hands([crossbow, crossbow2], [sword, sword2], [torch, torch2], [shield, shield2], (item) =>
+  item === 'torch' ? true : item === 'sword' ? sword.owned : item === 'none' ? true : inventory.count(item) > 0);
 hands.onChange = () => syncCrossbowView();
 inventory.hands = { label: (h) => HAND_LABEL[hands.held[h]], cycle: (h) => { hands.cycle(h); if (h === 'left') beforeTorch = 'none'; } };
 let hitStop = 0, swordHitsAtEntry = 0;   // a few frames' pause on a hit, for weight
@@ -577,6 +580,32 @@ function useHand(h: Hand) {
   const other = hands.bowIn(h === 'left' ? 'right' : 'left');
   if (other?.fire()) { haptics.play('fire'); return; }   // one hand empty: the other one shoots
   if (!c.loaded && !crossbow.reloading) toast(inventory.count('bolt') ? 'Empty: press R to reload' : 'No bolts left. Pick spent ones up with E.', 1800);
+}
+// Mike 2026-11-05: blocking. A shield is up while its hand's button is held; a sword is up while its button is
+// still held after the cut ends. A blow from inside the arc in front of you is turned (a sword lets half through).
+// Two shields cover a wider arc. Snares (from below) can't be blocked. A heavy blow still pushes you back a step.
+function blockingWith(h: Hand): 'shield' | 'buckler' | 'sword' | null {
+  if (state !== 'play' || !handDown[h]) return null;
+  const it = hands.held[h];
+  if (it === 'shield' || it === 'buckler') return it;
+  if (it === 'sword') { const s = hands.swordIn(h); return s && !s.swinging ? 'sword' : null; }
+  return null;
+}
+const isBlocking = () => !!(blockingWith('left') || blockingWith('right'));
+/** What gets through a blow of `dmg` from `from`: the damage left, and whether a block took it. */
+function blockBlow(dmg: number, from: THREE.Vector3 | null | undefined): { dmg: number; blocked: boolean } {
+  if (!from) return { dmg, blocked: false };
+  const P = player.pos, yaw = player.thirdPerson ? player.bodyYaw : player.yaw;
+  const a = Math.atan2(-(from.x - P.x), -(from.z - P.z)), off = Math.abs(Math.atan2(Math.sin(a - yaw), Math.cos(a - yaw)));
+  const two = hands.both('shield') || hands.both('buckler') || (blockingWith('left') && blockingWith('right') && hands.shieldIn('left') && hands.shieldIn('right'));
+  let leak = 1;
+  for (const h of ['left', 'right'] as Hand[]) {
+    const b = blockingWith(h);
+    if (b && off <= BLOCK_ARC[b] + (two ? THREE.MathUtils.degToRad(20) : 0)) { leak = Math.min(leak, BLOCK_LEAK[b]); if (b !== 'sword') hands.shieldIn(h)?.struck(); }
+  }
+  if (leak >= 1) return { dmg, blocked: false };
+  if (dmg >= 3) { const d = new THREE.Vector3(P.x - from.x, 0, P.z - from.z).normalize().multiplyScalar(0.45); player.pos.add(d); }   // a heavy blow still shoves you
+  return { dmg: Math.floor(dmg * leak), blocked: true };
 }
 /** A tap of the main (right) hand: fires or swings what's held there, or else whatever's in the left hand. */
 function fire() {
@@ -675,7 +704,8 @@ let lastVaults = 0;
 /** The animator's sword inputs: the N (right) arm and the P (left) arm, by which hand each sword is in. */
 function swordAnim(): Partial<AnimInput> {
   const r = hands.swordIn('right'), l = hands.swordIn('left');
-  return { sword: !!r, swing: r?.progress ?? null, combo: r?.combo ?? 0, swordP: !!l, swingP: l?.progress ?? null, comboP: l?.combo ?? 0 };
+  return { sword: !!r, swing: r?.progress ?? null, combo: r?.combo ?? 0, swordP: !!l, swingP: l?.progress ?? null, comboP: l?.combo ?? 0,
+    blockN: !!blockingWith('right'), blockP: !!blockingWith('left') };
 }
 function animate(dt: number) {
   player.faceView = crossbow.equipped || !player.thirdPerson;
@@ -683,6 +713,7 @@ function animate(dt: number) {
   if (landed && player.thirdPerson) dust.burst(player.pos, 6, 0.35);
   if (landed) haptics.play('land');
   torch.update(dt, !player.thirdPerson); torch2.update(dt, !player.thirdPerson);
+  for (const [sh, h] of [[shield, shield.side > 0 ? 'right' : 'left'], [shield2, shield2.side > 0 ? 'right' : 'left']] as const) sh.blocking = sh.equipped && !!blockingWith(h);
   heldBook.set(state === 'book' && reader.isOpen);
   purse.update(dt);
   syncStandSword();
@@ -706,6 +737,7 @@ function animate(dt: number) {
   };
   sword.held.visible = sword.equipped && !mine.pose;   // put away at a station or a drill
   sword2.held.visible = sword2.equipped && !mine.pose;
+  shield.update(dt, !player.thirdPerson && !rig.inShot, !!mine.pose); shield2.update(dt, !player.thirdPerson && !rig.inShot, !!mine.pose);
   // B38: characters are skinned, so three can't frustum-cull them. Off-screen ones, or ones past the fog, aren't
   // drawn and skip their animation (CPU on phones). Their meshes are hidden, never the root (others own that).
   for (const r of remotes.values()) r.update(dt, camera.position);   // other players: smooth toward their last state (multiplayer 2)
@@ -774,7 +806,7 @@ function setPlayerLook(c: ForgeCharacter) {
   wornLook = { look: c.look, height: c.height };
   myLook = packLook(c.look, c.height); netHello();   // multiplayer: the room sees the new look
   const fig = player.setLook(c.look, c.height);
-  torch.attach(); torch2.attach(); sword.attach(); sword2.attach();
+  torch.attach(); torch2.attach(); sword.attach(); sword2.attach(); shield.attach(); shield2.attach();
   heldBook.attach(); purse.attach(); wear.attach(); wear.set(wear.level);
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
@@ -1418,8 +1450,10 @@ const goblins = new Goblins(world.scene, {
   colliders: world.colliders,   // B42: goblins lean at the same wall edges
   player: player.pos,
   aiming: () => crossbow.ads,
-  hurt: (dmg, by, slow) => {
+  hurt: (dmg, by, slow, from) => {
     if (!inDungeon || delveHp <= 0) return;
+    const bl = blockBlow(dmg, from);
+    if (bl.blocked) { audio.swordHit(true); haptics.play('hit'); if (bl.dmg <= 0) { toast(`You turn ${by.v.display}'s blow.`, 1400); return; } dmg = bl.dmg; slow = 0; }
     if (sturdy) dmg = Math.max(1, dmg - 1);   // B18: well fed
     delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt'); gesture('hit');
     if (slow) slowT = Math.max(slowT, slow);
@@ -1465,7 +1499,7 @@ function updateDelve(dt: number) {
   if (state === 'play') { if (hitStop > 0) hitStop -= dt; else goblins.update(dt); }   // v0.08: a beat's pause on a sword hit
   const frac = Math.min(1, delveHp / DELVE_HP);
   wear.set(1 - frac);
-  slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1);
+  slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1) * (isBlocking() ? 0.6 : 1);
   hurtFlash = Math.max(0, hurtFlash - dt);
   document.body.style.setProperty('--hurt', (Math.max(0, 1 - frac * 1.6) * 0.85 + hurtFlash * 1.4).toFixed(2));
   if (frac <= 0.5 && state === 'play' && (breathT -= dt) <= 0) { audio.breath(); breathT = 1.2 + frac * 2.4; }
@@ -1907,6 +1941,35 @@ function openShop() {
   rig.setShot({ pos, look: top.addScaledVector(right, -0.7), fov: 44 });
   shop.open();
 }
+// Mike 2026-11-05: the smith's counter by the smithy door sells arms (shields; more in later rounds).
+const smithShop = station(new ShopPanel(inventory, () => leaveForge(), true));
+smithShop.onBuy = (id) => {
+  haptics.play('pickup');
+  // A new shield goes straight onto a free hand (the left, unless it holds something you'd miss).
+  if ((id === 'shield' || id === 'buckler') && (hands.held.left === 'none' || hands.held.left === 'torch')) { hands.set('left', id); beforeTorch = 'none'; }
+};
+const smithCounter = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
+smithCounter.name = 'smith-counter';
+const SMITH_LOT = TOWN_LOTS.find((l) => l.id === 'smithy')!;
+{ // in front of the smithy, between the sword stand (front left) and the grindstone (front right)
+  const L = SMITH_LOT, c = Math.cos(L.ry), sn = Math.sin(L.ry), lx = -L.w / 2 + 1.9, lz = L.d / 2 + 0.9;
+  smithCounter.position.set(L.x + lx * c + lz * sn, 0.75, L.z - lx * sn + lz * c);
+  smithCounter.userData.front = [sn, c];   // the way out to the street (for tests and the camera)
+}
+world.scene.add(smithCounter);
+{ // the wares on show: a rack with the round shield and the buckler hung on it
+  const rack = new THREE.Group(), wood = new THREE.MeshLambertMaterial({ color: '#5A3A22' });
+  const post = (x: number) => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.08), wood); p.position.set(x, 0.6, 0); rack.add(p); };
+  post(-0.45); post(0.45);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 0.08), wood); bar.position.y = 1.15; rack.add(bar);
+  const big = buildShield('shield'); big.position.set(-0.2, 0.8, 0.08); rack.add(big);
+  const small = buildShield('buckler'); small.position.set(0.28, 0.82, 0.08); rack.add(small);
+  rack.position.copy(smithCounter.position).setY(0);
+  rack.rotation.y = SMITH_LOT.ry;   // facing the street
+  rack.traverse((o) => { (o as THREE.Mesh).raycast = () => {}; });
+  world.scene.add(rack);
+}
+interactables.push({ obj: smithCounter, verb: () => 'Buy arms from the smith', act: () => { enterForge(); smithShop.open(); }, when: () => !inDungeon });
 /** A point `ahead` metres out of a town door, on the ground. */
 const outOfDoor = (id: TownId, ahead: number) => { const d = world.town.doors[id]; return new THREE.Vector3(d.position.x + Math.sin(d.rotation.y) * ahead, 0, d.position.z + Math.cos(d.rotation.y) * ahead); };
 const townAct: Record<TownId, () => void> = {
@@ -2471,12 +2534,13 @@ const hooks: GameHooks = {
   hand: (h, down) => handButton(h, down),
   handTap: (h) => {
     if (state !== 'play') return;
-    if (hands.aimsWith(h)) handButton(h, !handDown[h]);   // a latch, like the old Aim button
+    const it = hands.held[h];
+    if (hands.aimsWith(h) || it === 'shield' || it === 'buckler') handButton(h, !handDown[h]);   // a latch, like the old Aim button (and Block)
     else { handButton(h, true); handButton(h, false); }
   },
   handVerb: (h) => {
     const it = hands.held[h];
-    return it === 'sword' ? 'Swing' : it === 'crossbow' ? 'Fire' : hands.aimsWith(h) ? 'Aim' : null;
+    return it === 'sword' ? 'Swing' : it === 'crossbow' ? 'Fire' : it === 'shield' || it === 'buckler' ? 'Block' : hands.aimsWith(h) ? 'Aim' : null;
   },
   hasCrossbow: () => inventory.count('crossbow') > 0,
   sword,
@@ -3010,4 +3074,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

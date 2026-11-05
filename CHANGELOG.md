@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 2: shields and blocking (Mike 2026-11-05)
+- The smith's counter, in front of the smithy, sells a wooden buckler and a round iron-rimmed shield, shown on a rack. A new shield goes onto your left hand if it's free. Like everything else, either goes in either hand, or both.
+- Hold a hand's button to block with what it holds. A shield turns any blow from the front: the buckler covers a narrow arc, the round shield a wide one, and two shields wider still. Keep holding a sword's button after its cut and the blade comes up to turn half a blow. Blows from behind, and snares, get through, and a heavy blow still shoves you back a step. You move slower while blocking.
+- Shields work against thrown rocks and bolts too, and show raised in your hand in first person and on your arm in the follow view.
+
 ### v0.16 changelog, part 1: two hands, any combination (Mike 2026-11-05, "Y")
 - Each hand holds what you choose: nothing, the sword, the crossbow or a torch, in any pair, feasible or not. Two torches, two swords, two crossbows, a sword and a crossbow.
 - D-pad left changes what the left hand holds, D-pad right (or Q) the right hand. The bag has a Hands row: press a hand to change it. T, holding D-pad down or the torch button still lights a torch in the left hand and puts it out again.

@@ -11,6 +11,16 @@
       "icon": "⚔",
       "note": "The smith's practice blade, from the stand outside the smithy. Click / RT / Swing to cut; three in a row ends in a heavy blow."
     },
+    "buckler": {
+      "name": "Wooden Buckler",
+      "icon": "◍",
+      "note": "A small round of oak with an iron boss, from the smith. Hold its hand's button to block: it turns any blow from straight ahead."
+    },
+    "shield": {
+      "name": "Round Shield",
+      "icon": "⛉",
+      "note": "Oak, iron-rimmed, the smith's red band across it. Hold its hand's button to block a wide arc in front of you."
+    },
     "trinket": {
       "name": "Trinket from below",
       "icon": "◈",

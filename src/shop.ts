@@ -18,29 +18,38 @@ const STOCK: Ware[] = [
 const SUNDRIES: Ware[] = ['candle', 'wax', 'lampOil', 'soap', 'twine', 'chalk', 'salt', 'bread', 'fish', 'jerky', 'mealworms', 'seeds'].map((id, i) => ({ id, n: 1, price: 1 + (i % 3) }));
 /** What the shopkeeper pays for one of each. */
 const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };
+/** Mike 2026-11-05: the smith sells arms. One of each is all you need (it fills both hands). */
+export const SMITH_STOCK: Ware[] = [
+  { id: 'buckler', n: 1, price: 14 },
+  { id: 'shield', n: 1, price: 28 },
+];
 
 export class ShopPanel {
   readonly el: HTMLDivElement;
   private line = 'Welcome in. Crowns only; I keep honest scales.';
 
-  constructor(private inv: Inventory, private onClose: () => void) {
+  /** `smith`: the smithy's counter (arms) instead of the General Store. */
+  constructor(private inv: Inventory, private onClose: () => void, private smith = false) {
     this.el = document.createElement('div');
     this.el.className = 'forge hidden';
-    this.el.id = 'shop';
+    this.el.id = smith ? 'smithShop' : 'shop';
+    if (smith) this.line = 'Iron and oak. Hold it up and let them hit it.';
     document.body.appendChild(this.el);
     this.el.addEventListener('click', (e) => this.click(e));
   }
+  onBuy: (id: string) => void = () => undefined;
   get isOpen() { return !this.el.classList.contains('hidden'); }
 
-  open() { this.line = 'Welcome in. Crowns only; I keep honest scales.'; this.render(); this.el.classList.remove('hidden'); }
+  open() { this.line = this.smith ? 'Iron and oak. Hold it up and let them hit it.' : 'Welcome in. Crowns only; I keep honest scales.'; this.render(); this.el.classList.remove('hidden'); }
   close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.onClose(); }
 
   /** Everything for sale: the main stock, then the sundries (index on from STOCK.length). */
-  get wares() { return [...STOCK, ...SUNDRIES]; }
+  get wares() { return this.smith ? SMITH_STOCK : [...STOCK, ...SUNDRIES]; }
   buy(i: number): boolean {
     const w = this.wares[i];
     if (!w || (!DEBUG_UNLIMITED_CROWNS && !this.inv.take(CROWN, w.price))) { this.line = "That's more than you've got. Write something, find something, come back."; this.render(); return false; }
     this.inv.give(w.id, w.n);
+    this.onBuy(w.id);
     this.line = `${ITEMS[w.id].name}${w.n > 1 ? ' × ' + w.n : ''}. Pleasure.`;
     this.render();
     return true;
@@ -60,6 +69,22 @@ export class ShopPanel {
     const have = DEBUG_UNLIMITED_CROWNS ? Infinity : this.inv.count(CROWN);
     const row = (w: Ware, i: number, cls = '') => `<button class="shop-row${cls}" data-buy="${i}" ${have < w.price ? 'disabled' : ''}><span>${ITEMS[w.id].icon} ${ITEMS[w.id].name}${w.n > 1 ? ' × ' + w.n : ''}</span><span>◎ ${w.price}</span></button>`;
     const sells = Object.keys(BUYS).filter((id) => this.inv.count(id) > 0);
+    if (this.smith) {
+      const arm = (w: Ware, i: number) => this.inv.count(w.id) > 0
+        ? `<button class="shop-row" disabled><span>${ITEMS[w.id].icon} ${ITEMS[w.id].name}</span><span>yours</span></button>`
+        : row(w, i);
+      this.el.innerHTML = `<div class="forge-panel shop-panel">
+      <div class="eyebrow">The Smithy</div>
+      <h2>The Smith</h2>
+      <p class="shop-line">“${this.line}”</p>
+      <div class="shop-purse">◎ <b>${have === Infinity ? '∞' : have}</b> crowns</div>
+      <section><h4>Arms</h4>
+      ${SMITH_STOCK.map(arm).join('')}
+      <p class="fine">One of each fills either hand, or both. Choose what each hand holds in the bag, or with the D-pad.</p></section>
+      <div class="forge-actions"><button class="secondary" data-act="close">Leave</button></div>
+    </div>`;
+      return;
+    }
     this.el.innerHTML = `<div class="forge-panel shop-panel">
       <div class="eyebrow">General Store</div>
       <h2>The Shopkeeper</h2>
