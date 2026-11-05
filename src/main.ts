@@ -1220,6 +1220,7 @@ function openRecipeBook() { if (state !== 'play' && state !== 'pause') return; e
 let sturdy = false;   // B18: a "well fed" delve
 // B36: the first-day guided quest. Natalie points the way; test browsers skip it unless gametool.firstdaytest = 'on'.
 const firstDay = new FirstDay(world.scene, {
+  read: () => world.town.doors.library.position,
   write: () => world.town.doors.scriptorium.position,
   make: () => world.town.doors.tailor.position,
   fire: () => world.stations.campfire.position,
@@ -1228,6 +1229,13 @@ function firstDayOn() {
   try { return !navigator.webdriver || localStorage.getItem('gametool.firstdaytest') === 'on'; } catch { return !navigator.webdriver; }
 }
 casebook.extra = () => firstDay.casebookHtml();
+// Lore-first item 4: the side games (dojo, spar, sky run, trapdoor) wait until a new friend's first day is done, so the
+// first thing they meet is the lore. The prompt still shows, so they know it's there for later.
+function sideGate(verb: string) { return firstDay.sideGamesOpen ? verb : `${verb} (after your first day)`; }
+function sideGo(open: () => void) {
+  if (firstDay.sideGamesOpen) { open(); return; }
+  companion.say('That can wait for tomorrow. Today is for stories: follow the gold light. (Or skip the first day in the casebook.)', { force: true, ms: 4800 });
+}
 casebook.onExtra = (id) => { if (id === 'fdSkip') firstDay.skip(); };
 const campfireClosed = campfire.onClose;
 // v0.06 C3: the band's note keys show pad buttons while a controller is in use, and swap back live.
@@ -1915,7 +1923,7 @@ function openDojo() {
   rig.setShot({ pos: new THREE.Vector3(DOJO.x - 1.7, 1.6, DOJO.z + 3.2), look: new THREE.Vector3(DOJO.x - 2, 1, DOJO.z), fov: 44 });
   dojo.open();
 }
-interactables.push({ obj: dojoBoard, verb: () => 'Train at the dojo', act: () => openDojo(), when: () => !inDungeon });
+interactables.push({ obj: dojoBoard, verb: () => sideGate('Train at the dojo'), act: () => sideGo(openDojo), when: () => !inDungeon });
 
 // ---------- B35 (Mike 2026-11-03): fighter mode vs Kavik, side-on on the dojo mats (src/fight/) ----------
 const fightMode = station(new FightMode());
@@ -1923,7 +1931,7 @@ const kavikRoot = world.standees.kavik;
 const kavikHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.9, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
 kavikHit.position.copy(kavikRoot.position).setY(0.95);
 world.scene.add(kavikHit);
-interactables.push({ obj: kavikHit, verb: () => fightMode.record.beaten ? 'Spar with Kavik (no holding back)' : 'Spar with Kavik', act: () => openFight(), when: () => !inDungeon });
+interactables.push({ obj: kavikHit, verb: () => sideGate(fightMode.record.beaten ? 'Spar with Kavik (no holding back)' : 'Spar with Kavik'), act: () => sideGo(openFight), when: () => !inDungeon });
 // The fight runs on the mats: its x along them (the world's -x), its z across (the world's +z). The camera starts on
 // the -Z side, side-on, and swings round with the line between the fighters as they sidestep.
 const RING = { x: DOJO.x, y: 0.24, z: DOJO.z - 0.3 };
@@ -1971,7 +1979,7 @@ const sky = station(new SkyRun());
 const perch = buildPerch();
 world.scene.add(perch.group, perch.hit);
 world.colliders.push({ kind: 'box', minX: PERCH.x - 1.75, maxX: PERCH.x + 1.75, minZ: PERCH.z - 1.75, maxZ: PERCH.z + 1.75 });
-interactables.push({ obj: perch.hit, verb: () => sky.record.wins ? `Fly a sky run (${sky.record.wins} won)` : 'Fly a sky run', act: () => openSky(), when: () => !inDungeon });
+interactables.push({ obj: perch.hit, verb: () => sideGate(sky.record.wins ? `Fly a sky run (${sky.record.wins} won)` : 'Fly a sky run'), act: () => sideGo(() => openSky()), when: () => !inDungeon });
 function openSky(seed?: number) {
   if (state !== 'play') return;
   enterForge();
@@ -2188,7 +2196,7 @@ const wikiLectern = buildWikiLectern(library.group, world.colliders);
 function openWiki() { if (state !== 'play') return; enterForge(); wiki.open(() => leaveForge(), 'library'); }
 interactables.push({ obj: wikiLectern, verb: () => 'Read the wiki', act: () => openWiki(), when: () => !inDungeon });
 function openPhrasebook() { if (state !== 'play' && state !== 'pause') return; enterForge(); phrasebook.open(); }
-interactables.push({ obj: trapHit, verb: () => 'Open the trapdoor', act: () => openDescend(), when: () => !inDungeon });
+interactables.push({ obj: trapHit, verb: () => sideGate('Open the trapdoor'), act: () => sideGo(openDescend), when: () => !inDungeon });
 const shrineLines = lore.entries.filter((e) => e.type === 'lore' && e.body.length > 80);
 for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
   const spotOf = () => dungeon.spots.find((s) => s.hit === hit);
@@ -3489,7 +3497,7 @@ function frame() {
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
   } else { lookingAt = null; crossbow.setADS(false); handDown.left = handDown.right = false; player.leanWant = NO_LEAN; rig.update(dt); updateSteadyRing(); $('coach').classList.add('hidden'); }
-  firstDay.update(dt, { waking: waking > 0, writing: sketchPad.isOpen, making: characterForge.isOpen || weaponForge.isOpen, atFire: campfire.isOpen }, state === 'play' && inWorld && !inDungeon);
+  firstDay.update(dt, { waking: waking > 0, reading: state === 'book', writing: sketchPad.isOpen, making: characterForge.isOpen || weaponForge.isOpen, atFire: campfire.isOpen }, state === 'play' && inWorld && !inDungeon);
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
   audio.setListener(player.eyePos.x, player.eyePos.y, player.eyePos.z, earDir.x, earDir.z);
