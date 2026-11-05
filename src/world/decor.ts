@@ -3,6 +3,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { rng } from '../tex/pixel';
 import { wind } from './foliage';
 import type { Collider } from './index';
+import { heightAt } from './terrain';
+import { PATHS } from './land';
 
 // Medieval decorations (Mike 2026-11-05, Graphics thread: "Add all decorations"). Real low-poly 3D, painted with
 // flat vertex colours (our own palette, no textures), every kind merged into one mesh: a draw call or two each, so
@@ -158,4 +160,236 @@ export function buildStalls(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
     for (const lx of [-W / 4, W / 4]) { const p = at(lx, 0, 0.05); T.colliders.push({ kind: 'circle', x: p.x, z: p.z, r: 0.62, top: 0.88 }); }
   });
   return [P.mesh(scene, 'decor-stalls')!];
+}
+
+/** 3. Wall lanterns: an iron bracket with a scroll on each side wall near the front, a caged lantern hanging from it.
+ *  The glass glows (unlit, like the door lanterns) and every lantern joins the night halos and lights. */
+export function buildWallLanterns(scene: THREE.Scene, T: DecorTown, lanterns: THREE.Vector3[]): THREE.Mesh[] {
+  const iron = new Painter(7301), glass = new Painter(7302);
+  for (const L of T.lots) {
+    for (const sd of [-1, 1]) {
+      // In the lot's frame the side wall is at x = ±w/2; the bracket sticks out along ±x. Turn the parts so their
+      // local +x points out from the wall.
+      const lz = L.d / 2 - 0.7, y = T.plinth + 2.55, ry = L.ry + (sd > 0 ? 0 : Math.PI);
+      const out = (k: number, dy = 0) => L.at(sd * (L.w / 2 + k), y + dy, lz);
+      iron.add(new THREE.BoxGeometry(0.12, 0.2, 0.05), IRON, out(0.03, -0.05), ry);                          // wall plate
+      iron.add(new THREE.BoxGeometry(0.62, 0.035, 0.035), IRON, out(0.33), ry);                              // arm
+      iron.add(new THREE.BoxGeometry(0.42, 0.03, 0.03), IRON, out(0.2, -0.16), ry, 0, 0.62);   // brace
+      iron.add(new THREE.TorusGeometry(0.075, 0.012, 4, 8, Math.PI * 1.5), IRON, out(0.42, 0.08), ry);      // scroll
+      iron.add(new THREE.SphereGeometry(0.025, 4, 3), IRON, out(0.64));                                       // knob
+      iron.add(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 3), IRON, out(0.56, -0.08));                   // chain
+      const ly = -0.33, c = out(0.56, ly);
+      iron.add(new THREE.ConeGeometry(0.13, 0.12, 6), IRON, c.clone().setY(c.y + 0.17));                    // cap
+      iron.add(new THREE.SphereGeometry(0.025, 4, 3), IRON, c.clone().setY(c.y + 0.25));                    // ring
+      iron.add(new THREE.CylinderGeometry(0.11, 0.11, 0.025, 6), IRON, c.clone().setY(c.y + 0.11));         // top band
+      iron.add(new THREE.CylinderGeometry(0.1, 0.07, 0.05, 6), IRON, c.clone().setY(c.y - 0.12));           // base
+      for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI * 2; iron.add(new THREE.BoxGeometry(0.015, 0.22, 0.015), IRON, c.clone().add(new THREE.Vector3(Math.cos(a) * 0.1, 0, Math.sin(a) * 0.1))); }
+      glass.add(new THREE.CylinderGeometry(0.09, 0.08, 0.2, 6), '#FFC878', c);
+      lanterns.push(c.clone());
+    }
+  }
+  const g = glass.mesh(scene, 'decor-lantern-glass')!;
+  g.material = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.7, 1.7, 1.7) });
+  g.castShadow = false;
+  return [iron.mesh(scene, 'decor-lantern-iron')!, g];
+}
+
+function segDist(x: number, z: number, [ax, az]: [number, number], [bx, bz]: [number, number]) {
+  const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+  return Math.hypot(x - ax - dx * t, z - az - dz * t);
+}
+/** Is (x, z) within r (+ half a path's width) of a footpath? */
+function onPath(x: number, z: number, r: number) { return PATHS.some((line) => line.some((p, i) => i > 0 && segDist(x, z, line[i - 1], p) < r + 1.4)); }
+/** Clear of paths and of everything with a collider. */
+function isFree(T: DecorTown, x: number, z: number, r: number) {
+  return !onPath(x, z, r) && !T.colliders.some((c) => c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + r
+    : x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r);
+}
+
+/** 4. Rustic clutter behind the houses: split-log woodpiles against the back walls, a hand cart, stacked hay bales. */
+export function buildRustic(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
+  const P = new Painter(7401), R = rng(7402), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const free = (x: number, z: number, r: number) => isFree(T, x, z, r);
+  const LOG = ['#6A4A2C', '#7A5634', '#5E3E24'], END = '#C8A06A', HAY = ['#D8B65A', '#C8A44A', '#E2C46C'], STRING = '#8A6A3A';
+  // A woodpile: rows of split logs (6-sided), pale cut ends facing out, under a little plank roof.
+  const woodpile = (L: DecorLot) => {
+    const len = 1.9, lz = -L.d / 2 - 0.42, ry = L.ry, base = L.at(0.4, 0, lz), y0 = heightAt(base.x, base.z);
+    if (onPath(base.x, base.z, 1.0)) return false;
+    for (let row = 0; row < 4; row++) for (let k = 0; k < 7 - row; k++) {
+      const lx = 0.4 - len / 2 + 0.14 + (k + row * 0.5) * 0.27, p = L.at(lx, y0 + 0.13 + row * 0.23, lz);
+      P.add(new THREE.CylinderGeometry(0.12, 0.12, 0.62, 6), LOG[Math.floor(R() * 3)], p, ry + Math.PI / 2, Math.PI / 2, (R() - 0.5) * 0.1);
+      for (const e of [-1, 1]) P.add(new THREE.CircleGeometry(0.11, 6), END, L.at(lx, y0 + 0.13 + row * 0.23, lz + e * 0.315), ry + (e < 0 ? Math.PI : 0));
+    }
+    for (const lx of [0.4 - len / 2 - 0.05, 0.4 + len / 2 + 0.05]) P.add(new THREE.BoxGeometry(0.08, 1.2, 0.08), '#5A3C22', L.at(lx, y0 + 0.6, lz - 0.3), ry);
+    P.add(new THREE.BoxGeometry(len + 0.4, 0.05, 0.9), '#6A4828', L.at(0.4, y0 + 1.22, lz + 0.05), ry, -0.18);
+    for (const lx of [-0.3, 0.5, 1.2]) { const c = L.at(lx, 0, lz); T.colliders.push({ kind: 'circle', x: c.x, z: c.z, r: 0.38, top: 1.0 }); }
+    return true;
+  };
+  // A hay bale: a straw box with two strings round it.
+  const bale = (x: number, y: number, z: number, ry: number) => {
+    P.add(new THREE.BoxGeometry(0.9, 0.45, 0.5), HAY[Math.floor(R() * 3)], V(x, y + 0.225, z), ry);
+    for (const o of [-0.22, 0.22]) P.add(new THREE.BoxGeometry(0.03, 0.47, 0.52), STRING, V(x + Math.cos(ry) * o, y + 0.225, z - Math.sin(ry) * o), ry);
+  };
+  const hayStack = (x: number, z: number, ry: number) => {
+    const y = heightAt(x, z), c = Math.cos(ry), sn = Math.sin(ry);
+    for (const [a, b, h] of [[-0.48, 0, 0], [0.48, 0, 0], [0, 0.55, 0], [-0.48, 0.55, 0], [0.48, 0.55, 0], [0, 0.27, 0.45], [-0.45, 0.27, 0.45]] as const) bale(x + a * c + b * sn, y + h, z - a * sn + b * c, ry);
+    T.colliders.push({ kind: 'circle', x, z, r: 0.95, top: 0.9 });
+  };
+  // A two-wheeled hand cart: plank bed with sides, spoked wheels, shafts resting on the ground, a load of hay.
+  const cart = (x: number, z: number, ry: number) => {
+    const y = heightAt(x, z), c = Math.cos(ry), sn = Math.sin(ry), at = (lx: number, ly: number, lz: number) => V(x + lx * c + lz * sn, y + ly, z - lx * sn + lz * c);
+    P.add(new THREE.BoxGeometry(1.2, 0.07, 1.8), '#7A5430', at(0, 0.62, 0), ry, 0.08);
+    for (const sx of [-0.6, 0.6]) P.add(new THREE.BoxGeometry(0.05, 0.3, 1.8), '#6A4828', at(sx, 0.78, 0), ry, 0.08);
+    P.add(new THREE.BoxGeometry(1.2, 0.3, 0.05), '#6A4828', at(0, 0.84, -0.9), ry, 0.08);
+    for (const sx of [-0.68, 0.68]) {
+      P.add(new THREE.CylinderGeometry(0.42, 0.42, 0.06, 8).rotateZ(Math.PI / 2), '#4A3220', at(sx, 0.42, -0.1), ry);
+      P.add(new THREE.CylinderGeometry(0.43, 0.43, 0.035, 8).rotateZ(Math.PI / 2), IRON, at(sx * 1.03, 0.42, -0.1), ry);   // the iron tyre
+      for (let k = 0; k < 4; k++) P.add(new THREE.BoxGeometry(0.03, 0.78, 0.04), '#6A4828', at(sx * 1.05, 0.42, -0.1), ry, (k / 4) * Math.PI);
+      P.add(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 6).rotateZ(Math.PI / 2), '#3A2A1A', at(sx * 1.08, 0.42, -0.1), ry);
+    }
+    P.add(new THREE.BoxGeometry(1.5, 0.06, 0.06), '#5A3C22', at(0, 0.42, -0.1), ry);   // axle
+    for (const sx of [-0.45, 0.45]) P.add(new THREE.BoxGeometry(0.06, 0.06, 1.5), '#6A4828', at(sx, 0.35, 1.45), ry, -0.4);   // shafts
+    for (let k = 0; k < 3; k++) P.add(new THREE.BoxGeometry(0.9, 0.4, 0.5), HAY[k % 3], at(0, 0.88, -0.55 + k * 0.55), ry + (R() - 0.5) * 0.15, 0.08);
+    T.colliders.push({ kind: 'circle', x, z, r: 0.95, top: 1.1 }, { kind: 'circle', x: at(0, 0, 1.3).x, z: at(0, 0, 1.3).z, r: 0.4, top: 0.5 });
+  };
+  for (const L of T.lots) if (['smithy', 'inn', 'dojo', 'cartographer', 'library'].includes(L.id)) woodpile(L);
+  // Carts and hay a few steps out behind some houses, where the ground is free.
+  let carts = 0, stacks = 0;
+  const SPOTS: [number, number][] = [[-1.2, -2.6], [1.6, -2.8], [-2.6, -2.4], [2.8, -2.4], [0.2, -3.2]];
+  for (const L of T.lots) {
+    const wantCart = ['inn', 'smithy', 'tailor', 'gallery'].includes(L.id), wantHay = ['inn', 'dojo', 'scriptorium', 'shop'].includes(L.id);
+    let cartDone = !wantCart, hayDone = !wantHay;
+    for (const [lx, dz] of SPOTS) {
+      const p = L.at(lx, 0, -L.d / 2 + dz);
+      if (!cartDone && free(p.x, p.z, 1.2)) { cart(p.x, p.z, L.ry + 0.5 + R()); carts++; cartDone = true; }
+      else if (!hayDone && free(p.x, p.z, 1.1)) { hayStack(p.x, p.z, L.ry + R()); stacks++; hayDone = true; }
+    }
+  }
+  const m = P.mesh(scene, 'decor-rustic')!;
+  m.userData = { carts, stacks };
+  return [m];
+}
+
+/** 5. Wayside pieces: stone wells with a little roof and a windlass, and signposts where the footpaths set off. */
+export function buildWayside(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
+  const P = new Painter(7501), R = rng(7502), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const STONE = ['#8A8478', '#7A746A', '#9A948A', '#6E685E'], MOSS = '#5E7A3A', WOOD = '#6A4828', DARK = '#4A3220', ROOF = '#7A4A32';
+  const well = (x: number, z: number, ry: number) => {
+    const y = heightAt(x, z), c = Math.cos(ry), sn = Math.sin(ry), at = (lx: number, ly: number, lz: number) => V(x + lx * c + lz * sn, y + ly, z - lx * sn + lz * c);
+    // A ring of rough stones in three courses, staggered, a mossy coping, dark water inside.
+    for (let row = 0; row < 3; row++) for (let k = 0; k < 10; k++) {
+      const a = ((k + (row % 2) * 0.5) / 10) * Math.PI * 2;
+      P.add(new THREE.BoxGeometry(0.42, 0.26, 0.24), STONE[Math.floor(R() * 4)], at(Math.sin(a) * 0.72, 0.13 + row * 0.26, Math.cos(a) * 0.72), ry + a, 0, (R() - 0.5) * 0.08);
+    }
+    P.add(new THREE.TorusGeometry(0.72, 0.1, 4, 10).rotateX(Math.PI / 2), MOSS, at(0, 0.82, 0), ry);
+    P.add(new THREE.CircleGeometry(0.62, 10).rotateX(-Math.PI / 2), '#1E2A30', at(0, 0.5, 0), ry);
+    // Two posts, a crossbeam with the windlass and its crank, a rope and bucket, a small gabled roof.
+    for (const sx of [-0.85, 0.85]) P.add(new THREE.BoxGeometry(0.12, 2.0, 0.12), WOOD, at(sx, 1.0, 0), ry);
+    P.add(new THREE.CylinderGeometry(0.07, 0.07, 1.62, 6).rotateZ(Math.PI / 2), '#8A6A40', at(0, 1.55, 0), ry);
+    P.add(new THREE.BoxGeometry(0.04, 0.3, 0.04), IRON, at(0.92, 1.45, 0), ry);
+    P.add(new THREE.BoxGeometry(0.2, 0.04, 0.04), IRON, at(1.0, 1.31, 0), ry);
+    P.add(new THREE.CylinderGeometry(0.012, 0.012, 0.75, 3), '#A08A5A', at(0.1, 1.15, 0), ry);
+    P.add(new THREE.CylinderGeometry(0.13, 0.1, 0.22, 7), '#7A5430', at(0.1, 0.72, 0), ry);
+    for (const sd of [-1, 1]) P.add(new THREE.BoxGeometry(2.0, 0.05, 0.85), ROOF, at(0, 2.18, sd * 0.33), ry, sd * 0.62);
+    P.add(new THREE.BoxGeometry(2.0, 0.1, 0.1), DARK, at(0, 2.42, 0), ry);
+    T.colliders.push({ kind: 'circle', x, z, r: 0.92, top: 0.85 });
+  };
+  // A signpost: a post with one or two arrow boards pointing along the path, a cap on top.
+  const sign = (x: number, z: number, dirs: number[]) => {
+    const y = heightAt(x, z);
+    P.add(new THREE.BoxGeometry(0.12, 1.9, 0.12), WOOD, V(x, y + 0.95, z));
+    P.add(new THREE.ConeGeometry(0.12, 0.14, 4), DARK, V(x, y + 1.97, z), Math.PI / 4);
+    dirs.forEach((a, i) => {
+      const yy = y + 1.62 - i * 0.3, ry = a - Math.PI / 2, c = Math.cos(ry), sn = Math.sin(ry), at = (lx: number) => V(x + lx * c, yy, z - lx * sn);
+      P.add(new THREE.BoxGeometry(0.7, 0.2, 0.04), i % 2 ? '#9A7A4E' : '#B08C5A', at(0.38), ry);
+      P.add(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 3).rotateX(Math.PI / 2), i % 2 ? '#9A7A4E' : '#B08C5A', at(0.78), ry, 0, -Math.PI / 2);   // the point
+      P.add(new THREE.BoxGeometry(0.4, 0.04, 0.045), '#5A3C22', at(0.36), ry);   // a carved line
+    });
+    T.colliders.push({ kind: 'circle', x, z, r: 0.18 });
+  };
+  // Signposts at the start of every footpath, set beside it and pointing along it.
+  let signs = 0, wells = 0;
+  PATHS.forEach((line, i) => {
+    const [a, b] = [line[0], line[1]], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz), ang = Math.atan2(dx, dz);
+    for (const side of [1, -1]) {
+      const x = a[0] + dx / l * 0.9 - dz / l * 1.5 * side, z = a[1] + dz / l * 0.9 + dx / l * 1.5 * side;
+      if (Math.hypot(x, z) < 3 || !T.colliders.every((c) => c.kind !== 'circle' || Math.hypot(x - c.x, z - c.z) > c.r + 0.4)) continue;
+      sign(x, z, i % 3 === 0 ? [ang, ang + 2.2] : [ang]); signs++; break;
+    }
+  });
+  // Wells: beside the lane up to town and out by the footbridge path, wherever the ground is clear.
+  for (const [x, z] of [[4.2, 12.5], [-3.6, 13.5], [-27, 23], [-26, 30.5], [33, 30], [12, 1.5]] as [number, number][]) {
+    if (wells >= 2 || !isFree(T, x, z, 1.4)) continue;
+    well(x, z, R() * Math.PI); wells++;
+  }
+  const m = P.mesh(scene, 'decor-wayside')!;
+  m.userData = { signs, wells };
+  return [m];
+}
+
+// 6. Ivy and moss on the stone walls. Every face and top adds to two shared painters, flushed once (index.ts), so
+// all the ivy is one mesh and all the moss another wherever it grows: the low walls, the library, the house plinths.
+const IVY = ['#2E5A24', '#3A6E2C', '#4A8234', '#5E9A3E'], MOSS = ['#4E6E2E', '#5E7E34', '#6A8A3A', '#7A9A44'];
+const ivyP = new Painter(7601), mossP = new Painter(7602), IR = rng(7603);
+let ivyLeaves = 0, mossTufts = 0;
+/** Ivy climbing a wall face. `o` is the face's bottom-left corner, `along` runs along the bottom, `n` points out. */
+export function ivyFace(o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, w: number, h: number, vines: number) {
+  const ry = Math.atan2(n.x, n.z), up = new THREE.Vector3(0, 1, 0);
+  for (let v = 0; v < vines; v++) {
+    let t = 0.05 + IR() * (w - 0.1), y = 0;
+    const top = h * (0.35 + IR() * 0.6);
+    while (y < top) {
+      const dy = (h > 3 ? 0.26 : 0.14) + IR() * 0.06, dt = (IR() - 0.5) * 0.12, p0 = o.clone().addScaledVector(along, t).addScaledVector(up, y).addScaledVector(n, 0.03);
+      t = Math.max(0.02, Math.min(w - 0.02, t + dt)); y += dy;
+      const p1 = o.clone().addScaledVector(along, t).addScaledVector(up, y).addScaledVector(n, 0.03), mid = p0.clone().lerp(p1, 0.5);
+      ivyP.add(new THREE.PlaneGeometry(0.022, p0.distanceTo(p1)), '#4A3A22', mid, ry, 0, Math.atan2(-dt, dy));   // the stem (a flat strip)
+      // Two or three leaves at each joint, splayed, a little off the wall, darker low down.
+      const k = Math.min(3, Math.floor((y / h) * 4) + Math.floor(IR() * 2));
+      for (let l = 0; l < 2 + (IR() < 0.4 ? 1 : 0); l++) {
+        const side = (l - 0.5) * 0.11, p = p1.clone().addScaledVector(along, side + (IR() - 0.5) * 0.05).addScaledVector(n, 0.02 + IR() * 0.04);
+        ivyP.add(new THREE.PlaneGeometry(0.1 + IR() * 0.05, 0.1 + IR() * 0.05).rotateZ(Math.PI / 4), IVY[Math.max(0, Math.min(3, k))], p, ry + (IR() - 0.5) * 0.6, (IR() - 0.5) * 0.5, IR() * Math.PI);
+        ivyLeaves++;
+      }
+    }
+  }
+}
+/** Moss cushions along the top of a wall (or ledge) centred at (x, y, z), w along x and d along z. */
+export function mossTop(x: number, y: number, z: number, w: number, d: number, n: number) {
+  for (let i = 0; i < n; i++) {
+    const g = new THREE.IcosahedronGeometry(1, 0).scale(0.14 + IR() * 0.16, 0.035 + IR() * 0.03, 0.12 + IR() * 0.12);
+    mossP.add(g, MOSS[Math.floor(IR() * 4)], new THREE.Vector3(x + (IR() - 0.5) * w * 0.9, y, z + (IR() - 0.5) * d * 0.9), IR() * Math.PI);
+    mossTufts++;
+  }
+}
+/** Moss creeping up the foot of a wall face: low cushions pressed against it. */
+export function mossFoot(o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, w: number, count: number) {
+  const ry = Math.atan2(n.x, n.z);
+  for (let i = 0; i < count; i++) {
+    const p = o.clone().addScaledVector(along, IR() * w).addScaledVector(n, 0.02).setY(o.y + 0.02 + IR() * 0.12);
+    mossP.add(new THREE.IcosahedronGeometry(1, 0).scale(0.16 + IR() * 0.14, 0.06 + IR() * 0.08, 0.05), MOSS[Math.floor(IR() * 4)], p, ry);
+    mossTufts++;
+  }
+}
+/** Build the ivy and moss meshes from everything added (call once, after the town). */
+export function flushIvyMoss(scene: THREE.Scene): THREE.Mesh[] {
+  const out = [ivyP.mesh(scene, 'decor-ivy'), mossP.mesh(scene, 'decor-moss')].filter((m): m is THREE.Mesh => !!m);
+  for (const m of out) m.userData = { ivyLeaves, mossTufts };
+  return out;
+}
+
+/** Moss at the foot of every house's stone plinth, thickest at the back and the corners. */
+export function plinthMoss(T: DecorTown) {
+  for (const L of T.lots) {
+    const fronts: [number, number, number, number, number][] = [   // corner lx, lz, along x/z, normal x/z
+      [-L.w / 2 - 0.15, -L.d / 2 - 0.15, 1, 0, -1],   // back
+      [-L.w / 2 - 0.15, -L.d / 2 - 0.15, 0, 1, 0],    // left side (normal -x)
+      [L.w / 2 + 0.15, -L.d / 2 - 0.15, 0, 1, 0],     // right side (normal +x)
+    ];
+    fronts.forEach(([lx, lz, ax, az], k) => {
+      const o = L.at(lx, 0, lz), a = L.at(lx + ax, 0, lz + az).sub(o).normalize();
+      const nLocal = k === 0 ? [0, -1] : k === 1 ? [-1, 0] : [1, 0], n = L.at(nLocal[0], 0, nLocal[1]).sub(L.at(0, 0, 0)).normalize();
+      const len = k === 0 ? L.w + 0.3 : L.d + 0.3;
+      mossFoot(o, a, n, len, k === 0 ? 10 : 6);
+    });
+  }
 }

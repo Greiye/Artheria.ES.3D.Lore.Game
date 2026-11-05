@@ -38,7 +38,7 @@ async function open(opts = { viewport: { width: 1280, height: 720 } }) {
   const { ctx, page, errors } = await open();
   const folk = await G(page, () => window.__gametool.caravanFolk.map((f) => ({ id: f.id, role: f.talk.role, x: f.root.position.x, z: f.root.position.z, hit: window.__gametool.interactables.some((i) => i.obj === f.hit) })));
   check('Three caravan people stand by the coach road, each one you can talk to', folk.length === 3 && folk.every((f) => f.hit && f.x < -14 && f.x > -26), JSON.stringify(folk));
-  const mapPin = await G(page, () => window.__gametool.livingMap.marks().some((m) => /caravan/i.test(m.label)));
+  const mapPin = await G(page, () => window.__gametool.livingMap.sights().some((m) => /caravan/i.test(m.label)));
   check('The living map marks the caravan', mapPin);
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 }).catch(() => {});
 

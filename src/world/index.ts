@@ -7,12 +7,14 @@ import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { tuftCards, type TuftCard } from './tuftCards';
 import { buildFences } from './fenceCards';
 import { buildSkyCards } from './skyCards';
-import { CARAVAN } from '../spanish/caravan';   // built later (main.ts): keep the fences clear of its camp
+import { CARAVAN } from '../spanish/caravan';
+import { PERCH } from '../sky/perch';   // skyrunner launch perch: keep trees and rocks off it   // built later (main.ts): keep the fences clear of its camp
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
 import { buildFigure, buildCoach } from './figure';
 import { heightAt, shapeGround, setFlatMask, buildMountains } from './terrain';
 import { outlineStatic } from '../render/outline';
+import { ivyFace, mossTop, mossFoot, flushIvyMoss } from './decor';
 import { groundMaterial, outcrop } from './land';
 import QUEST from '../../content/quest/missing-party.json';
 import { buildSmoke, type Smoke } from './smoke';
@@ -165,6 +167,14 @@ export function buildWorld(): World {
     ivyB.box(ivy, V(x, LIB.h - h / 2 - R() * 1.5, LIB.front + 0.46 + R() * 0.05), 0.8 + R() * 1.6, h, 0.08);
   }
   ivyB.flush(scene, 'ivy').forEach((m) => { m.raycast = () => {}; shadowCasters.push(m); });
+  // Decor 6: real 3D ivy climbing the library's outer side and back walls, moss along its foot.
+  for (const sd of [-1, 1]) {
+    const o = V(sd * (LIB.w / 2 + T / 2), 0, LIB.front), along = V(0, 0, -1), n = V(sd, 0, 0);
+    ivyFace(o, along, n, LIB.d, LIB.h, 12);
+    mossFoot(o, along, n, LIB.d, 40);
+  }
+  ivyFace(V(-LIB.w / 2, 0, back - T / 2), V(1, 0, 0), V(0, 0, -1), LIB.w, LIB.h, 10);
+  mossFoot(V(-LIB.w / 2, 0, back - T / 2), V(1, 0, 0), V(0, 0, -1), LIB.w, 40);
   // Fallen blocks at the base (orc fire, D13).
   for (let i = 0; i < 9; i++) {
     const x = (R() * 2 - 1) * (LIB.w / 2 - 1), z = LIB.front + 1.2 + R() * 2.5;
@@ -211,7 +221,8 @@ export function buildWorld(): World {
     || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad)   // Phase F dojo
     || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad)   // v0.04 rock climb
     || townClear(x, z, pad)   // v0.04 town
-    || riverClear(x, z, pad);   // references review: the river and the windmill
+    || riverClear(x, z, pad)   // references review: the river and the windmill
+    || Math.hypot(x - PERCH.x, z - PERCH.z) < PERCH.r + pad;   // the skyrunner perch
   // Style pass 2: the meadow gets gentle bumps, except where something stands on flat ground.
   const flatSpots: [number, number, number][] = [
     ...QUEST.clues.map((c) => [c.at[0], c.at[2], 2.5] as [number, number, number]),
@@ -281,6 +292,15 @@ export function buildWorld(): World {
     B.box(tex('bricks'), V(x, 0.45, z), w, 0.9, d);
     B.box(tex('mossStone'), V(x, 0.96, z), w + 0.15, 0.12, d + 0.15);
     colliders.push({ kind: 'box', minX: x - w / 2 - 0.05, maxX: x + w / 2 + 0.05, minZ: z - d / 2 - 0.05, maxZ: z + d / 2 + 0.05, top: 1.02 });   // v0.04: vaultable
+    // Decor 6 (Mike 2026-11-05): ivy up the long faces, moss on the coping and at the foot.
+    const long = w > d, L = Math.max(w, d), H = 0.9;
+    for (const sd of [-1, 1]) {
+      const n = long ? V(0, 0, sd) : V(sd, 0, 0), along = long ? V(1, 0, 0) : V(0, 0, 1);
+      const o = long ? V(x - w / 2, 0, z + sd * d / 2) : V(x + sd * w / 2, 0, z - d / 2);
+      ivyFace(o, along, n, L, H, Math.round(L * 0.8));
+      mossFoot(o, along, n, L, Math.round(L * 2));
+    }
+    mossTop(x, 1.03, z, w + 0.1, d + 0.1, Math.round(L * 3));
   });
 
   // v0.04: a fall of rocks to climb (Mirror's Edge style: jump, vault and mantle up), with a lookout on top.
@@ -304,7 +324,8 @@ export function buildWorld(): World {
   const town = buildTown(scene, B, townTex, colliders);   // v0.04
   const river = buildRiver(scene, B, tex, colliders);   // references review (Willowbrook)
   const smoke = buildSmoke(scene, town.chimneys);   // UX pass
-  const statics = [...B.flush(scene, 'static'), ...town.props];   // + the merged barrels and crates
+  const statics = [...B.flush(scene, 'static'), ...town.props];
+  flushIvyMoss(scene).forEach((m) => shadowCasters.push(m));   // decor 6: one ivy mesh, one moss mesh   // + the merged barrels and crates
   statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
   outlineStatic(statics, scene);   // G2: ink outlines on buildings and props
 

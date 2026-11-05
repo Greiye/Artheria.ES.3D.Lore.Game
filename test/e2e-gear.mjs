@@ -31,7 +31,7 @@ await page.waitForFunction(() => window.__gametool.state === 'play');
 await page.waitForTimeout(400);
 
 check('A grindstone stands outside the smithy: "Care for your gear"', await G(page, () => window.__gametool.interactables.some((i) => i.obj.name === 'grindstone' && i.verb() === 'Care for your gear')));
-check('The living map marks the grindstone', await G(page, () => window.__gametool.livingMap.marks().some((m) => m.label === 'Grindstone')));
+check('The living map marks the grindstone', await G(page, () => window.__gametool.livingMap.sights().some((m) => m.label === 'Grindstone')));
 
 await G(page, () => window.__gametool.openGear());
 await page.waitForTimeout(200);

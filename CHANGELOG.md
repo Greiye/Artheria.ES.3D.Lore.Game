@@ -7,12 +7,42 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
-### v0.16 changelog, part 15: the knight frame, a pilotable mech (Mike 2026-11-05, "Robots? Can you add pilotable mechs?")
+### v0.16 changelog, part 22: the map shows what there is to do (Mike 2026-11-05, "Mark it on the map. Update the map so that new players can see what the game has to offer")
+- The living map (M) now marks every place to visit from the start, over the fog: the knight frame (grey and locked until it wakes), the skyrunner perch, the descent's trapdoor, Natalie, the camp (campfire, mirror, anvil, sketchbook), Kavik, the caravan, the practice table, the grindstone, the cinema and the record statue.
+- Beside it, a **What's here** list gives each one a line on what you do there (and, for the frame, how to wake it).
+- The town is drawn as it is now: every house on the green to scale, with its name, and the four roads out (the Ranlean and Amethyst Peak gates marked shut). The old glade-era labels are gone.
+
+### v0.16 changelog, part 21: the knight frame, a pilotable mech (Mike 2026-11-05, "Robots? Can you add pilotable mechs?")
 - A **knight frame** kneels asleep in the treeline east of the green: ten feet of elvish bronze gone green, the same make as the Caerne's *Telandor Savior* (Tales Part I), with a dark gem in its chest. **Clear the descent's third floor** (take the stairs down from floor 3) and it wakes and stands. The wake is saved with your profile. For testing, `?mech` on the URL wakes it straight away.
 - **Climb in** at it with E / A / Use; the same button **climbs out** of the back hatch. It stays where you leave it.
 - Inside, you move as usual (Alt / L3 / the sprint button pushes it to a stomping run; it turns slowly). **Strike** with LMB / RT / Strike, **guard** with the shield arm on RMB / LT / Guard, **ground-slam** with Space / Y / jump, and a **rune pulse** that staggers everything near on Q / D-pad up / ✦ (6 s to recharge). Footfalls rumble the pad and shake up dust. The camera pulls back and up; there is no first person inside.
 - It can't use doors, the trapdoor or the roads out of Aralon (climb out first). No passengers and no multiplayer sync yet (next round). Low poly: 588 triangles, ink outlines, never cut away by see-through.
-- New `test/e2e-knight-frame.mjs` (15/15).
+- New `test/e2e-knight-frame.mjs` (17/17, with the map checks).
+
+### v0.16 changelog, part 20: the skyrunner (Mike 2026-11-05, "ride a fixed-wing plane ... A to B within 1 minute")
+- A launch perch (a timber tower with a glider on the deck) stands in the meadow east of the library. "Fly a sky run" takes you up in a **skyrunner**: a one-seat glider with mana-sail wings and a gem in the nose (airships and mana-borne flight are both in the public lore).
+- Every run is its own **seeded map**: about 3 km of low-poly hills, lakes, forest and rock spires, with mountains round the edge. You start on the perch (A); the **beacon** (B), a stone tower with a pillar of blue fire, is 1.6 to 2 km away. Reach it inside **60 seconds**. Four wind rings along the way add 2 s each. Hit the ground or a spire and you crash. The result card shows the map number and your best time on it: "Again" flies the same map, "New map" rolls another, or type a map number a friend sends you.
+- **Flight**: arcade, not a sim. It turns where it banks and levels out when you let go. Throttle sets the speed (90 to 200 km/h). A mana **surge** gives +40% for 2 s (6 s cooldown). Chase camera, a cockpit view (V / Back), and look back (R / R3).
+- **Dogfight**: one run in twenty, a **hexed skyrunner** (black sails, violet bolts) comes for you 10 s in. Both planes fire mana bolts, with a little aim help and a heat bar that jams for 1.5 s if you hold the trigger too long. You take 5 hits, it takes 4, and you can out-turn it. You don't have to shoot it down to win. `?dogfight` forces it.
+- **First person** (Mike 2026-11-05): V, Back on a gamepad, or the View button (also on touch) puts you in the pilot's seat. You see the cowl, the nose gem and a brass sighting ring, and the view rolls with the wings. The choice is remembered.
+- **Tilt steering** (Mike 2026-11-05, "motion control"): on a phone, the Tilt button lets the gyro fly the glider. Tip the phone left or right to bank, and forward or back to dive or climb. It levels to however you're holding the phone when the run starts, and Recenter resets it mid-flight. It works held upright or sideways, the stick still works alongside it, and the game remembers the choice (an iPhone asks for motion permission on the first tap).
+- **Controls**: keyboard W A S D or the arrows (W dives; "Pitch: inverted" swaps it), Shift / Z throttle, Space or click fires, Q surges. On a gamepad: left stick, RT / LT, A or RB fire, Y surge, Start leaves. On touch: a stick on the left, Fire, Surge and Look back on the right, and the throttle sorts itself out. Rumble on hits and crashes.
+- Pays 20 crowns a win, +30 with the hexed skyrunner shot down. Runs, wins, kills and best times are saved on the device. New `test/e2e-sky.mjs` (22/22).
+
+### v0.16 changelog, part 19: chimney smoke (decoration 7, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Chimney smoke is now chunky low-poly puffs that swell, turn and fade as they drift up in the wind, instead of flat cards. One instanced mesh for the whole town.
+
+### v0.16 changelog, part 18: ivy and moss (decoration 6, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Ivy climbs the low stone walls and the library ruin, and moss creeps along wall tops, feet and house plinths. Flat low-poly leaves, two merged meshes.
+
+### v0.16 changelog, part 17: wells and signposts (decoration 5, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Two stone wells with a roof, winch and bucket, and a wooden signpost at the start of each footpath out of town. One merged mesh, with colliders.
+
+### v0.16 changelog, part 16: woodpiles, hay and carts (decoration 4, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Woodpiles stand behind the smithy, inn, dojo, cartographer and library; hand carts by the inn, smithy, tailor and gallery; hay stacks by the inn, dojo, scriptorium and shop. None blocks a path. One merged mesh.
+
+### v0.16 changelog, part 15: wall lanterns (decoration 3, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Every house has two iron lanterns on brackets on its side walls. Their glass glows warm, and at dusk and night they join the town's light pools. Two merged meshes (iron, glass).
 
 ### v0.16 changelog, part 14: market stalls (decoration 2, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Three market stalls stand round the paved plaza: timber frames under striped, scalloped awnings (red, blue, green), with goods on the counters (fruit, bread, cloth, pots). You walk round them, not through. One merged mesh.

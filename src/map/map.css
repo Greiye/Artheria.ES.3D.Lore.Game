@@ -23,3 +23,13 @@
   border-radius: 46px 46px 40px 40px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
 .map-card::before { left: -18px; transform: rotate(18deg); }
 .map-card::after { right: -18px; transform: rotate(-18deg); }
+
+/* Mike 2026-11-05: "What's here", the list of things to do beside the map. */
+.map-sights { margin: 8px 0; max-height: min(360px, calc(100vh - 300px)); overflow: auto; }
+.map-sights-h { font: 600 12px var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--rune); margin-bottom: 4px; }
+.map-sights ul { list-style: none; margin: 0; padding: 0; }
+.map-sights li { display: grid; grid-template-columns: 26px 1fr; gap: 6px; align-items: start; margin: 6px 0; font-size: 13px; color: var(--parchment); }
+.map-sights li.locked { opacity: .7; }
+.map-sights .map-ic { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #F4E6C0; color: #2B2418; font-size: 13px; }
+.map-sights li.locked .map-ic { background: #6E6455; color: #E9DCB8; }
+.map-pin-row button { flex: none; width: auto; }

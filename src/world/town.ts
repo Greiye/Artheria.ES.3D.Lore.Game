@@ -7,7 +7,7 @@ import type { Collider } from './index';
 import { TOWN_PALETTE as P } from './palette';
 import { waterMaterial } from './river';
 import { propMeshes, type Prop } from './propMeshes';
-import { buildBanners, buildStalls, type DecorTown } from './decor';
+import { buildBanners, buildStalls, buildWallLanterns, buildRustic, buildWayside, plinthMoss, type DecorTown } from './decor';
 
 // v0.04: a small storybook town south of the glade, down the path from the spawn point. One building per
 // tool, scattered round an oval green at odd angles (Mike, 2026-10-28: "make it feel lively"): the library
@@ -293,7 +293,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     colliders.push({ kind: 'circle', x, z, r: 0.15 });
   });
 
-  const props = dressTown(scene, B, tex, colliders, local, ring);
+  const props = dressTown(scene, B, tex, colliders, local, ring, lanterns);
 
   // The shopkeeper stands behind the counter, facing the green.
   const shop = LOTS.find((l) => l.id === 'shop')!, sa = local(shop);
@@ -313,7 +313,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
 const FLOWERS = ['#E86A8A', '#F2C94C', '#F2F0E6', '#B07AD8', '#E8603A'];
 const AWNING = [P.brick, P.cream];
 const BUNTING = [P.brick, P.tan, P.slate, P.moss, P.cream];
-function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[], local: (L: Spot) => (lx: number, y: number, lz: number) => THREE.Vector3, ring: Spot[]): THREE.Mesh[] {
+function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[], local: (L: Spot) => (lx: number, y: number, lz: number) => THREE.Vector3, ring: Spot[], lanterns: THREE.Vector3[]): THREE.Mesh[] {
   const R = rng(6262), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
   const painted: THREE.BufferGeometry[] = [];
   const props: Prop[] = [];
@@ -420,6 +420,7 @@ function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Mate
   // Medieval decorations (Mike 2026-11-05, "Add all decorations"): src/world/decor.ts.
   const T: DecorTown = { lots: LOTS.map((L) => ({ id: L.id, x: L.x, z: L.z, ry: L.ry, w: L.w, d: L.d, jetty: JETTY.has(L.id), at: local(L) })), green: GREEN, gate: GATE, plinth: PLINTH, wall: WALL, colliders };
   const banners = buildBanners(scene, T);
-  return [...propMeshes(scene, props), ...banners.statics, ...buildStalls(scene, T)];
+  plinthMoss(T);   // decor 6: added to the shared moss mesh (index.ts flushes it)
+  return [...propMeshes(scene, props), ...banners.statics, ...buildStalls(scene, T), ...buildWallLanterns(scene, T, lanterns), ...buildRustic(scene, T), ...buildWayside(scene, T)];
 }
 type PropCardKind = Prop['kind'];

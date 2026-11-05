@@ -34,10 +34,10 @@ await page.waitForFunction(() => window.__gametool.state === 'play');
 await page.waitForTimeout(400);
 
 // Directions from the town itself.
-const town = await G(page, () => { const g = window.__gametool, f = g.world.town.fingerpost; return { f: f && [f.x, f.z], post: g.world.colliders.some((c) => c.kind === 'circle' && Math.hypot(c.x - f.x, c.z - f.z) < 0.01), chimneys: g.world.town.chimneys.length, puffs: g.world.smoke.points.geometry.attributes.position.count }; });
+const town = await G(page, () => { const g = window.__gametool, f = g.world.town.fingerpost; return { f: f && [f.x, f.z], post: g.world.colliders.some((c) => c.kind === 'circle' && Math.hypot(c.x - f.x, c.z - f.z) < 0.01), chimneys: g.world.town.chimneys.length, puffs: g.world.smoke.mesh.count }; });
 check('A fingerpost stands where the lane meets the green (solid, one arm per building)', !!town.f && town.post, JSON.stringify(town));
-const y0 = await G(page, () => window.__gametool.world.smoke.points.geometry.attributes.position.getY(0));
-const moved = await until(page, (y0) => window.__gametool.world.smoke.points.geometry.attributes.position.getY(0) !== y0, y0, 8000);
+const y0 = await G(page, () => window.__gametool.world.smoke.mesh.instanceMatrix.array[13]);
+const moved = await until(page, (y0) => window.__gametool.world.smoke.mesh.instanceMatrix.array[13] !== y0, y0, 8000);
 check('Chimney smoke rises from every chimney', town.chimneys >= 8 && town.puffs === town.chimneys * 7 && moved, `${town.chimneys} chimneys, ${town.puffs} puffs`);
 await G(page, () => { const g = window.__gametool, f = g.world.town.fingerpost, p = g.player; p.pos.set(f.x - 1, 0, f.z - 6); p.yaw = Math.PI; p.pitch = 0.12; p.update(0); p.syncNow(); });
 await frames(page, 6); await page.waitForTimeout(300);
