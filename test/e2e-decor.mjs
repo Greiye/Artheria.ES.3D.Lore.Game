@@ -37,6 +37,10 @@ const cloth = m0['decor-banners'], poles = m0['decor-banner-poles'];
 check('Banners and flags: one cloth mesh and one pole mesh, flat painted, under 3000 triangles', cloth?.n === 1 && poles?.n === 1 && !cloth.map && !poles.map && cloth.tris + poles.tris < 3000, JSON.stringify({ cloth, poles }));
 const flagpoles = await page.evaluate(() => window.__gametool.world.colliders.filter((c) => c.kind === 'circle' && c.r === 0.28).length);
 check('Four flagpoles on the green you bump into', flagpoles === 4, `${flagpoles}`);
+// 2. Market stalls: three on the green, one merged mesh, with counters you bump into.
+const stalls = m0['decor-stalls'];
+const counters = await page.evaluate(() => window.__gametool.world.colliders.filter((c) => c.kind === 'circle' && c.r === 0.62 && c.top === 0.88).length);
+check('Market stalls: one merged mesh, flat painted, three stalls with counters', stalls?.n === 1 && !stalls.map && stalls.tris < 4000 && counters === 6, JSON.stringify({ stalls, counters }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
