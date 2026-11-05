@@ -29,12 +29,16 @@ await page.evaluate((d) => {
   localStorage.clear();
   for (const [k, v] of Object.entries(d)) localStorage.setItem(k, v);
   localStorage.setItem('gametool~slot.1', JSON.stringify(d));
+  // A friend part-way through the first day under the old four steps (step 2 was "make").
+  localStorage.setItem('gametool~slot.2', JSON.stringify({ ...d, 'gametool.firstday': JSON.stringify({ step: 2, done: false }) }));
   localStorage.setItem('gametool.intro', '1');
 }, fixture.data);
 await page.reload();
 await boot();
 const stamp = await page.evaluate(() => localStorage.getItem('gametool~datav'));
-check('Old saves are upgraded on boot and stamped with the data version', Number(stamp) >= 1, `datav=${stamp}`);
+const mid = await page.evaluate(() => JSON.parse(JSON.parse(localStorage.getItem('gametool~slot.2'))['gametool.firstday']));
+check('Old saves are upgraded on boot and stamped with the data version', Number(stamp) >= 2, `datav=${stamp}`);
+check('Upgrade 1→2: a first day part-way through keeps its place after the new "read" step', mid.step === 3 && !mid.done, JSON.stringify(mid));
 const label = await page.textContent('#begin');
 check('A v0.16 save still offers Continue', /Continue/.test(label ?? ''), label);
 await page.click('#begin');

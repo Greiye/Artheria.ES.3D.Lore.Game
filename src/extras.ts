@@ -3,6 +3,7 @@ import './extras.css';
 import { portfolioHtml, postcard, download, fileSlug, type Piece } from './portfolio';
 import { SLOTS, slotInfo, slotLabel, switchTo, clearSlot, exportSlot, fileName, importInto, exportAll, importAll, backupName, lastBackupAt, dataKept } from './profiles';
 
+// Lore-first item 4 (Mike 2026-11-05): the list leads with the lore (write, your works, wiki), then the rest.
 // v0.05 main menu → Extras: Inspirations (the people behind the game; names used with their consent) and
 // Evolution (screenshots from each stage of the build, oldest first, from assets/evolution/). Move between
 // screenshots by scrolling or swiping, the arrow keys, or the D-pad left / right.
@@ -102,13 +103,13 @@ export class Extras {
     const back = '<button class="secondary" data-act="back">Back</button>';
     if (tab === 'menu') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Extras</h1>
-        <button class="primary" data-tab="inspirations">Inspirations</button>
-        <button class="secondary" data-tab="evolution">Evolution of the game</button>
-        <button class="secondary" id="profilesBtn" data-tab="profiles">Profiles</button>
+        <button class="primary" id="writeLoreTitle" data-act="write">Write lore</button>
         <button class="secondary" id="portfolioBtn" data-tab="portfolio">Portfolio</button>
-        <button class="secondary" id="writeLoreTitle" data-act="write">Write lore</button>
-        <button class="secondary" id="whatsNewBtn" data-act="whatsnew">What's new</button>
         <button class="secondary" id="wikiBtn" data-act="wiki">Wiki</button>
+        <button class="secondary" id="whatsNewBtn" data-act="whatsnew">What's new</button>
+        <button class="secondary" id="profilesBtn" data-tab="profiles">Profiles</button>
+        <button class="secondary" data-tab="inspirations">Inspirations</button>
+        <button class="secondary" data-tab="evolution">Evolution of the game</button>
         ${back}</div>`;
     } else if (tab === 'profiles') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Profiles</h1>

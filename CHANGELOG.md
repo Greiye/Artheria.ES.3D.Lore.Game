@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 22: lore first (lore-first round, item 4, Mike 2026-11-05)
+- A new friend's first day now starts with the stories. Right after getting up, Natalie sends them to read a tale in the Library, and only then to the Scriptorium, the Tailor or Smithy, and the campfire (five steps).
+- The side games (dojo, sparring with Kavik, sky runs, the trapdoor) wait until the first day is done or skipped. Their prompts still show, marked "after your first day". Profiles from before the first day existed are not affected, and a day part-way through keeps its place (save upgrade 1→2).
+- Extras now leads with the lore: Write lore, Your works and Wiki first, then What's new, Profiles, Inspirations and Evolution.
+
 ### v0.16 changelog, part 21: saves that last for years (lore-first round, item 3, Mike 2026-11-05)
 - Saves are versioned. Every profile on the device is upgraded to the current shape when the game starts, and so is any profile or backup file you import, so a save from years ago still opens. A v0.16 profile is kept as a test fixture that must keep loading forever (`test/e2e-longevity.mjs`).
 - Extras → Profiles → **Keep it for years**: **Back up everything** saves one file with all three profiles and your settings (never the GitHub token). **Restore a backup** brings it all back, on this device or a new one. The page says when you last backed up and nudges you after two months.

@@ -6,11 +6,14 @@ import { escapeHtml } from '../submit';
 // get up (B31) → write at the Scriptorium → make something at the Tailor or the Smithy → sit at the campfire.
 // Natalie points the way (her lines under the screen, a gold marker over the next door) rather than walking with
 // you. It runs once per profile (the key is a profile key, B24), and the casebook (J) can skip it.
-export type DayStep = 'up' | 'write' | 'make' | 'fire';
-export const DAY_STEPS: DayStep[] = ['up', 'write', 'make', 'fire'];
+// Lore-first round, item 4 (Mike 2026-11-05): the day now starts with the lore. Reading a tale in the town Library
+// comes straight after getting up, and the side games (spar, sky run, trapdoor, dojo) wait until the day is done.
+export type DayStep = 'up' | 'read' | 'write' | 'make' | 'fire';
+export const DAY_STEPS: DayStep[] = ['up', 'read', 'write', 'make', 'fire'];
 const TEXT: Record<DayStep, { goal: string; natalie: string }> = {
   up: { goal: 'Get up', natalie: 'Morning. First day here? Let me show you how a day goes.' },
-  write: { goal: 'Write something at the Scriptorium ✒', natalie: 'Start with words. The Scriptorium by the water, where the gold light is.' },
+  read: { goal: 'Read a tale in the Library 📖', natalie: 'Everything here grew out of stories. Start at the Library, where the gold light is, and read one.' },
+  write: { goal: 'Write something at the Scriptorium ✒', natalie: 'Now add your own words. The Scriptorium by the water.' },
   make: { goal: 'Make something at the Tailor ✂ or the Smithy ⚒', natalie: 'Good. Now make something: a new look at the Tailor, or a weapon at the Smithy.' },
   fire: { goal: 'Sit at the campfire', natalie: 'End the day at the fire, out past the glade. Cook something, or play.' },
 };
@@ -23,7 +26,7 @@ export function loadDay(): DayState | null {
 }
 
 /** What the player is doing this frame (main.ts polls its panels). */
-export interface DayFlags { waking: boolean; writing: boolean; making: boolean; atFire: boolean }
+export interface DayFlags { waking: boolean; reading: boolean; writing: boolean; making: boolean; atFire: boolean }
 
 export class FirstDay {
   state: DayState | null = loadDay();
@@ -43,6 +46,8 @@ export class FirstDay {
   }
 
   get active() { return !!this.state && !this.state.done; }
+  /** Side games open once the first day is over (or skipped), and always for profiles from before it existed. */
+  get sideGamesOpen() { return !this.active; }
   get step(): DayStep | null { return this.active ? DAY_STEPS[this.state!.step] ?? null : null; }
 
   /** A new profile's first Begin starts it; a profile part-way through picks it up again. */
@@ -74,7 +79,7 @@ export class FirstDay {
     if (step === 'up') {
       // Up once the wake-up is over and you've stood a moment; Natalie's hello is the first line.
       if (!f.waking) { this.upFor += dt; if (this.upFor > 0.8) this.advance(); }
-    } else if ((step === 'write' && f.writing) || (step === 'make' && f.making) || (step === 'fire' && f.atFire)) this.advance();
+    } else if ((step === 'read' && f.reading) || (step === 'write' && f.writing) || (step === 'make' && f.making) || (step === 'fire' && f.atFire)) this.advance();
     const at = this.step ? this.targets[this.step]?.() : undefined;
     this.marker.visible = !!at && playing;
     if (at) {
@@ -90,7 +95,7 @@ export class FirstDay {
     this.hud.innerHTML = `<b>First day · ${n} of ${DAY_STEPS.length}</b><span>${escapeHtml(TEXT[step].goal)}</span>`;
   }
 
-  /** The casebook's first-day page: the four steps with ticks, and Skip. */
+  /** The casebook's first-day page: the steps with ticks, and Skip. */
   casebookHtml(): string {
     if (!this.state) return '';
     const s = this.state;
