@@ -7,6 +7,17 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 11: fallen heroes' gear and the patrons' gifts (Mike 2026-11-05)
+- **Fallen heroes' gear**: when a hero dies, goblins carry off each of their arms with an even chance (up to three:
+  sword, dagger, mace, spear, crossbow, sling, shield, buckler). Goblins on that floor or the one either side then
+  carry and use them: blades and maces hit harder, a crossbow or sling shoots, a shield turns blows. Their tag names
+  it ("Snik, with Ana's flanged mace"). Beat the carrier and it's yours.
+- **Natalie's patrons** (Greer's friend) send gifts as books reach her, kept from hero to hero: at 2 books each new
+  hero starts with 20 crowns; at 5 the smith charges a quarter less; at 8 each hero can take one kit at the trapdoor
+  (sword and buckler, crossbow and 15 bolts, mace and shield, or sling, rocks and a dagger); at 12 every run starts
+  with a choice of the witch's scrolls. The trapdoor lists them.
+- New `test/e2e-patrons.mjs` (9/9).
+
 ### v0.16 changelog, part 10: the witch's scrolls (Mike 2026-11-05)
 - Each time you take the stairs down, three scrolls lie on the top step. Take one (or leave them) and it imbues
   something you carry until the run ends: Rime (bolts slow a goblin), Witchfire (bolts +1, but blows hurt you 1

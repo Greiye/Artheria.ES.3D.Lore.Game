@@ -32,6 +32,8 @@ interface FoeWorld {
   /** Mike 2026-11-05, deeper floors: a thief takes a carried book first (its title, or null); you get it back from the body. */
   stealBook?(by: Foe): string | null;
   recover?(by: Foe, book: string): void;
+  /** F2: a goblin carrying a fallen hero's gear fell; you win it back. */
+  reclaim?(by: Foe, item: string): void;
   /** A blow puts your torch out. */
   douse?(): void;
   /** A shaman's hex: the dark closes in, or your legs go heavy. */
@@ -54,6 +56,8 @@ interface Foe {
   role: Role; flank: number; book: string | null; dropT: number; spell: number; combo: boolean;
   /** F1 frost bolts: seconds left at half speed. */
   chillT: number;
+  /** F2: a fallen hero's gear it picked up (item id), and the extra hurt it does with it. */
+  gear: string | null; gearDmg: number;
 }
 interface Shot { mesh: THREE.Mesh; vel: THREE.Vector3; dmg: number; by: Foe; bomb: boolean; fuse: number; landed: boolean }
 interface Snare { mesh: THREE.Mesh; die: string; by: Foe }
@@ -109,6 +113,15 @@ export class Goblins {
     f.hp -= dmg; f.hurtT = 0.18; drawTag(f); this.alert(f);
     if (f.hp <= 0) this.kill(f);
   }
+  /** F2: hand `f` a fallen hero's gear, and it uses it: blades and maces hit harder, a crossbow or sling shoots, a
+   *  shield or buckler turns blows. `label` names it on the goblin's tag ("Rot-tooth, with Ana's mace"). */
+  arm(f: Foe, item: string, label: string) {
+    f.gear = item;
+    if (['sword', 'dagger', 'mace', 'spear'].includes(item)) { f.gearDmg = item === 'dagger' ? 1 : 2; if (item === 'spear') f.st.reach = Math.max(f.st.reach, 1.6); }
+    else if (item === 'crossbow' || item === 'sling') { f.st.range = Math.max(f.st.range, item === 'crossbow' ? 11 : 8); f.st.shot = Math.max(f.st.shot, 13); f.st.cooldown = Math.min(f.st.cooldown || 3, 2.4); f.st.weapon = item === 'crossbow' ? 'bow' : 'sling'; f.gearDmg = 1; }
+    else if (item === 'shield' || item === 'buckler') { f.st.block = true; if (item === 'shield') f.st.armour += 1; }
+    f.v = { ...f.v, display: `${f.v.display}, with ${label}` }; f.root.name = 'goblin:' + f.v.display; drawTag(f);
+  }
   /** Band 5: what the player has been hitting them with this run. */
   habits = { sword: 0, bolt: 0 };
   /** Seconds the player has been moving; the mimic copies a dodge. */
@@ -148,7 +161,7 @@ export class Goblins {
     root.position.copy(at); root.rotation.y = yaw; root.name = 'goblin:' + v.display;
     const f: Foe = { v, st, root, anim: new FigureAnim(root.userData.rig as FigureRig), lean: new Lean(), hp: st.hp, state: st.behaviour === 'ambusher' ? 'hidden' : 'idle', t: 0, cd: 1, windup: 0,
       alerted: false, stolen: 0, caught: 0, traps: st.trap ? (this.band >= 1 ? 3 : 2) : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0, hurtT: 0, mats: [],
-      role, flank: this.band >= 1 ? ((v.seed & 1) ? 0.75 : -0.75) : 0, book: null, dropT: 0, spell: 3, combo: false, chillT: 0 };
+      role, flank: this.band >= 1 ? ((v.seed & 1) ? 0.75 : -0.75) : 0, book: null, dropT: 0, spell: 3, combo: false, chillT: 0, gear: null, gearDmg: 0 };
     if (role === 'dropper') f.state = 'hidden';
     // Its own copy of the body materials, so one goblin can flash red without the others.
     const rig = root.userData.rig as FigureRig | undefined;
@@ -228,6 +241,7 @@ export class Goblins {
     f.state = 'dead'; f.deadT = 0; f.tag.visible = false;
     this.w.loot(f, f.st.crowns, f.st.bolts + f.stolen + f.caught);
     if (f.book) { this.w.recover?.(f, f.book); f.book = null; }
+    if (f.gear) { this.w.reclaim?.(f, f.gear); f.gear = null; }
     if (f.st.leader) this.w.say(`${f.v.display} falls, and the others lose their nerve.`);
   }
 
@@ -354,7 +368,7 @@ export class Goblins {
           if (f.windup > 0) {
             f.windup -= dt; pose = 'punch'; mx = mz = 0;
             if (f.windup <= 0 && d < f.st.reach + 0.6) {
-              this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus, f, f.st.slowOnHit, f.root.position);
+              this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus + f.gearDmg, f, f.st.slowOnHit, f.root.position);
               if (this.band >= 3 && Math.random() < 0.18) this.w.douse?.();
               if (f.role === 'captain' && !f.combo) { f.combo = true; f.windup = 0.28; }   // a second blow straight after
               else f.combo = false;
@@ -414,7 +428,7 @@ export class Goblins {
     const mesh = new THREE.Mesh(bomb ? BOMB_GEO : f.st.weapon === 'bow' ? ARROW_GEO : SHOT_GEO, bomb ? BOMB_MAT : f.st.weapon === 'bow' ? ARROW_MAT : SHOT_MAT);
     mesh.position.copy(from); mesh.raycast = () => {}; mesh.name = bomb ? 'bomb' : 'shot';
     this.group.add(mesh);
-    this.shots.push({ mesh, vel, dmg: damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus, by: f, bomb, fuse: f.st.fuse || 2, landed: false });
+    this.shots.push({ mesh, vel, dmg: damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus + f.gearDmg, by: f, bomb, fuse: f.st.fuse || 2, landed: false });
     void d;
   }
 

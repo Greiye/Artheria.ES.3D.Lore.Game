@@ -45,6 +45,9 @@ export class ShopPanel {
     this.el.addEventListener('click', (e) => this.click(e));
   }
   onBuy: (id: string) => void = () => undefined;
+  /** F2 the patrons' gift: a fraction off every price (1: none). */
+  discount = 1;
+  priceOf(w: Ware) { return Math.max(1, Math.round(w.price * this.discount)); }
   get isOpen() { return !this.el.classList.contains('hidden'); }
 
   open() { this.line = this.smith ? 'Iron and oak. Hold it up and let them hit it.' : 'Welcome in. Crowns only; I keep honest scales.'; this.render(); this.el.classList.remove('hidden'); }
@@ -54,7 +57,7 @@ export class ShopPanel {
   get wares() { return this.smith ? SMITH_STOCK : [...STOCK, ...SUNDRIES]; }
   buy(i: number): boolean {
     const w = this.wares[i];
-    if (!w || (!DEBUG_UNLIMITED_CROWNS && !this.inv.take(CROWN, w.price))) { this.line = "That's more than you've got. Write something, find something, come back."; this.render(); return false; }
+    if (!w || (!DEBUG_UNLIMITED_CROWNS && !this.inv.take(CROWN, this.priceOf(w)))) { this.line = "That's more than you've got. Write something, find something, come back."; this.render(); return false; }
     this.inv.give(w.id, w.n);
     this.onBuy(w.id);
     this.line = `${ITEMS[w.id].name}${w.n > 1 ? ' × ' + w.n : ''}. Pleasure.`;
@@ -74,7 +77,7 @@ export class ShopPanel {
   // phone at full text size: gear, instruments, sundries, sell.
   private render() {
     const have = DEBUG_UNLIMITED_CROWNS ? Infinity : this.inv.count(CROWN);
-    const row = (w: Ware, i: number, cls = '') => `<button class="shop-row${cls}" data-buy="${i}" ${have < w.price ? 'disabled' : ''}><span>${ITEMS[w.id].icon} ${ITEMS[w.id].name}${w.n > 1 ? ' × ' + w.n : ''}</span><span>◎ ${w.price}</span></button>`;
+    const row = (w: Ware, i: number, cls = '') => `<button class="shop-row${cls}" data-buy="${i}" ${have < this.priceOf(w) ? 'disabled' : ''}><span>${ITEMS[w.id].icon} ${ITEMS[w.id].name}${w.n > 1 ? ' × ' + w.n : ''}</span><span>◎ ${this.priceOf(w)}${this.discount < 1 ? ' <s class="fine">' + w.price + '</s>' : ''}</span></button>`;
     const sells = Object.keys(BUYS).filter((id) => this.inv.count(id) > 0);
     if (this.smith) {
       const arm = (w: Ware, i: number) => this.inv.count(w.id) > 0
@@ -87,6 +90,7 @@ export class ShopPanel {
       <div class="shop-purse">◎ <b>${have === Infinity ? '∞' : have}</b> crowns</div>
       <section><h4>Arms</h4>
       ${SMITH_STOCK.map(arm).join('')}
+      ${this.discount < 1 ? '<p class="fine">Natalie\'s patrons settle part of every bill.</p>' : ''}
       <p class="fine">One of each fills either hand, or both. Choose what each hand holds in the bag, or with the D-pad.</p></section>
       <div class="forge-actions"><button class="secondary" data-act="close">Leave</button></div>
     </div>`;

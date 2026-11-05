@@ -45,7 +45,12 @@ export interface Descent {
   /** F1: the witch's scrolls taken this run (ids). */
   scrolls?: string[];
 }
-export interface Record_ { deepest: number; delivered: number; heroes: number; runs: number; guardians: number[]; ropes: number[] }
+export interface Record_ { deepest: number; delivered: number; heroes: number; runs: number; guardians: number[]; ropes: number[];
+  /** F2: a fallen hero's gear, carried off by goblins on the floor they fell (won back by beating the carrier). */
+  lostGear: LostGear[];
+  /** F2: the patrons' gifts already announced (thresholds), and the hero who last took the patrons' kit. */
+  gifts: number[]; kitFor: number }
+export interface LostGear { item: string; floor: number; owner: string }
 export interface Fallen { name: string; floor: number; books: number; by: string; at: string; words: string }
 export interface Survivor { name: string; at: string; art: string | null; kavik?: boolean; line?: string }
 
@@ -56,7 +61,7 @@ const write = (k: string, v: unknown) => { try { if (v === null) localStorage.re
 export const newDescent = (from = 1): Descent => ({ floor: from, books: [], hoard: false, swordHits: 0, boltHits: 0, started: new Date().toISOString().slice(0, 10) });
 export const loadDescent = () => read<Descent | null>(K.run, null);
 export const saveDescent = (d: Descent | null) => write(K.run, d);
-export const loadRecord = (): Record_ => { const r = { deepest: 0, delivered: 0, heroes: 1, runs: 0, guardians: [] as number[], ropes: [] as number[], ...read<Partial<Record_>>(K.rec, {}) }; if (!r.guardians.length) r.guardians = rollGuardians(); return r; };
+export const loadRecord = (): Record_ => { const r = { deepest: 0, delivered: 0, heroes: 1, runs: 0, guardians: [] as number[], ropes: [] as number[], lostGear: [] as LostGear[], gifts: [] as number[], kitFor: 0, ...read<Partial<Record_>>(K.rec, {}) }; if (!r.guardians.length) r.guardians = rollGuardians(); return r; };
 export const saveRecord = (r: Record_) => write(K.rec, r);
 export const loadTally = () => read<Fallen[]>(K.tally, []);
 export function addFallen(f: Fallen) { const t = loadTally(); t.unshift(f); write(K.tally, t.slice(0, 60)); }
@@ -109,3 +114,29 @@ export function fluxFor(floor: number, guardians: number[], R: () => number = Ma
   const kinds: Flux[] = ['dark', 'flooded', 'burning', 'light'];
   return kinds[Math.floor(R() * kinds.length)];
 }
+
+// ---------- F2 (Mike 2026-11-05): fallen heroes' gear, and the patrons' gifts ----------
+/** What goblins will pick up off a fallen hero (arms and tools; not books, food or crowns). */
+export const TAKEABLE = ['sword', 'dagger', 'mace', 'spear', 'crossbow', 'shield', 'buckler', 'sling'];
+/** Each piece the hero carried has an even chance of being carried off (at most three); the rest is lost for good. */
+export function carryOff(have: string[], floor: number, owner: string, R: () => number = Math.random): LostGear[] {
+  return have.filter((id) => TAKEABLE.includes(id) && R() < 0.5).slice(0, 3).map((item) => ({ item, floor, owner }));
+}
+/** Gear a goblin on this floor might be carrying: lost on this floor or the one either side. */
+export const gearNear = (lost: LostGear[], floor: number) => lost.filter((g) => Math.abs(g.floor - floor) <= 1);
+/** The patrons send gifts as books reach Natalie (kept from hero to hero). */
+export interface Gift { at: number; id: 'purse' | 'smith' | 'kit' | 'scroll'; name: string; text: string }
+export const GIFTS: Gift[] = [
+  { at: 2, id: 'purse', name: 'A purse for each hero', text: 'Every new hero starts with 20 crowns.' },
+  { at: 5, id: 'smith', name: "The smith's bill, part paid", text: 'The smith charges a quarter less.' },
+  { at: 8, id: 'kit', name: 'A kit for each hero', text: 'Each hero may take one set of arms from the patrons at the trapdoor.' },
+  { at: 12, id: 'scroll', name: 'A scroll before the first step', text: 'Every run starts with a choice of the witch\'s scrolls.' },
+];
+export const hasGift = (delivered: number, id: Gift['id']) => GIFTS.some((g) => g.id === id && delivered >= g.at);
+/** The patrons' kit: one of these, per hero. */
+export const KITS: { id: string; name: string; items: [string, number][] }[] = [
+  { id: 'blade', name: 'Sword and buckler', items: [['sword', 1], ['buckler', 1]] },
+  { id: 'bow', name: 'Crossbow and 15 bolts', items: [['crossbow', 1], ['bolt', 15]] },
+  { id: 'mace', name: 'Mace and shield', items: [['mace', 1], ['shield', 1]] },
+  { id: 'sling', name: 'Sling, 12 rocks and a dagger', items: [['sling', 1], ['rock', 12], ['dagger', 1]] },
+];

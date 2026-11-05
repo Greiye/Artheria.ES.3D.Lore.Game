@@ -101,7 +101,7 @@ import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
 import { Regions, REGIONS, TOWN_EXITS, signpost, type RegionId, type Side } from './world/regions';
 import { LoadScreen } from './ui/loadscreen';
-import { FLOORS, band, BAND_NOTE, budgetFor, hpMul, dmgBonus, countFor, maxFoesFor, newDescent, loadRecord, saveRecord, addFallen, addSurvivor, isCamp, fluxFor, FLUX_NOTE, GUARDIAN_NAMES, type Descent, type Flux } from './delve/descent';
+import { FLOORS, band, BAND_NOTE, budgetFor, hpMul, dmgBonus, countFor, maxFoesFor, newDescent, loadRecord, saveRecord, addFallen, addSurvivor, isCamp, fluxFor, FLUX_NOTE, GUARDIAN_NAMES, carryOff, gearNear, GIFTS, hasGift, KITS, type Descent, type Flux, type LostGear } from './delve/descent';
 import { InnWalls, LastWords, buildInnBoards } from './delve/walls';
 import { ScrollPicker, offerScrolls, scrollById, type ScrollSlot } from './delve/scrolls';
 import { KillStatue, loadKills, saveKills, plaqueText } from './world/statue';
@@ -1366,6 +1366,12 @@ function startDescent(from = 1) {
   record.runs++; saveRecord(record);
   enterDungeon((Math.random() * 2 ** 31) | 0, from);
   companion.say('Thirty floors, they say. Bring me what you find. Bring yourself back too.', { force: true });
+  // F2: the patrons' scroll before the first step.
+  const opts = hasGift(record.delivered, 'scroll') ? offerScrolls([], ownsSlot) : [];
+  if (opts.length) {
+    enterForge();
+    scrollPicker.open(opts, from, (sc) => { leaveForge(); if (sc && descent) { (descent.scrolls ??= []).push(sc.id); applyScrolls(); toast(`${sc.name}: ${sc.boon}${sc.curse ? ` Curse: ${sc.curse}` : ''}`, 5200); } });
+  }
 }
 // F1: the witch's scrolls on the top step, each time you go down.
 const scrollPicker = station(new ScrollPicker());
@@ -1459,10 +1465,23 @@ function climbOut(d: Descent) {
   if (d.books.length) refreshGallery();
   record.delivered += d.books.length; record.deepest = Math.max(record.deepest, d.floor); saveRecord(record);
   stolenBooks.clear();
+  patronGifts();
   const n = d.books.length;
   if (d.hoard) { goodEnding(d); return; }
   toast(`Out alive from floor ${d.floor}.${n ? ` Natalie takes ${n} book${n > 1 ? 's' : ''}; they're on the gallery shelves now.` : ' No books this time.'} Deepest so far: floor ${record.deepest}.`, 6000);
   if (n) companion.say(n > 2 ? 'This many? I\'ll be up all night. Thank you.' : 'Another one for the shelf. Thank you.', { force: true });
+}
+/** F2: the patrons' gifts. Natalie's patron (Greer's friend) sends something as the books add up; kept from hero to hero. */
+function patronGifts(announce = true) {
+  smithShop.discount = hasGift(record.delivered, 'smith') ? 0.75 : 1;
+  const fresh = GIFTS.filter((g) => record.delivered >= g.at && !record.gifts.includes(g.at));
+  if (!fresh.length) return;
+  record.gifts.push(...fresh.map((g) => g.at)); saveRecord(record);
+  if (!announce) return;
+  setTimeout(() => {
+    toast(`Natalie's patrons send their thanks: ${fresh.map((g) => `${g.name} (${g.text})`).join(' ')}`, 7000);
+    companion.say('Greer brought word from my patron. They\'re pleased, and they\'ve sent something for whoever goes down next.', { force: true });
+  }, 6500);
 }
 /** A drawing of the hero for the survivors' wall: their newest sketch, else a drawn portrait. */
 function heroArt(): string | null {
@@ -1487,11 +1506,14 @@ function newHero(note: string) {
   character = { ...character, name: '', created: false }; saveCharacter(character);
   player.spawn(world.spawn.pos, world.spawn.yaw);
   delveHp = DELVE_HP;
+  if (hasGift(record.delivered, 'purse')) inventory.give(CROWN, 20);
   toast(note, 6500);
   setTimeout(() => { if (state === 'play') openCharacterForge(); }, 600);
 }
 function heroFalls(by: string) {
   const d = descent!, name = heroName();
+  const taken = carryOff([...inventory.counts.keys()].filter((id) => inventory.count(id) > 0), d.floor, name);
+  record.lostGear = [...record.lostGear, ...taken].slice(-12); saveRecord(record);
   exitDungeon(true);
   descent = null;
   enterForge();
@@ -1662,10 +1684,17 @@ function openDescend() {
     <p>The library is in flux: the witch in the ruins keeps it moving, and every floor is new each time you go down. They say it goes ${FLOORS} floors deep, with a dragon's hoard at the bottom. Each floor is harder. Climb out on any floor's stairs to hand Natalie the books you carry. <b>Die down there and this hero is gone</b>, with the bag, the crowns and the books on them.</p>
     <p class="fine">Deepest so far: floor ${record.deepest || '-'} · books handed in: ${record.delivered} · heroes lost: ${Math.max(0, record.heroes - 1)}</p>
     <div class="forge-actions"><button class="primary" data-act="go">Descend to floor 1</button>${record.ropes.map((f) => `<button class="primary" data-act="rope" data-floor="${f}">Natalie's rope to floor ${f}</button>`).join('')}<button class="secondary" data-act="quick">Quick Dungeon (practice, nobody dies)</button></div>
+    ${hasGift(record.delivered, 'kit') && record.kitFor !== record.heroes ? `<p class="fine">The patrons' kit, one per hero:</p><div class="forge-actions">${KITS.map((k) => `<button class="secondary" data-act="kit" data-kit="${k.id}">${k.name}</button>`).join('')}</div>` : ''}
+    ${record.delivered ? `<p class="fine">Patrons' gifts: ${GIFTS.map((g) => record.delivered >= g.at ? `<b>${g.name}</b>` : `${g.name} at ${g.at} books`).join(' · ')}</p>` : ''}
     <div class="forge-actions"><button class="secondary" data-act="close">Not yet</button></div></div>`;
   el.addEventListener('click', (ev) => {
     const a = (ev.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
     if (!a) return;
+    if (a.dataset.act === 'kit') {
+      const k = KITS.find((x) => x.id === a.dataset.kit);
+      if (k) { for (const [id, n] of k.items) inventory.give(id, n); record.kitFor = record.heroes; saveRecord(record); haptics.play('pickup'); toast(`From the patrons: ${k.name.toLowerCase()}. Choose what each hand holds in the bag.`, 3600); }
+      el.remove(); descendSheet = null; leaveForge(); openDescend(); return;
+    }
     const seed = dailySeed();
     el.remove(); descendSheet = null;
     if (a.dataset.act === 'quick') { openQuick(seed); return; }   // stays in the forge state until the run ends
@@ -1732,6 +1761,12 @@ const goblins = new Goblins(world.scene, {
     stolenBooks.set(title, id);
     return title;
   },
+  reclaim: (f, item) => {
+    const g = carried.get(f); carried.delete(f);
+    if (g) { const i = record.lostGear.indexOf(g); if (i >= 0) record.lostGear.splice(i, 1); saveRecord(record); }
+    inventory.give(item, 1); haptics.play('pickup');
+    toast(g ? `You take ${g.owner}'s ${ITEMS[item]?.name.toLowerCase() ?? item} back from the goblin. It's yours now.` : `You take the ${ITEMS[item]?.name.toLowerCase() ?? item} off the goblin.`, 3600);
+  },
   recover: (_f, title) => { const id = stolenBooks.get(title); stolenBooks.delete(title); if (id && descent) { descent.books.push(id); toast(`You take “${title}” back.`, 2600); } },
   douse: () => { if (hands.held.left === 'torch' || hands.held.right === 'torch') { toggleTorch(); toast('A wet blow, and your torch gutters out.', 2400); } },
   hex: (kind) => {
@@ -1777,7 +1812,20 @@ function spawnGoblins(keepHp = false) {
   // E2: a guardian floor's boss waits in the deepest room.
   const gi = fl ? record.guardians.indexOf(fl) : -1, nest = L.rooms.find((r) => r.tag === 'nest');
   if (gi >= 0 && nest) goblins.spawn(rollGoblin(seedOf(run, 99), budgetFor(fl) + 6), dungeon.roomAt(nest, 0, 1), Math.PI, true, 'guardian', GUARDIAN_NAMES[gi % GUARDIAN_NAMES.length]);
+  // F2: a fallen hero's gear, carried by the goblins near where they fell.
+  carried.clear();
+  if (fl) {
+    const free = goblins.alive.filter((f) => f.role !== 'guardian' && f.role !== 'keeper');
+    for (const g of gearNear(record.lostGear, fl)) {
+      const f = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+      if (!f) break;
+      goblins.arm(f, g.item, `${g.owner}'s ${ITEMS[g.item]?.name.toLowerCase() ?? g.item}`); carried.set(f, g);
+    }
+    if (carried.size) setTimeout(() => { if (inDungeon) toast(`Something down here carries ${[...carried.values()][0].owner}'s gear.`, 3600); }, 5600);
+  }
 }
+/** F2: which goblin carries which fallen hero's piece, this floor. */
+const carried = new Map<object, LostGear>();
 const delveHpEl = document.getElementById('delveHp')!;
 // UX pass (Mike 2026-10-31): your health shows on you, not as a counter. Below half, the edges of your sight redden
 // and you breathe hard; below 40% you limp. The old line stays for screen readers (and tests), off screen.
@@ -2251,6 +2299,7 @@ function openShop() {
 }
 // Mike 2026-11-05: the smith's counter by the smithy door sells arms (shields; more in later rounds).
 const smithShop = station(new ShopPanel(inventory, () => leaveForge(), true));
+smithShop.discount = hasGift(record.delivered, 'smith') ? 0.75 : 1;   // F2 the patrons' gift
 smithShop.onBuy = (id) => {
   haptics.play('pickup');
   // A new shield goes straight onto a free hand (the left, unless it holds something you'd miss).
@@ -3506,4 +3555,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
