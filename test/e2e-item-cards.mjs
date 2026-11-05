@@ -53,7 +53,8 @@ await page.screenshot({ path: path.join(shots, 'item-card-forged-sword.png') });
 check('Food is green', await G(() => { document.querySelector('#inventory .inv-cell[data-item="bread"]').focus(); return /ic-food/.test(document.querySelector('#inventory .item-card .ic-name').className); }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 
-// Touch: a long press shows the card.
+// Touch: a long press shows the card. (Close the PC page first: two software-rendered games at once starve the second boot.)
+await page.close();
 const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
 const tp = await ctx.newPage();
 await tp.route(/^https?:/, (r) => r.abort());
