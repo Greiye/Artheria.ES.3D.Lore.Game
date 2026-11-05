@@ -28,6 +28,7 @@ const r = await page.evaluate(() => {
     if (o.name === 'canopy' && o.geometry) out.canopyTris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
     if (o.name === 'foliage:flowers') { out.flowers = o.count; const e = o.instanceMatrix.array; out.flowerScale = Math.hypot(e[0], e[1], e[2]); }
     if (o.name === 'foliage:fern') out.ferns = o.count;
+    if (o.name === 'fence-cards') { out.fencePanels = o.geometry.index.count / 12; out.fenceTex = !!o.material.map; }
     if (o.name === 'foliage:tuftCards') { out.tufts = o.instanceMatrix.count; out.cards = new Set(o.geometry.attributes.aCard.array).size; out.tuftTex = !!o.material.map; }
   });
   return out;
@@ -37,6 +38,9 @@ check('Bushes: crossed-quad cards in one mesh, the old leaf lumps gone', r.bushM
 check('Flowers: fewer, bigger clumps', r.flowers > 0 && r.flowers <= 200 && r.flowerScale > 0.5, JSON.stringify(r));
 // Quad detail 1: denser, varied meadow tufts: one instanced mesh using all eight painted cards.
 check('Meadow tufts: one instanced mesh, 2000+ tufts, all 8 cards (3 grasses, clover, 4 flowers)', r.tuftTex && r.tufts >= 2000 && r.cards === 8, JSON.stringify(r));
+// Quad detail 2: painted fence panels along the paths, one mesh, with posts you bump into.
+const posts = await page.evaluate(() => window.__gametool.world.colliders.filter((c) => c.kind === 'circle' && c.r === 0.16).length);
+check('Fences: painted panels along the paths in one mesh, with post colliders', r.fenceTex && r.fencePanels >= 15 && posts >= r.fencePanels * 3, JSON.stringify({ panels: r.fencePanels, posts }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;

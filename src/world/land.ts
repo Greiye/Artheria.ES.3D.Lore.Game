@@ -9,7 +9,7 @@ import type { Collider } from './index';
 const SPAN = 120, PX = 512;   // the mask covers x, z in −60…60 at ~0.23 m a pixel
 // Polylines (x, z) between the places people walk: spawn to the town lane, the camp, the gallery hall, the dojo,
 // the rock climb, and the coach road out to the west gate.
-const PATHS: [number, number][][] = [
+export const PATHS: [number, number][][] = [
   [[0, 8.5], [0.3, 12], [-0.2, 16], [0, 20], [0, 24.5]],
   [[-2.6, 1.2], [-4.2, 1.8], [-5.4, 1.6]],
   [[2.6, 3.4], [6, 4.6], [9.6, 5.4]],

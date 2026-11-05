@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 12: fences along the paths (quad detail 2, Mike 2026-11-04, Graphics thread)
+- Painted fence panels line the coach road and the lanes: split-rail, woven wattle hurdles and a whitewashed picket fence, each one flat painted panel, all in one mesh (one draw call). The posts block the way; gaps every few panels let you through, and they keep clear of the gate, the caravan and the buildings.
+
 ### v0.15 changelog, part 11: a fuller meadow (quad detail 1, Mike 2026-11-04, Graphics thread)
 - About 2,600 more grass tufts across the meadow from one painted sheet of eight cards: short and tall grass, seed heads, clover, and daisies, buttercups, bluebells and poppies growing in patches of one kind. They are all one instanced mesh that sways in the wind, so they add one draw call, and the lower quality settings draw fewer of them.
 
