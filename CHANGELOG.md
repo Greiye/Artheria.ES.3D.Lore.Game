@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 14: market stalls (decoration 2, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Three market stalls stand round the paved plaza: timber frames under striped, scalloped awnings (red, blue, green), with goods on the counters (fruit, bread, cloth, pots). You walk round them, not through. One merged mesh.
+
 ### v0.16 changelog, part 13: banners and flags (decoration 1, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Every house has a pair of heraldic banners flanking its door, hung from a rod with gold finials. Four tall flagpoles stand on the green, and pennants stream from the gate posts. The cloth moves in the wind. It is all low-poly 3D in flat painted colours, two meshes in total (cloth, poles), so it stays cheap on phones.
 
