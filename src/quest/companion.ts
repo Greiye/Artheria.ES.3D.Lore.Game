@@ -22,7 +22,7 @@ export class Companion {
   private lastBark = -1e9;
   private said = new Set<string>();
 
-  constructor(private root: () => THREE.Object3D, private target: THREE.Object3D, private colliders: Collider[], private bounds: number, readonly prefs: CompanionPrefs) {
+  constructor(private root: () => THREE.Object3D, private target: THREE.Object3D, private colliders: Collider[], public bounds: number, readonly prefs: CompanionPrefs) {
     this.yaw = root().rotation.y;
     this.line = document.createElement('div');
     this.line.id = 'companionLine';

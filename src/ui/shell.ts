@@ -20,7 +20,9 @@ export const SHELL_HTML = `
       <div class="eyebrow">Temporary Exit - Mind the dust</div>
       <h1>Leave the area?</h1>
       <p>This will retire you. Your bag and the hour are saved; next time you begin back at the glade.</p>
-      <button id="gateYes" class="primary">Yes, retire</button>
+      <p class="fine">Or walk on up the coach road, west into the mountains.</p>
+      <button id="gateGo" class="primary">Walk on to the Amethyst Peak gates</button>
+      <button id="gateYes" class="secondary">Yes, retire</button>
       <button id="gateNo" class="secondary">No, stay</button>
     </div>
   </div>

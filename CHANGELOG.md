@@ -7,6 +7,106 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 11: fallen heroes' gear and the patrons' gifts (Mike 2026-11-05)
+- **Fallen heroes' gear**: when a hero dies, goblins carry off each of their arms with an even chance (up to three:
+  sword, dagger, mace, spear, crossbow, sling, shield, buckler). Goblins on that floor or the one either side then
+  carry and use them: blades and maces hit harder, a crossbow or sling shoots, a shield turns blows. Their tag names
+  it ("Snik, with Ana's flanged mace"). Beat the carrier and it's yours.
+- **Natalie's patrons** (Greer's friend) send gifts as books reach her, kept from hero to hero: at 2 books each new
+  hero starts with 20 crowns; at 5 the smith charges a quarter less; at 8 each hero can take one kit at the trapdoor
+  (sword and buckler, crossbow and 15 bolts, mace and shield, or sling, rocks and a dagger); at 12 every run starts
+  with a choice of the witch's scrolls. The trapdoor lists them.
+- New `test/e2e-patrons.mjs` (9/9).
+
+### v0.16 changelog, part 10: the witch's scrolls (Mike 2026-11-05)
+- Each time you take the stairs down, three scrolls lie on the top step. Take one (or leave them) and it imbues
+  something you carry until the run ends: Rime (bolts slow a goblin), Witchfire (bolts +1, but blows hurt you 1
+  more), the Drinking Edge (cuts mend 1), the Hungry Edge (+1 blade damage, but camps no longer mend you), Thorns
+  (a blocked blow wounds the striker), the Seeing Flame (with a torch lit, lurkers and mimics can't hide), the
+  Heavy Stone (rocks hit harder) and Quick Feet (faster, but thieves always go for your books).
+- Only scrolls for things you carry are offered, never one you already have. The HUD lists what you're imbued with.
+- New `test/e2e-scrolls.mjs` (9/9).
+
+### v0.16 changelog, part 9: guardians, rest camps and flux floors (Mike 2026-11-05)
+- **Guardians**: a named boss goblin (Gnash the Binder, Old Mother Mildew, ...) waits in the deepest room of its
+  floor. Guardian floors are rolled once: each 7 to 10 floors after the last, so up to 3 early, never more than 10
+  apart. Beat one and Natalie ties a rope there: the trapdoor then offers that floor as a start point. Ropes are kept
+  from hero to hero.
+- **Rest camps** on floors 5, 10, 15, 20 and 25, by the stairs: rest once to heal fully, oil the blade and restring
+  the crossbow.
+- **Flux floors**: some floors come out twisted, more often deeper down (never camps, guardians or the hoard):
+  pitch dark, flooded to the knee (slow), burning shelves (the heat bites now and then), or light (you fall slowly
+  and jump high). The load screen warns you.
+- Test: `e2e-descent-extras`.
+
+### v0.16 changelog, part 8: the descent, a roguelike under the library (Mike 2026-11-05)
+- The trapdoor now offers **the descent**. The library is in flux (the witch in the ruins): every floor is a new
+  layout each time. They say it goes 30 floors deep, with a dragon's hoard at the bottom. Stairs down sit in the
+  deepest room of each floor (behind a load screen); every floor has its stairs up. Your wounds carry down.
+- **Books are carried**: they reach Natalie (and the gallery shelves) only when you climb out alive. Climbing out
+  records your deepest floor. The seed box is gone; the Quick Dungeon stays as practice where nobody dies.
+- **Death ends the hero**: write their last words, and the bag, crowns, hands and carried books are gone. Writing,
+  sketches, forge designs, the gallery, books already handed in and the kill statue stay. A new hero wakes at the
+  glade and the mirror opens to make them.
+- **The Inn's front wall**: the death tally (name, deepest floor, books handed in, slain by, date, last words) and
+  the survivors' wall, where only Kavik's sketch hangs. Take the hoard on floor 30, climb out alive, and your
+  drawing (your newest sketch, or a portrait) goes up beside his; that hero retires.
+- **Goblins get harder and smarter by depth**: more of them, tougher, harder-hitting, and new tricks by band:
+  4-8 they flank you in packs and carry extra snares; 9-13 slingers, pot-lid guards, and the wounded back off to
+  mend; 14-19 shelf-lurkers drop on you, blows can douse your torch, and thieves go for your books (kill them to get
+  it back); 20-24 shamans mend the others and hex you (the dark closes in, or your legs go heavy); 25-29 captains
+  with a double blow, and they learn your habits (lean on the sword and more pot lids turn up; on the crossbow and
+  they dodge); 30 the hoard-keepers.
+- Natalie answers "What is under the library?"; Kavik has a word about floor 30.
+- Tests: `e2e-descent` (new); `e2e-places` updated for the new trapdoor sheet.
+
+### v0.16 changelog, part 7: four ways out of Aralon (Mike 2026-11-05)
+- One exit per side, each signposted, each to its own map after a load screen (the place's name, a line, a bar):
+  - north: **Aralon Edge**, a clifftop with a rail, a bench and a lone pine, built on a real cliff north of town, so
+    you look down on Aralon itself;
+  - south: **the Beach**, dunes, driftwood, an upturned boat, a jetty and a breathing tide;
+  - east: **the Ranlean Gates**, the city wall, towers and banners; the gates are shut ("knock" to hear why);
+  - west: the coach-road gate now offers **Walk on to the Amethyst Peak gates** (snow, amethyst crystals, a carved
+    gate sealed until the thaw) beside retiring.
+- Each map has a waystone ("Head back to Aralon"), and walking off its back edge goes home too; you come back in at
+  the side you left from. Natalie and your pets come along if they're following.
+- The save remembers which map you were on; Continue puts you back at its waystone.
+- Test: `e2e-exits`.
+
+### v0.16 changelog, part 6: a new first-meeting scene, Greer and Natalie (Mike 2026-11-05)
+- The first talk with Natalie now opens on Magister Greer, come up from the coach road to look in on her for her
+  patron (a close friend of his). A letterboxed two-shot by the library door with her title card, then the camera cuts
+  between them over the shoulder as they talk, subtitled, about 24 s in all. Then Greer goes back to his post and her
+  dialogue starts as before. Still once per profile, any key skips, and Low power or reduced motion goes straight to
+  the dialogue box.
+- Test: `e2e-first-meet` (rewritten).
+
+### v0.16 changelog, part 5: item cards in the bag (Mike 2026-11-05)
+- Hover a bag item (mouse), long-press it (touch) or move onto it (keyboard, controller) for a Diablo-style card: the
+  name coloured by kind (weapons white, shields blue, instruments violet, food green, coin gold; a forged weapon with
+  its own name shows gold), the type, the stats that matter (damage, speed, reach and sweep; a shield's block arc; the
+  sling's whirl), which hand holds it, the forged engraving and legend, the flavour line, and its price.
+- Bag cells can now take focus, so the controller walks them like buttons.
+- Test: `e2e-item-cards`.
+
+### v0.16 changelog, part 4: the sword forge, and the weapon shown centre screen (Mike 2026-11-05)
+- The weapon forge has Crossbow and Sword tabs. The sword takes a blade (arming, broad, curved, slim), a guard (cross,
+  swept, disc), a pommel (round, disc, ring), steel, metal and grip colours, an engraving, a name and a legend. Done
+  puts the new look on the sword in hand (both hands if you hold two) and saves it; Submit exports it like the crossbow.
+- The weapon being forged now shows large in the middle of the free screen, on a soft dark backdrop, instead of over
+  the anvil. Drag it, use the right stick or the arrow keys to turn it.
+- Test: `e2e-sword-forge`.
+
+### v0.16 changelog, part 3: daggers, maces, spears, rocks and slings (Mike 2026-11-05)
+- The smith's counter now also sells a dagger, a flanged mace and an ash spear; the General Store sells a shepherd's sling. Like everything else, they go in either hand, in any pair.
+- The dagger cuts in half a sword's time for less, so two make a flurry. The mace is slow and heavy: every blow goes through a pot lid and knocks a goblin back. The spear jabs straight out a long way on a narrow line, so you can reach a goblin before it reaches you. Any of them comes up to turn half a blow if you keep holding its button after the blow, like the sword.
+- Rock piles by the fountain, the gate and the smithy give five rocks at a time (E). With rocks in hand, the button throws one in an arc. With the sling, hold the button to whirl it and let go to loose: the longer the whirl, the farther and harder, up to about a bolt's hit. Rocks lie where they land; pick them back up with E. The ammo line shows your rocks and how far the sling is wound.
+
+### v0.16 changelog, part 2: shields and blocking (Mike 2026-11-05)
+- The smith's counter, in front of the smithy, sells a wooden buckler and a round iron-rimmed shield, shown on a rack. A new shield goes onto your left hand if it's free. Like everything else, either goes in either hand, or both.
+- Hold a hand's button to block with what it holds. A shield turns any blow from the front: the buckler covers a narrow arc, the round shield a wide one, and two shields wider still. Keep holding a sword's button after its cut and the blade comes up to turn half a blow. Blows from behind, and snares, get through, and a heavy blow still shoves you back a step. You move slower while blocking.
+- Shields work against thrown rocks and bolts too, and show raised in your hand in first person and on your arm in the follow view.
+
 ### v0.16 changelog, part 1: two hands, any combination (Mike 2026-11-05, "Y")
 - Each hand holds what you choose: nothing, the sword, the crossbow or a torch, in any pair, feasible or not. Two torches, two swords, two crossbows, a sword and a crossbow.
 - D-pad left changes what the left hand holds, D-pad right (or Q) the right hand. The bag has a Hands row: press a hand to change it. T, holding D-pad down or the torch button still lights a torch in the left hand and puts it out again.

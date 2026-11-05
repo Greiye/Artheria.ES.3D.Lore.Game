@@ -7,39 +7,54 @@
 import * as THREE from 'three';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
+import { buildSwordModel, loadSword, type SwordCosmetic } from './forge/weapon';
 
-const SWING = 0.42;          // seconds per swing
-const STRIKE = 0.15;         // when in the swing the blade connects
-const REACH = 1.75;          // metres from your feet to the tip, plus the goblin's own radius
-const ARC = 1.05;            // half-angle of the cut (about 60° each side)
+// Mike 2026-11-05: the same hand weapon in four kinds. swing: seconds per swing; strike: when in it the blow lands;
+// reach: metres from your feet (plus the goblin's own radius); arc: half-angle of the cut; damage: per blow of the
+// three-blow combo, before armour and sharpness; heavy: which blows go through a pot lid; thrust: a straight jab.
+export type MeleeKind = 'sword' | 'dagger' | 'mace' | 'spear';
+export const MELEE: Record<MeleeKind, { swing: number; strike: number; reach: number; arc: number; damage: number[]; heavy: boolean[]; thrust: boolean; knock: number }> = {
+  sword: { swing: 0.42, strike: 0.15, reach: 1.75, arc: 1.05, damage: [2, 2, 3], heavy: [false, false, true], thrust: false, knock: 1 },
+  dagger: { swing: 0.22, strike: 0.08, reach: 1.3, arc: 0.8, damage: [1, 1, 2], heavy: [false, false, false], thrust: false, knock: 0.6 },
+  mace: { swing: 0.62, strike: 0.26, reach: 1.6, arc: 0.9, damage: [3, 3, 4], heavy: [true, true, true], thrust: false, knock: 1.6 },
+  spear: { swing: 0.5, strike: 0.2, reach: 2.6, arc: 0.35, damage: [2, 2, 3], heavy: [false, false, true], thrust: true, knock: 1.2 },
+};
 const COMBO_WINDOW = 0.55;   // seconds after a swing ends for the next to chain
-const DAMAGE = [2, 2, 3];    // per swing of the combo, before armour and sharpness
 const ASSIST = 1.75;                // follow view: turn toward a goblin up to ~100° off your facing
 
 interface Slash { from: THREE.Vector3; fwd: THREE.Vector3; reach: number; arc: number; damage: number; heavy: boolean }
 
-/** A low-poly arming sword, grip at the origin, blade along +Y (about 0.95 m long). */
-function buildSwordModel(): THREE.Group {
+/** A low-poly hand weapon, grip at the origin, along +Y. */
+function buildMelee(kind: MeleeKind, look: SwordCosmetic): THREE.Group {
+  if (kind === 'sword') return buildSwordModel(look);
   const g = new THREE.Group();
-  const steel = new THREE.MeshLambertMaterial({ color: '#C4C8CE' }), edge = new THREE.MeshLambertMaterial({ color: '#E8ECF0' });
-  const grip = new THREE.MeshLambertMaterial({ color: '#4A3222' }), brass = new THREE.MeshLambertMaterial({ color: '#B08A3E' });
-  const part = (geo: THREE.BufferGeometry, m: THREE.Material, y: number, name?: string) => {
-    const o = new THREE.Mesh(geo, m); o.position.y = y; o.castShadow = true; o.raycast = () => {}; if (name) o.name = name; g.add(o); return o;
-  };
-  part(new THREE.BoxGeometry(0.055, 0.68, 0.014), steel, 0.46, 'blade');
-  part(new THREE.BoxGeometry(0.012, 0.68, 0.018), edge, 0.46, 'edge');   // the fuller's bright line
-  steel.userData.steel = true; edge.userData.edge = true;
-  const tip = part(new THREE.ConeGeometry(0.039, 0.12, 4), steel, 0.86); tip.scale.z = 0.36; tip.rotation.y = Math.PI / 4;
-  part(new THREE.BoxGeometry(0.24, 0.035, 0.05), brass, 0.105);      // cross-guard
-  part(new THREE.CylinderGeometry(0.019, 0.022, 0.17, 6), grip, 0.0);
-  part(new THREE.SphereGeometry(0.03, 6, 4), brass, -0.1);            // pommel
+  const steel = new THREE.MeshLambertMaterial({ color: '#C4C8CE' }), iron = new THREE.MeshLambertMaterial({ color: '#6E7276' });
+  const wood = new THREE.MeshLambertMaterial({ color: '#6A4A2E' }), grip = new THREE.MeshLambertMaterial({ color: '#4A3222' });
+  steel.userData.steel = true; iron.userData.steel = true;
+  const part = (geo: THREE.BufferGeometry, m: THREE.Material, y: number) => { const o = new THREE.Mesh(geo, m); o.position.y = y; o.castShadow = true; o.raycast = () => {}; g.add(o); return o; };
+  if (kind === 'dagger') {
+    part(new THREE.BoxGeometry(0.04, 0.26, 0.012), steel, 0.2);
+    const tip = part(new THREE.ConeGeometry(0.028, 0.07, 4), steel, 0.365); tip.scale.z = 0.4; tip.rotation.y = Math.PI / 4;
+    part(new THREE.BoxGeometry(0.12, 0.025, 0.035), iron, 0.06);
+    part(new THREE.CylinderGeometry(0.016, 0.018, 0.11, 6), grip, -0.01);
+  } else if (kind === 'mace') {
+    part(new THREE.CylinderGeometry(0.02, 0.024, 0.62, 6), wood, 0.22);
+    part(new THREE.IcosahedronGeometry(0.085, 0), iron, 0.56);
+    for (let i = 0; i < 6; i++) { const f = part(new THREE.BoxGeometry(0.02, 0.12, 0.05), iron, 0.56); f.rotation.y = (i / 6) * Math.PI * 2; f.translateZ(0.075); }
+  } else {
+    part(new THREE.CylinderGeometry(0.017, 0.02, 1.7, 6), wood, 0.45);
+    const head = part(new THREE.ConeGeometry(0.04, 0.22, 4), steel, 1.41); head.scale.z = 0.4;
+    part(new THREE.CylinderGeometry(0.025, 0.025, 0.05, 6), iron, 1.29);
+  }
   return g;
 }
-
 const ease = (x: number) => x * x * (3 - 2 * x);
 
 export class Sword {
   equipped = false;
+  /** Mike 2026-11-05: sword, dagger, mace or spear (the same hand-weapon slot). */
+  kind: MeleeKind = 'sword';
+  private get st() { return MELEE[this.kind]; }
   /** Which hand holds it: 1 right, -1 left (Mike 2026-11-05: any item in either hand; two swords at once). */
   side: 1 | -1 = 1;
   /** Seconds into the current swing; -1 when not swinging. */
@@ -50,7 +65,7 @@ export class Sword {
   sharpness = 1;
   swings = 0;
   hits = 0;
-  readonly held = buildSwordModel();
+  readonly held = new THREE.Group();
   readonly viewmodel = new THREE.Group();
   private chainT = 0;
   private queued = false;
@@ -65,9 +80,10 @@ export class Sword {
 
   constructor(camera: THREE.Camera, private player: Player, private inventory: Inventory) {
     this.held.name = 'held-sword';
+    this.held.add(buildSwordModel(this.look));
     this.held.visible = false;
     this.viewmodel.name = 'sword-viewmodel';
-    const vm = buildSwordModel(); vm.scale.setScalar(0.62); this.viewmodel.add(vm);
+    const vm = buildSwordModel(this.look); vm.scale.setScalar(0.62); this.viewmodel.add(vm);
     this.viewmodel.visible = false;
     camera.add(this.viewmodel);
     this.attach();
@@ -97,27 +113,43 @@ export class Sword {
   get owned() { return this.inventory.count('sword') > 0; }
   get swinging() { return this.t >= 0; }
   /** 0..1 through the swing, or null (for the animator). */
-  get progress(): number | null { return this.t >= 0 ? Math.min(1, this.t / SWING) : null; }
+  get progress(): number | null { return this.t >= 0 ? Math.min(1, this.t / this.st.swing) : null; }
 
-  equip() { if (!this.owned) return false; this.equipped = true; this.onChange(); return true; }
+  equip() { if (!this.has) return false; this.equipped = true; this.onChange(); return true; }
+  /** Change what kind of weapon this is (rebuilds the models; the blade's wear shows on the new one). */
+  setKind(kind: MeleeKind) {
+    if (kind === this.kind) return;
+    this.kind = kind; this.t = -1; this.combo = 0; this.queued = false;
+    this.rebuild();
+  }
+  private rebuild() {
+    this.held.clear(); this.held.add(buildMelee(this.kind, this.look));
+    this.viewmodel.clear(); const vm = buildMelee(this.kind, this.look); vm.scale.setScalar(this.kind === 'spear' ? 0.5 : 0.62); this.viewmodel.add(vm);
+    this.setCondition(this.condition.sharp, this.condition.rust);
+  }
+  /** Mike 2026-11-05: the forged sword's look (the weapon forge's Sword tab). Other kinds keep their own. */
+  look: SwordCosmetic = loadSword();
+  applyCosmetic(c: SwordCosmetic) { this.look = c; if (this.kind === 'sword') this.rebuild(); }
+  /** You have one of this kind. */
+  get has() { return this.inventory.count(this.kind) > 0; }
   setSide(side: 1 | -1) { if (side === this.side) return; this.side = side; this.attach(); }
   unequip() { this.equipped = false; this.t = -1; this.queued = false; this.combo = 0; this.onChange(); }
 
   /** Start a swing. Pressing again late in a swing queues the next cut of the combo. */
   swing(): boolean {
     if (!this.equipped) return false;
-    if (this.t >= 0) { if (this.t > SWING * 0.45) this.queued = true; return false; }
+    if (this.t >= 0) { if (this.t > this.st.swing * 0.45) this.queued = true; return false; }
     this.combo = this.chainT > 0 ? (this.combo % 3) + 1 : 1;
     this.t = 0; this.struck = false; this.swings++;
-    this.onSwing(this.combo === 3);
+    this.onSwing(this.st.heavy[this.combo - 1]);
     return true;
   }
 
   update(dt: number) {
     if (this.t >= 0) {
       this.t += dt;
-      if (!this.struck && this.t >= STRIKE) { this.struck = true; this.strike(); }
-      if (this.t >= SWING) {
+      if (!this.struck && this.t >= this.st.strike) { this.struck = true; this.strike(); }
+      if (this.t >= this.st.swing) {
         this.t = -1; this.chainT = COMBO_WINDOW;
         if (this.queued) { this.queued = false; this.swing(); }
       }
@@ -130,22 +162,22 @@ export class Sword {
   }
 
   private strike() {
-    const P = this.player, heavy = this.combo === 3;
+    const P = this.player, st = this.st, heavy = st.heavy[this.combo - 1];
     // Facing: the view in first person; the body in the follow view, turned toward the nearest goblin in reach.
     let yaw = P.thirdPerson ? P.bodyYaw : P.yaw;
     if (P.thirdPerson) {
       let best = Infinity;
       for (const f of this.foes()) {
         const dx = f.x - P.pos.x, dz = f.z - P.pos.z, d = Math.hypot(dx, dz);
-        if (d > REACH + 0.6 || d < 1e-3) continue;
+        if (d > st.reach + 0.6 || d < 1e-3) continue;
         const a = Math.atan2(-dx, -dz), off = Math.abs(Math.atan2(Math.sin(a - yaw), Math.cos(a - yaw)));
         if (off < ASSIST && d < best) { best = d; P.bodyYaw = a; }
       }
       yaw = P.bodyYaw;
     }
     const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-    const damage = Math.max(1, Math.round(DAMAGE[this.combo - 1] * this.sharpness));
-    const n = this.slash?.({ from: P.pos.clone(), fwd, reach: REACH, arc: ARC, damage, heavy }) ?? 0;
+    const damage = Math.max(1, Math.round(st.damage[this.combo - 1] * this.sharpness));
+    const n = this.slash?.({ from: P.pos.clone(), fwd, reach: st.reach, arc: st.arc, damage, heavy }) ?? 0;
     if (n) { this.hits += n; this.onHit(n, heavy); }
   }
 
@@ -155,6 +187,11 @@ export class Sword {
     const rest = { x: 0.3, y: -0.28, z: -0.5, rx: -0.35, rz: -0.25 };
     rest.x *= this.side; rest.rz *= this.side;
     if (k === null) { const v = this.viewmodel; v.position.set(rest.x, rest.y, rest.z); v.rotation.set(rest.rx, 0, rest.rz); return; }
+    if (this.st.thrust) {   // the spear jabs straight out and back
+      const out = Math.sin(Math.PI * Math.min(1, k * 1.15)), v = this.viewmodel;
+      v.position.set(rest.x * 0.4, -0.22, rest.z - out * 0.45); v.rotation.set(-Math.PI / 2 + 0.05, 0, 0);
+      return;
+    }
     const heavy = this.combo === 3, flip = (this.combo === 2 ? -1 : 1) * this.side;
     const wind = Math.min(1, k / 0.3), cut = THREE.MathUtils.clamp((k - 0.3) / 0.25, 0, 1), back = THREE.MathUtils.clamp((k - 0.55) / 0.45, 0, 1);
     const L = THREE.MathUtils.lerp;

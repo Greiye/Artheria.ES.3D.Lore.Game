@@ -49,7 +49,9 @@ import { FigureAnim, BodyAnim, type AnimInput, type Pose, type Gesture } from '.
 import { Dust } from './fx/dust';
 import { activeSlot, slotInfo, slotLabel } from './profiles';
 import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
-import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
+import { attachItemCards } from './ui/itemcard';
+import { WeaponForge, loadWeapon, type WeaponCosmetic, type SwordCosmetic } from './forge/weapon';
+import { ForgePreview } from './forge/preview';
 import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
 import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sketch';
 import { stampBanner, buildBookmarks } from './writing/stamps';
@@ -84,17 +86,24 @@ import { Goblins, MAX_FOES } from './foes/goblins';
 import { rollGoblin, describeGoblin, goblinStats } from './traits/goblin';
 import { roll, seedOf } from './traits/roll';
 import { rollTownsfolk } from './traits/townsfolk';
-import { dailySeed, seedFrom } from './dungeon/gen';
+import { dailySeed } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
 import { leanTarget, NO_LEAN } from './lean';
 import { Crowd, CROWD_FULL, CROWD_LOW } from './world/crowd';
 import { Torch } from './torch';
-import { Hands, HAND_LABEL, type Hand, type HandItem } from './hands';
+import { Hands, HAND_LABEL, isMelee, isThrow, type Hand, type HandItem } from './hands';
+import { Thrower } from './sling';
+import { Shield, BLOCK_ARC, BLOCK_LEAK, buildShield } from './shield';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
+import { Regions, REGIONS, TOWN_EXITS, signpost, type RegionId, type Side } from './world/regions';
+import { LoadScreen } from './ui/loadscreen';
+import { FLOORS, band, BAND_NOTE, budgetFor, hpMul, dmgBonus, countFor, maxFoesFor, newDescent, loadRecord, saveRecord, addFallen, addSurvivor, isCamp, fluxFor, FLUX_NOTE, GUARDIAN_NAMES, carryOff, gearNear, GIFTS, hasGift, KITS, type Descent, type Flux, type LostGear } from './delve/descent';
+import { InnWalls, LastWords, buildInnBoards } from './delve/walls';
+import { ScrollPicker, offerScrolls, scrollById, type ScrollSlot } from './delve/scrolls';
 import { KillStatue, loadKills, saveKills, plaqueText } from './world/statue';
 import { FirstMeeting, metNatalie } from './cinematic/firstmeet';
 import { DmView, type Place } from './dm/dm';
@@ -207,7 +216,10 @@ post.setSize(window.innerWidth, window.innerHeight);
 post.setEnabled(settings.postFx);
 setOutlines(settings.inkLines);
 const player = new Player(settings, world.colliders, world.bounds);
-player.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));   // v0.04 hills (the dungeon floor is flat)
+// Mike 2026-11-05: the four far maps (src/world/regions.ts) have their own ground.
+const regions = new Regions(world.scene);
+const groundY = (x: number, z: number) => (inDungeon ? 0 : regions.floor(x, z) ?? world.heightAt(x, z));
+player.terrain = groundY;   // v0.04 hills (the dungeon floor is flat)
 player.spawn(world.spawn.pos, world.spawn.yaw);
 // R3: the camera rig places the camera (follow / first person / framed shots); the player only moves.
 const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => settings.fov);
@@ -263,7 +275,7 @@ let mouseHeld = false;
 const wantLock = () => inputMode === 'mouse' && !player.thirdPerson;
 const cursor = { x: 0, y: 0, on: false, downX: 0, downY: 0, dragged: false };
 let rightHeld = false;
-let lookingAt: 'natalie' | 'bolt' | 'library' | 'thing' | null = null;
+let lookingAt: 'natalie' | 'bolt' | 'rock' | 'library' | 'thing' | null = null;
 // Phase B+: things in the world E can use (forge stations, and later quests, campfire, map...).
 interface Interactable { obj: THREE.Object3D; verb: () => string; act: () => void; when?: () => boolean }
 const interactables: Interactable[] = [];
@@ -347,7 +359,11 @@ document.addEventListener('pointerlockchange', () => {
 async function begin() {
   // v0.05: pick up where the last save left off (the spot only if you saved, not if you retired at the gate).
   const save = loadGame();
-  if (save?.pos) player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
+  // Mike 2026-11-05: the save remembers which map you were on; you come back in at its waystone.
+  const wantRegion = savedRegion();
+  if (regions.current !== 'town') placeIn('town', regions.current);
+  if (save?.pos && wantRegion === 'town') player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
+  if (wantRegion !== 'town') placeIn(wantRegion, 'town');
   lastRest = save?.rest ?? 'inn';
   if (save && !begun) {
     setWorldTime(save.time);
@@ -517,16 +533,33 @@ for (const s of [sword, sword2]) {
   s.onHit = (n, heavy) => { gear.wearSword(n); audio.swordHit(heavy); haptics.play('hit'); hitStop = heavy ? 0.09 : 0.05; };
 }
 // Mike 2026-11-05: what each hand holds, in any combination (src/hands.ts).
-const hands = new Hands([crossbow, crossbow2], [sword, sword2], [torch, torch2], (item) =>
-  item === 'torch' ? true : item === 'sword' ? sword.owned : item === 'crossbow' ? inventory.count('crossbow') > 0 : true);
+// Mike 2026-11-05: shields (src/shield.ts), one per hand.
+const shield = new Shield(camera, player), shield2 = new Shield(camera, player);
+// Mike 2026-11-05: rocks and slings (src/sling.ts), one per hand.
+const thrower = new Thrower(world.scene, camera, player, inventory), thrower2 = new Thrower(world.scene, camera, player, inventory);
+for (const t of [thrower, thrower2]) t.onThrow = (kind, p) => { (kind === 'sling' ? audio.swordSwish(p > 0.7) : audio.swordSwish(false)); haptics.play(kind === 'sling' && p > 0.7 ? 'fire' : 'tap'); };
+const hands = new Hands([crossbow, crossbow2], [sword, sword2], [torch, torch2], [shield, shield2], [thrower, thrower2], (item) =>
+  item === 'torch' ? true : item === 'sword' ? sword.owned : item === 'none' ? true : inventory.count(item) > 0);
 hands.onChange = () => syncCrossbowView();
 inventory.hands = { label: (h) => HAND_LABEL[hands.held[h]], cycle: (h) => { hands.cycle(h); if (h === 'left') beforeTorch = 'none'; } };
+// Mike 2026-11-05: Diablo-style item cards on hover, focus or long-press in the bag.
+const itemCard = attachItemCards(inventory.root, (id) => inventory.count(id), () => ({
+  heldIn: (id) => (['left', 'right'] as const).filter((h) => hands.held[h] === id),
+  forged: (id) => { const c = id === 'crossbow' ? loadWeapon() : id === 'sword' ? sword.look : null; return c && (c.name || c.legend || c.engraving) ? { name: c.name, legend: c.legend, engraving: c.engraving } : null; },
+}));
 let hitStop = 0, swordHitsAtEntry = 0;   // a few frames' pause on a hit, for weight
 const ammoText = $('ammoText'), reloadBar = $('reloadBar'), reloadFill = reloadBar.querySelector<HTMLElement>('.fill')!;
 reloadBar.querySelector<HTMLElement>('.zone')!.style.cssText = `left:${ZONE.start * 100}%;width:${(ZONE.end - ZONE.start) * 100}%`;
 function updateAmmoHud() {
-  show('ammo', crossbow.equipped);
-  if (!crossbow.equipped) return;
+  const slinger = thrower.equipped || thrower2.equipped;
+  show('ammo', crossbow.equipped || slinger);
+  if (!crossbow.equipped) {
+    if (!slinger) return;
+    const w = [thrower, thrower2].find((t) => t.spin >= 0), t = `Rocks ${inventory.count('rock')}${w ? ` · whirling ${Math.round(w.power * 100)}%` : ''}`;
+    if (ammoText.textContent !== t) ammoText.textContent = t;
+    show('reloadBar', false);
+    return;
+  }
   const r = crossbow.reload;
   const dual = crossbow.dual, loaded = dual ? [crossbow, crossbow2].filter((c) => c.loaded).length : crossbow.loaded ? 1 : 0;
   const full = dual ? loaded === 2 : loaded === 1;
@@ -557,6 +590,7 @@ function handButton(h: Hand, down: boolean) {
   if (handDown[h] === down) return;
   handDown[h] = down;
   if (down && state === 'play') useHand(h);
+  if (!down) hands.throwerIn(h)?.release();   // a whirling sling looses as you let go
   syncAim();
 }
 function syncAim() {
@@ -565,7 +599,12 @@ function syncAim() {
 }
 function useHand(h: Hand) {
   const item = hands.held[h];
-  if (item === 'sword') {
+  if (isThrow(item)) {
+    const t = hands.throwerIn(h);
+    if (t && !t.press()) toast('No rocks. Pick some up from a rock pile, or where they landed.', 2200);
+    return;
+  }
+  if (isMelee(item)) {
     const s = hands.swordIn(h), o = hands.swordIn(h === 'left' ? 'right' : 'left');
     if (s && s.swinging && o && !o.swinging) o.swing(); else s?.swing();
     return;
@@ -578,15 +617,41 @@ function useHand(h: Hand) {
   if (other?.fire()) { haptics.play('fire'); return; }   // one hand empty: the other one shoots
   if (!c.loaded && !crossbow.reloading) toast(inventory.count('bolt') ? 'Empty: press R to reload' : 'No bolts left. Pick spent ones up with E.', 1800);
 }
+// Mike 2026-11-05: blocking. A shield is up while its hand's button is held; a sword is up while its button is
+// still held after the cut ends. A blow from inside the arc in front of you is turned (a sword lets half through).
+// Two shields cover a wider arc. Snares (from below) can't be blocked. A heavy blow still pushes you back a step.
+function blockingWith(h: Hand): 'shield' | 'buckler' | 'sword' | null {
+  if (state !== 'play' || !handDown[h]) return null;
+  const it = hands.held[h];
+  if (it === 'shield' || it === 'buckler') return it;
+  if (isMelee(it)) { const s = hands.swordIn(h); return s && !s.swinging ? 'sword' : null; }
+  return null;
+}
+const isBlocking = () => !!(blockingWith('left') || blockingWith('right'));
+/** What gets through a blow of `dmg` from `from`: the damage left, and whether a block took it. */
+function blockBlow(dmg: number, from: THREE.Vector3 | null | undefined): { dmg: number; blocked: boolean } {
+  if (!from) return { dmg, blocked: false };
+  const P = player.pos, yaw = player.thirdPerson ? player.bodyYaw : player.yaw;
+  const a = Math.atan2(-(from.x - P.x), -(from.z - P.z)), off = Math.abs(Math.atan2(Math.sin(a - yaw), Math.cos(a - yaw)));
+  const two = hands.both('shield') || hands.both('buckler') || (blockingWith('left') && blockingWith('right') && hands.shieldIn('left') && hands.shieldIn('right'));
+  let leak = 1;
+  for (const h of ['left', 'right'] as Hand[]) {
+    const b = blockingWith(h);
+    if (b && off <= BLOCK_ARC[b] + (two ? THREE.MathUtils.degToRad(20) : 0)) { leak = Math.min(leak, BLOCK_LEAK[b]); if (b !== 'sword') hands.shieldIn(h)?.struck(); }
+  }
+  if (leak >= 1) return { dmg, blocked: false };
+  if (dmg >= 3) { const d = new THREE.Vector3(P.x - from.x, 0, P.z - from.z).normalize().multiplyScalar(0.45); player.pos.add(d); }   // a heavy blow still shoves you
+  return { dmg: Math.floor(dmg * leak), blocked: true };
+}
 /** A tap of the main (right) hand: fires or swings what's held there, or else whatever's in the left hand. */
 function fire() {
   if (state !== 'play') return;
-  const h: Hand = hands.held.right === 'sword' || hands.held.right === 'crossbow' ? 'right' : 'left';
+  const r = hands.held.right, h: Hand = isMelee(r) || isThrow(r) || r === 'crossbow' ? 'right' : 'left';
   useHand(h);
 }
 function equip(on: boolean) {
   if (on && !hands.set('right', 'crossbow')) { toast('You have no crossbow yet.', 1800); return; }
-  if (!on) { if (hands.held.right !== 'torch') hands.set('right', 'none'); if (hands.held.left === 'sword' || hands.held.left === 'crossbow') hands.set('left', 'none'); }
+  if (!on) { if (hands.held.right !== 'torch') hands.set('right', 'none'); const l = hands.held.left; if (isMelee(l) || isThrow(l) || l === 'crossbow') hands.set('left', 'none'); }
 }
 function equipSword() {
   if (!hands.set('right', 'sword')) { toast('No sword yet. The smith keeps a practice sword on the stand outside the smithy.', 2600); return; }
@@ -675,7 +740,8 @@ let lastVaults = 0;
 /** The animator's sword inputs: the N (right) arm and the P (left) arm, by which hand each sword is in. */
 function swordAnim(): Partial<AnimInput> {
   const r = hands.swordIn('right'), l = hands.swordIn('left');
-  return { sword: !!r, swing: r?.progress ?? null, combo: r?.combo ?? 0, swordP: !!l, swingP: l?.progress ?? null, comboP: l?.combo ?? 0 };
+  return { sword: !!r, swing: r?.progress ?? null, combo: r?.combo ?? 0, swordP: !!l, swingP: l?.progress ?? null, comboP: l?.combo ?? 0,
+    blockN: !!blockingWith('right'), blockP: !!blockingWith('left') };
 }
 function animate(dt: number) {
   player.faceView = crossbow.equipped || !player.thirdPerson;
@@ -683,6 +749,7 @@ function animate(dt: number) {
   if (landed && player.thirdPerson) dust.burst(player.pos, 6, 0.35);
   if (landed) haptics.play('land');
   torch.update(dt, !player.thirdPerson); torch2.update(dt, !player.thirdPerson);
+  for (const [sh, h] of [[shield, shield.side > 0 ? 'right' : 'left'], [shield2, shield2.side > 0 ? 'right' : 'left']] as const) sh.blocking = sh.equipped && !!blockingWith(h);
   heldBook.set(state === 'book' && reader.isOpen);
   purse.update(dt);
   syncStandSword();
@@ -706,6 +773,9 @@ function animate(dt: number) {
   };
   sword.held.visible = sword.equipped && !mine.pose;   // put away at a station or a drill
   sword2.held.visible = sword2.equipped && !mine.pose;
+  shield.update(dt, !player.thirdPerson && !rig.inShot, !!mine.pose); shield2.update(dt, !player.thirdPerson && !rig.inShot, !!mine.pose);
+  thrower.update(dt, !player.thirdPerson && !rig.inShot, !!mine.pose); thrower2.update(dt, !player.thirdPerson && !rig.inShot, !!mine.pose);
+  Thrower.fly(dt, world.solids, (x, z) => player.terrain(x, z), rockTargets);
   // B38: characters are skinned, so three can't frustum-cull them. Off-screen ones, or ones past the fog, aren't
   // drawn and skip their animation (CPU on phones). Their meshes are hidden, never the root (others own that).
   for (const r of remotes.values()) r.update(dt, camera.position);   // other players: smooth toward their last state (multiplayer 2)
@@ -751,6 +821,8 @@ function animate(dt: number) {
   petSense(dt);
   delveTick();   // B48
   gateCheck();
+  exitCheck();   // Mike 2026-11-05: the four ways out
+  regions.update(bannerT);
   // The library's interior (shelves, books, furniture: ~18 draw calls) only draws once the camera is near its door.
   library.group.visible = !inDungeon && camera.position.z < -4;
   dungeon.update(bannerT);
@@ -774,7 +846,7 @@ function setPlayerLook(c: ForgeCharacter) {
   wornLook = { look: c.look, height: c.height };
   myLook = packLook(c.look, c.height); netHello();   // multiplayer: the room sees the new look
   const fig = player.setLook(c.look, c.height);
-  torch.attach(); torch2.attach(); sword.attach(); sword2.attach();
+  torch.attach(); torch2.attach(); sword.attach(); sword2.attach(); shield.attach(); shield2.attach(); thrower.attach(); thrower2.attach();
   heldBook.attach(); purse.attach(); wear.attach(); wear.set(wear.level);
   puppets.set('player', { ...puppets.get('player')!, root: fig, fig: new FigureAnim(fig.userData.rig) });
   if (loadedModels.has('player')) puppets.set('player', { root: loadedModels.get('player')!, body: animators.has('player') ? undefined : new BodyAnim(loadedModels.get('player')!.children[0]) });
@@ -877,28 +949,32 @@ function openWhoYouAre() {
   setPanelTab('Tailor & Barber-Surgeon', 0);
   openCharacterForge();
 }
-// B5: the forged crossbow hovers over the anvil at twice size while you work on it, turning slowly.
-const weaponDisplay = new THREE.Group();
-weaponDisplay.position.set(world.stations.anvil.position.x, 1.3, world.stations.anvil.position.z);   // hovers over the anvil
-weaponDisplay.scale.setScalar(2.2);
-weaponDisplay.visible = false;
-world.scene.add(weaponDisplay);
+// B5; Mike 2026-11-05: the weapon you're forging shows large in the middle of the free screen (src/forge/preview.ts),
+// not over the anvil. Drag, the right stick or the arrow keys turn it. `weaponDisplay` is its turntable.
+const forgePreview = new ForgePreview();
+const weaponDisplay = forgePreview.turntable;
 const weaponForge = station(new WeaponForge(
-  (c: WeaponCosmetic) => { weaponDisplay.clear(); weaponDisplay.add(buildCrossbowModel(c)); },
-  (c: WeaponCosmetic) => { crossbow.applyCosmetic(c); crossbow2.applyCosmetic(c); weaponDisplay.visible = false; leaveForge(); },
+  (model, kind) => forgePreview.set(model, kind),
+  (c: WeaponCosmetic, sw: SwordCosmetic) => { crossbow.applyCosmetic(c); crossbow2.applyCosmetic(c); sword.applyCosmetic(sw); sword2.applyCosmetic(sw); forgePreview.active = false; leaveForge(); },
   loreWords, forgeAuthor));
+/** Where the forge preview draws: the screen minus the panel (to its left on a wide screen, above it on a tall one). */
+function forgePreviewRect() {
+  const W = window.innerWidth, H = window.innerHeight, p = weaponForge.el.querySelector('.forge-panel')?.getBoundingClientRect();
+  if (!p || p.width === 0) return { x: 0, y: 0, w: W, h: H };
+  if (p.left > W * 0.3) return { x: 0, y: 0, w: p.left, h: H };   // panel on the right
+  return { x: 0, y: 0, w: W, h: Math.max(80, p.top) };            // panel along the bottom
+}
 // v0.04: the weapon forge opens at the camp anvil or at the town smithy, wherever you asked for it.
 const anvilSpot = world.stations.anvil.position.clone();
 function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   anvilSpot.copy(at);
-  weaponDisplay.position.set(at.x, 1.3, at.z);
-  weaponDisplay.rotation.set(0, -0.6, 0);   // v0.06 S4: it stays still; drag (right mouse or a finger) or the right stick turns it
+  forgePreview.reset();   // v0.06 S4: it stays still; drag (a mouse or a finger) or the right stick turns it
   enterForge();
   // S1: you stand at the anvil's near side with the hammer; the camera takes in the anvil, the crossbow and you.
   const from = new THREE.Vector3(2.1, 0, 0.5), side = new THREE.Vector3(-0.35, 0, 1).normalize();
   takeStation(at.clone().addScaledVector(side, 0.85), at, 'smith');
   frameStation(new THREE.Vector3(at.x, 1.0, at.z).addScaledVector(side, 0.35), 1.75, from, 42);
-  weaponDisplay.visible = true;
+  forgePreview.active = true;
   weaponForge.open(loadWeapon());
 }
 function closeForges() {
@@ -957,9 +1033,10 @@ const quest = loadQuest();
 const questProps = new QuestProps(world.scene);
 questProps.sync(quest.clues);
 questProps.showLead(quest.stage === 'lead' ? quest.theory?.where ?? null : null);
+const greerRoot = () => (world.standees.pedlar.userData.replacedBy as THREE.Object3D | undefined) ?? world.standees.pedlar;
 const natalieRoot = () => (world.standees.natalie.userData.replacedBy as THREE.Object3D | undefined) ?? world.standees.natalie;
 const companion = new Companion(natalieRoot, world.natalieTarget, world.colliders, world.bounds, loadCompanion());
-companion.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
+companion.terrain = groundY;
 ($('companionQuiet') as HTMLInputElement).checked = companion.prefs.quiet;
 $('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
 // ---------- Pets (Mike 2026-11-04, "Add pets" + "Go"): a dog by the inn, a cat by the store, an owl at the library,
@@ -983,7 +1060,7 @@ const pets = ([
   ['hamster', outFrom(world.town.doors.cartographer, 2.3, 1.8), world.town.doors.cartographer.rotation.y + 0.4],
 ] as [PetId, THREE.Vector3, number][]).map(([id, home, ry]) => {
   const p = new Pet(id, world.scene, home, ry, world.colliders, () => player.bounds, petPrefs);
-  p.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
+  p.terrain = groundY;
   if (id === 'owl') p.shown = () => world.time !== 'day';   // out from dusk
   return p;
 });
@@ -1265,11 +1342,105 @@ let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number
 rig.ceiling = (x, z) => { if (inDungeon) return 2.9; const r = roofOver(player.pos.x, player.pos.z); return r && roofOver(x, z, 1) === r ? r.y - 0.3 : Infinity; };
 const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; quick?: 'won' | 'lost'; at: string; rooms?: number[]; deep?: boolean }>; } catch { return {}; } })();
 const saveDelves = () => { storeSet('gametool.delves', JSON.stringify(delves)); };
-function enterDungeon(seed: number) {
-  const L = dungeon.build(seed);
+// ---------- Mike 2026-11-05: the descent (src/delve/descent.ts). Floors 1-30, a new layout each time; permadeath ----------
+let descent: Descent | null = null;
+const record = loadRecord();
+const innWalls = station(new InnWalls());
+const lastWords = new LastWords();
+const stolenBooks = new Map<string, string>();   // title -> book id, while a thief has it
+const innBoards = buildInnBoards();
+{
+  const door = world.town.doors.inn, ry = door.rotation.y;
+  for (const [g, side] of [[innBoards.tally, -1.9], [innBoards.wall, 2.1]] as const) {
+    const at = outFrom(door, 0.12, side);
+    g.position.set(at.x, 0, at.z); g.rotation.y = ry;
+    world.scene.add(g);
+  }
+  const hit = (g: THREE.Group) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 0.6), new THREE.MeshBasicMaterial({ visible: false })); m.position.y = 1.5; g.add(m); return m; };
+  interactables.push({ obj: hit(innBoards.tally), verb: () => 'Read the death tally', when: () => !inDungeon, act: () => { enterForge(); innWalls.open('tally', () => leaveForge()); } });
+  interactables.push({ obj: hit(innBoards.wall), verb: () => "Look at the survivors' wall", when: () => !inDungeon, act: () => { enterForge(); innWalls.open('survivors', () => leaveForge()); } });
+}
+/** Start a run at floor 1 (from the trapdoor). */
+function startDescent(from = 1) {
+  descent = newDescent(from);
+  record.runs++; saveRecord(record);
+  enterDungeon((Math.random() * 2 ** 31) | 0, from);
+  companion.say('Thirty floors, they say. Bring me what you find. Bring yourself back too.', { force: true });
+  // F2: the patrons' scroll before the first step.
+  const opts = hasGift(record.delivered, 'scroll') ? offerScrolls([], ownsSlot) : [];
+  if (opts.length) {
+    enterForge();
+    scrollPicker.open(opts, from, (sc) => { leaveForge(); if (sc && descent) { (descent.scrolls ??= []).push(sc.id); applyScrolls(); toast(`${sc.name}: ${sc.boon}${sc.curse ? ` Curse: ${sc.curse}` : ''}`, 5200); } });
+  }
+}
+// F1: the witch's scrolls on the top step, each time you go down.
+const scrollPicker = station(new ScrollPicker());
+const imbued = (id: string) => !!descent?.scrolls?.includes(id);
+function ownsSlot(slot: ScrollSlot): boolean {
+  const c = (id: string) => inventory.count(id) > 0;
+  return slot === 'melee' ? ['sword', 'dagger', 'mace', 'spear'].some(c) : slot === 'crossbow' ? c('crossbow') : slot === 'shield' ? c('shield') || c('buckler')
+    : slot === 'throw' ? c('rock') || c('sling') : true;
+}
+function applyScrolls() {
+  Thrower.bonus = imbued('stone') ? 0.6 : 0;
+  goblins.booksFirst = imbued('swift');
+}
+/** Down the stairs in the deepest room: first the scrolls (unless `skipScrolls`), then the next floor behind the load screen. */
+function goDown(skipScrolls = false) {
+  if (!descent || !inDungeon) return;
+  const next = descent.floor + 1;
+  if (!skipScrolls) {
+    const opts = offerScrolls(descent.scrolls ?? [], ownsSlot);
+    if (opts.length) {
+      enterForge();
+      scrollPicker.open(opts, next, (sc) => {
+        leaveForge();
+        if (sc && descent) { (descent.scrolls ??= []).push(sc.id); applyScrolls(); toast(`${sc.name}: ${sc.boon}${sc.curse ? ` Curse: ${sc.curse}` : ''}`, 5200); }
+        goDown(true);
+      });
+      return;
+    }
+  }
+  const B = band(next), flux = fluxFor(next, record.guardians);
+  const note = flux !== 'none' ? FLUX_NOTE[flux] : record.guardians.includes(next) ? 'Something big is waiting at the bottom of these stairs.' : isCamp(next) ? 'Firelight below: a rest camp.'
+    : B !== band(descent.floor) ? BAND_NOTE[B] : next === FLOORS ? BAND_NOTE[6] : 'The stairs turn the wrong way twice, then go on down.';
+  descent.flux = flux;
+  loadScreen.show(`Floor ${next}`, note, () => {
+    descent!.floor = next; descent!.rested = false;
+    clearFloor();
+    enterDungeon((Math.random() * 2 ** 31) | 0, next, true);
+  }, () => undefined);
+}
+/** Take the current floor's walls and goblins away (between floors). */
+function clearFloor() {
+  const set = new Set(dungeon.colliders);
+  for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1);
+  goblins.clear(); dungeon.hideSpots();
+}
+/** `floor` > 0: a floor of the descent (stairs down, harder goblins); 0: the old walk-about dungeon. `between`: already below. */
+function enterDungeon(seed: number, floor = 0, between = false) {
+  const L = dungeon.build(seed, { down: floor > 0 && floor < FLOORS, hoard: floor === FLOORS, camp: isCamp(floor) });
+  if (descent && floor && descent.flux === undefined) descent.flux = fluxFor(floor, record.guardians);
   dungeon.group.visible = true;
   world.colliders.push(...dungeon.colliders);
-  player.bounds = rig.bounds = 2000;
+  goblins.floor = floor; goblins.band = floor ? band(floor) : 0; goblins.hpMul = floor ? hpMul(floor) : 1; goblins.dmgBonus = floor ? dmgBonus(floor) : 0;
+  goblins.maxFoes = floor ? maxFoesFor(floor) : MAX_FOES;
+  if (descent) goblins.habits = { sword: descent.swordHits, bolt: descent.boltHits };
+  if (between) {
+    const fog = world.scene.fog as THREE.Fog;
+    fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
+    player.spawn(dungeon.entrance(), dungeon.entranceYaw());
+    if (companion.prefs.follow) natalieRoot().position.copy(dungeon.entrance()).add(new THREE.Vector3(1.2, 0, 0.8));
+    for (const p of pets) if (p.following) p.placeNear(dungeon.entrance());
+    lastRoom = -1;
+    spawnGoblins(true);
+    applyFlux(descent?.flux ?? 'none');
+    delves[seed] = { theme: L.theme, at: new Date().toISOString().slice(0, 10) }; pruneDelves(); saveDelves();
+    const g = record.guardians.indexOf(floor), extraNote = g >= 0 ? ` ${GUARDIAN_NAMES[g % GUARDIAN_NAMES.length]} guards this floor.` : isCamp(floor) ? ' A rest camp by the stairs.' : '';
+    toast(`Floor ${floor} of ${FLOORS} · ${L.theme}.${floor === FLOORS ? ' Gold glints in the deepest room.' : ' The stairs down are in the deepest room.'}${extraNote}${descent?.flux && descent.flux !== 'none' ? ' ' + FLUX_NOTE[descent.flux] : ''}`, 5200);
+    return;
+  }
+  player.bounds = rig.bounds = companion.bounds = 2000;
   const fog = world.scene.fog as THREE.Fog;
   savedFog = { color: fog.color.clone(), near: fog.near, far: fog.far, bg: (world.scene.background as THREE.Color).clone() };
   fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
@@ -1280,19 +1451,143 @@ function enterDungeon(seed: number) {
   run = { rooms: 0, crowns: 0, books: [] }; lastRoom = -1; runKills = 0; recordToasted = false;
   spawnGoblins();
   delves[seed] = { ...(delves[seed] ?? {}), theme: L.theme, at: new Date().toISOString().slice(0, 10) };
+  if (floor) pruneDelves();
   saveDelves();
-  toast(`Under the library · seed ${seed} · ${L.theme}. Same seed, same dungeon.`, 4500);
-  companion.say('Stay close. I can hear something chewing.', { key: 'dungeon:' + seed, force: true });
+  applyFlux(descent?.flux ?? 'none');
+  if (floor) toast(`Floor ${floor} of ${FLOORS} · ${L.theme}. The library has moved again. The stairs down are in the deepest room.`, 4500);
+  else toast(`Under the library · seed ${seed} · ${L.theme}. Same seed, same dungeon.`, 4500);
+  if (!floor) companion.say('Stay close. I can hear something chewing.', { key: 'dungeon:' + seed, force: true });
 }
-function exitDungeon() {
+/** Up the stairs alive: the carried books go to Natalie (and the gallery), the deepest floor is recorded. With the
+ *  hoard, it's the good ending: the hero's drawing goes up on the Inn's survivors' wall and they retire. */
+function climbOut(d: Descent) {
+  for (const id of d.books) markSeen('entry:' + id);
+  if (d.books.length) refreshGallery();
+  record.delivered += d.books.length; record.deepest = Math.max(record.deepest, d.floor); saveRecord(record);
+  stolenBooks.clear();
+  patronGifts();
+  const n = d.books.length;
+  if (d.hoard) { goodEnding(d); return; }
+  toast(`Out alive from floor ${d.floor}.${n ? ` Natalie takes ${n} book${n > 1 ? 's' : ''}; they're on the gallery shelves now.` : ' No books this time.'} Deepest so far: floor ${record.deepest}.`, 6000);
+  if (n) companion.say(n > 2 ? 'This many? I\'ll be up all night. Thank you.' : 'Another one for the shelf. Thank you.', { force: true });
+}
+/** F2: the patrons' gifts. Natalie's patron (Greer's friend) sends something as the books add up; kept from hero to hero. */
+function patronGifts(announce = true) {
+  smithShop.discount = hasGift(record.delivered, 'smith') ? 0.75 : 1;
+  const fresh = GIFTS.filter((g) => record.delivered >= g.at && !record.gifts.includes(g.at));
+  if (!fresh.length) return;
+  record.gifts.push(...fresh.map((g) => g.at)); saveRecord(record);
+  if (!announce) return;
+  setTimeout(() => {
+    toast(`Natalie's patrons send their thanks: ${fresh.map((g) => `${g.name} (${g.text})`).join(' ')}`, 7000);
+    companion.say('Greer brought word from my patron. They\'re pleased, and they\'ve sent something for whoever goes down next.', { force: true });
+  }, 6500);
+}
+/** A drawing of the hero for the survivors' wall: their newest sketch, else a drawn portrait. */
+function heroArt(): string | null {
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d')!; g.fillStyle = '#EADBB4'; g.fillRect(0, 0, 128, 128);
+    const sk = loadSketches()[0];
+    if (sk) { g.imageSmoothingEnabled = false; drawSketch(g, sk, 0, 0, 4); } else portrait(loadForge(character.name).look)(g, 0, 0, 128);
+    return c.toDataURL('image/png');
+  } catch { return null; }
+}
+const heroName = () => loadForge(character.name).name || character.name || 'A stranger';
+/** Hero over (fallen or retired): the bag, crowns and hands go; the next hero starts at the glade and makes themself at the mirror. */
+function newHero(note: string) {
+  for (const [id] of [...inventory.counts]) inventory.counts.set(id, 0);
+  inventory.render(); purse.set(0);
+  hands.set('left', 'none'); hands.set('right', 'none'); hands.save();
+  syncStandSword();
+  clearGame();
+  try { localStorage.removeItem(REGION_KEY); } catch { /* blocked */ }
+  record.heroes++; saveRecord(record);
+  character = { ...character, name: '', created: false }; saveCharacter(character);
+  player.spawn(world.spawn.pos, world.spawn.yaw);
+  delveHp = DELVE_HP;
+  if (hasGift(record.delivered, 'purse')) inventory.give(CROWN, 20);
+  toast(note, 6500);
+  setTimeout(() => { if (state === 'play') openCharacterForge(); }, 600);
+}
+function heroFalls(by: string) {
+  const d = descent!, name = heroName();
+  const taken = carryOff([...inventory.counts.keys()].filter((id) => inventory.count(id) > 0), d.floor, name);
+  record.lostGear = [...record.lostGear, ...taken].slice(-12); saveRecord(record);
+  exitDungeon(true);
+  descent = null;
+  enterForge();
+  lastWords.open({ name, floor: d.floor, by, books: record.delivered, lost: d.books.length }, (words) => {
+    addFallen({ name, floor: d.floor, books: record.delivered, by, at: new Date().toISOString().slice(0, 10), words });
+    record.deepest = Math.max(record.deepest, d.floor); saveRecord(record);
+    innBoards.refresh();
+    leaveForge();
+    newHero(`${name} is on the tally at the Inn now. A new hero wakes at the glade; the mirror at camp will make them.`);
+  });
+}
+function goodEnding(d: Descent) {
+  const name = heroName();
+  addSurvivor({ name, at: new Date().toISOString().slice(0, 10), art: heroArt(), line: `Floor ${d.floor} and back, with the hoard.` });
+  innBoards.refresh();
+  enterForge();
+  innWalls.open('survivors', () => {
+    leaveForge();
+    newHero(`${name} came back from the hoard alive. Their drawing is on the Inn wall, beside Kavik's, and they've hung up their boots. A new hero wakes at the glade.`);
+  });
+  toast(`${name} climbs out with the dragon's hoard. The rumour was true.`, 6000);
+}
+// E2: flux floors. Dark (the fog closes in), flooded (water to the knee: slow), burning (fire along the walls; the
+// heat bites now and then), light (you fall slowly and jump high).
+let fluxNow: Flux = 'none', fluxHeat = 0;
+const fluxFx = new THREE.Group(); fluxFx.name = 'flux-fx';
+function applyFlux(f: Flux) {
+  fluxNow = f; fluxHeat = 6;
+  fluxFx.clear(); fluxFx.removeFromParent();
+  player.gravityMul = f === 'light' ? 0.38 : 1;
+  if (f === 'none' || !dungeon.layout) return;
+  const fog = world.scene.fog as THREE.Fog, o = dungeon.entrance();
+  if (f === 'dark') { fog.near = 1; fog.far = 9; fog.color.set('#020203'); (world.scene.background as THREE.Color).set('#020203'); }
+  if (f === 'flooded') {
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#2E5A6A', transparent: true, opacity: 0.55, depthWrite: false }));
+    water.position.set(o.x, 0.28, o.z); water.raycast = () => {}; fluxFx.add(water);
+    fog.color.set('#16303A'); (world.scene.background as THREE.Color).set('#16303A');
+  }
+  if (f === 'burning') {
+    const fire = new THREE.MeshBasicMaterial({ color: '#FF7A2A' }), core = new THREE.MeshBasicMaterial({ color: '#FFD86A' });
+    for (const r of dungeon.layout.rooms) for (let k = 0; k < 3; k++) {
+      const at = dungeon.roomAt(r, k - 1, -Math.floor(r.h / 2));
+      const c1 = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.1, 6), fire); c1.position.set(at.x, 0.55, at.z + 0.6); fluxFx.add(c1);
+      const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.7, 5), core); c2.position.set(at.x, 0.5, at.z + 0.6); fluxFx.add(c2);
+    }
+    fluxFx.traverse((m) => { m.raycast = () => {}; });
+    fog.color.set('#3A160A'); (world.scene.background as THREE.Color).set('#3A160A');
+  }
+  dungeon.group.add(fluxFx);
+}
+function fluxTick(dt: number) {
+  if (!inDungeon || fluxNow !== 'burning' || state !== 'play') return;
+  if ((fluxHeat -= dt) > 0) return;
+  fluxHeat = 9;
+  delveHp = Math.max(1, delveHp - 1); hurtFlash = 0.3; haptics.play('hurt');
+  toast('The heat from the burning shelves scorches you.', 2000);
+}
+/** The descent makes a new layout every floor; keep only the newest few in the delves record. */
+function pruneDelves() { const ks = Object.keys(delves); for (const k of ks.slice(0, Math.max(0, ks.length - 40))) delete delves[k]; }
+function exitDungeon(fell = false) {
   if (!inDungeon) return;
+  const run_ = descent;
+  if (!fell) descent = null;
+  goblins.floor = goblins.band = 0; goblins.hpMul = 1; goblins.dmgBonus = 0; goblins.maxFoes = MAX_FOES;
+  applyFlux('none');
+  if (!fell) { Thrower.bonus = 0; goblins.reveal = goblins.booksFirst = false; }
   runSummary();
+  if (run_ && !fell) setTimeout(() => climbOut(run_), 0);
   if (statueDirty) { statueDirty = false; killStatue.set(kills); }
   if (sword.hits + sword2.hits > swordHitsAtEntry) { gear.rustSword(); toast('Goblin blood and cellar damp: your blade is spotting with rust. The smith\'s oil will fix it.', 3600); }   // B17
   inDungeon = false;
   const set = new Set(dungeon.colliders);
   for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1);
-  player.bounds = rig.bounds = world.bounds;
+  player.bounds = rig.bounds = companion.bounds = world.bounds;
   const fog = world.scene.fog as THREE.Fog;
   if (savedFog) { fog.color.copy(savedFog.color); fog.near = savedFog.near; fog.far = savedFog.far; (world.scene.background as THREE.Color).copy(savedFog.bg); }
   dungeon.group.visible = false; dungeon.hideSpots();
@@ -1311,7 +1606,14 @@ function delvePay(n: number) { if (n <= 0) return; inventory.give(CROWN, n); run
 function dropLoreBook(where: string, seed: number): string | null {
   const unread = lore.entries.filter((e) => e.type === 'lore' && !seen.includes('entry:' + e.id));
   if (!unread.length) { delvePay(READ_ALL_PURSE); toast(`+${READ_ALL_PURSE} ◎ ${where}: you've read every lore book, so it's a purse instead.`, 3600); return null; }
-  const e = unread[(seed + run.books.length * 7) % unread.length];
+  const e = unread.filter((x) => !descent?.books.includes(x.id))[(seed + run.books.length * 7) % Math.max(1, unread.length - (descent?.books.length ?? 0))] ?? unread[0];
+  if (descent) {   // below, a book is only carried: it reaches Natalie (and the gallery) when you climb out alive
+    if (!descent.books.includes(e.id)) descent.books.push(e.id);
+    run.books.push(e.title);
+    haptics.play('pickup');
+    toast(`A lore book ${where}: "${e.title}". Carry it up to Natalie (${descent.books.length} carried). Die down here and it's lost.`, 5200);
+    return e.id;
+  }
   markSeen('entry:' + e.id); refreshGallery();
   run.books.push(e.title);
   haptics.play('pickup');
@@ -1378,19 +1680,27 @@ function openDescend() {
   const el = document.createElement('div');
   el.className = 'gallery-card';
   el.id = 'descend';
-  el.innerHTML = `<div class="card-in"><div class="credit">Under the Ruined Library</div><h3>Enter Normal Dungeon or Run Quick Dungeon?</h3>
-    <p>The normal dungeon is a place to walk. The quick dungeon is a map you pick through: four choices, then the goblin's nest. Every seed makes a different one, and the same seed always makes the same one, so you can send a seed to a friend. Today's seed is ${dailySeed()}.</p>
-    <label class="field">Seed<input id="dgSeed" type="text" maxlength="24" value="${dailySeed()}"></label>
-    <div class="forge-actions"><button class="primary" data-act="go">Normal Dungeon</button><button class="primary" data-act="quick">Quick Dungeon</button></div>
+  el.innerHTML = `<div class="card-in"><div class="credit">Under the Ruined Library</div><h3>Go down for the books?</h3>
+    <p>The library is in flux: the witch in the ruins keeps it moving, and every floor is new each time you go down. They say it goes ${FLOORS} floors deep, with a dragon's hoard at the bottom. Each floor is harder. Climb out on any floor's stairs to hand Natalie the books you carry. <b>Die down there and this hero is gone</b>, with the bag, the crowns and the books on them.</p>
+    <p class="fine">Deepest so far: floor ${record.deepest || '-'} · books handed in: ${record.delivered} · heroes lost: ${Math.max(0, record.heroes - 1)}</p>
+    <div class="forge-actions"><button class="primary" data-act="go">Descend to floor 1</button>${record.ropes.map((f) => `<button class="primary" data-act="rope" data-floor="${f}">Natalie's rope to floor ${f}</button>`).join('')}<button class="secondary" data-act="quick">Quick Dungeon (practice, nobody dies)</button></div>
+    ${hasGift(record.delivered, 'kit') && record.kitFor !== record.heroes ? `<p class="fine">The patrons' kit, one per hero:</p><div class="forge-actions">${KITS.map((k) => `<button class="secondary" data-act="kit" data-kit="${k.id}">${k.name}</button>`).join('')}</div>` : ''}
+    ${record.delivered ? `<p class="fine">Patrons' gifts: ${GIFTS.map((g) => record.delivered >= g.at ? `<b>${g.name}</b>` : `${g.name} at ${g.at} books`).join(' · ')}</p>` : ''}
     <div class="forge-actions"><button class="secondary" data-act="close">Not yet</button></div></div>`;
   el.addEventListener('click', (ev) => {
     const a = (ev.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
     if (!a) return;
-    const seed = seedFrom((el.querySelector('#dgSeed') as HTMLInputElement).value || String(dailySeed()));
+    if (a.dataset.act === 'kit') {
+      const k = KITS.find((x) => x.id === a.dataset.kit);
+      if (k) { for (const [id, n] of k.items) inventory.give(id, n); record.kitFor = record.heroes; saveRecord(record); haptics.play('pickup'); toast(`From the patrons: ${k.name.toLowerCase()}. Choose what each hand holds in the bag.`, 3600); }
+      el.remove(); descendSheet = null; leaveForge(); openDescend(); return;
+    }
+    const seed = dailySeed();
     el.remove(); descendSheet = null;
     if (a.dataset.act === 'quick') { openQuick(seed); return; }   // stays in the forge state until the run ends
     leaveForge();
-    if (a.dataset.act === 'go') enterDungeon(seed);
+    if (a.dataset.act === 'go') startDescent();
+    if (a.dataset.act === 'rope') startDescent(Number(a.dataset.floor) || 1);
   });
   document.body.appendChild(el);
   descendSheet = el;
@@ -1418,12 +1728,17 @@ const goblins = new Goblins(world.scene, {
   colliders: world.colliders,   // B42: goblins lean at the same wall edges
   player: player.pos,
   aiming: () => crossbow.ads,
-  hurt: (dmg, by, slow) => {
+  hurt: (dmg, by, slow, from) => {
     if (!inDungeon || delveHp <= 0) return;
+    const bl = blockBlow(dmg, from);
+    if (bl.blocked && imbued('thorns') && from) goblins.wound(by, 2);   // F1 thorns
+    if (bl.blocked) { audio.swordHit(true); haptics.play('hit'); if (bl.dmg <= 0) { toast(`You turn ${by.v.display}'s blow.`, 1400); return; } dmg = bl.dmg; slow = 0; }
+    if (imbued('witchfire')) dmg += 1;   // F1 witchfire's curse
     if (sturdy) dmg = Math.max(1, dmg - 1);   // B18: well fed
     delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt'); gesture('hit');
     if (slow) slowT = Math.max(slowT, slow);
     if (delveHp <= 0) {
+      if (descent) { heroFalls(by.v.display); return; }
       exitDungeon();
       toast(`${by.v.display} knocks you flat. Natalie hauls you back up the stairs.`, 4500);
       companion.say('Up you get. We go back when you\'re ready.', { force: true });
@@ -1432,30 +1747,85 @@ const goblins = new Goblins(world.scene, {
   steal: () => { const n = Math.min(2, inventory.count('bolt')); if (n) inventory.take('bolt', n); return n; },
   loot: (f, crowns, bolts) => {
     countKill();   // B49
+    if (f.role === 'guardian' && descent && !record.ropes.includes(descent.floor)) {
+      record.ropes.push(descent.floor); record.ropes.sort((a, b) => a - b); saveRecord(record);
+      setTimeout(() => toast(`${f.v.display} is down. Natalie will tie a rope here: next time you can start the descent at floor ${descent?.floor ?? ''}.`, 6000), 2700);
+    }
     inventory.give(CROWN, crowns); if (bolts) inventory.give('bolt', bolts); haptics.play('pickup');
     toast(`${f.v.display} drops ${crowns} crown${crowns > 1 ? 's' : ''}${bolts ? ` and ${bolts} bolt${bolts > 1 ? 's' : ''}` : ''}.`, 2600);
   },
   say: (t) => toast(t, 2600),
+  stealBook: () => {
+    if (!descent?.books.length) return null;
+    const id = descent.books.pop()!, title = lore.entries.find((e) => e.id === id)?.title ?? 'a lore book';
+    stolenBooks.set(title, id);
+    return title;
+  },
+  reclaim: (f, item) => {
+    const g = carried.get(f); carried.delete(f);
+    if (g) { const i = record.lostGear.indexOf(g); if (i >= 0) record.lostGear.splice(i, 1); saveRecord(record); }
+    inventory.give(item, 1); haptics.play('pickup');
+    toast(g ? `You take ${g.owner}'s ${ITEMS[item]?.name.toLowerCase() ?? item} back from the goblin. It's yours now.` : `You take the ${ITEMS[item]?.name.toLowerCase() ?? item} off the goblin.`, 3600);
+  },
+  recover: (_f, title) => { const id = stolenBooks.get(title); stolenBooks.delete(title); if (id && descent) { descent.books.push(id); toast(`You take “${title}” back.`, 2600); } },
+  douse: () => { if (hands.held.left === 'torch' || hands.held.right === 'torch') { toggleTorch(); toast('A wet blow, and your torch gutters out.', 2400); } },
+  hex: (kind) => {
+    if (kind === 'slow') { slowT = Math.max(slowT, 2.5); return; }
+    const fog = world.scene.fog as THREE.Fog, far = fog.far, near = fog.near;
+    fog.far = Math.max(8, far * 0.45); fog.near = 1.5;
+    setTimeout(() => { if (inDungeon) { fog.far = far; fog.near = near; } }, 4000);
+  },
 });
 for (const s of [sword, sword2]) {
   s.foes = () => goblins.alive.map((f) => f.root.position);
-  s.slash = (c) => goblins.slash(c.from, c.fwd, c.reach, c.arc, c.damage, c.heavy).length;
+  s.slash = (c) => {
+    const n = goblins.slash(c.from, c.fwd, c.reach, c.arc, c.damage + (imbued('hunger') ? 1 : 0), c.heavy).length;
+    if (n && descent) descent.swordHits += n;
+    if (n && imbued('drink')) delveHp = Math.min(DELVE_HP, delveHp + 1);   // F1 the drinking edge
+    return n;
+  };
 }
 crossbow.targets = crossbow2.targets = (from, dir, len) => {
   const h = goblins.list.length ? goblins.hitTest(from, dir, len) : null;
+  return h && { dist: h.dist, hit: (dmg, d) => {
+    haptics.play('hit'); if (descent) descent.boltHits++;
+    if (imbued('frost')) goblins.chill(h.foe, 3);
+    return goblins.shoot(h.foe, dmg + (imbued('witchfire') ? 1 / 3 : 0), d);
+  } };
+};
+/** Rocks hit like bolts but carry no bolt scrolls. */
+const rockTargets: typeof crossbow.targets = (from, dir, len) => {
+  const h = goblins.list.length ? goblins.hitTest(from, dir, len) : null;
   return h && { dist: h.dist, hit: (dmg, d) => { haptics.play('hit'); return goblins.shoot(h.foe, dmg, d); } };
 };
-function spawnGoblins() {
-  goblins.clear(); delveHp = DELVE_HP + (cook.consume('hearty') ? 3 : 0); slowT = 0;   // B18: a hearty meal
-  const L = dungeon.layout!, run = (Math.random() * 2 ** 31) | 0;
-  // One per room by depth, two in the nest (its first with a bigger budget); at most MAX_FOES.
+function spawnGoblins(keepHp = false) {
+  goblins.clear(); if (!keepHp) delveHp = DELVE_HP + (cook.consume('hearty') ? 3 : 0); slowT = 0;   // B18: a hearty meal (your wounds carry down the stairs)
+  const L = dungeon.layout!, run = (Math.random() * 2 ** 31) | 0, fl = goblins.floor;
+  // One per room by depth, two in the nest (its first with a bigger budget); deeper floors, more and tougher.
   const rooms = L.rooms.filter((r) => r.tag !== 'entrance').sort((a, b) => (a.tag === 'nest' ? -1 : b.tag === 'nest' ? 1 : a.depth - b.depth));
   let i = 0;
-  for (const r of rooms) for (let k = 0; k < (r.tag === 'nest' ? 2 : 1) && goblins.alive.length < MAX_FOES; k++, i++) {
+  for (const r of rooms) for (let k = 0, n = fl ? countFor(fl, r.tag) : r.tag === 'nest' ? 2 : 1; k < n && goblins.alive.length < goblins.maxFoes; k++, i++) {
     const seed = i === 0 && forcedGoblin ? forcedGoblin : seedOf(run, i);
-    goblins.spawn(rollGoblin(seed, r.tag === 'nest' && k === 0 ? 8 : undefined), dungeon.roomAt(r, k, 0), Math.PI);
+    const budget = fl ? budgetFor(fl) + (r.tag === 'nest' && k === 0 ? 4 : 0) : r.tag === 'nest' && k === 0 ? 8 : undefined;
+    goblins.spawn(rollGoblin(seed, budget), dungeon.roomAt(r, k, 0), Math.PI, false, fl === FLOORS && r.tag === 'nest' ? 'keeper' : undefined);
+  }
+  // E2: a guardian floor's boss waits in the deepest room.
+  const gi = fl ? record.guardians.indexOf(fl) : -1, nest = L.rooms.find((r) => r.tag === 'nest');
+  if (gi >= 0 && nest) goblins.spawn(rollGoblin(seedOf(run, 99), budgetFor(fl) + 6), dungeon.roomAt(nest, 0, 1), Math.PI, true, 'guardian', GUARDIAN_NAMES[gi % GUARDIAN_NAMES.length]);
+  // F2: a fallen hero's gear, carried by the goblins near where they fell.
+  carried.clear();
+  if (fl) {
+    const free = goblins.alive.filter((f) => f.role !== 'guardian' && f.role !== 'keeper');
+    for (const g of gearNear(record.lostGear, fl)) {
+      const f = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+      if (!f) break;
+      goblins.arm(f, g.item, `${g.owner}'s ${ITEMS[g.item]?.name.toLowerCase() ?? g.item}`); carried.set(f, g);
+    }
+    if (carried.size) setTimeout(() => { if (inDungeon) toast(`Something down here carries ${[...carried.values()][0].owner}'s gear.`, 3600); }, 5600);
   }
 }
+/** F2: which goblin carries which fallen hero's piece, this floor. */
+const carried = new Map<object, LostGear>();
 const delveHpEl = document.getElementById('delveHp')!;
 // UX pass (Mike 2026-10-31): your health shows on you, not as a counter. Below half, the edges of your sight redden
 // and you breathe hard; below 40% you limp. The old line stays for screen readers (and tests), off screen.
@@ -1465,13 +1835,15 @@ function updateDelve(dt: number) {
   if (state === 'play') { if (hitStop > 0) hitStop -= dt; else goblins.update(dt); }   // v0.08: a beat's pause on a sword hit
   const frac = Math.min(1, delveHp / DELVE_HP);
   wear.set(1 - frac);
-  slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1);
+  slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1) * (isBlocking() ? 0.6 : 1) * (fluxNow === 'flooded' ? 0.72 : 1) * (imbued('swift') ? 1.12 : 1);
+  goblins.reveal = imbued('seeing') && (hands.held.left === 'torch' || hands.held.right === 'torch');
+  fluxTick(dt);
   hurtFlash = Math.max(0, hurtFlash - dt);
   document.body.style.setProperty('--hurt', (Math.max(0, 1 - frac * 1.6) * 0.85 + hurtFlash * 1.4).toFixed(2));
   if (frac <= 0.5 && state === 'play' && (breathT -= dt) <= 0) { audio.breath(); breathT = 1.2 + frac * 2.4; }
   delveHpEl.classList.remove('hidden');
   delveHpEl.classList.toggle('hit', hurtFlash > 0);
-  const t = `♥ ${delveHp}/${DELVE_HP}${slowT > 0 ? ' · slowed' : ''} · goblins ${goblins.alive.length}`;
+  const t = `${descent ? `Floor ${descent.floor} · ` : ''}♥ ${delveHp}/${DELVE_HP}${slowT > 0 ? ' · slowed' : ''} · goblins ${goblins.alive.length}${descent?.books.length ? ` · ${descent.books.length} book${descent.books.length > 1 ? 's' : ''} carried` : ''}${descent?.scrolls?.length ? ` · ✦ ${descent.scrolls.map((id) => scrollById(id)?.name.replace(/^Scroll of (the )?/, '')).join(', ')}` : ''}`;
   if (delveHpEl.textContent !== t) delveHpEl.textContent = t;
 }
 // Dev: a lineup of 12 rolled goblins on the green, frozen, with their name tags.
@@ -1560,8 +1932,10 @@ const sparkMat = new THREE.MeshBasicMaterial({ color: '#FFE08A', transparent: tr
 const spark = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), sparkMat); spark.visible = false; fightFx.add(spark);
 let sparkT = 0;
 const fightCam = { x: 0, z: 0 };
+let kavikToldDeep = false;
 function openFight() {
   if (state !== 'play') return;
+  if (!kavikToldDeep) { kavikToldDeep = true; toast("Kavik: \"Floor thirty? I went. Gold to the ceiling, and something asleep on it. I didn't stay to ask its name.\"", 5600); }
   enterForge();
   fightView = player.thirdPerson; player.thirdPerson = true;
   kavikWas = { x: kavikRoot.position.x, y: kavikRoot.position.y, z: kavikRoot.position.z, ry: kavikRoot.rotation.y };
@@ -1798,10 +2172,29 @@ for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
   const spotOf = () => dungeon.spots.find((s) => s.hit === hit);
   interactables.push({ obj: hit, when: () => inDungeon && !!spotOf(), verb: () => {
     const s = spotOf()!, d = delves[dungeon.layout!.seed];
-    return s.kind === 'stairs' ? 'Climb back up' : s.kind === 'chest' ? (d?.chest ? 'An empty chest' : 'Open the chest') : s.kind === 'shrine' ? 'Read the carving' : 'Search the nest';
+    if (s.kind === 'down') return `Go down to floor ${(descent?.floor ?? 0) + 1}`;
+    if (s.kind === 'hoard') return descent?.hoard ? 'The hoard (in your bag now)' : "Take the dragon's hoard";
+    if (s.kind === 'camp') return descent?.rested ? 'The camp fire (rested)' : 'Rest at the camp';
+    return s.kind === 'stairs' ? (descent ? `Climb out (floor ${descent.floor})` : 'Climb back up') : s.kind === 'chest' ? (d?.chest ? 'An empty chest' : 'Open the chest') : s.kind === 'shrine' ? 'Read the carving' : 'Search the nest';
   }, act: () => {
     const s = spotOf()!, seed = dungeon.layout!.seed, d = delves[seed];
     if (s.kind === 'stairs') { exitDungeon(); return; }
+    if (s.kind === 'down') { goDown(); return; }
+    if (s.kind === 'camp') {
+      if (!descent || descent.rested) { toast('You have rested here already. The stairs are waiting.', 2400); return; }
+      descent.rested = true; if (!imbued('hunger')) delveHp = Math.max(delveHp, DELVE_HP);
+      gear.st.rust = 0; gear.st.string = 1; gear.st.sharp = Math.max(gear.st.sharp, 0.85); gear.save(); gear.onChange();
+      haptics.play('pickup');
+      toast(imbued('hunger') ? 'You rest by the fire, but the hungry edge keeps your wounds open. The blade is oiled, the crossbow restrung.' : `You rest by the fire: wounds bound (♥ ${DELVE_HP}/${DELVE_HP}), the blade oiled, the crossbow restrung.`, 4800);
+      return;
+    }
+    if (s.kind === 'hoard') {
+      if (!descent || descent.hoard) return;
+      descent.hoard = true; inventory.give(CROWN, 250); haptics.play('pickup'); gesture('pickup');
+      toast('The hoard: more gold than the whole of Aralon, and a crown on top. Now get it out alive. The stairs up are back at the start.', 6500);
+      companion.say('It was true. Oh, it was all true. Go, go!', { force: true });
+      return;
+    }
     if (s.kind === 'chest') {
       if (d.chest) { toast('Empty. You already took what was here.'); return; }
       d.chest = true; saveDelves();
@@ -1887,10 +2280,7 @@ window.addEventListener('pointermove', (e) => {
   if (weaponForge.isOpen) turnWeapon(dx * 0.012, dy * 0.008);   // v0.06 S4: let go and it stays at that angle
   else if (characterForge.isOpen) { player.bodyYaw += dx * 0.012; player.body.rotation.y = player.bodyYaw; }
 });
-function turnWeapon(yaw: number, pitch: number) {
-  weaponDisplay.rotation.y += yaw;
-  weaponDisplay.rotation.x = THREE.MathUtils.clamp(weaponDisplay.rotation.x + pitch, -0.9, 0.9);
-}
+function turnWeapon(yaw: number, pitch: number) { forgePreview.turn(yaw, pitch); }
 interactables.push(
   { obj: world.stations.mirror, verb: () => 'Change your look', act: () => openCharacterForge() },
   { obj: world.stations.banner, verb: () => 'Sketch at the writing desk', act: () => openSketchbook() },
@@ -1907,6 +2297,51 @@ function openShop() {
   rig.setShot({ pos, look: top.addScaledVector(right, -0.7), fov: 44 });
   shop.open();
 }
+// Mike 2026-11-05: the smith's counter by the smithy door sells arms (shields; more in later rounds).
+const smithShop = station(new ShopPanel(inventory, () => leaveForge(), true));
+smithShop.discount = hasGift(record.delivered, 'smith') ? 0.75 : 1;   // F2 the patrons' gift
+smithShop.onBuy = (id) => {
+  haptics.play('pickup');
+  // A new shield goes straight onto a free hand (the left, unless it holds something you'd miss).
+  if ((id === 'shield' || id === 'buckler') && (hands.held.left === 'none' || hands.held.left === 'torch')) { hands.set('left', id); beforeTorch = 'none'; }
+};
+const smithCounter = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 1.0), new THREE.MeshBasicMaterial({ visible: false }));
+smithCounter.name = 'smith-counter';
+const SMITH_LOT = TOWN_LOTS.find((l) => l.id === 'smithy')!;
+{ // in front of the smithy, between the sword stand (front left) and the grindstone (front right)
+  const L = SMITH_LOT, c = Math.cos(L.ry), sn = Math.sin(L.ry), lx = -L.w / 2 + 1.9, lz = L.d / 2 + 0.9;
+  smithCounter.position.set(L.x + lx * c + lz * sn, 0.75, L.z - lx * sn + lz * c);
+  smithCounter.userData.front = [sn, c];   // the way out to the street (for tests and the camera)
+}
+world.scene.add(smithCounter);
+{ // the wares on show: a rack with the round shield and the buckler hung on it
+  const rack = new THREE.Group(), wood = new THREE.MeshLambertMaterial({ color: '#5A3A22' });
+  const post = (x: number) => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.08), wood); p.position.set(x, 0.6, 0); rack.add(p); };
+  post(-0.45); post(0.45);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 0.08), wood); bar.position.y = 1.15; rack.add(bar);
+  const big = buildShield('shield'); big.position.set(-0.2, 0.8, 0.08); rack.add(big);
+  const small = buildShield('buckler'); small.position.set(0.28, 0.82, 0.08); rack.add(small);
+  rack.position.copy(smithCounter.position).setY(0);
+  rack.rotation.y = SMITH_LOT.ry;   // facing the street
+  rack.traverse((o) => { (o as THREE.Mesh).raycast = () => {}; });
+  world.scene.add(rack);
+}
+// Mike 2026-11-05: rock piles about town: E gathers a handful (for throwing, or the sling).
+const rockPiles: THREE.Object3D[] = [];
+{
+  const geo = new THREE.IcosahedronGeometry(0.11, 0), mat = new THREE.MeshLambertMaterial({ color: '#8C8780' });
+  const spots: [number, number][] = [[FOUNTAIN.x + 3.2, FOUNTAIN.z + 2.6], [GATE.x + 3.5, GATE.z + 3.2], [smithCounter.position.x + smithCounter.userData.front[0] * 2 + 1.5, smithCounter.position.z + smithCounter.userData.front[1] * 2]];
+  spots.forEach(([x, z], k) => {
+    const pile = new THREE.Group(); pile.name = 'rock-pile';
+    for (let i = 0; i < 7; i++) { const r = new THREE.Mesh(geo, mat); const a = i * 2.4 + k; r.position.set(Math.cos(a) * 0.18 * (i % 3), 0.08 + (i > 4 ? 0.12 : 0), Math.sin(a) * 0.18 * (i % 3)); r.rotation.set(a, a * 1.3, 0); r.scale.setScalar(0.8 + (i % 3) * 0.2); r.castShadow = true; pile.add(r); }
+    pile.position.set(x, 0, z);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.9), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.3; hit.name = 'rock-pile'; pile.add(hit);
+    pile.traverse((o) => { if (o !== hit) (o as THREE.Mesh).raycast = () => {}; });
+    world.scene.add(pile); rockPiles.push(hit);
+    interactables.push({ obj: hit, verb: () => 'Gather rocks', act: () => { inventory.give('rock', 5); haptics.play('pickup'); gesture('pickup'); toast('Five good throwing stones.', 1600); }, when: () => !inDungeon });
+  });
+}
+interactables.push({ obj: smithCounter, verb: () => 'Buy arms from the smith', act: () => { enterForge(); smithShop.open(); }, when: () => !inDungeon });
 /** A point `ahead` metres out of a town door, on the ground. */
 const outOfDoor = (id: TownId, ahead: number) => { const d = world.town.doors[id]; return new THREE.Vector3(d.position.x + Math.sin(d.rotation.y) * ahead, 0, d.position.z + Math.cos(d.rotation.y) * ahead); };
 const townAct: Record<TownId, () => void> = {
@@ -2075,7 +2510,18 @@ function talkToNatalie() {
     dialogueWith = 'natalie';
     setState('dialogue');
     if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); }
-    firstMeet.play(n.getWorldPosition(new THREE.Vector3()), n.rotation.y, () => talkTo('natalie', world.natalieTarget.position, natalieScript as DialogueScript));
+    // Mike 2026-11-05: Greer comes up from the coach road for the scene, a step in front of her and a little aside;
+    // they face each other and the hero steps out of frame. All put back when it ends.
+    const g = greerRoot(), feet = n.getWorldPosition(new THREE.Vector3()), yaw = n.rotation.y;
+    const spot = feet.clone().add(new THREE.Vector3(Math.sin(yaw + 0.45), 0, Math.cos(yaw + 0.45)).multiplyScalar(1.45));
+    const keep = { gp: g.position.clone(), gy: g.rotation.y, ny: n.rotation.y, body: player.body.visible };
+    g.position.set(spot.x, g.position.y, spot.z); g.rotation.y = Math.atan2(feet.x - spot.x, feet.z - spot.z);
+    n.rotation.y = Math.atan2(spot.x - feet.x, spot.z - feet.z);
+    player.body.visible = false;
+    firstMeet.play(feet, spot, () => {
+      g.position.copy(keep.gp); g.rotation.y = keep.gy; n.rotation.y = keep.ny; player.body.visible = keep.body;
+      talkTo('natalie', world.natalieTarget.position, natalieScript as DialogueScript);
+    });
     return;
   }
   talkTo('natalie', world.natalieTarget.position, quest.stage === 'none' ? natalieScript as DialogueScript : natalieCompanionScript());
@@ -2091,12 +2537,16 @@ function natalieCompanionScript(): DialogueScript {
     { text: 'What do you think?', next: 'hint' },
     companion.prefs.follow ? { text: 'Wait here.', next: 'wait' } : { text: 'Come with me.', next: 'follow' },
     { text: 'Let me check the casebook.', next: 'book' },
+    { text: 'What is under the library?', next: 'deep' },
   ];
   Object.assign(base.nodes, {
     hint: { text: hint, next: 'n2' },
     wait: { text: n.wait, actions: ['companion:wait'], end: true },
     follow: { text: n.follow, actions: ['companion:follow'], end: true },
     book: { text: 'Read it out to me as you go.', actions: ['casebook:open'], end: true },
+    // Mike 2026-11-05: the descent's premise.
+    deep: { text: `It moves. The witch in the ruins keeps the whole place in flux: the stairs are never where I left them. They say it goes ${FLOORS} floors down, with a dragon's hoard at the bottom. Bring me the books you find. ${record.deepest ? `The deepest anyone's brought me word from is floor ${record.deepest}.` : 'Nobody has brought me word from very deep yet.'}`, next: 'deep2' },
+    deep2: { text: "Only Kavik ever came back from the bottom. His drawing's on the Inn wall. The names on the other wall at the Inn didn't come back at all.", next: 'n2' },
   });
   return base;
 }
@@ -2118,6 +2568,9 @@ function activate() {
   else if (lookingAt === 'bolt') {
     const c = crossbow.boltAt(player.eyePos, lookDir, controls.activateRange) ? crossbow : crossbow2, b = c.boltAt(player.eyePos, lookDir, controls.activateRange);
     if (b) { c.pickUp(b); haptics.play('pickup'); gesture('pickup'); toast('Bolt recovered', 1200); }
+  } else if (lookingAt === 'rock') {
+    const r = Thrower.rockAt(player.eyePos, lookDir, controls.activateRange);
+    if (r) { Thrower.pickUp(r, inventory); haptics.play('pickup'); gesture('pickup'); toast('Rock picked up', 1200); }
   }
 }
 
@@ -2260,6 +2713,7 @@ $('newGame').addEventListener('click', () => {
   if (Date.now() - newGameArmed > 4000) { newGameArmed = Date.now(); $('newGame').textContent = 'Tap again to start over'; return; }
   newGameArmed = 0;
   clearGame();
+  try { localStorage.removeItem(REGION_KEY); } catch { /* blocked */ }
   for (const [id] of [...inventory.counts]) inventory.counts.set(id, 0);
   inventory.render(); purse.set(0);
   begun = false;
@@ -2299,6 +2753,82 @@ function gateNo() {
   player.spawn(new THREE.Vector3(GATE.x + 1.6, 0, GATE.z), -Math.PI / 2);   // a step back inside, facing the camp
   leaveForge();
 }
+// ---------- Mike 2026-11-05: four exits, one per side, each to its own map after a load screen ----------
+const loadScreen = new LoadScreen();
+for (const side of Object.keys(TOWN_EXITS) as Side[]) {
+  if (side === 'west') continue;   // the coach-road gate has its own sign
+  const e = TOWN_EXITS[side], post = signpost(REGIONS[e.to].name);
+  const [ix, iz] = e.inside;
+  const sx = side === 'east' ? 0 : 2.2, sz = side === 'east' ? 2.2 : 0;   // beside the path, just inside the edge
+  post.position.set(ix + sx, world.heightAt(ix + sx, iz + sz), iz + sz);
+  post.rotation.y = e.yaw + Math.PI;   // the board faces you as you walk out
+  post.name = 'exit-sign-' + side;
+  world.scene.add(post);
+}
+const regionSpotsAdded = new Set<string>();
+function addRegionSpots(id: RegionId) {
+  if (id === 'town' || regionSpotsAdded.has(id)) return;
+  regionSpotsAdded.add(id);
+  for (const sp of regions.spots.get(id) ?? []) interactables.push({ obj: sp.hit, verb: () => sp.verb, when: () => regions.current === id && !travelling, act: () => {
+    if (sp.kind === 'back') { travel('town'); return; }
+    if (sp.kind === 'gate') haptics.play('tap');
+    toast(sp.line ?? '', 5200);
+  } });
+}
+let travelling = false;
+const REGION_KEY = 'gametool.region';
+const savedRegion = (): RegionId => { try { const r = localStorage.getItem(REGION_KEY) as RegionId | null; return r && (r === 'town' || r in REGIONS) ? r : 'town'; } catch { return 'town'; } };
+function placeIn(to: RegionId, from: RegionId) {
+  const old = from === 'town' ? null : regions.colliders.get(from);
+  if (old) { const set = new Set(old); for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1); }
+  regions.show(to);
+  addRegionSpots(to);
+  const fog = world.scene.fog as THREE.Fog;
+  if (to === 'town') {
+    player.bounds = rig.bounds = companion.bounds = world.bounds;
+    world.sky.setCentre(new THREE.Vector3());
+    world.setTime(world.time);   // puts the town's fog back
+    const side = from === 'town' ? 'north' : REGIONS[from].side, e = TOWN_EXITS[side];
+    const at = new THREE.Vector3(e.inside[0], 0, e.inside[1]);
+    player.spawn(at, e.yaw);
+    if (companion.prefs.follow) natalieRoot().position.copy(at).add(new THREE.Vector3(1.2, 0, 1.2));
+    for (const p of pets) if (p.following) p.placeNear(at);
+  } else {
+    const r = REGIONS[to];
+    world.colliders.push(...(regions.colliders.get(to) ?? []));
+    player.bounds = rig.bounds = companion.bounds = 2000;
+    world.sky.setCentre(new THREE.Vector3(r.origin.x, 0, r.origin.z));   // the dome round the map (the clifftop sees the town inside it)
+    if (r.fogFar) { fog.far = r.fogFar; fog.near = r.fogFar * 0.5; }
+    const at = r.origin.clone().add(r.arrive);
+    player.spawn(at, r.arriveYaw);
+    if (companion.prefs.follow) natalieRoot().position.copy(at).add(new THREE.Vector3(1.2, 0, 1.2));
+    for (const p of pets) if (p.following) p.placeNear(at);
+  }
+  try { localStorage.setItem(REGION_KEY, to); } catch { /* private mode */ }
+}
+/** Walk out to `to` (or home): the load screen covers the move, then lifts. */
+function travel(to: RegionId, instant = false) {
+  if (travelling || inDungeon || to === regions.current) return;
+  const from = regions.current;
+  if (instant) { placeIn(to, from); return; }
+  travelling = true;
+  const r = to === 'town' ? null : REGIONS[to];
+  player.speedMul = 0;
+  loadScreen.show(r ? r.name : 'Aralon', r ? r.line : 'Back down the road, home to the glade.', () => placeIn(to, from), () => {
+    travelling = false; player.speedMul = 1;
+    if (r) toast(`${r.name}. The waystone by the path leads back to Aralon.`, 4200);
+  });
+}
+function exitCheck() {
+  if (state !== 'play' || inDungeon || travelling) return;
+  const x = player.pos.x, z = player.pos.z;
+  if (regions.current === 'town') {
+    for (const side of Object.keys(TOWN_EXITS) as Side[]) if (TOWN_EXITS[side].trigger(x, z)) { travel(TOWN_EXITS[side].to); return; }
+    return;
+  }
+  const r = REGIONS[regions.current];
+  if (r.back(x - r.origin.x, z - r.origin.z)) travel('town');
+}
 function gateYes() {
   if (!gateOpen) return;
   gateOpen = false;
@@ -2307,6 +2837,13 @@ function gateYes() {
   toMenu('You retired at the gate. Your bag is saved; Begin starts you back at the glade.');
 }
 $('gateYes').addEventListener('click', () => gateYes());
+$('gateGo').addEventListener('click', () => {
+  if (!gateOpen) return;
+  gateOpen = false;
+  $('gateConfirm').classList.add('hidden');
+  leaveForge();
+  travel('amethyst');
+});
 $('gateNo').addEventListener('click', () => gateNo());
 
 const extras = new Extras(() => { setState('title'); focusMenu(1); });
@@ -2471,12 +3008,14 @@ const hooks: GameHooks = {
   hand: (h, down) => handButton(h, down),
   handTap: (h) => {
     if (state !== 'play') return;
-    if (hands.aimsWith(h)) handButton(h, !handDown[h]);   // a latch, like the old Aim button
+    const it = hands.held[h];
+    if (hands.aimsWith(h) || it === 'shield' || it === 'buckler' || it === 'sling') handButton(h, !handDown[h]);   // a latch, like the old Aim button (Block; a sling: whirl, then loose)
     else { handButton(h, true); handButton(h, false); }
   },
   handVerb: (h) => {
     const it = hands.held[h];
-    return it === 'sword' ? 'Swing' : it === 'crossbow' ? 'Fire' : hands.aimsWith(h) ? 'Aim' : null;
+    return it === 'spear' ? 'Thrust' : isMelee(it) ? 'Swing' : it === 'crossbow' ? 'Fire' : it === 'shield' || it === 'buckler' ? 'Block'
+      : it === 'rock' ? 'Throw' : it === 'sling' ? (handDown[h] ? 'Loose' : 'Whirl') : hands.aimsWith(h) ? 'Aim' : null;
   },
   hasCrossbow: () => inventory.count('crossbow') > 0,
   sword,
@@ -2587,7 +3126,11 @@ window.addEventListener('keydown', (e) => {
     return;
   }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
-  if (state === 'forge') { if (e.code === 'Escape' && !e.repeat) closeForges(); return; }
+  if (state === 'forge') {
+    if (e.code === 'Escape' && !e.repeat) closeForges();
+    else if (weaponForge.isOpen && e.code.startsWith('Arrow')) turnWeapon(e.code === 'ArrowLeft' ? -0.15 : e.code === 'ArrowRight' ? 0.15 : 0, e.code === 'ArrowUp' ? -0.1 : e.code === 'ArrowDown' ? 0.1 : 0);   // Mike 2026-11-05
+    return;
+  }
   if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
   if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
@@ -2844,6 +3387,7 @@ function updateTarget() {
   lookingAtThing = (hit && things.find((t) => t.obj === hit!.object)) ?? null;
   lookingAt = !hit ? null : hit.object === world.natalieTarget ? 'natalie' : lookingAtThing ? 'thing' : 'library';
   if (!lookingAt && (crossbow.boltAt(player.eyePos, lookDir, controls.activateRange) || crossbow2.boltAt(player.eyePos, lookDir, controls.activateRange))) lookingAt = 'bolt';   // F4.4
+  if (!lookingAt && Thrower.rocks.length && Thrower.rockAt(player.eyePos, lookDir, controls.activateRange)) lookingAt = 'rock';
 }
 const clock = new THREE.Clock();
 function libraryVerb(h: LibraryHit): string {
@@ -2901,7 +3445,7 @@ function frame() {
     rig.update(dt);   // R3: camera follows this frame's simulation before anything aims along it
     updateTarget();
     show('prompt', lookingAt !== null);
-    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : lookingAt === 'thing' ? lookingAtThing!.verb()
+    const verb = lookingAt === 'natalie' ? 'Talk to Natalie' : lookingAt === 'bolt' ? 'Pick up bolt' : lookingAt === 'rock' ? 'Pick up rock' : lookingAt === 'thing' ? lookingAtThing!.verb()
       : lookingAt === 'library' && libraryHit ? libraryVerb(libraryHit) : 'Read';
     if (promptVerb.textContent !== verb) promptVerb.textContent = verb;
     crossbow.update(dt); crossbow2.update(dt);
@@ -2937,6 +3481,7 @@ function frame() {
   updateSeeThrough(rig.seeThrough && player.thirdPerson && state === 'play', camera, stChest.copy(player.pos).setY(player.pos.y + 1.1));
   updateFigureSun(camera);   // cel shading: the characters' light bands follow the sun as the camera turns
   post!.render(world.scene, camera);
+  if (forgePreview.active && weaponForge.isOpen) forgePreview.render(renderer, forgePreviewRect());
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
   if (perfHud) perfTick(now, ms);
@@ -3010,4 +3555,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

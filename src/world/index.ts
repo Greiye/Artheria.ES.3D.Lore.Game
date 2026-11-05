@@ -41,6 +41,7 @@ export interface World {
   trees: [number, number][];             // v0.06 T2: where the trees stand (birdsong zones)
   lanterns: THREE.Vector3[];             // v0.06 W3: every lantern (town, lamp posts, library door)
   setTime(t: TimeOfDay): void;
+  sky: ReturnType<typeof buildSky>;
   libraryDoor: THREE.Mesh;      // F2.3: 3.4 m wooden door, locked until F3.4
   natalieTarget: THREE.Object3D; // F3: E on Natalie opens her dialogue
   town: Town;                    // v0.04: the storybook town (src/world/town.ts)
@@ -486,6 +487,7 @@ export function buildWorld(): World {
     get sunElevationDeg() { return sky.elevationDeg; },
     get time() { return sky.time; },
     setTime(t: TimeOfDay) { sky.setTime(t); applyFog(); },
+    sky,
     libraryDoor,
     natalieTarget,
     standees,

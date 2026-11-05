@@ -11,6 +11,41 @@
       "icon": "⚔",
       "note": "The smith's practice blade, from the stand outside the smithy. Click / RT / Swing to cut; three in a row ends in a heavy blow."
     },
+    "buckler": {
+      "name": "Wooden Buckler",
+      "icon": "◍",
+      "note": "A small round of oak with an iron boss, from the smith. Hold its hand's button to block: it turns any blow from straight ahead."
+    },
+    "shield": {
+      "name": "Round Shield",
+      "icon": "⛉",
+      "note": "Oak, iron-rimmed, the smith's red band across it. Hold its hand's button to block a wide arc in front of you."
+    },
+    "dagger": {
+      "name": "Dagger",
+      "icon": "🗡",
+      "note": "Short and quick: cuts in half a sword's time, for less. Two make a flurry."
+    },
+    "mace": {
+      "name": "Flanged Mace",
+      "icon": "⚒",
+      "note": "Slow and heavy. Every blow goes through a pot lid and knocks a goblin back."
+    },
+    "spear": {
+      "name": "Ash Spear",
+      "icon": "↟",
+      "note": "A long straight thrust: reach a goblin before it reaches you. A narrow point, so aim it."
+    },
+    "sling": {
+      "name": "Shepherd's Sling",
+      "icon": "➰",
+      "note": "Hold its hand's button to whirl it, let go to loose a rock. The longer the whirl, the farther and harder. Uses rocks."
+    },
+    "rock": {
+      "name": "Rock",
+      "icon": "●",
+      "note": "A good fist-sized stone. Throw it from your hand, or loose it from a sling. Pick them up from rock piles, or where they land."
+    },
     "trinket": {
       "name": "Trinket from below",
       "icon": "◈",

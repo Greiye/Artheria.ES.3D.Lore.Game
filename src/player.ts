@@ -114,6 +114,8 @@ export class Player {
   // Speed rules (F2 table): run by default; Shift = walk; Caps Lock flips the default; Alt = sprint.
   /** Slows (a snare, a diseased goblin's bite) scale every speed; 1 = none. */
   speedMul = 1;
+  /** Mike 2026-11-05: a flux floor can lighten the fall (low gravity). */
+  gravityMul = 1;
   /** B18: a meal buff (Light on your feet). */
   buffMul = 1;
   speed(): number {
@@ -171,7 +173,7 @@ export class Player {
       if (g > this.pos.y - 0.25) this.pos.y = g;
       else { this.grounded = false; this.vy = 0; }
     } else {
-      this.vy -= controls.gravity * dt;
+      this.vy -= controls.gravity * this.gravityMul * dt;
       this.pos.y += this.vy * dt;
       if (this.pos.y <= g) { this.pos.y = g; this.vy = 0; this.grounded = true; this.landedFlag = true; }
       // Mantle: pushing into a ledge within reach in mid-air pulls the player up onto it.
