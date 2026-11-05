@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 23: sending your work to Mike (lore-first round, item 5, Mike 2026-11-05)
+- Every piece in **Your works** (formerly Portfolio) has a **Send** button. The send sheet now says plainly that Mike adds it to the game with your name on it.
+- On phones and other browsers that can, **Share…** opens the device's own share sheet (Messages, WhatsApp, email) with the piece and its lore file, so no GitHub account is needed. GitHub, download and copy are still there.
+- **Your works · send to Mike** is in the pause menu too, and Back returns you there.
+
 ### v0.16 changelog, part 22: lore first (lore-first round, item 4, Mike 2026-11-05)
 - A new friend's first day now starts with the stories. Right after getting up, Natalie sends them to read a tale in the Library, and only then to the Scriptorium, the Tailor or Smithy, and the campfire (five steps).
 - The side games (dojo, sparring with Kavik, sky runs, the trapdoor) wait until the first day is done or skipped. Their prompts still show, marked "after your first day". Profiles from before the first day existed are not affected, and a day part-way through keeps its place (save upgrade 1→2).
