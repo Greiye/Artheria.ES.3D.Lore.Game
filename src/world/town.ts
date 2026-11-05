@@ -7,7 +7,7 @@ import type { Collider } from './index';
 import { TOWN_PALETTE as P } from './palette';
 import { waterMaterial } from './river';
 import { propMeshes, type Prop } from './propMeshes';
-import { buildBanners, buildStalls, buildWallLanterns, buildRustic, type DecorTown } from './decor';
+import { buildBanners, buildStalls, buildWallLanterns, buildRustic, buildWayside, type DecorTown } from './decor';
 
 // v0.04: a small storybook town south of the glade, down the path from the spawn point. One building per
 // tool, scattered round an oval green at odd angles (Mike, 2026-10-28: "make it feel lively"): the library
@@ -420,6 +420,6 @@ function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Mate
   // Medieval decorations (Mike 2026-11-05, "Add all decorations"): src/world/decor.ts.
   const T: DecorTown = { lots: LOTS.map((L) => ({ id: L.id, x: L.x, z: L.z, ry: L.ry, w: L.w, d: L.d, jetty: JETTY.has(L.id), at: local(L) })), green: GREEN, gate: GATE, plinth: PLINTH, wall: WALL, colliders };
   const banners = buildBanners(scene, T);
-  return [...propMeshes(scene, props), ...banners.statics, ...buildStalls(scene, T), ...buildWallLanterns(scene, T, lanterns), ...buildRustic(scene, T)];
+  return [...propMeshes(scene, props), ...banners.statics, ...buildStalls(scene, T), ...buildWallLanterns(scene, T, lanterns), ...buildRustic(scene, T), ...buildWayside(scene, T)];
 }
 type PropCardKind = Prop['kind'];

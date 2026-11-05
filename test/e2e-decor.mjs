@@ -48,6 +48,9 @@ check('Wall lanterns: iron and glass in two meshes, 2 per house, all in the nigh
 // 4. Woodpiles, carts and hay: one merged mesh behind the houses, off the paths.
 const rustic = m0['decor-rustic'];
 check('Woodpiles, carts and hay bales: one merged mesh, flat painted, at least 3 carts and 3 hay stacks', rustic?.n === 1 && !rustic.map && rustic.tris < 20000 && rustic.user.carts >= 3 && rustic.user.stacks >= 3, JSON.stringify(rustic));
+// 5. Wells and signposts: one merged mesh; signposts at the footpaths' starts, wells off the paths.
+const way = m0['decor-wayside'];
+check('Wells and signposts: one merged mesh, flat painted, 2 wells and 6+ signposts', way?.n === 1 && !way.map && way.tris < 12000 && way.user.wells === 2 && way.user.signs >= 6, JSON.stringify(way));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
