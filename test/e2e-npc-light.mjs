@@ -32,7 +32,7 @@ const mats = await G(page, () => {
     if (!root?.traverse) continue;
     out.figures++;
     let ok = true;
-    root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && o.material && !Array.isArray(o.material) && (o.material.vertexColors || o.userData?.isFace) && o.material.customProgramCacheKey?.() !== 'figure-lit') ok = false; });
+    root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && o.material && !Array.isArray(o.material) && (o.material.vertexColors || o.userData?.isFace) && !['figure-lit', 'figure-cel'].includes(o.material.customProgramCacheKey?.())) ok = false; });
     if (ok) out.lit++; else out.basic.push(id);
   }
   return out;

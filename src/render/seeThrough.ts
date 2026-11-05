@@ -47,7 +47,7 @@ function patchMaterial(m: THREE.Material) {
   if (patched.has(m)) return;
   patched.add(m);
   const lit = (m as THREE.MeshLambertMaterial).isMeshLambertMaterial || (m as THREE.MeshStandardMaterial).isMeshStandardMaterial || (m as THREE.MeshPhongMaterial).isMeshPhongMaterial;
-  if (!lit || m.customProgramCacheKey?.() === 'figure-lit') return;
+  if (!lit || /^figure-(lit|cel)$/.test(m.customProgramCacheKey?.() ?? '')) return;   // characters stay solid
   const prevCompile = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
   m.onBeforeCompile = (sh, r) => {
     prevCompile.call(m, sh, r);
