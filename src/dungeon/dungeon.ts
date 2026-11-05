@@ -18,7 +18,7 @@ const THEME: Record<Theme, { floor: string; wall: string; torch: string; liquid:
 };
 const cellToWorld = (x: number, y: number, out = new THREE.Vector3()) => out.set(ORIGIN.x + (x - N / 2) * CELL + CELL / 2, 0, ORIGIN.z + (y - N / 2) * CELL + CELL / 2);
 
-interface DungeonSpot { kind: 'stairs' | 'chest' | 'shrine' | 'nest'; room: Room; hit: THREE.Mesh }
+interface DungeonSpot { kind: 'stairs' | 'chest' | 'shrine' | 'nest' | 'down' | 'hoard'; room: Room; hit: THREE.Mesh }
 
 export class Dungeon {
   readonly group = new THREE.Group();
@@ -34,10 +34,11 @@ export class Dungeon {
     this.group.visible = false;
     scene.add(this.group);
     // Reused hitboxes (stairs, chest, nest, up to four shrines).
-    for (let i = 0; i < 7; i++) { const h = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 1.4), this.hidden); h.visible = false; scene.add(h); this.hits.push(h); }
+    for (let i = 0; i < 9; i++) { const h = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 1.4), this.hidden); h.visible = false; scene.add(h); this.hits.push(h); }
   }
 
-  build(seed: number): Layout {
+  /** Mike 2026-11-05: `down` puts stairs down in the deepest room (the descent); `hoard` heaps the dragon's gold there (floor 30). */
+  build(seed: number, extra: { down?: boolean; hoard?: boolean } = {}): Layout {
     const L = generate(seed), T = THEME[L.theme];
     this.layout = L;
     this.group.clear();
@@ -115,6 +116,21 @@ export class Dungeon {
       } else if (r.tag === 'nest') {
         for (let k = 0; k < 14; k++) tg.push(paint(new THREE.BoxGeometry(0.28, 0.06, 0.38).rotateY(R() * 3).translate(ctr.x + (R() - 0.5) * 1.4, 0.04 + k * 0.03, ctr.z + (R() - 0.5) * 1.4), k % 3 ? '#A8322A' : '#7A2420'));
         spot('nest', r, ctr);
+        if (extra.down) {   // a stair well going down, one cell over: dark steps into a black hole
+          const at = cellToWorld(r.cx + 1, r.cy);
+          tg.push(paint(new THREE.BoxGeometry(1.5, 0.02, 1.5).translate(at.x, 0.005, at.z), '#050403'));
+          for (let k = 0; k < 4; k++) tg.push(paint(new THREE.BoxGeometry(1.3, 0.04, 0.3).translate(at.x, 0.02, at.z - 0.55 + k * 0.33), k % 2 ? '#2A2622' : '#36302A'));
+          for (const [dx, dz, w, d] of [[0, -0.8, 1.7, 0.12], [0, 0.8, 1.7, 0.12], [-0.8, 0, 0.12, 1.7], [0.8, 0, 0.12, 1.7]] as const) tg.push(paint(new THREE.BoxGeometry(w, 0.14, d).translate(at.x + dx, 0.07, at.z + dz), '#6E665C'));
+          spot('down', r, at);
+        }
+        if (extra.hoard) {   // the dragon's hoard: heaped gold, a crown on top, cups and a chest
+          const at = cellToWorld(r.cx - 1, r.cy);
+          for (let k = 0; k < 26; k++) { const a = R() * Math.PI * 2, rr = R() * 0.9; tg.push(paint(new THREE.ConeGeometry(0.22 + R() * 0.2, 0.25 + R() * 0.35, 6).translate(at.x + Math.cos(a) * rr, 0.12 + (0.9 - rr) * 0.3, at.z + Math.sin(a) * rr), k % 4 ? '#E8C040' : '#C89A28')); }
+          tg.push(paint(new THREE.CylinderGeometry(0.16, 0.18, 0.12, 8).translate(at.x, 0.62, at.z), '#FFD86A'));
+          tg.push(paint(new THREE.BoxGeometry(0.7, 0.42, 0.5).translate(at.x + 0.7, 0.21, at.z + 0.5), '#6A3A1A'));
+          this.colliders.push({ kind: 'circle', x: at.x, z: at.z, r: 0.85 });
+          spot('hoard', r, at);
+        }
       }
     }
     for (let i = h; i < this.hits.length; i++) this.hits[i].visible = false;

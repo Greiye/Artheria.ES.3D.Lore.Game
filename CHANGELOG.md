@@ -7,6 +7,27 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 8: the descent, a roguelike under the library (Mike 2026-11-05)
+- The trapdoor now offers **the descent**. The library is in flux (the witch in the ruins): every floor is a new
+  layout each time. They say it goes 30 floors deep, with a dragon's hoard at the bottom. Stairs down sit in the
+  deepest room of each floor (behind a load screen); every floor has its stairs up. Your wounds carry down.
+- **Books are carried**: they reach Natalie (and the gallery shelves) only when you climb out alive. Climbing out
+  records your deepest floor. The seed box is gone; the Quick Dungeon stays as practice where nobody dies.
+- **Death ends the hero**: write their last words, and the bag, crowns, hands and carried books are gone. Writing,
+  sketches, forge designs, the gallery, books already handed in and the kill statue stay. A new hero wakes at the
+  glade and the mirror opens to make them.
+- **The Inn's front wall**: the death tally (name, deepest floor, books handed in, slain by, date, last words) and
+  the survivors' wall, where only Kavik's sketch hangs. Take the hoard on floor 30, climb out alive, and your
+  drawing (your newest sketch, or a portrait) goes up beside his; that hero retires.
+- **Goblins get harder and smarter by depth**: more of them, tougher, harder-hitting, and new tricks by band:
+  4-8 they flank you in packs and carry extra snares; 9-13 slingers, pot-lid guards, and the wounded back off to
+  mend; 14-19 shelf-lurkers drop on you, blows can douse your torch, and thieves go for your books (kill them to get
+  it back); 20-24 shamans mend the others and hex you (the dark closes in, or your legs go heavy); 25-29 captains
+  with a double blow, and they learn your habits (lean on the sword and more pot lids turn up; on the crossbow and
+  they dodge); 30 the hoard-keepers.
+- Natalie answers "What is under the library?"; Kavik has a word about floor 30.
+- Tests: `e2e-descent` (new); `e2e-places` updated for the new trapdoor sheet.
+
 ### v0.16 changelog, part 7: four ways out of Aralon (Mike 2026-11-05)
 - One exit per side, each signposted, each to its own map after a load screen (the place's name, a line, a bar):
   - north: **Aralon Edge**, a clifftop with a rail, a bench and a lone pine, built on a real cliff north of town, so

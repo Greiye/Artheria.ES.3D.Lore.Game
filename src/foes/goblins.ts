@@ -29,7 +29,17 @@ interface FoeWorld {
   say(text: string): void;
   /** B42: what blocks a view (the same colliders the player leans on). */
   colliders?: Collider[];
+  /** Mike 2026-11-05, deeper floors: a thief takes a carried book first (its title, or null); you get it back from the body. */
+  stealBook?(by: Foe): string | null;
+  recover?(by: Foe, book: string): void;
+  /** A blow puts your torch out. */
+  douse?(): void;
+  /** A shaman's hex: the dark closes in, or your legs go heavy. */
+  hex?(kind: 'dark' | 'slow', by: Foe): void;
 }
+/** Mike 2026-11-05: what a goblin does on the deeper floors, beyond its rolled behaviour (see src/delve/descent.ts). */
+export type Role = 'none' | 'slinger' | 'guard' | 'dropper' | 'shaman' | 'captain' | 'keeper';
+const ROLE_TITLE: Record<Role, string> = { none: '', slinger: 'Slinger', guard: 'Pot-lid Guard', dropper: 'Shelf-lurker', shaman: 'Shaman', captain: 'Captain', keeper: 'Hoard-keeper' };
 
 type State = 'idle' | 'hidden' | 'chase' | 'back' | 'flee' | 'dead';
 interface Foe {
@@ -40,6 +50,8 @@ interface Foe {
   /** B42: leaning out past a wall edge to shoot. */
   lean: Lean;
   hurtT: number; mats: { m: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial; base: THREE.Color }[];
+  /** Deeper floors: its role, which side it flanks from, a carried-off book, the drop from above, a shaman's clock, a captain's second blow. */
+  role: Role; flank: number; book: string | null; dropT: number; spell: number; combo: boolean;
 }
 interface Shot { mesh: THREE.Mesh; vel: THREE.Vector3; dmg: number; by: Foe; bomb: boolean; fuse: number; landed: boolean }
 interface Snare { mesh: THREE.Mesh; die: string; by: Foe }
@@ -50,6 +62,7 @@ const BOMB_GEO = new THREE.SphereGeometry(0.11, 7, 5), BOMB_MAT = new THREE.Mesh
 const SNARE_GEO = new THREE.TorusGeometry(0.32, 0.03, 4, 10).rotateX(Math.PI / 2), SNARE_MAT = new THREE.MeshBasicMaterial({ color: 0x5A4A36 });
 const BLAST_MAT = new THREE.MeshBasicMaterial({ color: 0xFFB040, transparent: true, opacity: 0.7, depthWrite: false });
 
+const b0 = (f: Foe) => f.st.behaviour;
 function nameTag(f: Foe): THREE.Sprite {
   const c = document.createElement('canvas'); c.width = 384; c.height = 64;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -80,17 +93,47 @@ export class Goblins {
   private snares: Snare[] = [];
   private blasts: { mesh: THREE.Mesh; t: number }[] = [];
   private tmp = new THREE.Vector3();
+  /** Mike 2026-11-05: the floor you're on (0: not a descent) and what it sets: the band of tricks, extra health and damage. */
+  floor = 0; band = 0; hpMul = 1; dmgBonus = 0;
+  /** Band 5: what the player has been hitting them with this run. */
+  habits = { sword: 0, bolt: 0 };
   /** Seconds the player has been moving; the mimic copies a dodge. */
   constructor(scene: THREE.Scene, private w: FoeWorld) { this.group.name = 'goblins'; scene.add(this.group); }
 
+  /** A deterministic role for a goblin on this floor (keepers are asked for by name). */
+  private roleFor(v: Variant, st: GoblinStats): Role {
+    if (this.band <= 0) return 'none';
+    const r = ((v.seed * 2654435761) >>> 0) / 2 ** 32, B = this.band, swordy = this.habits.sword > this.habits.bolt * 2 + 4;
+    const shamans = this.list.filter((f) => f.role === 'shaman' && f.state !== 'dead').length;
+    if (B >= 5 && st.leader) return 'captain';
+    if (B >= 4 && shamans < (B >= 5 ? 2 : 1) && r > 0.78) return 'shaman';
+    if (B >= 3 && r < 0.16) return 'dropper';
+    if (B >= 2 && st.range <= 0 && r < 0.36) return 'slinger';
+    if (B >= 2 && r < (swordy && B >= 5 ? 0.7 : 0.52)) return 'guard';
+    return 'none';
+  }
+
   get alive() { return this.list.filter((f) => f.state !== 'dead'); }
 
-  spawn(v: Variant, at: THREE.Vector3, yaw = 0, force = false): Foe | null {
-    if (this.alive.length >= MAX_FOES && !force) return null;
+  /** The most at once (deeper floors allow more). */
+  maxFoes = MAX_FOES;
+  spawn(v: Variant, at: THREE.Vector3, yaw = 0, force = false, want?: Role): Foe | null {
+    if (this.alive.length >= this.maxFoes && !force) return null;
     const root = buildGoblin(v), st = goblinStats(v);
+    const role = want ?? this.roleFor(v, st);
+    // Deeper floors: tougher, and each role changes the kit.
+    st.hp = Math.max(2, Math.round(st.hp * this.hpMul * (role === 'captain' ? 1.6 : role === 'keeper' ? 2.2 : 1)));
+    if (role === 'slinger') { st.range = 8; st.shot = 13; st.cooldown = 2.1; st.weapon = 'sling'; }
+    if (role === 'guard') st.block = true;
+    if (role === 'keeper') { st.armour += 1; st.block = true; st.leader = true; }
+    if (role === 'captain') st.leader = true;
+    if (this.band >= 5 && this.habits.bolt > this.habits.sword * 2 + 4 && st.behaviour !== 'thief' && ((v.seed >>> 3) & 3) === 0) st.behaviour = 'mimic';   // they learned to dodge your bolts
+    if (role !== 'none') v = { ...v, display: `${v.display}, ${ROLE_TITLE[role]}` };
     root.position.copy(at); root.rotation.y = yaw; root.name = 'goblin:' + v.display;
     const f: Foe = { v, st, root, anim: new FigureAnim(root.userData.rig as FigureRig), lean: new Lean(), hp: st.hp, state: st.behaviour === 'ambusher' ? 'hidden' : 'idle', t: 0, cd: 1, windup: 0,
-      alerted: false, stolen: 0, caught: 0, traps: st.trap ? 2 : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0, hurtT: 0, mats: [] };
+      alerted: false, stolen: 0, caught: 0, traps: st.trap ? (this.band >= 1 ? 3 : 2) : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0, hurtT: 0, mats: [],
+      role, flank: this.band >= 1 ? ((v.seed & 1) ? 0.75 : -0.75) : 0, book: null, dropT: 0, spell: 3, combo: false };
+    if (role === 'dropper') f.state = 'hidden';
     // Its own copy of the body materials, so one goblin can flash red without the others.
     const rig = root.userData.rig as FigureRig | undefined;
     if (rig?.mesh) {
@@ -168,11 +211,13 @@ export class Goblins {
   private kill(f: Foe) {
     f.state = 'dead'; f.deadT = 0; f.tag.visible = false;
     this.w.loot(f, f.st.crowns, f.st.bolts + f.stolen + f.caught);
+    if (f.book) { this.w.recover?.(f, f.book); f.book = null; }
     if (f.st.leader) this.w.say(`${f.v.display} falls, and the others lose their nerve.`);
   }
 
   private alert(f: Foe) {
     if (f.alerted) return;
+    if (f.role === 'dropper' && f.state === 'hidden') { f.dropT = 0.45; this.w.say(`${f.v.display} drops from the shelves!`); }
     f.alerted = true; if (f.state === 'hidden' || f.state === 'idle') f.state = 'chase';
     if (f.st.leader) {
       this.w.say(`${f.v.display} shrieks, and the goblins nearby grow bolder.`);
@@ -229,19 +274,31 @@ export class Goblins {
       }
       const p = f.root.position, dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz);
       const sees = d < SIGHT && this.los(p, P);
+      const b = f.st.behaviour;
       f.cd = Math.max(0, f.cd - dt); f.t += dt; f.dodge = Math.max(0, f.dodge - dt);
       if (!f.alerted) {
         if (f.state === 'hidden' ? d < 4 : sees && d < SIGHT - 2) this.alert(f);
       }
+      // Deeper floors. A lurker falls from the shelf top; a shaman mends the others and hexes you; the wounded mend.
+      if (f.role === 'dropper') { if (f.state === 'hidden') p.y = 2.6; else if (f.dropT > 0) { f.dropT -= dt; p.y = Math.max(0, 2.6 * (f.dropT / 0.45) ** 2); if (f.dropT <= 0) p.y = 0; } }
+      if (f.role === 'shaman' && f.alerted && (f.spell -= dt) <= 0) {
+        f.spell = 5.5;
+        let mended = 0;
+        for (const o of this.alive) if (o !== f && o.hp < o.st.hp && o.root.position.distanceTo(p) < 7) { o.hp = Math.min(o.st.hp, o.hp + 2); drawTag(o); mended++; }
+        if (sees && d < 12) { const k = (f.t | 0) % 2 ? 'dark' : 'slow'; this.w.hex?.(k, f); this.w.say(k === 'dark' ? `${f.v.display} hisses, and the dark closes in.` : `${f.v.display} points at you. Your legs go heavy.`); }
+        else if (mended) this.w.say(`${f.v.display} chants, and the goblins' wounds close.`);
+      }
+      if (this.band >= 2 && f.alerted && f.state === 'back' && d > 4 && b0(f) !== 'coward') f.hp = Math.min(f.st.hp * 0.6, f.hp + dt * 0.5);
       let leanWant = NO_LEAN;
       let mx = 0, mz = 0, sp = f.st.speed, pose: 'kneel' | 'punch' | null = f.state === 'hidden' ? 'kneel' : null, aim = false;
-      const ranged = f.st.range > 0, b = f.st.behaviour;
+      const ranged = f.st.range > 0;
       if (f.alerted) {
         // Cowards break at half health and call the others; thieves run once they have something.
         if (b === 'coward' && f.hp <= f.st.hp / 2 && f.state !== 'flee') {
           f.state = 'flee';
           if (!f.called) { f.called = true; this.w.say(`${f.v.display} squeals for help!`); for (const o of this.alive) if (o.root.position.distanceTo(p) < 12) this.alert(o); }
         }
+        if (this.band >= 2 && b !== 'coward' && f.role !== 'keeper' && f.state === 'chase' && f.hp < f.st.hp * 0.35 && f.hp < f.st.hp * 0.6 - 0.5 && f.t > 2) { f.state = 'back'; f.t = 0; }   // backs off to mend
         if (f.state === 'flee') { mx = -dx; mz = -dz; sp *= 1.1; }
         else if (b === 'mimic' && (this.w.aiming() || f.dodge > 0)) { mx = -dz; mz = dx; if (Math.sin(f.t * 1.3) < 0) { mx = -mx; mz = -mz; } }   // strafes while you aim
         else if (b === 'trapper' && f.traps > 0 && d < 9 && sees) {
@@ -255,10 +312,14 @@ export class Goblins {
           else if (b === 'skirmisher') { mx = -dx * 0.4 - dz; mz = -dz * 0.4 + dx; }   // circles while backing off
         } else {
           f.state = 'chase';
-          const want = ranged ? (b === 'archer' ? 10 : f.st.range * 0.7) : f.st.reach * 0.8;
-          if (b === 'thief' && d < 1.1 && f.stolen === 0) {
-            f.stolen = this.w.steal(f);
-            this.w.say(f.stolen ? `${f.v.display} snatches ${f.stolen} bolt${f.stolen > 1 ? 's' : ''} and runs!` : `${f.v.display} pats your pockets, finds nothing, and runs.`);
+          const want = f.role === 'shaman' ? 6 : ranged ? (b === 'archer' ? 10 : f.st.range * 0.7) : f.st.reach * 0.8;
+          if (b === 'thief' && d < 1.1 && f.stolen === 0 && !f.book) {
+            const book = this.band >= 3 ? this.w.stealBook?.(f) ?? null : null;
+            if (book) { f.book = book; this.w.say(`${f.v.display} snatches “${book}” and runs! Get it back.`); }
+            else {
+              f.stolen = this.w.steal(f);
+              this.w.say(f.stolen ? `${f.v.display} snatches ${f.stolen} bolt${f.stolen > 1 ? 's' : ''} and runs!` : `${f.v.display} pats your pockets, finds nothing, and runs.`);
+            }
             f.state = 'flee';
           } else if (b === 'archer' && d < 8 && sees) { mx = -dx; mz = -dz; }   // backs off to keep its distance (B42: not while hidden at a corner)
           // B42: a shooter at a wall edge with you out of sight holds the corner and leans out to shoot.
@@ -267,13 +328,20 @@ export class Goblins {
             ? leanTarget(this.w.colliders, p.x, p.z, 0, toYaw, { aiming: true, crouched: false, speed: 0, eye: f.st.height * 0.85, stand: f.st.height * 0.85 }) : NO_LEAN;
           leanWant = corner;
           if (corner.side !== 0) { /* hold the corner */ }
-          else if ((d > want || !sees) && d > 0.75) { mx = dx; mz = dz; }   // never right on top of you
+          else if ((d > want || !sees) && d > 0.75) {
+            mx = dx; mz = dz;
+            if (f.flank && sees && d > 1.8) { const a = f.flank * Math.min(1, (d - 1.5) / 3), c = Math.cos(a), sn = Math.sin(a); mx = dx * c - dz * sn; mz = dx * sn + dz * c; }   // packs come at you from the sides
+          }
+          if (f.role === 'shaman' && d < 4.5 && sees) { mx = -dx; mz = -dz; }
           if (ranged) aim = (sees || corner.side !== 0) && d < f.st.range;
           // Attacks.
           if (f.windup > 0) {
             f.windup -= dt; pose = 'punch'; mx = mz = 0;
             if (f.windup <= 0 && d < f.st.reach + 0.6) {
-              this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f), f, f.st.slowOnHit, f.root.position);
+              this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus, f, f.st.slowOnHit, f.root.position);
+              if (this.band >= 3 && Math.random() < 0.18) this.w.douse?.();
+              if (f.role === 'captain' && !f.combo) { f.combo = true; f.windup = 0.28; }   // a second blow straight after
+              else f.combo = false;
               if (b === 'skirmisher') { f.state = 'back'; f.t = 0; }
             }
           } else if (f.cd <= 0 && (sees || this.peeks(f, P))) {
@@ -330,7 +398,7 @@ export class Goblins {
     const mesh = new THREE.Mesh(bomb ? BOMB_GEO : f.st.weapon === 'bow' ? ARROW_GEO : SHOT_GEO, bomb ? BOMB_MAT : f.st.weapon === 'bow' ? ARROW_MAT : SHOT_MAT);
     mesh.position.copy(from); mesh.raycast = () => {}; mesh.name = bomb ? 'bomb' : 'shot';
     this.group.add(mesh);
-    this.shots.push({ mesh, vel, dmg: damageRoll(f.st.damage) + this.leaderBonus(f), by: f, bomb, fuse: f.st.fuse || 2, landed: false });
+    this.shots.push({ mesh, vel, dmg: damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus, by: f, bomb, fuse: f.st.fuse || 2, landed: false });
     void d;
   }
 

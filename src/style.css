@@ -559,3 +559,15 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 #loadScreen .ls-line { font: italic clamp(15px, 2vw, 19px) Georgia, serif; color: #E2C98A; }
 #loadScreen .ls-bar { margin: 22px auto 0; width: min(320px, 70vw); height: 4px; background: rgba(255,241,200,.15); border-radius: 2px; overflow: hidden; }
 #loadScreen .ls-fill { height: 100%; width: 0; background: #E2C98A; }
+
+/* Mike 2026-11-05: the Inn's walls and a fallen hero's last words (src/delve/walls.ts). */
+.wall-card { max-height: 86vh; overflow: auto; }
+.tally { text-align: left; padding-left: 1.4em; margin: 10px 0 14px; }
+.tally li { margin: 6px 0; }
+.tally-words { font-style: italic; color: var(--rune, #C9A23A); margin-top: 2px; }
+.tally-empty { font-style: italic; color: var(--stone-l); }
+.survivors { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 10px 0 16px; }
+.survivor { margin: 0; width: 170px; text-align: center; }
+.survivor canvas { width: 160px; height: 160px; border: 6px solid #7A5634; box-shadow: 0 3px 10px rgba(0,0,0,.5); transform: rotate(-1.5deg); }
+.survivor:nth-child(2n) canvas { transform: rotate(1.8deg); }
+#lastWords textarea { width: 100%; box-sizing: border-box; }

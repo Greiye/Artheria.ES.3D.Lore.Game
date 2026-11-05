@@ -48,13 +48,12 @@ check('B15 a dungeon has an entrance, treasure, a nest and a shrine', ['entrance
 await aimAt('g.interactables.find((i) => i.verb() === "Open the trapdoor").obj', 2, [0.3, 1]);
 check('B15 the trapdoor by the library offers "Open the trapdoor"', await verbIs('Open the trapdoor'));
 await page.keyboard.press('KeyE');
-check('B15 E opens the descend sheet with today\'s seed', await until(page, () => window.__gametool.state === 'forge' && !!document.getElementById('descend') && /^\d{8}$/.test(document.getElementById('dgSeed').value)));
+check('B15 E opens the descend sheet (Mike 2026-11-05: the descent, no seed box)', await until(page, () => window.__gametool.state === 'forge' && !!document.getElementById('descend') && /30 floors/.test(document.getElementById('descend').textContent)));
 const nCol = await G(page, () => window.__gametool.world.colliders.length);
-await page.fill('#dgSeed', 'goblin');
 await page.click('#descend [data-act=go]');
 await resume();
 const inside = await G(page, () => { const g = window.__gametool; return { in: g.inDungeon, x: g.player.pos.x, seed: g.dungeon.layout.seed, vis: g.dungeon.group.visible, delve: !!g.delves[g.dungeon.layout.seed] }; });
-check('B15 Descend takes you below (built at x≈400, out of the glade\'s view), and a word works as a seed', inside.in && inside.vis && inside.x > 330 && inside.delve, JSON.stringify(inside));
+check('B15 Descend takes you below (built at x≈400, out of the glade\'s view), to floor 1', inside.in && inside.vis && inside.x > 330 && inside.delve, JSON.stringify(inside));
 check('B15 the dungeon\'s walls collide', await G(page, (n) => window.__gametool.world.colliders.length > n + 20, nCol));
 check('B15 the trapdoor is not offered below', await G(page, () => !window.__gametool.interactables.find((i) => i.verb() === 'Open the trapdoor').when()));
 const t0 = await G(page, () => window.__gametool.inventory.count('trinket'));
@@ -63,7 +62,7 @@ await act('shrine');
 check('B15 a shrine carving quotes the lore with its credit', /Carved in the stone: “.+” \(.+, by .+\)/.test(await toastText()), await toastText());
 await act('nest');
 check('B15 the goblin\'s nest is recorded for the seed', await G(page, () => { const g = window.__gametool; return !!g.delves[g.dungeon.layout.seed].nest; }));
-check('B15 "Climb back up" returns you to the glade with its colliders restored', await act('stairs') === 'Climb back up'
+check('B15 "Climb out" returns you to the glade with its colliders restored', /^Climb out/.test(await act('stairs'))
   && await G(page, (n) => { const g = window.__gametool; return !g.inDungeon && !g.dungeon.group.visible && g.world.colliders.length === n && Math.abs(g.player.pos.x) < 60; }, nCol));
 check('B15 delves are saved on this device', await G(page, () => Object.keys(JSON.parse(localStorage.getItem('gametool.delves'))).length >= 1));
 
@@ -83,8 +82,8 @@ const okGraph = qg.every((nodes) => {
 });
 check('v0.05 §6 the graph: start, three layers of 2–3 rooms, the boss; left to right; 2–3 paths ahead of every room; none unreachable', okGraph, JSON.stringify(qg[0]));
 await G(page, () => window.__gametool.openDescend());
-check('v0.05 §6 the trapdoor asks "Enter Normal Dungeon or Run Quick Dungeon?"', await until(page, () => /Enter Normal Dungeon or Run Quick Dungeon\?/.test(document.querySelector('#descend h3').textContent) && !!document.querySelector('#descend [data-act=quick]')));
-await page.fill('#dgSeed', '4242');
+check('v0.05 §6 the trapdoor offers the Quick Dungeon beside the descent', await until(page, () => /Go down for the books\?/.test(document.querySelector('#descend h3').textContent) && !!document.querySelector('#descend [data-act=quick]')));
+const qSeed = await G(page, () => { const d = new Date(); return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate(); });
 await page.click('#descend [data-act=quick]');
 check('v0.05 §6 Quick Dungeon opens the roadmap (no walking), at the stairs, with the first rooms lit', await until(page, () => { const q = window.__gametool.quick; return q.isOpen && window.__gametool.state === 'forge' && q.at === 'L0' && document.querySelectorAll('#quickDungeon .qd-node.open').length === q.options.length && document.querySelectorAll('#quickDungeon .qd-edge.open').length === q.options.length; }));
 const same = await G(page, () => { const q = window.__gametool.quick; return JSON.stringify(q.graph.nodes); });
@@ -107,8 +106,8 @@ const fin = await G(page, () => { const q = window.__gametool.quick; return { at
 check('v0.05 §6 exactly four picks reach the nest, and the nest ends the run', fin.n === 4 && fin.at === 'L4' && !!fin.end, JSON.stringify(fin));
 check('v0.05 §6 the view re-centres on the room you are in', await G(page, () => { const m = document.querySelector('#quickDungeon .qd-map'), n = document.querySelector('#quickDungeon .qd-node.here'); return m.scrollWidth <= m.clientWidth + 2 || Math.abs((n.offsetLeft + 26 - m.scrollLeft) - m.clientWidth / 2) < m.clientWidth / 2; }));
 await page.click('#qdOk');
-check('v0.05 §6 the run ends back at the trapdoor, with its result saved for the seed and the crowns paid', await until(page, () => { const g = window.__gametool; return !g.quick.isOpen && g.state === 'play'; }) && await G(page, (c0) => { const g = window.__gametool; return !!g.delves[4242]?.quick && g.inventory.count('crown') > c0; }, c0));
-const again = await G(page, () => JSON.stringify(window.__gametool.buildQuick(4242).nodes));
+check('v0.05 §6 the run ends back at the trapdoor, with its result saved for the seed and the crowns paid', await until(page, () => { const g = window.__gametool; return !g.quick.isOpen && g.state === 'play'; }) && await G(page, (c0) => { const g = window.__gametool; return Object.values(g.delves).some((d) => !!d.quick) && g.inventory.count('crown') > c0; }, c0));
+const again = await G(page, (s) => JSON.stringify(window.__gametool.buildQuick(s).nodes), qSeed);
 check('v0.05 §6 the same seed gives the same map', again === same);
 await G(page, () => window.__gametool.openQuick(7));
 await page.keyboard.press('Escape');
