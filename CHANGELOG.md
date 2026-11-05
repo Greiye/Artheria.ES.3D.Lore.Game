@@ -7,6 +7,18 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 26: the map shows what there is to do (Mike 2026-11-05, "Mark it on the map. Update the map so that new players can see what the game has to offer")
+- The living map (M) now marks every place to visit from the start, over the fog: the knight frame (grey and locked until it wakes), the skyrunner perch, the descent's trapdoor, Natalie, the camp (campfire, mirror, anvil, sketchbook), Kavik, the caravan, the practice table, the grindstone, the cinema and the record statue.
+- Beside it, a **What's here** list gives each one a line on what you do there (and, for the frame, how to wake it).
+- The town is drawn as it is now: every house on the green to scale, with its name, and the four roads out (the Ranlean and Amethyst Peak gates marked shut). The old glade-era labels are gone.
+
+### v0.16 changelog, part 25: the knight frame, a pilotable mech (Mike 2026-11-05, "Robots? Can you add pilotable mechs?")
+- A **knight frame** kneels asleep in the treeline east of the green: ten feet of elvish bronze gone green, the same make as the Caerne's *Telandor Savior* (Tales Part I), with a dark gem in its chest. **Clear the descent's third floor** (take the stairs down from floor 3) and it wakes and stands. The wake is saved with your profile. For testing, `?mech` on the URL wakes it straight away.
+- **Climb in** at it with E / A / Use; the same button **climbs out** of the back hatch. It stays where you leave it.
+- Inside, you move as usual (Alt / L3 / the sprint button pushes it to a stomping run; it turns slowly). **Strike** with LMB / RT / Strike, **guard** with the shield arm on RMB / LT / Guard, **ground-slam** with Space / Y / jump, and a **rune pulse** that staggers everything near on Q / D-pad up / ✦ (6 s to recharge). Footfalls rumble the pad and shake up dust. The camera pulls back and up; there is no first person inside.
+- Like the other side games, climbing in waits until a new friend's first day is done (lore first); `?mech` skips that too.
+- It can't use doors, the trapdoor or the roads out of Aralon (climb out first). No passengers and no multiplayer sync yet (next round). Low poly: 588 triangles, ink outlines, never cut away by see-through.
+- New `test/e2e-knight-frame.mjs` (17/17, with the map checks).
 ### v0.16 changelog, part 24: stair cinematics and floor hints (Mike 2026-11-05, thread "Add dungeon floor cinematics and hints")
 - Dropping through the trapdoor and going down each floor's stairs now plays a short cinematic (about 4 s and 3 s): the camera rides down a torch-lit spiral stair while a card reads "Leaving Floor 3 / Floor 4 of 30". Any key, click, tap or pad button skips it; with reduced motion the camera holds still.
 - Each card carries up to two hints of what's below, felt rather than told and always true to the floor just built: damp and sweating walls for a flooded floor, moist air where there are many pools, a guttering torch for a dark one, heat and smoke for a burning one, breath fogging on a Frost floor, roots on a Verdant one, deep breathing before a guardian, woodsmoke before a camp, goblin sign when a tougher band starts, and gold-light before the hoard.

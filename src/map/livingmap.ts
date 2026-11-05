@@ -9,6 +9,13 @@ const HALF = 50, CELLM = 4, G = (HALF * 2) / CELLM;   // 25 × 25 cells
 const KEY = 'gametool.map';
 export interface Pin { id: string; x: number; z: number; text: string; created: string }
 export interface Mark { x: number; z: number; label: string; kind: 'clue' | 'lead' | 'found' | 'song' | 'delve' | 'place' }
+/** Mike 2026-11-05 ("Update the map so that new players can see what the game has to offer"): things to do, shown
+ *  from the start (over the fog) and listed beside the map. `locked`: not open yet, `note` says how. */
+export interface Sight { x: number; z: number; icon: string; label: string; note: string; locked?: boolean }
+/** A building on the green, drawn to scale (centre, facing, width, depth) with its name. */
+export interface MapLot { x: number; z: number; ry: number; w: number; d: number; name: string }
+/** A road out of town: where it leaves the map and where it goes. */
+export interface MapExit { x: number; z: number; label: string; shut?: boolean }
 interface MapState { fog: string; pins: Pin[] }
 
 export class LivingMap {
@@ -17,7 +24,8 @@ export class LivingMap {
   pins: Pin[] = [];
   private canvas!: HTMLCanvasElement;
 
-  constructor(readonly marks: () => Mark[], private player: () => { x: number; z: number; yaw: number }, private onClose: () => void, private author: () => string) {
+  constructor(readonly marks: () => Mark[], private player: () => { x: number; z: number; yaw: number }, private onClose: () => void, private author: () => string,
+    readonly sights: () => Sight[] = () => [], private lots: MapLot[] = [], private exits: MapExit[] = []) {
     try {
       const s = JSON.parse(localStorage.getItem(KEY) ?? 'null') as MapState | null;
       if (s?.fog) for (let i = 0; i < G * G; i++) this.seen[i] = (parseInt(s.fog[i >> 2] ?? '0', 16) >> (i & 3)) & 1;
@@ -77,7 +85,8 @@ export class LivingMap {
         <div class="eyebrow">The living map · M</div>
         <canvas id="mpCanvas" width="600" height="600"></canvas>
         <div class="map-side">
-          <p class="fine">${Math.round(this.revealed * 100)}% of the glade explored. Places fill in as you walk.</p>
+          <p class="fine">${Math.round(this.revealed * 100)}% of Aralon explored. The land fills in as you walk; the places to visit are marked from the start.</p>
+          ${this.sightList()}
           <div class="map-pin-row"><input id="mpText" type="text" maxlength="120" placeholder="A note for this spot"><button class="secondary" id="mpPin">Pin it here</button></div>
           <ul class="map-pins">${this.pins.map((p) => `<li>${escapeHtml(p.text)} <button class="sk-del" data-del="${p.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
           <div class="forge-actions">${this.pins.length ? '<button class="secondary" id="mpSubmit">Submit my notes…</button>' : ''}<button class="primary" id="mpClose">Close</button></div>
@@ -85,6 +94,13 @@ export class LivingMap {
       </div>`;
     this.canvas = this.el.querySelector('#mpCanvas')!;
     this.draw();
+  }
+
+  private sightList(): string {
+    const list = this.sights();
+    if (!list.length) return '';
+    return `<div class="map-sights"><div class="map-sights-h">What's here</div><ul>${list.map((t) =>
+      `<li class="${t.locked ? 'locked' : ''}"><span class="map-ic">${escapeHtml(t.icon)}</span><span><b>${escapeHtml(t.label)}</b>${t.locked ? ' 🔒' : ''}<br><span class="fine">${escapeHtml(t.note)}</span></span></li>`).join('')}</ul></div>`;
   }
 
   draw() {
@@ -100,11 +116,6 @@ export class LivingMap {
     g.strokeStyle = '#3A3024'; g.fillStyle = '#3A3024'; g.lineWidth = 2;
     g.setLineDash([6, 4]); g.beginPath(); g.moveTo(X(0), Z(12)); g.lineTo(X(0), Z(-18)); g.stroke(); g.setLineDash([]);   // paved path
     g.strokeRect(X(-13), Z(-42), 26 * S, 24 * S);                                                                         // library
-    g.strokeRect(X(10), Z(2.5), 10 * S, 7 * S);                                                                           // gallery
-    g.beginPath(); g.arc(X(-7), Z(0), 3.5 * S, 0, 7); g.stroke();                                                         // camp
-    const label = (x: number, z: number, t: string, size = 15) => { if (!this.isSeen(x, z)) return; g.font = `italic ${size}px Georgia, serif`; g.fillStyle = '#2B2418'; g.textAlign = 'center'; g.fillText(t, X(x), Z(z)); };
-    label(0, -30, 'The Ruined Library', 18); label(15, 1.6, 'Gallery hall'); label(-7, 5.2, 'Camp'); label(0, 12.5, 'Paved road'); label(-14, 10.2, 'Dojo');
-    g.strokeRect(X(-18), Z(10.5), 8 * S, 7 * S);                                                                          // dojo
     // What happened here.
     const icon: Record<Mark['kind'], [string, string]> = { clue: ['✕', '#7A2420'], lead: ['◆', '#2E5FA8'], found: ['★', '#A8322A'], song: ['♪', '#6B4423'], delve: ['▼', '#2B2A24'], place: ['•', '#2B2418'] };
     for (const m of this.marks()) {
@@ -116,6 +127,29 @@ export class LivingMap {
     for (const p of this.pins) { g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--my-ink') || '#2B2A24'; g.beginPath(); g.arc(X(p.x), Z(p.z), 5, 0, 7); g.fill(); g.font = '12px Georgia, serif'; g.textAlign = 'left'; g.fillText(p.text.slice(0, 28), X(p.x) + 8, Z(p.z) + 4); }
     // Fog over the unexplored cells.
     for (let cy = 0; cy < G; cy++) for (let cx = 0; cx < G; cx++) if (!this.seen[cy * G + cx]) { g.fillStyle = 'rgba(120,100,70,.82)'; g.fillRect(cx * CELLM * S, cy * CELLM * S, CELLM * S + 0.5, CELLM * S + 0.5); }
+    // Over the fog, so a new player sees the town and what there is to do from the start.
+    for (const L of this.lots) {
+      g.save(); g.translate(X(L.x), Z(L.z)); g.rotate(-L.ry);
+      g.fillStyle = 'rgba(233,220,184,.92)'; g.strokeStyle = '#3A3024'; g.lineWidth = 2;
+      g.fillRect(-L.w / 2 * S, -L.d / 2 * S, L.w * S, L.d * S); g.strokeRect(-L.w / 2 * S, -L.d / 2 * S, L.w * S, L.d * S);
+      g.restore();
+      g.font = 'italic 11px Georgia, serif'; g.fillStyle = '#2B2418'; g.textAlign = 'center'; g.fillText(L.name.split(' & ')[0], X(L.x), Z(L.z) + 4);
+    }
+    g.font = 'italic 15px Georgia, serif'; g.fillStyle = '#2B2418'; g.textAlign = 'center'; g.fillText('The Ruined Library', X(0), Z(-39.5));
+    for (const e of this.exits) {
+      const ax = Math.max(14, Math.min(586, X(e.x))), az = Math.max(22, Math.min(586, Z(e.z)));
+      g.font = 'bold 12px Georgia, serif'; g.fillStyle = e.shut ? '#6B5A3A' : '#2B2418'; g.textAlign = ax < 60 ? 'left' : ax > 540 ? 'right' : 'center';
+      g.fillText(`${e.label}${e.shut ? ' (shut)' : ''}`, ax, az);
+    }
+    for (const t of this.sights()) {
+      const x = X(t.x), z = Z(t.z);
+      g.fillStyle = t.locked ? 'rgba(110,100,85,.95)' : '#F4E6C0'; g.strokeStyle = t.locked ? '#4A4238' : '#7A2420'; g.lineWidth = 2.5;
+      g.beginPath(); g.arc(x, z, 11, 0, 7); g.fill(); g.stroke();
+      g.font = '13px "Segoe UI Symbol", "Apple Symbols", Georgia, serif'; g.textAlign = 'center'; g.fillStyle = t.locked ? '#E9DCB8' : '#2B2418'; g.fillText(t.icon, x, z + 5);
+      g.font = 'bold 11px Georgia, serif'; g.lineWidth = 3; g.strokeStyle = 'rgba(233,220,184,.9)';
+      const name = t.label;
+      g.strokeText(name, x, z + 24); g.fillStyle = t.locked ? '#4A4238' : '#7A2420'; g.fillText(name, x, z + 24);
+    }
     // You are here.
     const me = this.player();
     if (Math.abs(me.x) <= HALF && Math.abs(me.z) <= HALF) {

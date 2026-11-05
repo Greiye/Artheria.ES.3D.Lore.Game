@@ -1,7 +1,7 @@
 // v0.04: haptic feedback. A connected gamepad rumbles (Chrome/Edge/Safari dual-rumble); a phone vibrates
 // (Android). iPhone Safari has no vibration API, so on iOS 18+ a tap ticks the Taptic Engine by flipping a hidden
 // system switch (<input type="checkbox" switch>), the one web-reachable haptic on iOS. Off with Settings > Vibration.
-type Haptic = 'tap' | 'jump' | 'land' | 'fire' | 'jam' | 'reload' | 'hit' | 'hurt' | 'pickup';
+type Haptic = 'tap' | 'jump' | 'land' | 'fire' | 'jam' | 'reload' | 'hit' | 'hurt' | 'pickup' | 'stomp' | 'slam';
 
 const FX: Record<Haptic, { ms: number; strong: number; weak: number }> = {
   tap: { ms: 25, strong: 0, weak: 0.35 },
@@ -14,6 +14,9 @@ const FX: Record<Haptic, { ms: number; strong: number; weak: number }> = {
   hit: { ms: 70, strong: 0.6, weak: 0.4 },
   hurt: { ms: 160, strong: 0.9, weak: 0.3 },
   pickup: { ms: 30, strong: 0, weak: 0.5 },
+  // Mike 2026-11-05: the knight frame's footfalls and its ground-slam.
+  stomp: { ms: 70, strong: 0.5, weak: 0 },
+  slam: { ms: 300, strong: 1, weak: 0.8 },
 };
 
 // Mike 2026-11-04: "No haptic feedback for mobile buttons" (iPhone): the iOS switch tick below.

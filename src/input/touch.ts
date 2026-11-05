@@ -179,13 +179,15 @@ export class TouchControls {
     const verb = this.g.state() === 'play' ? this.g.useVerb() : null;
     this.readBtn.classList.toggle('hidden', !verb);
     if (verb && this.readBtn.textContent !== verb) this.readBtn.textContent = verb;
-    this.root.querySelector('[data-act="shoulder"]')!.classList.toggle('hidden', !this.g.canSwapShoulder());
+    const sh = this.root.querySelector<HTMLElement>('[data-act="shoulder"]')!, pilot = !!this.g.piloting?.();
+    sh.classList.toggle('hidden', !this.g.canSwapShoulder());
+    if (sh.textContent !== (pilot ? '✦' : '⇄')) { sh.textContent = pilot ? '✦' : '⇄'; sh.title = pilot ? 'Rune pulse' : 'Swap shoulder'; }
     const sneak = this.root.querySelector('[data-act="sneak"]')!;
     sneak.classList.toggle('latched', this.g.player.sneaking);
     const cb = this.g.crossbow;   // F4: crossbow buttons once Natalie has handed it over
     const bow = this.root.querySelector('.t-bow')!;
     const sw = this.g.sword;   // v0.08: the same Fire button swings the sword
-    bow.classList.toggle('hidden', !(this.g.state() === 'play' && (cb.equipped || sw.equipped || this.hasBow() || this.g.hasSword())));
+    bow.classList.toggle('hidden', !(this.g.state() === 'play' && (pilot || cb.equipped || sw.equipped || this.hasBow() || this.g.hasSword())));
     bow.querySelector('[data-act="reload"]')!.classList.toggle('hidden', !cb.equipped);
     // Mike 2026-11-05: one button per hand, labelled by what it does (Fire, Swing, Aim).
     for (const [act, h] of [['fire', 'right'], ['aim', 'left']] as const) {

@@ -94,6 +94,16 @@ export function outlineStatic(meshes: THREE.Mesh[], scene: THREE.Object3D, name 
   return o;
 }
 
+/** Outline one moving mesh: its own hull as a child, so it follows the mesh (the knight frame's limbs). */
+export function outlineChild(m: THREE.Mesh): THREE.Mesh | null {
+  const hull = hullGeometry([m.geometry], ['position']);
+  if (!hull) return null;
+  const o = new THREE.Mesh(hull, outlineMaterial());
+  o.name = 'outline-child'; o.raycast = noRaycast;
+  m.add(o);
+  return o;
+}
+
 /** Outline a skinned character: a hull bound to the same skeleton, beside the body. */
 export function outlineSkinned(body: THREE.SkinnedMesh): THREE.SkinnedMesh | null {
   const hull = hullGeometry([body.geometry], ['position', 'skinIndex', 'skinWeight']);

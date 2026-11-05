@@ -102,14 +102,21 @@ export class Player {
     this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k * (this.settings.invertY ? -1 : 1), -lim, lim);
   }
 
+  /** Mike 2026-11-05: piloting the knight frame. The figure hides (the pilot is inside), the body is wider and
+   *  slower, and Space / Y / the jump button is the frame's ground-slam instead (no jumping, vaulting or sneaking). */
+  piloting = false;
+  pilotJump: (() => void) | null = null;
+  get radius() { return this.piloting ? 0.85 : controls.playerRadius; }
+
   jump() {
+    if (this.piloting) { this.pilotJump?.(); return; }
     if (!this.grounded || this.sneaking || this.vault) return;
     if (this.tryVault(VAULT_MAX)) return;
     this.vy = Math.sqrt(2 * controls.gravity * controls.jumpHeight); // F2.1 Space: ~1 m apex
     this.grounded = false;
   }
 
-  toggleSneak() { this.sneaking = !this.sneaking; }
+  toggleSneak() { if (!this.piloting) this.sneaking = !this.sneaking; }
 
   // Speed rules (F2 table): run by default; Shift = walk; Caps Lock flips the default; Alt = sprint.
   /** Slows (a snare, a diseased goblin's bite) scale every speed; 1 = none. */
@@ -120,6 +127,7 @@ export class Player {
   buffMul = 1;
   speed(): number {
     const s = controls.speeds;
+    if (this.piloting) return (this.held.has('sprint') ? 7 : 3.6) * this.speedMul;   // heavy: a stomping walk, a run when pushed
     if (this.sneaking) return s.sneak * this.speedMul * this.buffMul;
     if (this.held.has('sprint')) return s.sprint * this.speedMul * this.buffMul;
     const running = this.settings.alwaysRun !== this.held.has('walk');
@@ -232,12 +240,13 @@ export class Player {
 
   private turnBody(target: number, dt: number) {
     const d = Math.atan2(Math.sin(target - this.bodyYaw), Math.cos(target - this.bodyYaw));
+    if (this.piloting) { this.bodyYaw += Math.sign(d) * Math.min(Math.abs(d), 2.6 * dt); return; }   // the frame turns slowly
     this.bodyYaw += d * (1 - Math.exp(-14 * dt));
   }
 
   // F1.3: push the player circle out of every collider, then clamp to the invisible boundary.
   private resolve() {
-    const pr = controls.playerRadius;
+    const pr = this.radius;
     if (this.vault) return;   // the vault's path is already clear of what it goes over
     for (const c of this.colliders) {
       if (c.top !== undefined && this.pos.y >= c.top - STEP) continue;   // standing on it, or stepping up

@@ -52,5 +52,6 @@ export interface GameHooks {
   panelHold?(on: boolean): boolean;   // B40: A held in a panel job that needs holding (sharpening); true while one is running
   deskOpen?(): boolean;               // B40: the margin-note desk is open in the book
   bookPen?(): void;                   // B40: pick up the pen in the open book
-  canSwapShoulder(): boolean;         // B40: the touch shoulder button shows only in the shoulder view
+  canSwapShoulder(): boolean;         // B40 (and the rune pulse while piloting the knight frame)
+  piloting?(): boolean;               // Mike 2026-11-05: in the knight frame         // B40: the touch shoulder button shows only in the shoulder view
 }

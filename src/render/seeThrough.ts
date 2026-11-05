@@ -63,7 +63,7 @@ export function enableSeeThrough(root: THREE.Object3D) {
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh || (mesh as THREE.SkinnedMesh).isSkinnedMesh || SKIP_NAMES.test(mesh.name)) return;
-    if (o.userData.rig || o.parent?.userData.rig) return;   // characters
+    if (o.userData.rig || o.parent?.userData.rig || o.userData.solid) return;   // characters (and the knight frame)
     for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) patchMaterial(m);
   });
 }

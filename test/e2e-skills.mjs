@@ -31,7 +31,7 @@ await page.waitForFunction(() => window.__gametool.state === 'play');
 await page.waitForTimeout(500);
 
 check('A practice table stands by the dojo mats and can be used', await G(page, () => window.__gametool.interactables.some((i) => i.obj.name === 'skill-table' && i.verb() === 'Practise a real skill')));
-check('The living map marks the practice table', await G(page, () => window.__gametool.livingMap.marks().some((m) => m.label === 'Practice table')));
+check('The living map marks the practice table', await G(page, () => window.__gametool.livingMap.sights().some((m) => m.label === 'Practice table')));
 await G(page, () => window.__gametool.openSkills());
 await page.waitForTimeout(300);
 check('First visit: the safety note comes before any skill', await G(page, () => window.__gametool.state === 'forge' && /emergency number/.test(document.querySelector('#skills .dj-disclaimer')?.textContent ?? '') && !document.querySelector('#skills [data-skill]')));
