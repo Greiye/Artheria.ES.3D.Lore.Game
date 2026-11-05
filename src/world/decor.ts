@@ -3,6 +3,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { rng } from '../tex/pixel';
 import { wind } from './foliage';
 import type { Collider } from './index';
+import { heightAt } from './terrain';
+import { PATHS } from './land';
 
 // Medieval decorations (Mike 2026-11-05, Graphics thread: "Add all decorations"). Real low-poly 3D, painted with
 // flat vertex colours (our own palette, no textures), every kind merged into one mesh: a draw call or two each, so
@@ -190,4 +192,74 @@ export function buildWallLanterns(scene: THREE.Scene, T: DecorTown, lanterns: TH
   g.material = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.7, 1.7, 1.7) });
   g.castShadow = false;
   return [iron.mesh(scene, 'decor-lantern-iron')!, g];
+}
+
+/** 4. Rustic clutter behind the houses: split-log woodpiles against the back walls, a hand cart, stacked hay bales. */
+export function buildRustic(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
+  const P = new Painter(7401), R = rng(7402), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const segDist = (x: number, z: number, [ax, az]: [number, number], [bx, bz]: [number, number]) => {
+    const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+    return Math.hypot(x - ax - dx * t, z - az - dz * t);
+  };
+  const onPath = (x: number, z: number, r: number) => PATHS.some((line) => line.some((p, i) => i > 0 && segDist(x, z, line[i - 1], p) < r + 1.4));
+  const free = (x: number, z: number, r: number) => !onPath(x, z, r) && !T.colliders.some((c) => c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + r
+    : x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r);
+  const LOG = ['#6A4A2C', '#7A5634', '#5E3E24'], END = '#C8A06A', HAY = ['#D8B65A', '#C8A44A', '#E2C46C'], STRING = '#8A6A3A';
+  // A woodpile: rows of split logs (6-sided), pale cut ends facing out, under a little plank roof.
+  const woodpile = (L: DecorLot) => {
+    const len = 1.9, lz = -L.d / 2 - 0.42, ry = L.ry, base = L.at(0.4, 0, lz), y0 = heightAt(base.x, base.z);
+    if (onPath(base.x, base.z, 1.0)) return false;
+    for (let row = 0; row < 4; row++) for (let k = 0; k < 7 - row; k++) {
+      const lx = 0.4 - len / 2 + 0.14 + (k + row * 0.5) * 0.27, p = L.at(lx, y0 + 0.13 + row * 0.23, lz);
+      P.add(new THREE.CylinderGeometry(0.12, 0.12, 0.62, 6), LOG[Math.floor(R() * 3)], p, ry + Math.PI / 2, Math.PI / 2, (R() - 0.5) * 0.1);
+      for (const e of [-1, 1]) P.add(new THREE.CircleGeometry(0.11, 6), END, L.at(lx, y0 + 0.13 + row * 0.23, lz + e * 0.315), ry + (e < 0 ? Math.PI : 0));
+    }
+    for (const lx of [0.4 - len / 2 - 0.05, 0.4 + len / 2 + 0.05]) P.add(new THREE.BoxGeometry(0.08, 1.2, 0.08), '#5A3C22', L.at(lx, y0 + 0.6, lz - 0.3), ry);
+    P.add(new THREE.BoxGeometry(len + 0.4, 0.05, 0.9), '#6A4828', L.at(0.4, y0 + 1.22, lz + 0.05), ry, -0.18);
+    for (const lx of [-0.3, 0.5, 1.2]) { const c = L.at(lx, 0, lz); T.colliders.push({ kind: 'circle', x: c.x, z: c.z, r: 0.38, top: 1.0 }); }
+    return true;
+  };
+  // A hay bale: a straw box with two strings round it.
+  const bale = (x: number, y: number, z: number, ry: number) => {
+    P.add(new THREE.BoxGeometry(0.9, 0.45, 0.5), HAY[Math.floor(R() * 3)], V(x, y + 0.225, z), ry);
+    for (const o of [-0.22, 0.22]) P.add(new THREE.BoxGeometry(0.03, 0.47, 0.52), STRING, V(x + Math.cos(ry) * o, y + 0.225, z - Math.sin(ry) * o), ry);
+  };
+  const hayStack = (x: number, z: number, ry: number) => {
+    const y = heightAt(x, z), c = Math.cos(ry), sn = Math.sin(ry);
+    for (const [a, b, h] of [[-0.48, 0, 0], [0.48, 0, 0], [0, 0.55, 0], [-0.48, 0.55, 0], [0.48, 0.55, 0], [0, 0.27, 0.45], [-0.45, 0.27, 0.45]] as const) bale(x + a * c + b * sn, y + h, z - a * sn + b * c, ry);
+    T.colliders.push({ kind: 'circle', x, z, r: 0.95, top: 0.9 });
+  };
+  // A two-wheeled hand cart: plank bed with sides, spoked wheels, shafts resting on the ground, a load of hay.
+  const cart = (x: number, z: number, ry: number) => {
+    const y = heightAt(x, z), c = Math.cos(ry), sn = Math.sin(ry), at = (lx: number, ly: number, lz: number) => V(x + lx * c + lz * sn, y + ly, z - lx * sn + lz * c);
+    P.add(new THREE.BoxGeometry(1.2, 0.07, 1.8), '#7A5430', at(0, 0.62, 0), ry, 0.08);
+    for (const sx of [-0.6, 0.6]) P.add(new THREE.BoxGeometry(0.05, 0.3, 1.8), '#6A4828', at(sx, 0.78, 0), ry, 0.08);
+    P.add(new THREE.BoxGeometry(1.2, 0.3, 0.05), '#6A4828', at(0, 0.84, -0.9), ry, 0.08);
+    for (const sx of [-0.68, 0.68]) {
+      P.add(new THREE.CylinderGeometry(0.42, 0.42, 0.06, 8).rotateZ(Math.PI / 2), '#4A3220', at(sx, 0.42, -0.1), ry);
+      P.add(new THREE.CylinderGeometry(0.43, 0.43, 0.035, 8).rotateZ(Math.PI / 2), IRON, at(sx * 1.03, 0.42, -0.1), ry);   // the iron tyre
+      for (let k = 0; k < 4; k++) P.add(new THREE.BoxGeometry(0.03, 0.78, 0.04), '#6A4828', at(sx * 1.05, 0.42, -0.1), ry, (k / 4) * Math.PI);
+      P.add(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 6).rotateZ(Math.PI / 2), '#3A2A1A', at(sx * 1.08, 0.42, -0.1), ry);
+    }
+    P.add(new THREE.BoxGeometry(1.5, 0.06, 0.06), '#5A3C22', at(0, 0.42, -0.1), ry);   // axle
+    for (const sx of [-0.45, 0.45]) P.add(new THREE.BoxGeometry(0.06, 0.06, 1.5), '#6A4828', at(sx, 0.35, 1.45), ry, -0.4);   // shafts
+    for (let k = 0; k < 3; k++) P.add(new THREE.BoxGeometry(0.9, 0.4, 0.5), HAY[k % 3], at(0, 0.88, -0.55 + k * 0.55), ry + (R() - 0.5) * 0.15, 0.08);
+    T.colliders.push({ kind: 'circle', x, z, r: 0.95, top: 1.1 }, { kind: 'circle', x: at(0, 0, 1.3).x, z: at(0, 0, 1.3).z, r: 0.4, top: 0.5 });
+  };
+  for (const L of T.lots) if (['smithy', 'inn', 'dojo', 'cartographer', 'library'].includes(L.id)) woodpile(L);
+  // Carts and hay a few steps out behind some houses, where the ground is free.
+  let carts = 0, stacks = 0;
+  const SPOTS: [number, number][] = [[-1.2, -2.6], [1.6, -2.8], [-2.6, -2.4], [2.8, -2.4], [0.2, -3.2]];
+  for (const L of T.lots) {
+    const wantCart = ['inn', 'smithy', 'tailor', 'gallery'].includes(L.id), wantHay = ['inn', 'dojo', 'scriptorium', 'shop'].includes(L.id);
+    let cartDone = !wantCart, hayDone = !wantHay;
+    for (const [lx, dz] of SPOTS) {
+      const p = L.at(lx, 0, -L.d / 2 + dz);
+      if (!cartDone && free(p.x, p.z, 1.2)) { cart(p.x, p.z, L.ry + 0.5 + R()); carts++; cartDone = true; }
+      else if (!hayDone && free(p.x, p.z, 1.1)) { hayStack(p.x, p.z, L.ry + R()); stacks++; hayDone = true; }
+    }
+  }
+  const m = P.mesh(scene, 'decor-rustic')!;
+  m.userData = { carts, stacks };
+  return [m];
 }
