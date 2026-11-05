@@ -41,6 +41,10 @@ check('Four flagpoles on the green you bump into', flagpoles === 4, `${flagpoles
 const stalls = m0['decor-stalls'];
 const counters = await page.evaluate(() => window.__gametool.world.colliders.filter((c) => c.kind === 'circle' && c.r === 0.62 && c.top === 0.88).length);
 check('Market stalls: one merged mesh, flat painted, three stalls with counters', stalls?.n === 1 && !stalls.map && stalls.tris < 4000 && counters === 6, JSON.stringify({ stalls, counters }));
+// 3. Wall lanterns: iron brackets and glowing glass, two merged meshes; every lantern joins the night lights.
+const ironM = m0['decor-lantern-iron'], glassM = m0['decor-lantern-glass'];
+const lit = await page.evaluate(() => window.__gametool.world.lanterns.length);
+check('Wall lanterns: iron and glass in two meshes, 2 per house, all in the night lights', ironM?.n === 1 && glassM?.n === 1 && glassM.tris === 18 * 24 && ironM.tris < 9000 && lit >= 18 * 2, JSON.stringify({ iron: ironM?.tris, glass: glassM?.tris, lit }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
