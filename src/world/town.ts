@@ -6,6 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Collider } from './index';
 import { TOWN_PALETTE as P } from './palette';
 import { waterMaterial } from './river';
+import { propCards, type Prop } from './propCards';
 
 // v0.04: a small storybook town south of the glade, down the path from the spawn point. One building per
 // tool, scattered round an oval green at odd angles (Mike, 2026-10-28: "make it feel lively"): the library
@@ -236,8 +237,6 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     }
     if (L.id === 'shop') {   // a market counter in front, with crates
       B.add(wood, new THREE.BoxGeometry(2.4, 0.9, 0.7), at(2.0, 0.45, D / 2 + 1.6), undefined, L.ry);
-      B.add(tex('planks'), new THREE.BoxGeometry(0.6, 0.6, 0.6), at(-2.3, 0.3, D / 2 + 1.0), undefined, L.ry + 0.3);
-      B.add(tex('planks'), new THREE.BoxGeometry(0.5, 0.5, 0.5), at(-2.2, 0.85, D / 2 + 1.0), undefined, L.ry - 0.2);
       for (const lx of [1.4, 2.6]) { const cp = at(lx, 0, D / 2 + 1.6); colliders.push({ kind: 'circle', x: cp.x, z: cp.z, r: 0.62, top: 0.9 }); }
     }
     // Hanging sign over the door: its row of the shared atlas.
@@ -314,6 +313,7 @@ const BUNTING = [P.brick, P.tan, P.slate, P.moss, P.cream];
 function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[], local: (L: Spot) => (lx: number, y: number, lz: number) => THREE.Vector3, ring: Spot[]) {
   const R = rng(6262), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
   const painted: THREE.BufferGeometry[] = [];
+  const props: Prop[] = [];
   const paint = (g: THREE.BufferGeometry, hex: string, pos: THREE.Vector3, ry = 0, rx = 0, rz = 0) => {
     const ng = g.index ? g.toNonIndexed() : g;
     ng.deleteAttribute('uv');
@@ -356,20 +356,22 @@ function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Mate
       }
       if (L.id === 'shop') for (const x of [cx - w / 2 + 0.05, cx + w / 2 - 0.05]) B.add(tex('wood'), new THREE.BoxGeometry(0.1, 1.95, 0.1), at(x, 0.97, D / 2 + dep - 0.05), undefined, L.ry);
     }
-    // Barrels and a crate stacked against a side wall on some houses.
+    // Quad detail 4: barrels and crates against a side wall on some houses, as painted cards (one draw call).
     if (li % 2 === 0 && L.id !== 'shop') {
       const side = li % 4 ? 1 : -1;
-      for (const [k, dz] of [[0, -0.2], [1, -1.15]] as const) {
-        const p = at(side * (W / 2 + 0.55), 0, D / 2 + dz);
-        if (k === 0) {
-          B.add(planks, new THREE.CylinderGeometry(0.36, 0.32, 0.9, 9), p.clone().setY(0.45), undefined, R() * 3);
-          for (const y of [0.18, 0.72]) paint(new THREE.CylinderGeometry(0.375, 0.375, 0.05, 9), '#3A3A3E', p.clone().setY(y));
-          colliders.push({ kind: 'circle', x: p.x, z: p.z, r: 0.4, top: 0.9 });
-        } else {
-          B.add(planks, new THREE.BoxGeometry(0.7, 0.7, 0.7), p.clone().setY(0.35), undefined, L.ry + 0.2);
-          colliders.push({ kind: 'circle', x: p.x, z: p.z, r: 0.45, top: 0.7 });
-        }
-      }
+      const b = at(side * (W / 2 + 0.55), 0, D / 2 - 0.2), c = at(side * (W / 2 + 0.55), 0, D / 2 - 1.15);
+      props.push({ kind: 'barrel', x: b.x, z: b.z }, { kind: R() < 0.5 ? 'crate' : 'crates', x: c.x, z: c.z, flip: side < 0 });
+      colliders.push({ kind: 'circle', x: b.x, z: b.z, r: 0.4, top: 0.9 }, { kind: 'circle', x: c.x, z: c.z, r: 0.45, top: 0.7 });
+    }
+    // More clutter where trade happens: crates by the shop counter, kegs at the inn, barrels at the smithy.
+    const extra: [PropCardKind, number, number][] = L.id === 'shop' ? [['crates', -2.3, D / 2 + 1.0], ['crate', -1.5, D / 2 + 1.5]]
+      : L.id === 'inn' ? [['keg', -2.6, D / 2 + 0.55], ['keg', -1.95, D / 2 + 0.5], ['barrel', -W / 2 - 0.55, D / 2 - 0.4]]
+      : L.id === 'smithy' ? [['barrel', W / 2 + 0.6, D / 2 - 0.5], ['barrel', W / 2 + 0.6, D / 2 - 1.4], ['crate', W / 2 + 0.7, D / 2 - 2.4]]
+      : [];
+    for (const [kind, lx, lz] of extra) {
+      const p = at(lx, 0, lz);
+      props.push({ kind, x: p.x, z: p.z, flip: R() < 0.5 });
+      colliders.push({ kind: 'circle', x: p.x, z: p.z, r: kind === 'keg' ? 0.3 : kind === 'crates' ? 0.55 : 0.42, top: kind === 'keg' ? 0.6 : 0.9 });
     }
   });
 
@@ -412,4 +414,6 @@ function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Mate
   const mesh = new THREE.Mesh(mergeGeometries(painted), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
   mesh.name = 'town-dressing'; mesh.raycast = () => {};
   scene.add(mesh);
+  propCards(scene, props);
 }
+type PropCardKind = Prop['kind'];

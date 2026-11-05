@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.15 changelog, part 14: barrels and crates (quad detail 4, Mike 2026-11-04, Graphics thread)
+- Barrels, kegs and crates are now painted pixel-art cards that turn to face you and lean back a little toward a high camera, all one mesh (one draw call, two triangles each instead of 12 to 40). There are more of them where trade happens: crates by the shop counter, kegs at the inn door, barrels by the smithy.
+
 ### v0.15 changelog, part 13: rolling hills and drifting clouds (quad detail 3, Mike 2026-11-04, Graphics thread)
 - Two rings of painted hill cards stand between the meadow and the mountains, and about thirty pixel-art clouds drift slowly across the sky. They are flat cards in three meshes, tinted by the time of day so they warm at dusk and darken at night.
 
