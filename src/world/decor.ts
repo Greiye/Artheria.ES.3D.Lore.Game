@@ -326,3 +326,70 @@ export function buildWayside(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
   m.userData = { signs, wells };
   return [m];
 }
+
+// 6. Ivy and moss on the stone walls. Every face and top adds to two shared painters, flushed once (index.ts), so
+// all the ivy is one mesh and all the moss another wherever it grows: the low walls, the library, the house plinths.
+const IVY = ['#2E5A24', '#3A6E2C', '#4A8234', '#5E9A3E'], MOSS = ['#4E6E2E', '#5E7E34', '#6A8A3A', '#7A9A44'];
+const ivyP = new Painter(7601), mossP = new Painter(7602), IR = rng(7603);
+let ivyLeaves = 0, mossTufts = 0;
+/** Ivy climbing a wall face. `o` is the face's bottom-left corner, `along` runs along the bottom, `n` points out. */
+export function ivyFace(o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, w: number, h: number, vines: number) {
+  const ry = Math.atan2(n.x, n.z), up = new THREE.Vector3(0, 1, 0);
+  for (let v = 0; v < vines; v++) {
+    let t = 0.05 + IR() * (w - 0.1), y = 0;
+    const top = h * (0.35 + IR() * 0.6);
+    while (y < top) {
+      const dy = (h > 3 ? 0.26 : 0.14) + IR() * 0.06, dt = (IR() - 0.5) * 0.12, p0 = o.clone().addScaledVector(along, t).addScaledVector(up, y).addScaledVector(n, 0.03);
+      t = Math.max(0.02, Math.min(w - 0.02, t + dt)); y += dy;
+      const p1 = o.clone().addScaledVector(along, t).addScaledVector(up, y).addScaledVector(n, 0.03), mid = p0.clone().lerp(p1, 0.5);
+      ivyP.add(new THREE.PlaneGeometry(0.022, p0.distanceTo(p1)), '#4A3A22', mid, ry, 0, Math.atan2(-dt, dy));   // the stem (a flat strip)
+      // Two or three leaves at each joint, splayed, a little off the wall, darker low down.
+      const k = Math.min(3, Math.floor((y / h) * 4) + Math.floor(IR() * 2));
+      for (let l = 0; l < 2 + (IR() < 0.4 ? 1 : 0); l++) {
+        const side = (l - 0.5) * 0.11, p = p1.clone().addScaledVector(along, side + (IR() - 0.5) * 0.05).addScaledVector(n, 0.02 + IR() * 0.04);
+        ivyP.add(new THREE.PlaneGeometry(0.1 + IR() * 0.05, 0.1 + IR() * 0.05).rotateZ(Math.PI / 4), IVY[Math.max(0, Math.min(3, k))], p, ry + (IR() - 0.5) * 0.6, (IR() - 0.5) * 0.5, IR() * Math.PI);
+        ivyLeaves++;
+      }
+    }
+  }
+}
+/** Moss cushions along the top of a wall (or ledge) centred at (x, y, z), w along x and d along z. */
+export function mossTop(x: number, y: number, z: number, w: number, d: number, n: number) {
+  for (let i = 0; i < n; i++) {
+    const g = new THREE.IcosahedronGeometry(1, 0).scale(0.14 + IR() * 0.16, 0.035 + IR() * 0.03, 0.12 + IR() * 0.12);
+    mossP.add(g, MOSS[Math.floor(IR() * 4)], new THREE.Vector3(x + (IR() - 0.5) * w * 0.9, y, z + (IR() - 0.5) * d * 0.9), IR() * Math.PI);
+    mossTufts++;
+  }
+}
+/** Moss creeping up the foot of a wall face: low cushions pressed against it. */
+export function mossFoot(o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, w: number, count: number) {
+  const ry = Math.atan2(n.x, n.z);
+  for (let i = 0; i < count; i++) {
+    const p = o.clone().addScaledVector(along, IR() * w).addScaledVector(n, 0.02).setY(o.y + 0.02 + IR() * 0.12);
+    mossP.add(new THREE.IcosahedronGeometry(1, 0).scale(0.16 + IR() * 0.14, 0.06 + IR() * 0.08, 0.05), MOSS[Math.floor(IR() * 4)], p, ry);
+    mossTufts++;
+  }
+}
+/** Build the ivy and moss meshes from everything added (call once, after the town). */
+export function flushIvyMoss(scene: THREE.Scene): THREE.Mesh[] {
+  const out = [ivyP.mesh(scene, 'decor-ivy'), mossP.mesh(scene, 'decor-moss')].filter((m): m is THREE.Mesh => !!m);
+  for (const m of out) m.userData = { ivyLeaves, mossTufts };
+  return out;
+}
+
+/** Moss at the foot of every house's stone plinth, thickest at the back and the corners. */
+export function plinthMoss(T: DecorTown) {
+  for (const L of T.lots) {
+    const fronts: [number, number, number, number, number][] = [   // corner lx, lz, along x/z, normal x/z
+      [-L.w / 2 - 0.15, -L.d / 2 - 0.15, 1, 0, -1],   // back
+      [-L.w / 2 - 0.15, -L.d / 2 - 0.15, 0, 1, 0],    // left side (normal -x)
+      [L.w / 2 + 0.15, -L.d / 2 - 0.15, 0, 1, 0],     // right side (normal +x)
+    ];
+    fronts.forEach(([lx, lz, ax, az], k) => {
+      const o = L.at(lx, 0, lz), a = L.at(lx + ax, 0, lz + az).sub(o).normalize();
+      const nLocal = k === 0 ? [0, -1] : k === 1 ? [-1, 0] : [1, 0], n = L.at(nLocal[0], 0, nLocal[1]).sub(L.at(0, 0, 0)).normalize();
+      const len = k === 0 ? L.w + 0.3 : L.d + 0.3;
+      mossFoot(o, a, n, len, k === 0 ? 10 : 6);
+    });
+  }
+}
