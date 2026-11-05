@@ -27,7 +27,7 @@ const meshes = () => page.evaluate(() => {
     if (!o.isMesh || !o.name.startsWith('decor-')) return;
     const m = out[o.name] ?? (out[o.name] = { n: 0, tris: 0, map: false, pos: null });
     m.n++; m.tris += o.geometry.attributes.position.count / 3; m.map ||= !!o.material.map;
-    m.pos = Array.from(o.geometry.attributes.position.array.slice(0, 3));
+    m.pos = Array.from(o.geometry.attributes.position.array.slice(0, 3)); m.user = o.userData;
   });
   return out;
 });
@@ -45,6 +45,9 @@ check('Market stalls: one merged mesh, flat painted, three stalls with counters'
 const ironM = m0['decor-lantern-iron'], glassM = m0['decor-lantern-glass'];
 const lit = await page.evaluate(() => window.__gametool.world.lanterns.length);
 check('Wall lanterns: iron and glass in two meshes, 2 per house, all in the night lights', ironM?.n === 1 && glassM?.n === 1 && glassM.tris === 18 * 24 && ironM.tris < 9000 && lit >= 18 * 2, JSON.stringify({ iron: ironM?.tris, glass: glassM?.tris, lit }));
+// 4. Woodpiles, carts and hay: one merged mesh behind the houses, off the paths.
+const rustic = m0['decor-rustic'];
+check('Woodpiles, carts and hay bales: one merged mesh, flat painted, at least 3 carts and 3 hay stacks', rustic?.n === 1 && !rustic.map && rustic.tris < 20000 && rustic.user.carts >= 3 && rustic.user.stacks >= 3, JSON.stringify(rustic));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
