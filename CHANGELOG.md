@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 10: the witch's scrolls (Mike 2026-11-05)
+- Each time you take the stairs down, three scrolls lie on the top step. Take one (or leave them) and it imbues
+  something you carry until the run ends: Rime (bolts slow a goblin), Witchfire (bolts +1, but blows hurt you 1
+  more), the Drinking Edge (cuts mend 1), the Hungry Edge (+1 blade damage, but camps no longer mend you), Thorns
+  (a blocked blow wounds the striker), the Seeing Flame (with a torch lit, lurkers and mimics can't hide), the
+  Heavy Stone (rocks hit harder) and Quick Feet (faster, but thieves always go for your books).
+- Only scrolls for things you carry are offered, never one you already have. The HUD lists what you're imbued with.
+- New `test/e2e-scrolls.mjs` (9/9).
+
 ### v0.16 changelog, part 9: guardians, rest camps and flux floors (Mike 2026-11-05)
 - **Guardians**: a named boss goblin (Gnash the Binder, Old Mother Mildew, ...) waits in the deepest room of its
   floor. Guardian floors are rolled once: each 7 to 10 floors after the last, so up to 3 early, never more than 10

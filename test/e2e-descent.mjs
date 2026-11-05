@@ -44,12 +44,12 @@ await G(() => window.__gametool.dropLoreBook('on a test shelf', 7));
 const carry = await G(() => ({ books: window.__gametool.descent.books.length, seen: JSON.parse(localStorage.getItem('gametool.seen') || '[]').length }));
 check('A book found below is carried, not yet on the shelves', carry.books === 1 && carry.seen === seen0, JSON.stringify({ seen0, carry }));
 // Down: a new floor, wounds carry.
-await G(() => { window.__gametool.delveHp = 7; window.__gametool.goDown(); });
+await G(() => { window.__gametool.delveHp = 7; window.__gametool.goDown(true); });
 await page.waitForFunction(() => window.__gametool.descent?.floor === 2 && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
 const f2 = await G(() => ({ hp: window.__gametool.delveHp, seed: window.__gametool.dungeon.layout.seed }));
 check('Down the stairs: floor 2, a new layout, and your wounds come with you', f2.hp === 7, JSON.stringify(f2));
 // Deeper bands: floor 14.
-await G(() => { window.__gametool.descent.floor = 13; window.__gametool.goDown(); });
+await G(() => { window.__gametool.descent.floor = 13; window.__gametool.goDown(true); });
 await page.waitForFunction(() => window.__gametool.descent?.floor === 14 && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
 const deep = await G(() => { const g = window.__gametool, a = g.goblins.alive; return { band: g.goblins.band, n: a.length, roles: a.map((f) => f.role), hp: g.goblins.hpMul, dmg: g.goblins.dmgBonus, hud: document.getElementById('delveHp').textContent }; });
 check('Floor 14: band 3 (droppers, slingers, guards), tougher and more goblins', deep.band === 3 && deep.n >= 6 && deep.roles.some((r) => r !== 'none') && deep.hp > 1.8 && deep.dmg >= 2, JSON.stringify(deep));
@@ -93,7 +93,7 @@ await frames(2);
 // The good ending: floor 30, the hoard, out alive.
 await G(() => window.__gametool.startDescent());
 await page.waitForFunction(() => window.__gametool.inDungeon, null, { timeout: 20000 });
-await G(() => { window.__gametool.descent.floor = 29; window.__gametool.goDown(); });
+await G(() => { window.__gametool.descent.floor = 29; window.__gametool.goDown(true); });
 await page.waitForFunction(() => window.__gametool.descent?.floor === 30 && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
 const f30 = await G(() => { const g = window.__gametool; return { hoard: g.dungeon.spots.some((s) => s.kind === 'hoard'), down: g.dungeon.spots.some((s) => s.kind === 'down'), keepers: g.goblins.alive.filter((f) => f.role === 'keeper').length }; });
 check('Floor 30: the hoard and its keepers, no stairs down', f30.hoard && !f30.down && f30.keepers >= 1, JSON.stringify(f30));

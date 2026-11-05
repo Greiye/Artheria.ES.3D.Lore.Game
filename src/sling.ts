@@ -42,6 +42,8 @@ export class Thrower {
   readonly viewmodel = new THREE.Group();
   /** Shared by both hands: rocks in flight and lying about. */
   static readonly rocks: Rock[] = [];
+  /** F1 the heavy stone: extra damage on every rock (both hands). */
+  static bonus = 0;
   onThrow: (kind: ThrowKind, power: number) => void = () => undefined;
   private recoil = 0;
 
@@ -94,7 +96,7 @@ export class Thrower {
     const start = P.eyePos.clone().addScaledVector(dir, 0.4); start.x += Math.cos(P.yaw) * 0.15 * this.side;
     const mesh = new THREE.Mesh(ROCK_GEO, ROCK_MAT); mesh.position.copy(start); mesh.castShadow = true;
     this.scene.add(mesh);
-    Thrower.rocks.push({ mesh, vel: dir.multiplyScalar(speed), landed: false, age: 0, damage });
+    Thrower.rocks.push({ mesh, vel: dir.multiplyScalar(speed), landed: false, age: 0, damage: damage + Thrower.bonus });
     this.throws++; this.recoil = 0.25;
     this.onThrow(this.kind, power);
   }

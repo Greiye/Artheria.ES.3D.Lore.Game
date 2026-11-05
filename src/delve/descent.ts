@@ -42,6 +42,8 @@ export interface Descent {
   started: string;
   /** This floor: twisted or not, and whether its camp has been rested at. */
   flux?: Flux; rested?: boolean;
+  /** F1: the witch's scrolls taken this run (ids). */
+  scrolls?: string[];
 }
 export interface Record_ { deepest: number; delivered: number; heroes: number; runs: number; guardians: number[]; ropes: number[] }
 export interface Fallen { name: string; floor: number; books: number; by: string; at: string; words: string }

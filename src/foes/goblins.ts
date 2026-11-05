@@ -52,6 +52,8 @@ interface Foe {
   hurtT: number; mats: { m: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial; base: THREE.Color }[];
   /** Deeper floors: its role, which side it flanks from, a carried-off book, the drop from above, a shaman's clock, a captain's second blow. */
   role: Role; flank: number; book: string | null; dropT: number; spell: number; combo: boolean;
+  /** F1 frost bolts: seconds left at half speed. */
+  chillT: number;
 }
 interface Shot { mesh: THREE.Mesh; vel: THREE.Vector3; dmg: number; by: Foe; bomb: boolean; fuse: number; landed: boolean }
 interface Snare { mesh: THREE.Mesh; die: string; by: Foe }
@@ -95,6 +97,18 @@ export class Goblins {
   private tmp = new THREE.Vector3();
   /** Mike 2026-11-05: the floor you're on (0: not a descent) and what it sets: the band of tricks, extra health and damage. */
   floor = 0; band = 0; hpMul = 1; dmgBonus = 0;
+  /** F1 the seeing flame: nothing hides (lurkers show, mimics can't slip your aim). */
+  reveal = false;
+  /** F1 quick feet's curse: thieves always go for your books. */
+  booksFirst = false;
+  /** F1 frost bolts: slow `f` for `s` seconds. */
+  chill(f: Foe, s: number) { if (f.state !== 'dead') f.chillT = Math.max(f.chillT, s); }
+  /** F1 thorns: a direct wound (no pot lid). */
+  wound(f: Foe, dmg: number) {
+    if (f.state === 'dead') return;
+    f.hp -= dmg; f.hurtT = 0.18; drawTag(f); this.alert(f);
+    if (f.hp <= 0) this.kill(f);
+  }
   /** Band 5: what the player has been hitting them with this run. */
   habits = { sword: 0, bolt: 0 };
   /** Seconds the player has been moving; the mimic copies a dodge. */
@@ -134,7 +148,7 @@ export class Goblins {
     root.position.copy(at); root.rotation.y = yaw; root.name = 'goblin:' + v.display;
     const f: Foe = { v, st, root, anim: new FigureAnim(root.userData.rig as FigureRig), lean: new Lean(), hp: st.hp, state: st.behaviour === 'ambusher' ? 'hidden' : 'idle', t: 0, cd: 1, windup: 0,
       alerted: false, stolen: 0, caught: 0, traps: st.trap ? (this.band >= 1 ? 3 : 2) : 0, called: false, dodge: 0, deadT: 0, tag: null!, speedNow: 0, hurtT: 0, mats: [],
-      role, flank: this.band >= 1 ? ((v.seed & 1) ? 0.75 : -0.75) : 0, book: null, dropT: 0, spell: 3, combo: false };
+      role, flank: this.band >= 1 ? ((v.seed & 1) ? 0.75 : -0.75) : 0, book: null, dropT: 0, spell: 3, combo: false, chillT: 0 };
     if (role === 'dropper') f.state = 'hidden';
     // Its own copy of the body materials, so one goblin can flash red without the others.
     const rig = root.userData.rig as FigureRig | undefined;
@@ -277,7 +291,7 @@ export class Goblins {
       const p = f.root.position, dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz);
       const sees = d < SIGHT && this.los(p, P);
       const b = f.st.behaviour;
-      f.cd = Math.max(0, f.cd - dt); f.t += dt; f.dodge = Math.max(0, f.dodge - dt);
+      f.cd = Math.max(0, f.cd - dt); f.t += dt; f.dodge = Math.max(0, f.dodge - dt); f.chillT = Math.max(0, f.chillT - dt);
       if (!f.alerted) {
         if (f.state === 'hidden' ? d < 4 : sees && d < SIGHT - 2) this.alert(f);
       }
@@ -292,7 +306,7 @@ export class Goblins {
       }
       if (this.band >= 2 && f.alerted && f.state === 'back' && d > 4 && b0(f) !== 'coward') f.hp = Math.min(f.st.hp * 0.6, f.hp + dt * 0.5);
       let leanWant = NO_LEAN;
-      let mx = 0, mz = 0, sp = f.st.speed, pose: 'kneel' | 'punch' | null = f.state === 'hidden' ? 'kneel' : null, aim = false;
+      let mx = 0, mz = 0, sp = f.st.speed * (f.chillT > 0 ? 0.5 : 1), pose: 'kneel' | 'punch' | null = f.state === 'hidden' ? 'kneel' : null, aim = false;
       const ranged = f.st.range > 0;
       if (f.alerted) {
         // Cowards break at half health and call the others; thieves run once they have something.
@@ -302,7 +316,7 @@ export class Goblins {
         }
         if (this.band >= 2 && b !== 'coward' && f.role !== 'keeper' && f.state === 'chase' && f.hp < f.st.hp * 0.35 && f.hp < f.st.hp * 0.6 - 0.5 && f.t > 2) { f.state = 'back'; f.t = 0; }   // backs off to mend
         if (f.state === 'flee') { mx = -dx; mz = -dz; sp *= 1.1; }
-        else if (b === 'mimic' && (this.w.aiming() || f.dodge > 0)) { mx = -dz; mz = dx; if (Math.sin(f.t * 1.3) < 0) { mx = -mx; mz = -mz; } }   // strafes while you aim
+        else if (b === 'mimic' && !this.reveal && (this.w.aiming() || f.dodge > 0)) { mx = -dz; mz = dx; if (Math.sin(f.t * 1.3) < 0) { mx = -mx; mz = -mz; } }   // strafes while you aim
         else if (b === 'trapper' && f.traps > 0 && d < 9 && sees) {
           // Lays a snare on the way to you, then backs off to lure you over it.
           const at = new THREE.Vector3(p.x + dx * 0.45, 0, p.z + dz * 0.45);
@@ -316,7 +330,7 @@ export class Goblins {
           f.state = 'chase';
           const want = f.role === 'shaman' ? 6 : ranged ? (b === 'archer' ? 10 : f.st.range * 0.7) : f.st.reach * 0.8;
           if (b === 'thief' && d < 1.1 && f.stolen === 0 && !f.book) {
-            const book = this.band >= 3 ? this.w.stealBook?.(f) ?? null : null;
+            const book = this.band >= 3 || this.booksFirst ? this.w.stealBook?.(f) ?? null : null;
             if (book) { f.book = book; this.w.say(`${f.v.display} snatches “${book}” and runs! Get it back.`); }
             else {
               f.stolen = this.w.steal(f);
@@ -366,7 +380,7 @@ export class Goblins {
       f.root.rotation.y += dy * Math.min(1, dt * 10);
       f.lean.update(dt, leanWant);
       f.anim.update(dt, { speed: f.speedNow, pose, aiming: aim, lean: f.lean.side });
-      f.tag.visible = f.state !== 'hidden' && d < 11;
+      f.tag.visible = (f.state !== 'hidden' || this.reveal) && d < (this.reveal ? 16 : 11);
     }
     this.updateShots(dt);
     // Snares: step in one and it bites and holds you a moment.
