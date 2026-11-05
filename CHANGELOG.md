@@ -7,7 +7,7 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
-### v0.16 changelog, part 18: the skyrunner (Mike 2026-11-05, "ride a fixed-wing plane ... A to B within 1 minute")
+### v0.16 changelog, part 19: the skyrunner (Mike 2026-11-05, "ride a fixed-wing plane ... A to B within 1 minute")
 - A launch perch (a timber tower with a glider on the deck) stands in the meadow east of the library. "Fly a sky run" takes you up in a **skyrunner**: a one-seat glider with mana-sail wings and a gem in the nose (airships and mana-borne flight are both in the public lore).
 - Every run is its own **seeded map**: about 3 km of low-poly hills, lakes, forest and rock spires, with mountains round the edge. You start on the perch (A); the **beacon** (B), a stone tower with a pillar of blue fire, is 1.6 to 2 km away. Reach it inside **60 seconds**. Four wind rings along the way add 2 s each. Hit the ground or a spire and you crash. The result card shows the map number and your best time on it: "Again" flies the same map, "New map" rolls another, or type a map number a friend sends you.
 - **Flight**: arcade, not a sim. It turns where it banks and levels out when you let go. Throttle sets the speed (90 to 200 km/h). A mana **surge** gives +40% for 2 s (6 s cooldown). Chase camera, a cockpit view (V / Back), and look back (R / R3).
@@ -15,6 +15,9 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - **First person** (Mike 2026-11-05): V, Back on a gamepad, or the View button (also on touch) puts you in the pilot's seat. You see the cowl, the nose gem and a brass sighting ring, and the view rolls with the wings. The choice is remembered.
 - **Controls**: keyboard W A S D or the arrows (W dives; "Pitch: inverted" swaps it), Shift / Z throttle, Space or click fires, Q surges. On a gamepad: left stick, RT / LT, A or RB fire, Y surge, Start leaves. On touch: a stick on the left, Fire, Surge and Look back on the right, and the throttle sorts itself out. Rumble on hits and crashes.
 - Pays 20 crowns a win, +30 with the hexed skyrunner shot down. Runs, wins, kills and best times are saved on the device. New `test/e2e-sky.mjs` (22/22).
+
+### v0.16 changelog, part 18: ivy and moss (decoration 6, Mike 2026-11-05, Graphics thread "Add all decorations")
+- Ivy climbs the low stone walls and the library ruin, and moss creeps along wall tops, feet and house plinths. Flat low-poly leaves, two merged meshes.
 
 ### v0.16 changelog, part 17: wells and signposts (decoration 5, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Two stone wells with a roof, winch and bucket, and a wooden signpost at the start of each footpath out of town. One merged mesh, with colliders.
