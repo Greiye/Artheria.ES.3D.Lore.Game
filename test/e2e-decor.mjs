@@ -54,6 +54,11 @@ check('Wells and signposts: one merged mesh, flat painted, 2 wells and 6+ signpo
 // 6. Ivy and moss: one ivy mesh, one moss mesh for every wall and plinth; cheap enough for phones.
 const ivyM = m0['decor-ivy'], mossM = m0['decor-moss'];
 check('Ivy and moss: one mesh each, flat painted, together under 16000 triangles', ivyM?.n === 1 && mossM?.n === 1 && !ivyM.map && !mossM.map && ivyM.user.ivyLeaves > 300 && ivyM.tris + mossM.tris < 16000, JSON.stringify({ ivy: ivyM?.tris, moss: mossM?.tris, user: ivyM?.user }));
+// 7. Chimney smoke: low-poly 3D puffs in one instanced mesh (no sprites), moving.
+const smoke = await page.evaluate(() => { const m = window.__gametool.world.smoke.mesh; return { inst: !!m.isInstancedMesh, n: m.count, tris: m.geometry.attributes.position.count / 3, y: m.instanceMatrix.array[13], points: (() => { let p = 0; window.__gametool.world.scene.traverse((o) => { if (o.isPoints && o.name === 'chimney-smoke') p++; }); return p; })() }; });
+await page.waitForTimeout(800);
+const y1 = await page.evaluate(() => window.__gametool.world.smoke.mesh.instanceMatrix.array[13]);
+check('Chimney smoke: 3D puffs in one instanced mesh, rising (no sprite points)', smoke.inst && smoke.points === 0 && smoke.n >= 8 * 7 && smoke.tris <= 20 && y1 !== smoke.y, JSON.stringify({ ...smoke, y1 }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
