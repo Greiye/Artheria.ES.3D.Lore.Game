@@ -87,6 +87,8 @@ export const SHELL_HTML = `
       <label>Reading speed <output id="readSpeedOut"></output><input id="readSpeed" type="range" min="0.5" max="2" step="0.25"></label>
       <label class="check"><input id="lefty" type="checkbox"> Left-handed (touch: move on the right, buttons on the left)</label>
       <label>Touch button size <output id="buttonSizeOut"></output><input id="buttonSize" type="range" min="75" max="150" step="5"></label>
+      <h4>Your works</h4>
+      <button id="openWorks" class="primary">Your works · send to Mike</button>
       <h4>Your hero</h4>
       <button id="editCharacter" class="secondary">Who you are (optional)</button>
       <button id="openCharacterForge" class="secondary">Character forge</button>

@@ -441,6 +441,8 @@ $('openCharacterForge').addEventListener('click', () => openCharacterForge());
 $('openWeaponForge').addEventListener('click', () => openWeaponForge());
 $('openSketchbook').addEventListener('click', () => openSketchbook());
 $('openCasebook').addEventListener('click', () => openCasebook());
+// Lore-first item 5: everything you made, one tap from the pause menu, each piece with a Send button.
+$('openWorks').addEventListener('click', () => { show('pause', false); extras.open('portfolio', () => { if (state === 'pause') { show('pause', true); focusMenu(0); } }); focusMenu(0); });
 $('openMap').addEventListener('click', () => openMap());
 
 $('begin').addEventListener('click', (e) => {

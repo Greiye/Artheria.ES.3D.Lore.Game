@@ -1,4 +1,4 @@
-import { escapeHtml } from './submit';
+import { escapeHtml, openSubmitSheet } from './submit';
 import './extras.css';
 import { portfolioHtml, postcard, download, fileSlug, type Piece } from './portfolio';
 import { SLOTS, slotInfo, slotLabel, switchTo, clearSlot, exportSlot, fileName, importInto, exportAll, importAll, backupName, lastBackupAt, dataKept } from './profiles';
@@ -61,14 +61,22 @@ export class Extras {
       else if (b.dataset.act === 'wiki') this.onWiki();
       else if (b.dataset.act === 'pfExport') this.exportPortfolio();
       else if (b.dataset.act === 'pfCard') void this.savePostcard(Number(b.dataset.i));
+      else if (b.dataset.act === 'pfSend') this.sendPiece(Number(b.dataset.i));
       else if (b.dataset.act === 'backup') this.backup();
       else if (b.dataset.act === 'restore') { const f = this.el.querySelector<HTMLInputElement>('#backupFile')!; f.value = ''; f.click(); }
       else if (b.dataset.act?.startsWith('p')) this.profileAct(b.dataset.act, Number(b.dataset.slot));
     });
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
-  open(tab: Extras['tab'] = 'menu') { this.direct = tab !== 'menu'; this.armed = ''; this.note = ''; this.show(tab); this.el.classList.remove('hidden'); }
-  close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.onClose(); }
+  private closeOnce: (() => void) | null = null;
+  /** `onClose` (lore-first item 5): opened from the pause menu, closing goes back there instead of the main menu. */
+  open(tab: Extras['tab'] = 'menu', onClose?: () => void) { this.closeOnce = onClose ?? null; this.direct = tab !== 'menu'; this.armed = ''; this.note = ''; this.show(tab); this.el.classList.remove('hidden'); }
+  close() {
+    if (!this.isOpen) return;
+    this.el.classList.add('hidden');
+    const once = this.closeOnce; this.closeOnce = null;
+    (once ?? this.onClose)();
+  }
   /** B / Esc: from a page back to the Extras list, from the list back to the main menu. */
   back() { if (this.tab === 'menu' || this.direct) this.close(); else this.show('menu'); }
 
@@ -104,7 +112,7 @@ export class Extras {
     if (tab === 'menu') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Extras</h1>
         <button class="primary" id="writeLoreTitle" data-act="write">Write lore</button>
-        <button class="secondary" id="portfolioBtn" data-tab="portfolio">Portfolio</button>
+        <button class="secondary" id="portfolioBtn" data-tab="portfolio">Your works</button>
         <button class="secondary" id="wikiBtn" data-act="wiki">Wiki</button>
         <button class="secondary" id="whatsNewBtn" data-act="whatsnew">What's new</button>
         <button class="secondary" id="profilesBtn" data-tab="profiles">Profiles</button>
@@ -142,11 +150,11 @@ export class Extras {
       });
     } else if (tab === 'portfolio') {
       const { pieces } = this.portfolio();
-      this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Portfolio</h1>
-        <p class="fine">Everything you made in this profile. Export it as one page you can open anywhere or send to a friend, or save any piece as a postcard. It all stays on this device until you share the file.</p>
+      this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Your works</h1>
+        <p class="fine">Everything you made in this profile. <b>Send</b> any piece to Mike and he'll add it to the game with your name on it. Export it all as one page, or save a piece as a postcard. It stays on this device until you send it.</p>
         <ul class="pf-list">${pieces.map((p, i) => `<li class="pf">${p.image ? `<img src="${p.image}" alt="">` : `<span class="pf-sw" style="background:${escapeHtml(p.color ?? '#6B4423')}"></span>`}
           <div class="pf-txt"><span class="fine">${escapeHtml(p.kind)}</span><b>${escapeHtml(p.title)}</b></div>
-          <button class="secondary" data-act="pfCard" data-i="${i}">Postcard</button></li>`).join('') || '<li class="fine">Nothing yet. Sketch at the Scriptorium, dress up at the Tailor, forge a crossbow, or sing at the campfire.</li>'}</ul>
+          <button class="primary" data-act="pfSend" data-i="${i}">Send</button><button class="secondary" data-act="pfCard" data-i="${i}">Postcard</button></li>`).join('') || '<li class="fine">Nothing yet. Sketch at the Scriptorium, dress up at the Tailor, forge a crossbow, or sing at the campfire.</li>'}</ul>
         ${this.note ? `<p class="prof-note" role="status">${escapeHtml(this.note)}</p>` : ''}
         ${pieces.length ? '<button class="primary" id="pfExport" data-act="pfExport">Export portfolio</button>' : ''}
         ${back}</div>`;
@@ -194,6 +202,11 @@ export class Extras {
     this.lastExport = name; this.note = `Saved ${name} (${pieces.length} pieces).`; this.show('portfolio');
   }
   lastExport = '';
+  /** Lore-first item 5: send one piece to Mike (share sheet, GitHub, download or copy). */
+  sendPiece(i: number) {
+    const p = this.portfolio().pieces[i];
+    if (p) openSubmitSheet({ kind: p.kind, title: p.title, markdown: p.markdown });
+  }
   async savePostcard(i: number) {
     const { author, pieces } = this.portfolio(), p = pieces[i];
     if (!p) return;
