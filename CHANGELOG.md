@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 21: saves that last for years (lore-first round, item 3, Mike 2026-11-05)
+- Saves are versioned. Every profile on the device is upgraded to the current shape when the game starts, and so is any profile or backup file you import, so a save from years ago still opens. A v0.16 profile is kept as a test fixture that must keep loading forever (`test/e2e-longevity.mjs`).
+- Extras → Profiles → **Keep it for years**: **Back up everything** saves one file with all three profiles and your settings (never the GitHub token). **Restore a backup** brings it all back, on this device or a new one. The page says when you last backed up and nudges you after two months.
+- On Begin, the game asks the browser to keep its data even when space runs low (installed apps usually agree without asking).
+
 ### v0.16 changelog, part 20: the skyrunner (Mike 2026-11-05, "ride a fixed-wing plane ... A to B within 1 minute")
 - A launch perch (a timber tower with a glider on the deck) stands in the meadow east of the library. "Fly a sky run" takes you up in a **skyrunner**: a one-seat glider with mana-sail wings and a gem in the nose (airships and mana-borne flight are both in the public lore).
 - Every run is its own **seeded map**: about 3 km of low-poly hills, lakes, forest and rock spires, with mountains round the edge. You start on the perch (A); the **beacon** (B), a stone tower with a pillar of blue fire, is 1.6 to 2 km away. Reach it inside **60 seconds**. Four wind rings along the way add 2 s each. Hit the ground or a spire and you crash. The result card shows the map number and your best time on it: "Again" flies the same map, "New map" rolls another, or type a map number a friend sends you.
