@@ -1,3 +1,4 @@
+import './bootMigrate';   // must run before anything reads a saved profile
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import './render/grade';   // style pass 1: global colour grade (patches a shader chunk, so it must load first)
@@ -47,7 +48,7 @@ import { CameraRig, OVERHEAD, type Shot } from './camera/rig';
 import { fillSlots, loadedModels, failedModels, animators, type ModelSlot, type AnimState } from './models';
 import { FigureAnim, BodyAnim, type AnimInput, type Pose, type Gesture } from './anim/procedural';
 import { Dust } from './fx/dust';
-import { activeSlot, slotInfo, slotLabel } from './profiles';
+import { activeSlot, slotInfo, slotLabel, askToKeepData } from './profiles';
 import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
 import { attachItemCards } from './ui/itemcard';
 import { WeaponForge, loadWeapon, type WeaponCosmetic, type SwordCosmetic } from './forge/weapon';
@@ -446,6 +447,7 @@ $('begin').addEventListener('click', (e) => {
   if ((e as PointerEvent).pointerType === 'touch') setMode('touch');
   // 2026-10-31 (Mike): character creation is rolled back (backlog B25). Begin always goes straight into play;
   // the form and its Pause > Character button stay in the code, hidden, until it returns as its own step.
+  void askToKeepData();   // lore-first item 3: ask the browser to keep this device's saves when space runs low
   void begin();
 });
 

@@ -1,7 +1,7 @@
 import { escapeHtml } from './submit';
 import './extras.css';
 import { portfolioHtml, postcard, download, fileSlug, type Piece } from './portfolio';
-import { SLOTS, slotInfo, slotLabel, switchTo, clearSlot, exportSlot, fileName, importInto } from './profiles';
+import { SLOTS, slotInfo, slotLabel, switchTo, clearSlot, exportSlot, fileName, importInto, exportAll, importAll, backupName, lastBackupAt, dataKept } from './profiles';
 
 // v0.05 main menu → Extras: Inspirations (the people behind the game; names used with their consent) and
 // Evolution (screenshots from each stage of the build, oldest first, from assets/evolution/). Move between
@@ -60,6 +60,8 @@ export class Extras {
       else if (b.dataset.act === 'wiki') this.onWiki();
       else if (b.dataset.act === 'pfExport') this.exportPortfolio();
       else if (b.dataset.act === 'pfCard') void this.savePostcard(Number(b.dataset.i));
+      else if (b.dataset.act === 'backup') this.backup();
+      else if (b.dataset.act === 'restore') { const f = this.el.querySelector<HTMLInputElement>('#backupFile')!; f.value = ''; f.click(); }
       else if (b.dataset.act?.startsWith('p')) this.profileAct(b.dataset.act, Number(b.dataset.slot));
     });
   }
@@ -114,7 +116,20 @@ export class Extras {
         <ul class="prof-list">${Array.from({ length: SLOTS }, (_, i) => this.profileRow(i)).join('')}</ul>
         ${this.note ? `<p class="prof-note" role="status">${escapeHtml(this.note)}</p>` : ''}
         <input type="file" id="profFile" accept="application/json,.json" style="display:none">
+        <div class="backup-box"><h2>Keep it for years</h2>
+          <p class="fine" id="backupInfo">${escapeHtml(this.backupLine())}</p>
+          <div class="prof-acts"><button class="primary" id="backupAll" data-act="backup">Back up everything</button><button class="secondary" id="restoreAll" data-act="restore">Restore a backup</button></div>
+          <input type="file" id="backupFile" accept="application/json,.json" style="display:none"></div>
         ${back}</div>`;
+      void dataKept().then((kept) => { const p = this.el.querySelector('#backupInfo'); if (p && kept) p.textContent = `${this.backupLine()} This browser has agreed to keep the game's data.`; });
+      const bf = this.el.querySelector<HTMLInputElement>('#backupFile')!;
+      bf.addEventListener('change', async () => {
+        const f = bf.files?.[0];
+        if (!f) return;
+        const err = importAll(await f.text());
+        if (err) { this.note = err; this.show('profiles'); return; }
+        this.onProfileChange();
+      });
       const file = this.el.querySelector<HTMLInputElement>('#profFile')!;
       file.addEventListener('change', async () => {
         const f = file.files?.[0], i = Number(file.dataset.slot);
@@ -156,6 +171,18 @@ export class Extras {
       strip.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); this.go(this.index + Math.sign(e.deltaY)); } }, { passive: false });
       this.go(this.index, true);
     }
+  }
+  /** Lore-first item 3: when the last full backup was, and a nudge when it's been a while. */
+  private backupLine(): string {
+    const at = lastBackupAt();
+    if (!at) return 'Saves live in this browser only. Back up everything to one file now and then (all three profiles and your settings), and keep it somewhere safe. Restore it here on any device.';
+    const days = Math.floor((Date.now() - at) / 86400000);
+    return `Last full backup: ${days < 1 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`}.${days > 60 ? ' Time for a fresh one.' : ''}`;
+  }
+  backup() {
+    const f = exportAll(), name = backupName();
+    download(name, new Blob([JSON.stringify(f, null, 2)], { type: 'application/json' }));
+    this.lastExport = name; this.note = `Saved ${name}. Keep it somewhere safe (a drive, an email to yourself).`; this.show('profiles');
   }
   /** B37: one self-contained page with every piece. */
   exportPortfolio() {
