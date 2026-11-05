@@ -24,8 +24,12 @@ const ADS_FOV_DROP = 15;              // F4.1
 // drift and the breathing cycle. Holding still (best while aiming down the sights) fills a stability meter that
 // calms both; walking, jumping, turning fast or firing unsettles it. A ring shows how steady you are.
 const D = THREE.MathUtils.degToRad;
-const SWAY = { drift: D(1.6), breath: D(0.7), breathSec: 3.6, steadyMin: 0.12, hipMul: 1.6 };
+// Mike 2026-11-05: the aim only sways while aiming down the sights; from the hip the view holds still (hip fire
+// keeps a little random spread instead, so aiming still pays).
+const SWAY = { drift: D(1.6), breath: D(0.7), breathSec: 3.6, steadyMin: 0.12 };
 const STEADY = { fillSec: 1.6, hipCap: 0.45, moveDrain: 1.4, fireKeep: 0.3, spread: D(1.5) };
+// Mike 2026-11-05: two crossbows, one in each hand. R reloads both, at 2.2x the time.
+export const DUAL_RELOAD = 2.2;
 
 export interface Bolt { mesh: THREE.Mesh; origin: THREE.Vector3; vel: THREE.Vector3; stuck: boolean; age: number; damage: number; hitbox: THREE.Mesh }
 type ReloadState = { active: false } | { active: true; t: number; mode: 'normal' | 'fast' | 'jam'; total: number };
@@ -41,6 +45,13 @@ export class Crossbow {
   readonly sway = { yaw: 0, pitch: 0 };
   private swayT = Math.random() * 100;
   private lastYaw = 0;
+  /** Which hand holds it: 1 right, -1 left (the viewmodel sits on that side). */
+  side: 1 | -1 = 1;
+  /** The crossbow in the other hand, when both hold one (they share the reload). */
+  partner: Crossbow | null = null;
+  /** False for the second crossbow: only the first one sets the camera's FOV and sway. */
+  drivesCamera = true;
+  private swayAmp = 0;
   /** B17: a frayed string throws bolts slower (1 = a sound string). */
   power = 1;
   reload: ReloadState = { active: false };
@@ -84,13 +95,15 @@ export class Crossbow {
     this.onChange();
     return true;
   }
-  unequip() { this.equipped = false; this.ads = false; this.onChange(); }
+  unequip() { this.equipped = false; this.ads = false; this.reload = { active: false }; this.onChange(); }
 
-  setADS(on: boolean) { this.ads = on && this.equipped; }
+  get dual() { return !!this.partner?.equipped && this.equipped; }
+  /** Two crossbows can't be aimed down the sights: hip fire only. */
+  setADS(on: boolean) { this.ads = on && this.equipped && !this.dual; }
 
   // F4.1 / F4.2 / F4.4: one loaded bolt leaves the muzzle; it was already taken from the inventory when loaded.
   fire(): boolean {
-    if (!this.equipped || !this.loaded || this.reload.active) return false;
+    if (!this.equipped || !this.loaded || this.reload.active || (this.partner?.reload.active ?? false)) return false;
     this.loaded = false;
     const dir = new THREE.Vector3();
     this.player.lookDir(dir);   // R3: aim follows the player's view even while the camera rig is blending
@@ -115,14 +128,16 @@ export class Crossbow {
   // F4.3: first R starts the bar; a second R during it decides fast (in zone) or jam (outside).
   pressReload() {
     if (!this.equipped) return;
+    const k = this.dual ? DUAL_RELOAD : 1;
     if (!this.reload.active) {
-      if (this.loaded || this.inventory.count('bolt') < 1) return;
-      this.reload = { active: true, t: 0, mode: 'normal', total: RELOAD_SECONDS };
+      const empty = !this.loaded || (this.dual && !this.partner!.loaded);
+      if (!empty || this.inventory.count('bolt') < 1) return;
+      this.reload = { active: true, t: 0, mode: 'normal', total: RELOAD_SECONDS * k };
       this.onReloadClick();
     } else if (this.reload.mode === 'normal') {
-      const f = this.reload.t / RELOAD_SECONDS;
-      if (f >= ZONE.start && f <= ZONE.end) this.reload = { ...this.reload, mode: 'fast', total: Math.max(this.reload.t, FAST_RELOAD_SECONDS) };
-      else this.reload = { ...this.reload, mode: 'jam', total: JAM_SECONDS };
+      const f = this.reload.t / this.reload.total;
+      if (f >= ZONE.start && f <= ZONE.end) this.reload = { ...this.reload, mode: 'fast', total: Math.max(this.reload.t, FAST_RELOAD_SECONDS * k) };
+      else this.reload = { ...this.reload, mode: 'jam', total: JAM_SECONDS * k };
     }
     this.onChange();
   }
@@ -131,10 +146,14 @@ export class Crossbow {
     if (!this.reload.active) return;
     const mode = this.reload.mode;
     this.reload = { active: false };
-    if (!this.inventory.take('bolt', 1)) return;
-    this.loaded = true;
+    let any = false;
+    for (const c of this.dual ? [this, this.partner!] : [this]) {
+      if (c.loaded || !this.inventory.take('bolt', 1)) continue;
+      c.loaded = true; any = true;
+      if (mode === 'fast') c.bonusNextShot = true;
+    }
+    if (!any) return;
     this.lastReloadOutcome = mode;
-    if (mode === 'fast') this.bonusNextShot = true;
     this.onReloadClick();
     this.onChange();
   }
@@ -191,7 +210,7 @@ export class Crossbow {
     const target = this.ads ? ADS_FOV_DROP : 0;
     this.fovOffset += (target - this.fovOffset) * Math.min(1, dt * 12);
     const fov = this.baseFov() - this.fovOffset;
-    if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    if (this.drivesCamera && Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     this.viewmodel.visible = this.equipped && !this.player.thirdPerson;
     this.loadedBolt.visible = this.loaded;
     this.placeViewmodel(this.fovOffset / ADS_FOV_DROP);
@@ -208,7 +227,9 @@ export class Crossbow {
     else if (this.stability < cap) this.stability = Math.min(cap, this.stability + dt / STEADY.fillSec);
     else this.stability = Math.max(cap, this.stability - dt / STEADY.fillSec);
     this.swayT += dt;
-    const t = this.swayT, amp = THREE.MathUtils.lerp(1, SWAY.steadyMin, this.stability) * (this.ads ? 1 : SWAY.hipMul);
+    // Mike 2026-11-05: sway only while aiming down the sights; it eases in and out as you raise and lower.
+    this.swayAmp += ((this.ads ? 1 : 0) - this.swayAmp) * Math.min(1, dt * 8);
+    const t = this.swayT, amp = THREE.MathUtils.lerp(1, SWAY.steadyMin, this.stability) * this.swayAmp;
     // Slow drift: incommensurate sines read as noise. Breathing: a slow rise and fall, mostly vertical.
     const nx = Math.sin(t * 0.73) * 0.6 + Math.sin(t * 1.37 + 1.3) * 0.3 + Math.sin(t * 2.91 + 4.1) * 0.1;
     const ny = Math.sin(t * 0.61 + 2.2) * 0.6 + Math.sin(t * 1.53 + 0.4) * 0.3 + Math.sin(t * 3.17 + 2.9) * 0.1;
@@ -218,12 +239,12 @@ export class Crossbow {
   }
   /** B44: tilt the first-person view by the sway (after the camera rig has placed it), so the view itself wanders. */
   applySway() {
-    if (!this.equipped) return;
+    if (!this.equipped || !this.drivesCamera || this.swayAmp < 1e-3) return;
     this.camera.rotateY(this.sway.yaw);
     this.camera.rotateX(this.sway.pitch);
   }
 
   private placeViewmodel(k: number) {
-    this.viewmodel.position.set(THREE.MathUtils.lerp(0.22, 0, k), THREE.MathUtils.lerp(-0.2, -0.09, k), THREE.MathUtils.lerp(-0.45, -0.36, k));
+    this.viewmodel.position.set(THREE.MathUtils.lerp(0.22 * this.side, 0, k), THREE.MathUtils.lerp(-0.2, -0.09, k), THREE.MathUtils.lerp(-0.45, -0.36, k));
   }
 }

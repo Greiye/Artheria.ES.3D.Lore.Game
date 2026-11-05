@@ -40,6 +40,8 @@ const ease = (x: number) => x * x * (3 - 2 * x);
 
 export class Sword {
   equipped = false;
+  /** Which hand holds it: 1 right, -1 left (Mike 2026-11-05: any item in either hand; two swords at once). */
+  side: 1 | -1 = 1;
   /** Seconds into the current swing; -1 when not swinging. */
   t = -1;
   /** 1, 2 or 3: which cut of the combo is (or was last) swinging. */
@@ -71,13 +73,13 @@ export class Sword {
     this.attach();
   }
 
-  /** In the figure's right hand (again after the forge swaps the figure). */
+  /** In the figure's hand on its side (again after the forge swaps the figure, or the sword changes hands). */
   attach() {
     const rig = this.player.body.children[0]?.userData.rig as { bones: Record<string, THREE.Bone> } | undefined;
-    const bone = rig?.bones.foreN;
+    const bone = this.side > 0 ? rig?.bones.foreN : rig?.bones.foreP;
     if (!bone) return;
     bone.add(this.held);
-    this.held.position.set(-0.03, -0.3, 0.05);
+    this.held.position.set(-0.03 * this.side, -0.3, 0.05);
     this.held.rotation.set(Math.PI / 2, 0, 0);   // forearm hanging: the blade points forward
   }
   /** B17: dull and rusty steel shows on the blade (held and first-person): greyer when dull, brown when rusty. */
@@ -98,6 +100,7 @@ export class Sword {
   get progress(): number | null { return this.t >= 0 ? Math.min(1, this.t / SWING) : null; }
 
   equip() { if (!this.owned) return false; this.equipped = true; this.onChange(); return true; }
+  setSide(side: 1 | -1) { if (side === this.side) return; this.side = side; this.attach(); }
   unequip() { this.equipped = false; this.t = -1; this.queued = false; this.combo = 0; this.onChange(); }
 
   /** Start a swing. Pressing again late in a swing queues the next cut of the combo. */
@@ -150,8 +153,9 @@ export class Sword {
   private placeViewmodel() {
     const k = this.progress;
     const rest = { x: 0.3, y: -0.28, z: -0.5, rx: -0.35, rz: -0.25 };
+    rest.x *= this.side; rest.rz *= this.side;
     if (k === null) { const v = this.viewmodel; v.position.set(rest.x, rest.y, rest.z); v.rotation.set(rest.rx, 0, rest.rz); return; }
-    const heavy = this.combo === 3, flip = this.combo === 2 ? -1 : 1;
+    const heavy = this.combo === 3, flip = (this.combo === 2 ? -1 : 1) * this.side;
     const wind = Math.min(1, k / 0.3), cut = THREE.MathUtils.clamp((k - 0.3) / 0.25, 0, 1), back = THREE.MathUtils.clamp((k - 0.55) / 0.45, 0, 1);
     const L = THREE.MathUtils.lerp;
     // wind-up → cut → recover, each eased

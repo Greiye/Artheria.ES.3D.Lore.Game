@@ -118,8 +118,8 @@ export class TouchControls {
     else if (act === 'journal') this.g.openJournal();
     else if (act === 'bow') this.g.weaponSwap();   // v0.08: hands → sword → crossbow
     else if (act === 'reload') this.g.crossbow.pressReload();
-    else if (act === 'fire') this.g.fire();
-    else if (act === 'aim') this.g.crossbow.setADS(!this.g.crossbow.ads);
+    else if (act === 'fire') this.g.handTap('right');   // Mike 2026-11-05: the right hand's button
+    else if (act === 'aim') this.g.handTap('left');     // and the left hand's (aims when it holds nothing)
   }
 
   private down(e: PointerEvent) {
@@ -186,14 +186,16 @@ export class TouchControls {
     const bow = this.root.querySelector('.t-bow')!;
     const sw = this.g.sword;   // v0.08: the same Fire button swings the sword
     bow.classList.toggle('hidden', !(this.g.state() === 'play' && (cb.equipped || sw.equipped || this.hasBow() || this.g.hasSword())));
-    bow.querySelectorAll('[data-act="reload"], [data-act="aim"]').forEach((b) => b.classList.toggle('hidden', !cb.equipped));
-    const fire = bow.querySelector<HTMLElement>('[data-act="fire"]')!;
-    fire.classList.toggle('hidden', !cb.equipped && !sw.equipped);
-    const fl = sw.equipped ? 'Swing' : 'Fire';
-    if (fire.textContent !== fl) fire.textContent = fl;
+    bow.querySelector('[data-act="reload"]')!.classList.toggle('hidden', !cb.equipped);
+    // Mike 2026-11-05: one button per hand, labelled by what it does (Fire, Swing, Aim).
+    for (const [act, h] of [['fire', 'right'], ['aim', 'left']] as const) {
+      const btn = bow.querySelector<HTMLElement>(`[data-act="${act}"]`)!, v = this.g.handVerb(h);
+      btn.classList.toggle('hidden', !v);
+      if (v && btn.textContent !== v) btn.textContent = v;
+      btn.classList.toggle('latched', v === 'Aim' && cb.ads);
+    }
     const wb = bow.querySelector<HTMLElement>('[data-act="bow"]')!, wl = cb.equipped ? 'Bow' : sw.equipped ? 'Sword' : 'Hands';
     if (wb.textContent !== wl) wb.textContent = wl;
-    this.root.querySelector('[data-act="aim"]')!.classList.toggle('latched', cb.ads);
     // B28: the quick-equip buttons light while that's in hand, and dim until you own it.
     const lit = (act: string, on: boolean, own: boolean) => { const b = this.root.querySelector(`[data-act="${act}"]`)!; b.classList.toggle('latched', on); b.classList.toggle('dim', !own); };
     lit('qbow', cb.equipped, this.hasBow()); lit('qsword', sw.equipped, this.g.hasSword()); lit('torch', this.g.torchLit(), true);

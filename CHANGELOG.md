@@ -2,10 +2,18 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
-## Live builds 0.03 to 0.15 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
+## Live builds 0.03 to 0.16 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
 
-One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.15,
+One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
+
+### v0.16 changelog, part 1: two hands, any combination (Mike 2026-11-05, "Y")
+- Each hand holds what you choose: nothing, the sword, the crossbow or a torch, in any pair, feasible or not. Two torches, two swords, two crossbows, a sword and a crossbow.
+- D-pad left changes what the left hand holds, D-pad right (or Q) the right hand. The bag has a Hands row: press a hand to change it. T, holding D-pad down or the torch button still lights a torch in the left hand and puts it out again.
+- Each hand has its own button: LMB, RT or Fire is the right hand; RMB, LT or the left touch button is the left. A crossbow fires and a sword swings. A hand holding nothing (or a torch) aims the crossbow down the sights while you hold its button, as RMB always has.
+- Two crossbows: R reloads both, at 2.2 times the time (4.4 s, the perfect-reload window still works). Each hand fires its own bolt. Two crossbows can't be aimed down the sights; it's hip fire only.
+- Two swords: each hand cuts with its own button; press a hand again while its blade is mid-cut and the other blade cuts, so one button mashed alternates them.
+- The crossbow only sways while you aim down the sights. From the hip the view holds still, and the bolt has a little spread instead.
 
 ### v0.15 changelog, part 14: barrels and crates (quad detail 4, Mike 2026-11-04, Graphics thread)
 - Barrels, kegs and crates are now painted pixel-art cards that turn to face you and lean back a little toward a high camera, all one mesh (one draw call, two triangles each instead of 12 to 40). There are more of them where trade happens: crates by the shop counter, kegs at the inn door, barrels by the smithy.
