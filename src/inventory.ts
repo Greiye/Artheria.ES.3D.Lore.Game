@@ -47,7 +47,7 @@ export class Inventory {
       const c = document.createElement('div');
       c.className = 'inv-cell';
       c.dataset.item = id;
-      c.title = it.note;
+      c.tabIndex = 0;
       c.innerHTML = '<span class="inv-icon"></span><span class="inv-name"></span><span class="inv-count"></span>';
       c.querySelector('.inv-icon')!.textContent = it.icon;
       c.querySelector('.inv-name')!.textContent = it.name;

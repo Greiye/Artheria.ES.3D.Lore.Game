@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 5: item cards in the bag (Mike 2026-11-05)
+- Hover a bag item (mouse), long-press it (touch) or move onto it (keyboard, controller) for a Diablo-style card: the
+  name coloured by kind (weapons white, shields blue, instruments violet, food green, coin gold; a forged weapon with
+  its own name shows gold), the type, the stats that matter (damage, speed, reach and sweep; a shield's block arc; the
+  sling's whirl), which hand holds it, the forged engraving and legend, the flavour line, and its price.
+- Bag cells can now take focus, so the controller walks them like buttons.
+- Test: `e2e-item-cards`.
+
 ### v0.16 changelog, part 4: the sword forge, and the weapon shown centre screen (Mike 2026-11-05)
 - The weapon forge has Crossbow and Sword tabs. The sword takes a blade (arming, broad, curved, slim), a guard (cross,
   swept, disc), a pommel (round, disc, ring), steel, metal and grip colours, an engraving, a name and a legend. Done

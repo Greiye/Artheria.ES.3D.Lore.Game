@@ -19,7 +19,7 @@ const STOCK: Ware[] = [
 const SUNDRIES: Ware[] = ['candle', 'wax', 'lampOil', 'soap', 'twine', 'chalk', 'salt', 'bread', 'fish', 'jerky', 'mealworms', 'seeds'].map((id, i) => ({ id, n: 1, price: 1 + (i % 3) }));
 /** What the shopkeeper pays for one of each. */
 const GEAR = ['bolt', 'sling'];   // the Gear tab; the rest of STOCK is instruments
-const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };
+export const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };
 /** Mike 2026-11-05: the smith sells arms. One of each is all you need (it fills both hands). */
 export const SMITH_STOCK: Ware[] = [
   { id: 'buckler', n: 1, price: 14 },
@@ -28,6 +28,8 @@ export const SMITH_STOCK: Ware[] = [
   { id: 'mace', n: 1, price: 22 },
   { id: 'spear', n: 1, price: 18 },
 ];
+/** Mike 2026-11-05: the price of one, for the bag's item cards. */
+export const PRICES: Record<string, number> = Object.fromEntries([...STOCK, ...SUNDRIES, ...SMITH_STOCK].map((w) => [w.id, Math.round(w.price / w.n * 10) / 10]));
 
 export class ShopPanel {
   readonly el: HTMLDivElement;
