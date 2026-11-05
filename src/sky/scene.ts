@@ -70,7 +70,18 @@ export function buildGlider(hexed: boolean): THREE.Group {
   const tail = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.1, 1.0), sail); tail.position.set(0, 0.2, 3.3); g.add(tail);
   const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.5, 1.1), stripe); fin.position.set(0, 0.9, 3.4); g.add(fin);
   // The seat and the pilot's head (a sky-raider's hood on the hexed one).
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 6, 4), flat(hexed ? '#3B2A4A' : '#E0B48C')); head.position.set(0, 0.75, -1.4); g.add(head);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 6, 4), flat(hexed ? '#3B2A4A' : '#E0B48C')); head.position.set(0, 0.75, -1.4); head.name = 'pilot'; g.add(head);
+  // First person (Mike 2026-11-05): what the pilot sees round the seat, shown only in that view. A canvas cowl in
+  // front with a brass sighting ring on it, and the hull's gunwales either side.
+  if (!hexed) {
+    const pit = new THREE.Group(); pit.name = 'cockpit'; pit.visible = false;
+    const cowl = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.4), hull); cowl.position.set(0, 0.6, -2.5); cowl.rotation.x = 0.3; pit.add(cowl);
+    const brass = glow('#E8C060', 1.1);
+    const sight = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.004, 4, 16), brass); sight.position.set(0, 1.05, -2.6); pit.add(sight);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.3, 0.008), brass); post.position.set(0, 0.8, -2.6); pit.add(post);
+    for (const s of [-1, 1]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1.6), hull); rail.position.set(s * 0.62, 0.55, -1.35); pit.add(rail); }
+    g.add(pit);
+  }
   g.traverse((o) => { o.raycast = () => {}; });
   return g;
 }

@@ -60,6 +60,18 @@ await page.waitForTimeout(1500);
 const level = await G(page, () => window.__gametool.sky.me.bank());
 check('Let go and the wings level out', Math.abs(level) < Math.abs(bank) * 0.5, level.toFixed(2));
 
+// First person: V swaps to the pilot's seat (the head hides, the cowl and sight show) and back; the choice is remembered.
+await page.keyboard.press('KeyV');
+await page.waitForTimeout(400);
+const fp = await G(page, () => { const s = window.__gametool.sky, g = s.meMesh, c = s.camera.position, e = s.me.pos;
+  return { on: s.cockpit, pilot: g.getObjectByName('pilot').visible, pit: g.getObjectByName('cockpit').visible, gap: c.distanceTo(e), label: document.querySelector('#skView').textContent, saved: localStorage.getItem('gametool.sky.view') }; });
+check('V: first person from the seat (pilot hidden, cockpit shown, eye on the plane)', fp.on && !fp.pilot && fp.pit && fp.gap < 2 && /first person/.test(fp.label) && fp.saved === 'first', JSON.stringify(fp));
+await page.screenshot({ path: path.join(shots, 'sky-first-person.png') });
+await page.click('#skView');
+await page.waitForTimeout(300);
+const chase = await G(page, () => { const s = window.__gametool.sky; return { on: s.cockpit, pilot: s.meMesh.getObjectByName('pilot').visible, gap: s.camera.position.distanceTo(s.me.pos) }; });
+check('The View button swaps back to the chase camera', !chase.on && chase.pilot && chase.gap > 10, JSON.stringify(chase));
+
 // A wind ring adds 2 s.
 const ring = await G(page, async () => { const s = window.__gametool.sky, r = s.sky.rings[0], t0 = s.time; s.me.pos.copy(r.position); await new Promise((ok) => setTimeout(ok, 200)); return { gained: s.time - t0, taken: s.ringsTaken, hidden: !r.visible }; });
 check('Flying through a wind ring: +2 s', ring.taken === 1 && ring.hidden && ring.gained > 1.5, JSON.stringify(ring));
@@ -161,6 +173,7 @@ await G(t, () => { document.body.dataset.input = 'touch'; window.__gametool.sky.
 await until(t, () => window.__gametool.sky.phase === 'fly', null, 10000);
 const tc = await G(t, () => { const v = (s) => !!document.querySelector(s)?.offsetParent; return { pad: v('#skyRun .sk-pad'), fire: v('#skyRun .sk-fire'), help: v('#skyRun .sk-help-keys') }; });
 check('Touch: Fire, Surge and Look back buttons; no key help', tc.pad && tc.fire && !tc.help, JSON.stringify(tc));
+check('Touch: the View button is there', await G(t, () => !!document.querySelector('#skView')?.offsetParent));
 const fireBox = await t.locator('#skyRun .sk-fire').boundingBox();
 await t.touchscreen.tap(fireBox.x + fireBox.width / 2, fireBox.y + fireBox.height / 2);
 await t.waitForTimeout(800);

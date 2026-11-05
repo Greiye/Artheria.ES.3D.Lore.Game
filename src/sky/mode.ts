@@ -21,6 +21,8 @@ export function loadSkyRecord(): SkyRecord {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? '{}'); return { runs: +v.runs || 0, wins: +v.wins || 0, kills: +v.kills || 0, foes: +v.foes || 0, best: v.best && typeof v.best === 'object' ? v.best : {} }; }
   catch { return { runs: 0, wins: 0, kills: 0, foes: 0, best: {} }; }
 }
+const VIEW_KEY = 'gametool.sky.view';
+const loadFirstPerson = () => { try { return localStorage.getItem(VIEW_KEY) === 'first'; } catch { return false; } };
 const loadInvert = () => { try { return localStorage.getItem(INVERT_KEY) === 'on'; } catch { return false; } };
 
 type Phase = 'ready' | 'fly' | 'done';
@@ -31,6 +33,8 @@ const newSeed = () => 100000 + Math.floor(Math.random() * 900000);
 // Back / View swaps the camera, Start leaves. On the result: A again, X a new map, B leave.
 const PAD = { a: 0, b: 1, x: 2, y: 3, rb: 5, lt: 6, rt: 7, back: 8, start: 9, r3: 11 };
 const DEAD = 0.15;
+/** The pilot's eye in the glider's own frame (the head sits at 0, 0.75, -1.4). */
+const EYE = new THREE.Vector3(0, 1.05, -1.4);
 
 export class SkyRun {
   readonly el: HTMLDivElement;
@@ -54,7 +58,8 @@ export class SkyRun {
   end: End | null = null;
   record = loadSkyRecord();
   invert = loadInvert();
-  cockpit = false;
+  /** First-person view from the pilot's seat (V, Back, or the View button); remembered on the device. */
+  cockpit = loadFirstPerson();
   /** For tests: force (true) or forbid (false) the encounter on the next runs; null = the 1 in 20 roll. */
   forceFoe: boolean | null = new URLSearchParams(location.search).has('dogfight') ? true : null;
   onClose: () => void = () => {};
@@ -100,7 +105,7 @@ export class SkyRun {
         <button class="sk-b" data-b="surge">Surge</button>
         <button class="sk-b" data-b="back">Look back</button>
       </div>
-      <div class="sk-tools"><button class="secondary" id="skInvert"></button><button class="secondary" id="skQuit">Leave</button></div>`;
+      <div class="sk-tools"><button class="secondary" id="skView"></button><button class="secondary" id="skInvert"></button><button class="secondary" id="skQuit">Leave</button></div>`;
     document.body.appendChild(this.el);
     const q = <T extends HTMLElement>(s: string) => this.el.querySelector<T>(s)!;
     q('#skAgain').addEventListener('click', () => this.start(this.map?.seed ?? newSeed()));
@@ -108,8 +113,10 @@ export class SkyRun {
     q('#skLeave').addEventListener('click', () => this.close());
     q('#skQuit').addEventListener('click', () => this.close());
     q('#skInvert').addEventListener('click', () => this.setInvert(!this.invert));
+    q('#skView').addEventListener('click', () => this.setView(!this.cockpit));
     q('#skSeedGo').addEventListener('click', () => { const n = parseInt(q<HTMLInputElement>('#skSeed').value, 10); if (n > 0) this.start(n); });
     this.setInvert(this.invert);
+    this.setView(this.cockpit);
     window.addEventListener('keydown', (e) => this.key(e, true), true);
     window.addEventListener('keyup', (e) => this.key(e, false), true);
     this.el.addEventListener('mousedown', (e) => { if (e.button === 0 && !(e.target as Element).closest('button, input, .sk-result')) this.mouseFire = true; });
@@ -139,6 +146,11 @@ export class SkyRun {
     this.meMesh.name = 'skyrunner'; this.foeMesh.name = 'hexed-skyrunner';
   }
 
+  /** Chase camera or first person from the seat. */
+  setView(first: boolean) {
+    this.cockpit = first; storeSet(VIEW_KEY, first ? 'first' : 'chase');
+    this.el.querySelector('#skView')!.textContent = first ? 'View: first person' : 'View: chase';
+  }
   private setInvert(on: boolean) {
     this.invert = on; storeSet(INVERT_KEY, on ? 'on' : 'off');
     this.el.querySelector('#skInvert')!.textContent = on ? 'Pitch: inverted' : 'Pitch: normal';
@@ -210,7 +222,7 @@ export class SkyRun {
       return;
     }
     if (hit(PAD.start)) { this.close(); return; }
-    if (hit(PAD.back)) this.cockpit = !this.cockpit;
+    if (hit(PAD.back)) this.setView(!this.cockpit);
     const ax = p.axes[0] ?? 0, ay = p.axes[1] ?? 0;
     this.gp.x = Math.abs(ax) > DEAD ? ax : 0; this.gp.y = Math.abs(ay) > DEAD ? ay : 0;
     this.gp.lt = p.buttons[PAD.lt]?.value ?? 0; this.gp.rt = p.buttons[PAD.rt]?.value ?? 0;
@@ -222,7 +234,7 @@ export class SkyRun {
     if (e.target instanceof HTMLInputElement) { if (down && e.code === 'Enter') (this.el.querySelector('#skSeedGo') as HTMLButtonElement).click(); return; }
     if (down && e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); this.close(); return; }
     e.preventDefault(); e.stopPropagation();
-    if (down && e.code === 'KeyV' && !e.repeat) this.cockpit = !this.cockpit;
+    if (down && e.code === 'KeyV' && !e.repeat) this.setView(!this.cockpit);
     if (down && this.phase === 'done' && !e.repeat) {
       if (e.code === 'Enter' || e.code === 'Space') this.start(this.map!.seed);
       else if (e.code === 'KeyN') this.start(newSeed());
@@ -414,10 +426,21 @@ export class SkyRun {
     if (fire) fire.rotation.y = t * 0.5;
     const fw = me.forward(new THREE.Vector3()), up = me.up(new THREE.Vector3());
     const cam = this.camera;
-    if (this.cockpit && !lookBack) {
-      cam.position.copy(me.pos).addScaledVector(up, 1.15).addScaledVector(fw, 1.0);
+    const first = this.cockpit && !lookBack;
+    // In first person the pilot's own head is hidden and the cowl, sighting ring and gunwales show.
+    const pilot = this.meMesh.getObjectByName('pilot'), pit = this.meMesh.getObjectByName('cockpit');
+    if (pilot) pilot.visible = !first;
+    if (pit) pit.visible = first;
+    const near = first ? 0.1 : 0.5;
+    if (cam.near !== near) { cam.near = near; cam.updateProjectionMatrix(); }
+    const speedFov = (first ? 74 : 66) + (me.speed - 25) * 0.25 + (me.surge > 0 ? 6 : 0);
+    if (Math.abs(cam.fov - speedFov) > 0.3) { cam.fov += (speedFov - cam.fov) * 0.1; cam.updateProjectionMatrix(); }
+    if (first) {
+      // The eye sits where the pilot's head is, and the view rolls with the wings.
+      cam.position.copy(EYE).applyQuaternion(me.q).add(me.pos);
       cam.quaternion.copy(me.q);
-      this.camPos.copy(cam.position);
+      cam.up.copy(up);
+      this.camPos.copy(me.pos).addScaledVector(fw, -17).addScaledVector(up, 4.8);   // so switching back doesn't swoop
       return;
     }
     const wantUp = this.camUp.lerp(up.clone().lerp(new THREE.Vector3(0, 1, 0), 0.55), 0.15).normalize();
@@ -429,8 +452,6 @@ export class SkyRun {
     cam.position.copy(this.camPos);
     cam.up.copy(wantUp);
     cam.lookAt(me.pos.clone().addScaledVector(fw, lookBack ? -40 : 30));
-    const speedFov = 66 + (me.speed - 25) * 0.25 + (me.surge > 0 ? 6 : 0);
-    if (Math.abs(cam.fov - speedFov) > 0.3) { cam.fov += (speedFov - cam.fov) * 0.1; cam.updateProjectionMatrix(); }
   }
 
   /** Screen-edge marker for a point in the world: on it when it's in view, pinned to the edge (pointing) when not. */
