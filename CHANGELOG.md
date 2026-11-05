@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 6: a new first-meeting scene, Greer and Natalie (Mike 2026-11-05)
+- The first talk with Natalie now opens on Magister Greer, come up from the coach road to look in on her for her
+  patron (a close friend of his). A letterboxed two-shot by the library door with her title card, then the camera cuts
+  between them over the shoulder as they talk, subtitled, about 24 s in all. Then Greer goes back to his post and her
+  dialogue starts as before. Still once per profile, any key skips, and Low power or reduced motion goes straight to
+  the dialogue box.
+- Test: `e2e-first-meet` (rewritten).
+
 ### v0.16 changelog, part 5: item cards in the bag (Mike 2026-11-05)
 - Hover a bag item (mouse), long-press it (touch) or move onto it (keyboard, controller) for a Diablo-style card: the
   name coloured by kind (weapons white, shields blue, instruments violet, food green, coin gold; a forged weapon with

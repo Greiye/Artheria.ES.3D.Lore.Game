@@ -1,7 +1,9 @@
-// B50 (Mike 2026-11-04): the first time you talk to Natalie, a short cinematic plays before her dialogue. Letterbox
-// bars slide in to a wide 2.39:1 frame over a wide shot of her by the library door, then narrow to a set height
-// (1.85:1) as the camera pushes in on her face, with her name and role as a title card. Then the bars open and her
-// dialogue box starts as usual. Once per profile; any key, click, tap or pad button skips it.
+// B50 (Mike 2026-11-04), rewritten Mike 2026-11-05: the first time you talk to Natalie, a short cinematic plays before
+// her dialogue: Magister Greer has come up from the coach road to check on her for her patron, a close friend of his.
+// Letterbox bars slide in to a wide 2.39:1 frame over a two-shot of them by the library door, with her name and role as
+// a title card; then the bars narrow to 1.85:1 and the camera cuts between them, over the listener's shoulder, as they
+// talk (subtitled). Then the bars open, Greer goes back to his post and her dialogue box starts as usual. Once per
+// profile; any key, click, tap or pad button skips it.
 import * as THREE from 'three';
 import type { Shot } from '../camera/rig';
 import './firstmeet.css';
@@ -10,17 +12,30 @@ const KEY = 'gametool.metnatalie';   // per profile (not in profiles.ts SHARED)
 export const metNatalie = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
 const setMet = () => { try { localStorage.setItem(KEY, '1'); } catch { /* private mode */ } };
 
-const WIDE = 2.4, PUSH = 5.4, END = 6.0;   // seconds: wide shot ends, push-in ends, bars open
+export type Speaker = 'greer' | 'natalie';
+/** The conversation, in order, with how long each line holds (seconds). */
+export const LINES: { who: Speaker; text: string; hold: number }[] = [
+  { who: 'greer', text: 'Miss Bourbon. Our mutual friend asked me to look in on you. They read your last findings twice over, then a third time aloud, to the cat.', hold: 6.6 },
+  { who: 'natalie', text: 'Tell them the library moved again last night. The stairs are not where I left them.', hold: 4.8 },
+  { who: 'greer', text: 'Which is exactly what delights them. They cannot wait to see what you uncover down there.', hold: 5.0 },
+  { who: 'natalie', text: "Then they'll need patience. And someone else willing to go down.", hold: 4.6 },
+];
+const NAME: Record<Speaker, string> = { greer: 'Magister Greer', natalie: 'Natalie' };
+export const WIDE = 3.0;   // seconds of the establishing two-shot
+export const TALK_END = WIDE + LINES.reduce((s, l) => s + l.hold, 0);
+export const END = TALK_END + 0.7;   // bars open
 const ease = (t: number) => t * t * (3 - 2 * t);
 
 export class FirstMeeting {
   active = false;
   t = 0;
+  /** The line on screen now (-1: none). */
+  line = -1;
   private bars: HTMLDivElement;
   private card: HTMLDivElement;
-  private at = new THREE.Vector3();
-  private fwd = new THREE.Vector3();
-  private side = new THREE.Vector3();
+  private sub: HTMLDivElement;
+  private nat = new THREE.Vector3();
+  private gre = new THREE.Vector3();
   private done: () => void = () => {};
   private armed = false;   // a pad button only skips once every button has been let go
   private skipping = false;
@@ -31,60 +46,86 @@ export class FirstMeeting {
     this.card = document.createElement('div');
     this.card.id = 'meetCard';
     this.card.innerHTML = '<div class="mc-name">Natalie Bourbon</div><div class="mc-role">the one who came out alone</div><div class="mc-skip">any key to skip</div>';
-    document.body.append(this.bars, this.card);
+    this.sub = document.createElement('div');
+    this.sub.id = 'meetSub';
+    this.sub.innerHTML = '<span class="ms-who"></span><span class="ms-text"></span>';
+    document.body.append(this.bars, this.card, this.sub);
     const skip = (e: Event) => { if (!this.active) return; if ((e as KeyboardEvent).repeat) return; e.preventDefault(); e.stopImmediatePropagation(); this.skip(); };
     window.addEventListener('keydown', skip, true);
     window.addEventListener('pointerdown', skip, true);
   }
 
-  /** Natalie's feet and the direction she faces. Calls onDone when it ends or is skipped. */
-  play(feet: THREE.Vector3, yaw: number, onDone: () => void) {
+  /** Natalie's feet, and where Greer stands for the scene (main.ts puts his figure there). Calls onDone when it ends or is skipped. */
+  play(natalie: THREE.Vector3, greer: THREE.Vector3, onDone: () => void) {
     setMet();
-    this.active = true; this.t = 0; this.armed = false; this.skipping = false; this.done = onDone;
-    this.at.copy(feet);
-    this.fwd.set(Math.sin(yaw), 0, Math.cos(yaw));
-    this.side.set(this.fwd.z, 0, -this.fwd.x);
-    this.bars.classList.add('on'); this.card.classList.remove('on');
+    this.active = true; this.t = 0; this.line = -1; this.armed = false; this.skipping = false; this.done = onDone;
+    this.nat.copy(natalie).setY(0); this.gre.copy(greer).setY(0);
+    this.bars.classList.add('on'); this.card.classList.remove('on'); this.sub.classList.remove('on');
     document.body.classList.add('cutscene');
     this.update(0, false);
   }
 
-  skip() { if (this.active && !this.skipping) { this.skipping = true; this.t = Math.max(this.t, PUSH); } }
+  skip() { if (this.active && !this.skipping) { this.skipping = true; this.t = Math.max(this.t, TALK_END); } }
 
-  /** Barheight in px for a frame of aspect a, capped so a phone held upright still shows her. */
+  /** Bar height in px for a frame of aspect a, capped so a phone held upright still shows them. */
   private bar(a: number) { const W = innerWidth, H = innerHeight; return Math.min(H * 0.2, Math.max(0, (H - W / a) / 2)); }
+
+  /** The line playing at time t, and how far into it (0..1). */
+  private lineAt(t: number): [number, number] {
+    if (t < WIDE) return [-1, 0];
+    let s = WIDE;
+    for (let i = 0; i < LINES.length; i++) { if (t < s + LINES[i].hold) return [i, (t - s) / LINES[i].hold]; s += LINES[i].hold; }
+    return [-1, 0];
+  }
 
   update(dt: number, padPressed: boolean) {
     if (!this.active) return;
     if (!padPressed) this.armed = true; else if (this.armed) this.skip();
     this.t += dt;
     const t = this.t;
-    // Letterbox: in to 2.39:1 over 0.7 s, narrow to 1.85:1 as the push-in starts, open over the last 0.6 s.
+    // Letterbox: in to 2.39:1 over 0.7 s, narrow to 1.85:1 as the talk starts, open over the last 0.7 s.
     let h: number;
     if (t < WIDE) h = this.bar(2.39) * ease(Math.min(1, t / 0.7));
-    else if (t < PUSH) h = THREE.MathUtils.lerp(this.bar(2.39), this.bar(1.85), ease(Math.min(1, (t - WIDE) / 1)));
-    else h = this.bar(1.85) * (1 - ease(Math.min(1, (t - PUSH) / (END - PUSH))));
+    else if (t < TALK_END) h = THREE.MathUtils.lerp(this.bar(2.39), this.bar(1.85), ease(Math.min(1, (t - WIDE) / 0.8)));
+    else h = this.bar(1.85) * (1 - ease(Math.min(1, (t - TALK_END) / (END - TALK_END))));
     this.bars.style.setProperty('--lb', `${h.toFixed(1)}px`);
-    this.card.classList.toggle('on', t > 0.8 && t < PUSH - 0.6 && !this.skipping);
-    // Camera: a slow wide drift off her shoulder, then a push-in to her face.
-    const face = this.at.clone().setY(1.55);
-    let pos: THREE.Vector3, look: THREE.Vector3, fov: number;
-    if (t < WIDE) {
-      const k = t / WIDE;
-      pos = this.at.clone().addScaledVector(this.fwd, 5.5).addScaledVector(this.side, THREE.MathUtils.lerp(4.2, 3.2, k)).setY(2.6);
-      look = this.at.clone().setY(1.25); fov = 55;
-    } else {
-      const k = ease(Math.min(1, (t - WIDE) / (PUSH - WIDE)));
-      pos = this.at.clone().addScaledVector(this.fwd, THREE.MathUtils.lerp(3.4, 1.15, k)).addScaledVector(this.side, THREE.MathUtils.lerp(0.9, 0.25, k)).setY(THREE.MathUtils.lerp(1.9, 1.6, k));
-      look = face; fov = THREE.MathUtils.lerp(50, 36, k);
+    this.card.classList.toggle('on', t > 0.6 && t < WIDE - 0.3 && !this.skipping);
+    const [i, k] = t < TALK_END ? this.lineAt(t) : [-1, 0];
+    if (i !== this.line) {
+      this.line = i;
+      if (i >= 0) {
+        const L = LINES[i];
+        this.sub.querySelector('.ms-who')!.textContent = NAME[L.who];
+        this.sub.querySelector('.ms-text')!.textContent = L.text;
+        this.sub.dataset.who = L.who;
+      }
     }
-    this.setShot({ pos, look, fov });
+    this.sub.classList.toggle('on', i >= 0 && !this.skipping);
+    this.setShot(this.shot(t, i, k));
     if (t >= END) this.finish();
   }
 
+  /** The establishing two-shot drifts; each line cuts to the speaker over the listener's shoulder, easing in slowly. */
+  private shot(t: number, i: number, k: number): Shot {
+    const mid = this.nat.clone().lerp(this.gre, 0.5), across = this.gre.clone().sub(this.nat).setY(0);
+    if (across.lengthSq() < 1e-4) across.set(1, 0, 0);
+    across.normalize();
+    const side = new THREE.Vector3(-across.z, 0, across.x);   // perpendicular to the line between them
+    if (i < 0) {   // the two-shot (and the bars opening at the end)
+      const d = t < WIDE ? t / WIDE : 1;
+      return { pos: mid.clone().addScaledVector(side, THREE.MathUtils.lerp(5.2, 4.4, d)).addScaledVector(across, THREE.MathUtils.lerp(-1.2, -0.6, d)).setY(2.3), look: mid.clone().setY(1.3), fov: 50 };
+    }
+    const speaker = LINES[i].who === 'greer' ? this.gre : this.nat, listener = LINES[i].who === 'greer' ? this.nat : this.gre;
+    const toSpk = speaker.clone().sub(listener).setY(0).normalize();
+    // Behind and beside the listener's shoulder, looking at the speaker's face; a slow push as the line plays.
+    const push = ease(Math.min(1, k));
+    const pos = listener.clone().addScaledVector(toSpk, THREE.MathUtils.lerp(-0.9, -0.7, push)).addScaledVector(side, 0.45).setY(1.68);
+    return { pos, look: speaker.clone().setY(1.52), fov: THREE.MathUtils.lerp(40, 36, push) };
+  }
+
   private finish() {
-    this.active = false;
-    this.bars.classList.remove('on'); this.card.classList.remove('on');
+    this.active = false; this.line = -1;
+    this.bars.classList.remove('on'); this.card.classList.remove('on'); this.sub.classList.remove('on');
     document.body.classList.remove('cutscene');
     this.bars.style.setProperty('--lb', '0px');
     this.done();

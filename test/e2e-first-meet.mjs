@@ -1,5 +1,6 @@
-// B50 (Mike 2026-11-04): the first time you talk to Natalie, a cinematic plays: letterbox bars slide in to 2.39:1 over
-// a wide shot, narrow to 1.85:1 as the camera pushes in on her face (with a title card), then open into her dialogue.
+// B50 (Mike 2026-11-04, rewritten 2026-11-05): the first time you talk to Natalie, a cinematic plays: Magister Greer
+// checks in on her for her patron. Bars slide in to 2.39:1 over a two-shot (with her title card), narrow to 1.85:1 as
+// the camera cuts between them over the shoulder with subtitles, then open into her dialogue; Greer goes back.
 // Once per profile, skippable, and straight to the dialogue box on Low power.
 // Usage: node test/e2e-first-meet.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
@@ -33,16 +34,26 @@ const page = await open();
 await page.evaluate(() => window.__gametool.talkToNatalie());
 const a = await bar(page);
 check('B50 talking to Natalie the first time starts the cinematic (not the dialogue box yet)', a.active && a.on && !a.dialogue && a.state === 'dialogue' && a.shot, JSON.stringify(a));
+const stage = await page.evaluate(() => { const g = window.__gametool, gp = g.greerRoot().position, n = g.natalieRoot().getWorldPosition(new g.Vector3()); return { d: Math.hypot(gp.x - n.x, gp.z - n.z), hero: g.player.body.visible }; });
+check('Greer stands with Natalie for the scene; the hero steps out of frame', stage.d < 2 && !stage.hero, JSON.stringify(stage));
 await atT(page, 1.6);
 const wide = await bar(page);
-check('B50 the bars slide in to a wide 2.39:1 frame over the wide shot', wide.active && Math.abs(wide.h - (720 - 1280 / 2.39) / 2) < 6, JSON.stringify(wide));
-await atT(page, 3.6);
+await page.screenshot({ path: 'test/screenshots/b50-two-shot.png' });
+check('B50 the bars slide in to a wide 2.39:1 frame over the two-shot, with her title card', wide.active && Math.abs(wide.h - (720 - 1280 / 2.39) / 2) < 6 && wide.card, JSON.stringify(wide));
+const sub = () => page.evaluate(() => ({ on: document.getElementById('meetSub').classList.contains('on'), who: document.querySelector('#meetSub .ms-who').textContent, text: document.querySelector('#meetSub .ms-text').textContent, line: window.__gametool.firstMeet.line, cam: window.__gametool.camera.position.toArray().map((v) => +v.toFixed(2)) }));
+const lines = [];
+for (const at of [4.5, 10.5, 15, 20]) { await atT(page, at); lines.push(await sub()); if (at === 4.5) await page.screenshot({ path: 'test/screenshots/b50-greer.png' }); if (at === 10.5) await page.screenshot({ path: 'test/screenshots/b50-natalie.png' }); }
 const push = await bar(page);
-await page.screenshot({ path: 'test/screenshots/b50-push-in.png' });
-check('B50 the bars narrow to a set height (1.85:1) as the camera pushes in, with her name as a title card', push.active && push.h < wide.h - 30 && Math.abs(push.h - (720 - 1280 / 1.85) / 2) < 6 && push.card, JSON.stringify(push));
+check('B50 the bars narrow to 1.85:1 for the talk', push.active && Math.abs(push.h - (720 - 1280 / 1.85) / 2) < 6, JSON.stringify(push));
+check('Greer and Natalie talk in turn, subtitled: the patron, the moving library, someone else to go down', lines.every((l) => l.on) && lines.map((l) => l.line).join() === '0,1,2,3'
+  && /Magister Greer/.test(lines[0].who) && /mutual friend/.test(lines[0].text) && /Natalie/.test(lines[1].who) && /library moved/.test(lines[1].text)
+  && /cannot wait to see what you uncover/.test(lines[2].text) && /someone else willing to go down/.test(lines[3].text), JSON.stringify(lines));
+check('The camera cuts between them', lines[0].cam.join() !== lines[1].cam.join(), JSON.stringify(lines.map((l) => l.cam)));
 await page.waitForFunction(() => window.__gametool.dialogue.open, null, { timeout: 60000 });
 const end = await bar(page);
 check('B50 then the bars open and her dialogue starts as usual', !end.active && !end.on && end.dialogue && end.state === 'dialogue', JSON.stringify(end));
+const back = await page.evaluate(() => { const g = window.__gametool, gp = g.greerRoot().position, h = g.pedlarHit.position; return { d: Math.hypot(gp.x - h.x, gp.z - h.z), hero: g.player.body.visible }; });
+check('Greer is back at the coach road and the hero is back', back.d < 0.5 && back.hero, JSON.stringify(back));
 check('B50 the seen flag is saved per profile', await page.evaluate(() => localStorage.getItem('gametool.metnatalie') === '1')
   && !/'metnatalie'/.test(/const SHARED = new Set\(\[([^\]]*)\]/.exec(fs.readFileSync('src/profiles.ts', 'utf8'))?.[1] ?? ''));
 await page.reload();
@@ -61,7 +72,7 @@ await atT(p2, 0.8);
 await p2.keyboard.press('Space');
 await p2.waitForFunction(() => !window.__gametool.firstMeet.active, null, { timeout: 20000 }).catch(() => {});
 const sk = await bar(p2);
-check('B50 any key skips it, straight into the dialogue', !sk.active && sk.dialogue && sk.t < 6.5, JSON.stringify(sk));
+check('B50 any key skips it, straight into the dialogue', !sk.active && sk.dialogue && sk.t < 26, JSON.stringify(sk));
 await p2.context().close();
 
 // ---------- Low power ----------
