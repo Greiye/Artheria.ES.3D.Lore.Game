@@ -8,6 +8,7 @@ export const CROWN = 'crown';
 interface Ware { id: string; n: number; price: number }
 const STOCK: Ware[] = [
   { id: 'bolt', n: 5, price: 6 },
+  { id: 'sling', n: 1, price: 8 },
   { id: 'whistle', n: 1, price: 12 },
   { id: 'drum', n: 1, price: 15 },
   { id: 'lute', n: 1, price: 30 },
@@ -17,11 +18,15 @@ const STOCK: Ware[] = [
 /** v0.06 E2: everyday sundries, listed faded below the main stock. Bread, dried fish, jerky, mealworms and sunflower seeds befriend the pets. */
 const SUNDRIES: Ware[] = ['candle', 'wax', 'lampOil', 'soap', 'twine', 'chalk', 'salt', 'bread', 'fish', 'jerky', 'mealworms', 'seeds'].map((id, i) => ({ id, n: 1, price: 1 + (i % 3) }));
 /** What the shopkeeper pays for one of each. */
+const GEAR = ['bolt', 'sling'];   // the Gear tab; the rest of STOCK is instruments
 const BUYS: Record<string, number> = { trinket: 10, bolt: 1 };
 /** Mike 2026-11-05: the smith sells arms. One of each is all you need (it fills both hands). */
 export const SMITH_STOCK: Ware[] = [
   { id: 'buckler', n: 1, price: 14 },
   { id: 'shield', n: 1, price: 28 },
+  { id: 'dagger', n: 1, price: 10 },
+  { id: 'mace', n: 1, price: 22 },
+  { id: 'spear', n: 1, price: 18 },
 ];
 
 export class ShopPanel {
@@ -91,10 +96,10 @@ export class ShopPanel {
       <p class="shop-line">“${this.line}”</p>
       <div class="shop-purse">◎ <b>${have === Infinity ? '∞' : have}</b> crowns</div>
       <section><h4>Gear</h4>
-      ${STOCK.map((w, i) => (w.id === 'bolt' ? row(w, i) : '')).join('')}
+      ${STOCK.map((w, i) => (GEAR.includes(w.id) ? (w.id === 'sling' && this.inv.count('sling') ? '' : row(w, i)) : '')).join('')}
       <p class="fine">Crowns come from finds and from writing: margin notes, banner sketches, ballads and lore pages all pay.</p></section>
       <section><h4>Instruments</h4>
-      ${STOCK.map((w, i) => (w.id !== 'bolt' ? row(w, i) : '')).join('')}</section>
+      ${STOCK.map((w, i) => (!GEAR.includes(w.id) ? row(w, i) : '')).join('')}</section>
       <section><h4 class="shop-sundry-head">Sundries</h4>
       <div class="shop-grid">${SUNDRIES.map((w, i) => row(w, STOCK.length + i, ' sundry')).join('')}</div></section>
       <section><h4>Sell</h4>

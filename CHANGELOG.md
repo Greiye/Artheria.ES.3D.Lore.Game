@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 3: daggers, maces, spears, rocks and slings (Mike 2026-11-05)
+- The smith's counter now also sells a dagger, a flanged mace and an ash spear; the General Store sells a shepherd's sling. Like everything else, they go in either hand, in any pair.
+- The dagger cuts in half a sword's time for less, so two make a flurry. The mace is slow and heavy: every blow goes through a pot lid and knocks a goblin back. The spear jabs straight out a long way on a narrow line, so you can reach a goblin before it reaches you. Any of them comes up to turn half a blow if you keep holding its button after the blow, like the sword.
+- Rock piles by the fountain, the gate and the smithy give five rocks at a time (E). With rocks in hand, the button throws one in an arc. With the sling, hold the button to whirl it and let go to loose: the longer the whirl, the farther and harder, up to about a bolt's hit. Rocks lie where they land; pick them back up with E. The ammo line shows your rocks and how far the sling is wound.
+
 ### v0.16 changelog, part 2: shields and blocking (Mike 2026-11-05)
 - The smith's counter, in front of the smithy, sells a wooden buckler and a round iron-rimmed shield, shown on a rack. A new shield goes onto your left hand if it's free. Like everything else, either goes in either hand, or both.
 - Hold a hand's button to block with what it holds. A shield turns any blow from the front: the buckler covers a narrow arc, the round shield a wide one, and two shields wider still. Keep holding a sword's button after its cut and the blade comes up to turn half a blow. Blows from behind, and snares, get through, and a heavy blow still shoves you back a step. You move slower while blocking.

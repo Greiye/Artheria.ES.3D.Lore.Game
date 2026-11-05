@@ -34,7 +34,7 @@ await frames(8);
 await G(() => { const g = window.__gametool; g.interactables.find((x) => x.obj.name === 'smith-counter').act(); });
 await page.waitForFunction(() => !document.getElementById('smithShop').classList.contains('hidden'), null, { timeout: 5000 }).catch(() => {});
 const wares = await G(() => [...document.querySelectorAll('#smithShop [data-buy]')].map((b) => b.textContent.trim()));
-check('The smith sells a buckler and a round shield', wares.length === 2 && /Buckler/.test(wares[0]) && /Round Shield/.test(wares[1]), JSON.stringify(wares));
+check('The smith sells a buckler and a round shield', wares.length >= 2 && /Buckler/.test(wares[0]) && /Round Shield/.test(wares[1]), JSON.stringify(wares));
 await page.screenshot({ path: path.join(shots, 'shields-smith.png') });
 await page.click('#smithShop [data-buy="1"]');
 const bought = await G(() => { const g = window.__gametool; return { n: g.inventory.count('shield'), left: g.hands.held.left }; });
