@@ -28,6 +28,8 @@ const r = await page.evaluate(() => {
     if (o.name === 'canopy' && o.geometry) out.canopyTris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
     if (o.name === 'foliage:flowers') { out.flowers = o.count; const e = o.instanceMatrix.array; out.flowerScale = Math.hypot(e[0], e[1], e[2]); }
     if (o.name === 'foliage:fern') out.ferns = o.count;
+    if (o.name === 'cloud-cards') out.clouds = o.geometry.index.count / 6;
+    if (o.name === 'hill-cards-near' || o.name === 'hill-cards-far') out.hillCards = (out.hillCards ?? 0) + o.geometry.index.count / 6;
     if (o.name === 'fence-cards') { out.fencePanels = o.geometry.index.count / 12; out.fenceTex = !!o.material.map; }
     if (o.name === 'foliage:tuftCards') { out.tufts = o.instanceMatrix.count; out.cards = new Set(o.geometry.attributes.aCard.array).size; out.tuftTex = !!o.material.map; }
   });
@@ -41,6 +43,11 @@ check('Meadow tufts: one instanced mesh, 2000+ tufts, all 8 cards (3 grasses, cl
 // Quad detail 2: painted fence panels along the paths, one mesh, with posts you bump into.
 const posts = await page.evaluate(() => window.__gametool.world.colliders.filter((c) => c.kind === 'circle' && c.r === 0.16).length);
 check('Fences: painted panels along the paths in one mesh, with post colliders', r.fenceTex && r.fencePanels >= 15 && posts >= r.fencePanels * 3, JSON.stringify({ panels: r.fencePanels, posts }));
+// Quad detail 3: rolling-hill cards in two rings and pixel clouds that drift.
+const rot0 = await page.evaluate(() => { let r = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'cloud-cards') r = o.rotation.y; }); return r; });
+await page.waitForTimeout(1500);
+const rot1 = await page.evaluate(() => { let r = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'cloud-cards') r = o.rotation.y; }); return r; });
+check('Sky: two rings of hill cards and drifting cloud cards', r.hillCards >= 12 && r.clouds >= 20 && rot1 !== rot0, JSON.stringify({ hills: r.hillCards, clouds: r.clouds, rot0, rot1 }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
