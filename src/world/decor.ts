@@ -159,3 +159,35 @@ export function buildStalls(scene: THREE.Scene, T: DecorTown): THREE.Mesh[] {
   });
   return [P.mesh(scene, 'decor-stalls')!];
 }
+
+/** 3. Wall lanterns: an iron bracket with a scroll on each side wall near the front, a caged lantern hanging from it.
+ *  The glass glows (unlit, like the door lanterns) and every lantern joins the night halos and lights. */
+export function buildWallLanterns(scene: THREE.Scene, T: DecorTown, lanterns: THREE.Vector3[]): THREE.Mesh[] {
+  const iron = new Painter(7301), glass = new Painter(7302);
+  for (const L of T.lots) {
+    for (const sd of [-1, 1]) {
+      // In the lot's frame the side wall is at x = ±w/2; the bracket sticks out along ±x. Turn the parts so their
+      // local +x points out from the wall.
+      const lz = L.d / 2 - 0.7, y = T.plinth + 2.55, ry = L.ry + (sd > 0 ? 0 : Math.PI);
+      const out = (k: number, dy = 0) => L.at(sd * (L.w / 2 + k), y + dy, lz);
+      iron.add(new THREE.BoxGeometry(0.12, 0.2, 0.05), IRON, out(0.03, -0.05), ry);                          // wall plate
+      iron.add(new THREE.BoxGeometry(0.62, 0.035, 0.035), IRON, out(0.33), ry);                              // arm
+      iron.add(new THREE.BoxGeometry(0.42, 0.03, 0.03), IRON, out(0.2, -0.16), ry, 0, 0.62);   // brace
+      iron.add(new THREE.TorusGeometry(0.075, 0.012, 4, 8, Math.PI * 1.5), IRON, out(0.42, 0.08), ry);      // scroll
+      iron.add(new THREE.SphereGeometry(0.025, 4, 3), IRON, out(0.64));                                       // knob
+      iron.add(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 3), IRON, out(0.56, -0.08));                   // chain
+      const ly = -0.33, c = out(0.56, ly);
+      iron.add(new THREE.ConeGeometry(0.13, 0.12, 6), IRON, c.clone().setY(c.y + 0.17));                    // cap
+      iron.add(new THREE.SphereGeometry(0.025, 4, 3), IRON, c.clone().setY(c.y + 0.25));                    // ring
+      iron.add(new THREE.CylinderGeometry(0.11, 0.11, 0.025, 6), IRON, c.clone().setY(c.y + 0.11));         // top band
+      iron.add(new THREE.CylinderGeometry(0.1, 0.07, 0.05, 6), IRON, c.clone().setY(c.y - 0.12));           // base
+      for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI * 2; iron.add(new THREE.BoxGeometry(0.015, 0.22, 0.015), IRON, c.clone().add(new THREE.Vector3(Math.cos(a) * 0.1, 0, Math.sin(a) * 0.1))); }
+      glass.add(new THREE.CylinderGeometry(0.09, 0.08, 0.2, 6), '#FFC878', c);
+      lanterns.push(c.clone());
+    }
+  }
+  const g = glass.mesh(scene, 'decor-lantern-glass')!;
+  g.material = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.7, 1.7, 1.7) });
+  g.castShadow = false;
+  return [iron.mesh(scene, 'decor-lantern-iron')!, g];
+}
