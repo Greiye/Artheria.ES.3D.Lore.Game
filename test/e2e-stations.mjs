@@ -176,8 +176,9 @@ check('v0.06 C1 B with nothing open leaves the fire', await until(page, () => !w
 for (const vp of [{ width: 640, height: 360 }, { width: 844, height: 390 }, { width: 1280, height: 800 }]) {
   const { ctx, page: tp, errors: te } = await open({ viewport: vp, hasTouch: true, isMobile: true });
   await G(tp, () => { const g = window.__gametool; g.inventory.give('crossbow', 1); g.inventory.give('bolt', 5); });
-  await tp.keyboard.press('Digit2').catch(() => undefined);
-  await G(tp, () => document.querySelector('[data-act="bow"]')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  // Take the crossbow with the quick-equip button. B32: tap buttons act when the finger lifts over them, so send a
+  // full tap (press + lift) at the button's centre. (Digit2 is now "hands", which would put it straight away.)
+  await G(tp, () => { const b = document.querySelector('[data-act="qbow"]'); const r = b.getBoundingClientRect(); const o = { bubbles: true, pointerId: 7, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }; b.dispatchEvent(new PointerEvent('pointerdown', o)); b.dispatchEvent(new PointerEvent('pointerup', o)); });
   await until(tp, () => window.__gametool.crossbow.equipped, null, 4000);
   await frames(tp, 4);
   await shot(tp, `phone-crossbow-${vp.width}x${vp.height}`);
