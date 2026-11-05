@@ -7,7 +7,8 @@ import { tufts, leafMaterial, wind, type Tuft } from './foliage';
 import { tuftCards, type TuftCard } from './tuftCards';
 import { buildFences } from './fenceCards';
 import { buildSkyCards } from './skyCards';
-import { CARAVAN } from '../spanish/caravan';   // built later (main.ts): keep the fences clear of its camp
+import { CARAVAN } from '../spanish/caravan';
+import { PERCH } from '../sky/perch';   // skyrunner launch perch: keep trees and rocks off it   // built later (main.ts): keep the fences clear of its camp
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
 import { buildFigure, buildCoach } from './figure';
@@ -211,7 +212,8 @@ export function buildWorld(): World {
     || (x > -19 - pad && x < -9 + pad && z > 9 - pad && z < 19 + pad)   // Phase F dojo
     || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad)   // v0.04 rock climb
     || townClear(x, z, pad)   // v0.04 town
-    || riverClear(x, z, pad);   // references review: the river and the windmill
+    || riverClear(x, z, pad)   // references review: the river and the windmill
+    || Math.hypot(x - PERCH.x, z - PERCH.z) < PERCH.r + pad;   // the skyrunner perch
   // Style pass 2: the meadow gets gentle bumps, except where something stands on flat ground.
   const flatSpots: [number, number, number][] = [
     ...QUEST.clues.map((c) => [c.at[0], c.at[2], 2.5] as [number, number, number]),
