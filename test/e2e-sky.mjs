@@ -174,6 +174,31 @@ await until(t, () => window.__gametool.sky.phase === 'fly', null, 10000);
 const tc = await G(t, () => { const v = (s) => !!document.querySelector(s)?.offsetParent; return { pad: v('#skyRun .sk-pad'), fire: v('#skyRun .sk-fire'), help: v('#skyRun .sk-help-keys') }; });
 check('Touch: Fire, Surge and Look back buttons; no key help', tc.pad && tc.fire && !tc.help, JSON.stringify(tc));
 check('Touch: the View button is there', await G(t, () => !!document.querySelector('#skView')?.offsetParent));
+// Motion steering: the Tilt button turns the gyro on; tipping the phone banks the glider.
+check('Touch: a Tilt button, off to start', await G(t, () => { const b = document.querySelector('#skTilt'); return !!b.offsetParent && /off/.test(b.textContent); }));
+await G(t, () => { const s = window.__gametool.sky; s.start(s.map.seed); });
+await until(t, () => window.__gametool.sky.phase === 'fly', null, 40000);
+await t.tap('#skTilt');
+await until(t, () => window.__gametool.sky.tilt.on, null, 5000);
+// Tip the phone: readings sent as the browser sends them (after its own first reading on attach has come).
+await t.waitForTimeout(1200);
+const tilt = await G(t, async () => {
+  const s = window.__gametool.sky, angle = ((screen.orientation?.angle ?? 0) + 360) % 360;
+  const level = { beta: 40, gamma: 0 }, right = angle === 90 ? { beta: 60, gamma: 0 } : angle === 270 ? { beta: 20, gamma: 0 } : { beta: 40, gamma: 20 };
+  s.tilt.recenter();
+  window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', level));
+  window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', right));
+  const x = s.tilt.x, phase = s.phase;
+  s.me.pos.y = 300; s.time = 50;
+  // Keep holding it there while the glider answers.
+  for (let i = 0; i < 6; i++) { await new Promise((ok) => setTimeout(ok, 100)); window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', right)); }
+  return { angle, x, xAfter: s.tilt.x, bank: s.me.bank(), phase, label: document.querySelector('#skTilt').textContent, recenter: !!document.querySelector('#skRecenter').offsetParent };
+});
+check('Tilt on: tipping the phone right banks the glider right', tilt.x > 0.6 && tilt.xAfter > 0.6 && tilt.bank > 0.1 && /on/.test(tilt.label) && tilt.recenter, JSON.stringify(tilt));
+await t.tap('#skRecenter');
+check('Recenter makes the current hold level', await G(t, () => { const s = window.__gametool.sky; window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { beta: 10, gamma: 30 })); return s.tilt.x === 0 && s.tilt.y === 0; }));
+await t.tap('#skTilt');
+check('Tilt off again', await G(t, () => !window.__gametool.sky.tilt.on && localStorage.getItem('gametool.sky.tilt') === 'off'));
 const fireBox = await t.locator('#skyRun .sk-fire').boundingBox();
 await t.touchscreen.tap(fireBox.x + fireBox.width / 2, fireBox.y + fireBox.height / 2);
 await t.waitForTimeout(800);
