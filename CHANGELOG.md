@@ -7,6 +7,9 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 12: solid barrels and crates (Mike 2026-11-05, Graphics thread, "Don't billboard the crates and barrels")
+- Barrels, kegs and crates are real low-poly 3D again (no more flat cards that turn to face you): eight-sided barrels that bulge in the middle, with iron hoops and end-grain lids, and crates with rounded corners, planks and an X brace. All barrels are one merged mesh and all crates another (two draw calls), with shadows and ink outlines like the other props.
+
 ### v0.16 changelog, part 11: fallen heroes' gear and the patrons' gifts (Mike 2026-11-05)
 - **Fallen heroes' gear**: when a hero dies, goblins carry off each of their arms with an even chance (up to three:
   sword, dagger, mace, spear, crossbow, sling, shield, buckler). Goblins on that floor or the one either side then
