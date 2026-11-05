@@ -49,6 +49,8 @@ interface Sky {
   readonly time: TimeOfDay;
   readonly elevationDeg: number;
   setTime(t: TimeOfDay): void;
+  /** Centre the dome, stars and sun on `v` (the far maps); the origin is the glade. */
+  setCentre(v: THREE.Vector3): void;
   update(t: number, camera: THREE.Camera): void;
 }
 
@@ -185,8 +187,18 @@ float skyBand(float x) { float f = x * skyBandCount, i = floor(f); return (i + s
   let shaftBase = 0.18;
 
   let time: TimeOfDay = 'day', elev = elevDeg;
+  // Mike 2026-11-05: the far maps (beach, the gates) sit hundreds of metres off; the dome, stars, sun and its
+  // shadow box move with them. The canopy shafts belong to the glade, so they hide away from it.
+  const centre = new THREE.Vector3();
+  const place = () => {
+    dome.position.copy(centre); stars.position.copy(centre);
+    disc.position.copy(sunDir).multiplyScalar(170).add(centre); disc.lookAt(centre);
+    sun.position.copy(sunDir).multiplyScalar(90).add(centre); sun.target.position.copy(centre); sun.target.updateMatrixWorld();
+    shafts.visible = shaftBase > 0 && centre.lengthSq() === 0;
+  };
   return {
     sun, sunDir, shafts,
+    setCentre(v: THREE.Vector3) { centre.copy(v); place(); },
     get time() { return time; },
     get elevationDeg() { return elev; },
     setTime(t: TimeOfDay) {
@@ -205,8 +217,9 @@ float skyBand(float x) { float f = x * skyBandCount, i = floor(f); return (i + s
       disc.position.copy(sunDir).multiplyScalar(170); disc.lookAt(0, 0, 0);
       (disc.material as THREE.MeshBasicMaterial).color.set(p.disc).multiplyScalar(t === 'night' ? 1.1 : 1.5);
       disc.scale.setScalar(t === 'night' ? 0.55 : 1);
-      shafts.visible = p.shafts > 0; shaftBase = p.shafts;
+      shaftBase = p.shafts;
       starMat.opacity = p.stars;
+      place();
     },
     update(t: number, camera: THREE.Camera) {
       const toCam = new THREE.Vector3(), n = new THREE.Vector3(), xa = new THREE.Vector3(), basis = new THREE.Matrix4(), sp0 = new THREE.Vector3(), q0 = new THREE.Quaternion(), sc0 = new THREE.Vector3();

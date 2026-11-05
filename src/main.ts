@@ -99,6 +99,8 @@ import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
+import { Regions, REGIONS, TOWN_EXITS, signpost, type RegionId, type Side } from './world/regions';
+import { LoadScreen } from './ui/loadscreen';
 import { KillStatue, loadKills, saveKills, plaqueText } from './world/statue';
 import { FirstMeeting, metNatalie } from './cinematic/firstmeet';
 import { DmView, type Place } from './dm/dm';
@@ -211,7 +213,10 @@ post.setSize(window.innerWidth, window.innerHeight);
 post.setEnabled(settings.postFx);
 setOutlines(settings.inkLines);
 const player = new Player(settings, world.colliders, world.bounds);
-player.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));   // v0.04 hills (the dungeon floor is flat)
+// Mike 2026-11-05: the four far maps (src/world/regions.ts) have their own ground.
+const regions = new Regions(world.scene);
+const groundY = (x: number, z: number) => (inDungeon ? 0 : regions.floor(x, z) ?? world.heightAt(x, z));
+player.terrain = groundY;   // v0.04 hills (the dungeon floor is flat)
 player.spawn(world.spawn.pos, world.spawn.yaw);
 // R3: the camera rig places the camera (follow / first person / framed shots); the player only moves.
 const rig = new CameraRig(camera, player, world.colliders, world.bounds, () => settings.fov);
@@ -351,7 +356,11 @@ document.addEventListener('pointerlockchange', () => {
 async function begin() {
   // v0.05: pick up where the last save left off (the spot only if you saved, not if you retired at the gate).
   const save = loadGame();
-  if (save?.pos) player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
+  // Mike 2026-11-05: the save remembers which map you were on; you come back in at its waystone.
+  const wantRegion = savedRegion();
+  if (regions.current !== 'town') placeIn('town', regions.current);
+  if (save?.pos && wantRegion === 'town') player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
+  if (wantRegion !== 'town') placeIn(wantRegion, 'town');
   lastRest = save?.rest ?? 'inn';
   if (save && !begun) {
     setWorldTime(save.time);
@@ -809,6 +818,8 @@ function animate(dt: number) {
   petSense(dt);
   delveTick();   // B48
   gateCheck();
+  exitCheck();   // Mike 2026-11-05: the four ways out
+  regions.update(bannerT);
   // The library's interior (shelves, books, furniture: ~18 draw calls) only draws once the camera is near its door.
   library.group.visible = !inDungeon && camera.position.z < -4;
   dungeon.update(bannerT);
@@ -1022,7 +1033,7 @@ questProps.showLead(quest.stage === 'lead' ? quest.theory?.where ?? null : null)
 const greerRoot = () => (world.standees.pedlar.userData.replacedBy as THREE.Object3D | undefined) ?? world.standees.pedlar;
 const natalieRoot = () => (world.standees.natalie.userData.replacedBy as THREE.Object3D | undefined) ?? world.standees.natalie;
 const companion = new Companion(natalieRoot, world.natalieTarget, world.colliders, world.bounds, loadCompanion());
-companion.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
+companion.terrain = groundY;
 ($('companionQuiet') as HTMLInputElement).checked = companion.prefs.quiet;
 $('companionQuiet').addEventListener('change', (e) => { companion.prefs.quiet = (e.target as HTMLInputElement).checked; saveCompanion(companion.prefs); });
 // ---------- Pets (Mike 2026-11-04, "Add pets" + "Go"): a dog by the inn, a cat by the store, an owl at the library,
@@ -1046,7 +1057,7 @@ const pets = ([
   ['hamster', outFrom(world.town.doors.cartographer, 2.3, 1.8), world.town.doors.cartographer.rotation.y + 0.4],
 ] as [PetId, THREE.Vector3, number][]).map(([id, home, ry]) => {
   const p = new Pet(id, world.scene, home, ry, world.colliders, () => player.bounds, petPrefs);
-  p.terrain = (x, z) => (inDungeon ? 0 : world.heightAt(x, z));
+  p.terrain = groundY;
   if (id === 'owl') p.shown = () => world.time !== 'day';   // out from dusk
   return p;
 });
@@ -1332,7 +1343,7 @@ function enterDungeon(seed: number) {
   const L = dungeon.build(seed);
   dungeon.group.visible = true;
   world.colliders.push(...dungeon.colliders);
-  player.bounds = rig.bounds = 2000;
+  player.bounds = rig.bounds = companion.bounds = 2000;
   const fog = world.scene.fog as THREE.Fog;
   savedFog = { color: fog.color.clone(), near: fog.near, far: fog.far, bg: (world.scene.background as THREE.Color).clone() };
   fog.color.set(dungeon.fog); fog.near = 4; fog.far = 34; (world.scene.background as THREE.Color).set(dungeon.fog);
@@ -1355,7 +1366,7 @@ function exitDungeon() {
   inDungeon = false;
   const set = new Set(dungeon.colliders);
   for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1);
-  player.bounds = rig.bounds = world.bounds;
+  player.bounds = rig.bounds = companion.bounds = world.bounds;
   const fog = world.scene.fog as THREE.Fog;
   if (savedFog) { fog.color.copy(savedFog.color); fog.near = savedFog.near; fog.far = savedFog.far; (world.scene.background as THREE.Color).copy(savedFog.bg); }
   dungeon.group.visible = false; dungeon.hideSpots();
@@ -2380,6 +2391,7 @@ $('newGame').addEventListener('click', () => {
   if (Date.now() - newGameArmed > 4000) { newGameArmed = Date.now(); $('newGame').textContent = 'Tap again to start over'; return; }
   newGameArmed = 0;
   clearGame();
+  try { localStorage.removeItem(REGION_KEY); } catch { /* blocked */ }
   for (const [id] of [...inventory.counts]) inventory.counts.set(id, 0);
   inventory.render(); purse.set(0);
   begun = false;
@@ -2419,6 +2431,82 @@ function gateNo() {
   player.spawn(new THREE.Vector3(GATE.x + 1.6, 0, GATE.z), -Math.PI / 2);   // a step back inside, facing the camp
   leaveForge();
 }
+// ---------- Mike 2026-11-05: four exits, one per side, each to its own map after a load screen ----------
+const loadScreen = new LoadScreen();
+for (const side of Object.keys(TOWN_EXITS) as Side[]) {
+  if (side === 'west') continue;   // the coach-road gate has its own sign
+  const e = TOWN_EXITS[side], post = signpost(REGIONS[e.to].name);
+  const [ix, iz] = e.inside;
+  const sx = side === 'east' ? 0 : 2.2, sz = side === 'east' ? 2.2 : 0;   // beside the path, just inside the edge
+  post.position.set(ix + sx, world.heightAt(ix + sx, iz + sz), iz + sz);
+  post.rotation.y = e.yaw + Math.PI;   // the board faces you as you walk out
+  post.name = 'exit-sign-' + side;
+  world.scene.add(post);
+}
+const regionSpotsAdded = new Set<string>();
+function addRegionSpots(id: RegionId) {
+  if (id === 'town' || regionSpotsAdded.has(id)) return;
+  regionSpotsAdded.add(id);
+  for (const sp of regions.spots.get(id) ?? []) interactables.push({ obj: sp.hit, verb: () => sp.verb, when: () => regions.current === id && !travelling, act: () => {
+    if (sp.kind === 'back') { travel('town'); return; }
+    if (sp.kind === 'gate') haptics.play('tap');
+    toast(sp.line ?? '', 5200);
+  } });
+}
+let travelling = false;
+const REGION_KEY = 'gametool.region';
+const savedRegion = (): RegionId => { try { const r = localStorage.getItem(REGION_KEY) as RegionId | null; return r && (r === 'town' || r in REGIONS) ? r : 'town'; } catch { return 'town'; } };
+function placeIn(to: RegionId, from: RegionId) {
+  const old = from === 'town' ? null : regions.colliders.get(from);
+  if (old) { const set = new Set(old); for (let i = world.colliders.length - 1; i >= 0; i--) if (set.has(world.colliders[i])) world.colliders.splice(i, 1); }
+  regions.show(to);
+  addRegionSpots(to);
+  const fog = world.scene.fog as THREE.Fog;
+  if (to === 'town') {
+    player.bounds = rig.bounds = companion.bounds = world.bounds;
+    world.sky.setCentre(new THREE.Vector3());
+    world.setTime(world.time);   // puts the town's fog back
+    const side = from === 'town' ? 'north' : REGIONS[from].side, e = TOWN_EXITS[side];
+    const at = new THREE.Vector3(e.inside[0], 0, e.inside[1]);
+    player.spawn(at, e.yaw);
+    if (companion.prefs.follow) natalieRoot().position.copy(at).add(new THREE.Vector3(1.2, 0, 1.2));
+    for (const p of pets) if (p.following) p.placeNear(at);
+  } else {
+    const r = REGIONS[to];
+    world.colliders.push(...(regions.colliders.get(to) ?? []));
+    player.bounds = rig.bounds = companion.bounds = 2000;
+    world.sky.setCentre(new THREE.Vector3(r.origin.x, 0, r.origin.z));   // the dome round the map (the clifftop sees the town inside it)
+    if (r.fogFar) { fog.far = r.fogFar; fog.near = r.fogFar * 0.5; }
+    const at = r.origin.clone().add(r.arrive);
+    player.spawn(at, r.arriveYaw);
+    if (companion.prefs.follow) natalieRoot().position.copy(at).add(new THREE.Vector3(1.2, 0, 1.2));
+    for (const p of pets) if (p.following) p.placeNear(at);
+  }
+  try { localStorage.setItem(REGION_KEY, to); } catch { /* private mode */ }
+}
+/** Walk out to `to` (or home): the load screen covers the move, then lifts. */
+function travel(to: RegionId, instant = false) {
+  if (travelling || inDungeon || to === regions.current) return;
+  const from = regions.current;
+  if (instant) { placeIn(to, from); return; }
+  travelling = true;
+  const r = to === 'town' ? null : REGIONS[to];
+  player.speedMul = 0;
+  loadScreen.show(r ? r.name : 'Aralon', r ? r.line : 'Back down the road, home to the glade.', () => placeIn(to, from), () => {
+    travelling = false; player.speedMul = 1;
+    if (r) toast(`${r.name}. The waystone by the path leads back to Aralon.`, 4200);
+  });
+}
+function exitCheck() {
+  if (state !== 'play' || inDungeon || travelling) return;
+  const x = player.pos.x, z = player.pos.z;
+  if (regions.current === 'town') {
+    for (const side of Object.keys(TOWN_EXITS) as Side[]) if (TOWN_EXITS[side].trigger(x, z)) { travel(TOWN_EXITS[side].to); return; }
+    return;
+  }
+  const r = REGIONS[regions.current];
+  if (r.back(x - r.origin.x, z - r.origin.z)) travel('town');
+}
 function gateYes() {
   if (!gateOpen) return;
   gateOpen = false;
@@ -2427,6 +2515,13 @@ function gateYes() {
   toMenu('You retired at the gate. Your bag is saved; Begin starts you back at the glade.');
 }
 $('gateYes').addEventListener('click', () => gateYes());
+$('gateGo').addEventListener('click', () => {
+  if (!gateOpen) return;
+  gateOpen = false;
+  $('gateConfirm').classList.add('hidden');
+  leaveForge();
+  travel('amethyst');
+});
 $('gateNo').addEventListener('click', () => gateNo());
 
 const extras = new Extras(() => { setState('title'); focusMenu(1); });
@@ -3138,4 +3233,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

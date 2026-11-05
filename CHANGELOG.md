@@ -7,6 +7,19 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 7: four ways out of Aralon (Mike 2026-11-05)
+- One exit per side, each signposted, each to its own map after a load screen (the place's name, a line, a bar):
+  - north: **Aralon Edge**, a clifftop with a rail, a bench and a lone pine, built on a real cliff north of town, so
+    you look down on Aralon itself;
+  - south: **the Beach**, dunes, driftwood, an upturned boat, a jetty and a breathing tide;
+  - east: **the Ranlean Gates**, the city wall, towers and banners; the gates are shut ("knock" to hear why);
+  - west: the coach-road gate now offers **Walk on to the Amethyst Peak gates** (snow, amethyst crystals, a carved
+    gate sealed until the thaw) beside retiring.
+- Each map has a waystone ("Head back to Aralon"), and walking off its back edge goes home too; you come back in at
+  the side you left from. Natalie and your pets come along if they're following.
+- The save remembers which map you were on; Continue puts you back at its waystone.
+- Test: `e2e-exits`.
+
 ### v0.16 changelog, part 6: a new first-meeting scene, Greer and Natalie (Mike 2026-11-05)
 - The first talk with Natalie now opens on Magister Greer, come up from the coach road to look in on her for her
   patron (a close friend of his). A letterboxed two-shot by the library door with her title card, then the camera cuts

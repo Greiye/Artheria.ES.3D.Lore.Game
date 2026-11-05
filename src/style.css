@@ -548,3 +548,14 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 .item-card .ic-eng, .item-card .ic-legend { color: #c7a85a; font-style: italic; margin-top: 4px; }
 .item-card .ic-flavour { color: #b8a27a; font-style: italic; margin-top: 6px; }
 .item-card .ic-value { color: #8a8478; font-size: 12px; margin-top: 6px; }
+
+/* Mike 2026-11-05: the load screen between maps (src/ui/loadscreen.ts). */
+#loadScreen { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: radial-gradient(ellipse at center, #1c1812 0%, #080706 75%); opacity: 0; transition: opacity .3s ease; pointer-events: none; }
+#loadScreen.in { opacity: 1; pointer-events: auto; }
+#loadScreen.out { opacity: 0; }
+#loadScreen .ls-card { text-align: center; color: #FFF1C8; padding: 0 16px; max-width: 640px; }
+#loadScreen .ls-eyebrow { font: 600 12px var(--ui, sans-serif); letter-spacing: .16em; text-transform: uppercase; color: #B8A27A; }
+#loadScreen .ls-name { font: 600 clamp(28px, 5vw, 48px) Georgia, serif; margin: 6px 0 4px; }
+#loadScreen .ls-line { font: italic clamp(15px, 2vw, 19px) Georgia, serif; color: #E2C98A; }
+#loadScreen .ls-bar { margin: 22px auto 0; width: min(320px, 70vw); height: 4px; background: rgba(255,241,200,.15); border-radius: 2px; overflow: hidden; }
+#loadScreen .ls-fill { height: 100%; width: 0; background: #E2C98A; }
