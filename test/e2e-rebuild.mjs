@@ -34,8 +34,11 @@ const tex = await G(page, () => {
   return { mag: t.magFilter, linear: 1006, w: t.image.width };
 });
 check('R1/S3 + style pass 1: ground uses a smooth-filtered 64 px painted texture', tex.mag === tex.linear && tex.w === 64, JSON.stringify(tex));
-const batched = await G(page, () => { let n = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'static') n++; }); return n; });
-check('R1 static props are batched into a handful of meshes', batched > 0 && batched < 20, `${batched} meshes`);
+// One merged mesh per material (src/world/batch.ts): the count tracks the material palette, not the prop count.
+// Town style 2 (pixel-art town, PR #79) added textured materials, so the cap allows for them; the real check is
+// that no material is split across two meshes and that hundreds of props still collapse into a few dozen draws.
+const batched = await G(page, () => { const mats = new Set(); let n = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'static') { n++; mats.add(o.material); } }); return { n, mats: mats.size }; });
+check('R1 static props are batched into one mesh per material', batched.n > 0 && batched.n === batched.mats && batched.n < 32, `${batched.n} meshes, ${batched.mats} materials`);
 
 await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 8000 });
