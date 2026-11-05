@@ -1,7 +1,7 @@
 import { escapeHtml } from './submit';
 import { loadSketches, sketchDataUrl, sketchMarkdown } from './writing/sketch';
 import { loadForge, forgeMarkdown } from './forge/character';
-import { loadWeapon, weaponMarkdown } from './forge/weapon';
+import { loadWeapon, weaponMarkdown, loadSword, swordMarkdown } from './forge/weapon';
 import { loadBallads, balladMarkdown } from './campfire/ballad';
 import { loadMargins, marginsMarkdown } from './writing/margins';
 import { loadFolk, folkMarkdown } from './quest/folklore';
@@ -25,6 +25,10 @@ export function gatherPortfolio(author: string, titleOf: (entryId: string) => st
   if (has('gametool.forge.weapon')) {
     const w = loadWeapon();
     out.push({ kind: 'Crossbow', title: w.name || 'Unnamed crossbow', text: [w.engraving && `Engraved: “${w.engraving}”`, w.legend].filter(Boolean).join('\n\n') || `A ${w.stock} crossbow, ${w.stockMat} and ${w.limbMat}.`, color: w.fittings, markdown: weaponMarkdown(w, author) });
+  }
+  if (has('gametool.forge.sword')) {   // Mike 2026-11-05: the forged sword
+    const w = loadSword();
+    out.push({ kind: 'Sword', title: w.name || 'Unnamed sword', text: [w.engraving && `Engraved: “${w.engraving}”`, w.legend].filter(Boolean).join('\n\n') || `A ${w.blade} blade, ${w.guard} guard.`, color: w.metal, markdown: swordMarkdown(w, author) });
   }
   for (const s of loadSketches()) out.push({ kind: 'Sketch', title: s.name || 'Untitled sketch', text: '', image: sketchDataUrl(s, 6), markdown: sketchMarkdown(s, author) });
   for (const b of loadBallads()) out.push({ kind: 'Ballad', title: b.title, text: b.verses.map((v) => v.join('\n')).join('\n\n'), markdown: balladMarkdown(b, author) });

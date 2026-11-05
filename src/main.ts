@@ -49,7 +49,8 @@ import { FigureAnim, BodyAnim, type AnimInput, type Pose, type Gesture } from '.
 import { Dust } from './fx/dust';
 import { activeSlot, slotInfo, slotLabel } from './profiles';
 import { CharacterForge, loadForge, type ForgeCharacter } from './forge/character';
-import { WeaponForge, loadWeapon, buildCrossbowModel, type WeaponCosmetic } from './forge/weapon';
+import { WeaponForge, loadWeapon, type WeaponCosmetic, type SwordCosmetic } from './forge/weapon';
+import { ForgePreview } from './forge/preview';
 import { MarginDesk, loadStationery, saveStationery, applyStationery, loadMargins, type Stationery } from './writing/margins';
 import { SketchPad, sketchById, DEFAULT_SKETCH, type Sketch } from './writing/sketch';
 import { stampBanner, buildBookmarks } from './writing/stamps';
@@ -928,28 +929,32 @@ function openWhoYouAre() {
   setPanelTab('Tailor & Barber-Surgeon', 0);
   openCharacterForge();
 }
-// B5: the forged crossbow hovers over the anvil at twice size while you work on it, turning slowly.
-const weaponDisplay = new THREE.Group();
-weaponDisplay.position.set(world.stations.anvil.position.x, 1.3, world.stations.anvil.position.z);   // hovers over the anvil
-weaponDisplay.scale.setScalar(2.2);
-weaponDisplay.visible = false;
-world.scene.add(weaponDisplay);
+// B5; Mike 2026-11-05: the weapon you're forging shows large in the middle of the free screen (src/forge/preview.ts),
+// not over the anvil. Drag, the right stick or the arrow keys turn it. `weaponDisplay` is its turntable.
+const forgePreview = new ForgePreview();
+const weaponDisplay = forgePreview.turntable;
 const weaponForge = station(new WeaponForge(
-  (c: WeaponCosmetic) => { weaponDisplay.clear(); weaponDisplay.add(buildCrossbowModel(c)); },
-  (c: WeaponCosmetic) => { crossbow.applyCosmetic(c); crossbow2.applyCosmetic(c); weaponDisplay.visible = false; leaveForge(); },
+  (model, kind) => forgePreview.set(model, kind),
+  (c: WeaponCosmetic, sw: SwordCosmetic) => { crossbow.applyCosmetic(c); crossbow2.applyCosmetic(c); sword.applyCosmetic(sw); sword2.applyCosmetic(sw); forgePreview.active = false; leaveForge(); },
   loreWords, forgeAuthor));
+/** Where the forge preview draws: the screen minus the panel (to its left on a wide screen, above it on a tall one). */
+function forgePreviewRect() {
+  const W = window.innerWidth, H = window.innerHeight, p = weaponForge.el.querySelector('.forge-panel')?.getBoundingClientRect();
+  if (!p || p.width === 0) return { x: 0, y: 0, w: W, h: H };
+  if (p.left > W * 0.3) return { x: 0, y: 0, w: p.left, h: H };   // panel on the right
+  return { x: 0, y: 0, w: W, h: Math.max(80, p.top) };            // panel along the bottom
+}
 // v0.04: the weapon forge opens at the camp anvil or at the town smithy, wherever you asked for it.
 const anvilSpot = world.stations.anvil.position.clone();
 function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
   anvilSpot.copy(at);
-  weaponDisplay.position.set(at.x, 1.3, at.z);
-  weaponDisplay.rotation.set(0, -0.6, 0);   // v0.06 S4: it stays still; drag (right mouse or a finger) or the right stick turns it
+  forgePreview.reset();   // v0.06 S4: it stays still; drag (a mouse or a finger) or the right stick turns it
   enterForge();
   // S1: you stand at the anvil's near side with the hammer; the camera takes in the anvil, the crossbow and you.
   const from = new THREE.Vector3(2.1, 0, 0.5), side = new THREE.Vector3(-0.35, 0, 1).normalize();
   takeStation(at.clone().addScaledVector(side, 0.85), at, 'smith');
   frameStation(new THREE.Vector3(at.x, 1.0, at.z).addScaledVector(side, 0.35), 1.75, from, 42);
-  weaponDisplay.visible = true;
+  forgePreview.active = true;
   weaponForge.open(loadWeapon());
 }
 function closeForges() {
@@ -1940,10 +1945,7 @@ window.addEventListener('pointermove', (e) => {
   if (weaponForge.isOpen) turnWeapon(dx * 0.012, dy * 0.008);   // v0.06 S4: let go and it stays at that angle
   else if (characterForge.isOpen) { player.bodyYaw += dx * 0.012; player.body.rotation.y = player.bodyYaw; }
 });
-function turnWeapon(yaw: number, pitch: number) {
-  weaponDisplay.rotation.y += yaw;
-  weaponDisplay.rotation.x = THREE.MathUtils.clamp(weaponDisplay.rotation.x + pitch, -0.9, 0.9);
-}
+function turnWeapon(yaw: number, pitch: number) { forgePreview.turn(yaw, pitch); }
 interactables.push(
   { obj: world.stations.mirror, verb: () => 'Change your look', act: () => openCharacterForge() },
   { obj: world.stations.banner, verb: () => 'Sketch at the writing desk', act: () => openSketchbook() },
@@ -2689,7 +2691,11 @@ window.addEventListener('keydown', (e) => {
     return;
   }   // F3.2: world input ignored
   if (state === 'editor') { if (e.code === 'Escape' && !e.repeat) closeEditor(); return; }  // text fields handle their own typing
-  if (state === 'forge') { if (e.code === 'Escape' && !e.repeat) closeForges(); return; }
+  if (state === 'forge') {
+    if (e.code === 'Escape' && !e.repeat) closeForges();
+    else if (weaponForge.isOpen && e.code.startsWith('Arrow')) turnWeapon(e.code === 'ArrowLeft' ? -0.15 : e.code === 'ArrowRight' ? 0.15 : 0, e.code === 'ArrowUp' ? -0.1 : e.code === 'ArrowDown' ? 0.1 : 0);   // Mike 2026-11-05
+    return;
+  }
   if (state === 'dialogue') { if (!e.repeat) dialogue.handleKey(e.code); return; }   // F3.3: movement frozen
   if (state === 'inventory') { if (!e.repeat && ['KeyI', 'Tab', 'Escape'].includes(e.code)) closeInventory(); return; }
   if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
@@ -3040,6 +3046,7 @@ function frame() {
   updateSeeThrough(rig.seeThrough && player.thirdPerson && state === 'play', camera, stChest.copy(player.pos).setY(player.pos.y + 1.1));
   updateFigureSun(camera);   // cel shading: the characters' light bands follow the sun as the camera turns
   post!.render(world.scene, camera);
+  if (forgePreview.active && weaponForge.isOpen) forgePreview.render(renderer, forgePreviewRect());
   const ms = performance.now() - t0;
   perf.frames++; perf.cpuMs += ms; perf.worstMs = Math.max(perf.worstMs, ms);
   if (perfHud) perfTick(now, ms);
@@ -3113,4 +3120,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

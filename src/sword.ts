@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
+import { buildSwordModel, loadSword, type SwordCosmetic } from './forge/weapon';
 
 // Mike 2026-11-05: the same hand weapon in four kinds. swing: seconds per swing; strike: when in it the blow lands;
 // reach: metres from your feet (plus the goblin's own radius); arc: half-angle of the cut; damage: per blow of the
@@ -24,8 +25,8 @@ const ASSIST = 1.75;                // follow view: turn toward a goblin up to ~
 interface Slash { from: THREE.Vector3; fwd: THREE.Vector3; reach: number; arc: number; damage: number; heavy: boolean }
 
 /** A low-poly hand weapon, grip at the origin, along +Y. */
-function buildMelee(kind: MeleeKind): THREE.Group {
-  if (kind === 'sword') return buildSwordModel();
+function buildMelee(kind: MeleeKind, look: SwordCosmetic): THREE.Group {
+  if (kind === 'sword') return buildSwordModel(look);
   const g = new THREE.Group();
   const steel = new THREE.MeshLambertMaterial({ color: '#C4C8CE' }), iron = new THREE.MeshLambertMaterial({ color: '#6E7276' });
   const wood = new THREE.MeshLambertMaterial({ color: '#6A4A2E' }), grip = new THREE.MeshLambertMaterial({ color: '#4A3222' });
@@ -47,24 +48,6 @@ function buildMelee(kind: MeleeKind): THREE.Group {
   }
   return g;
 }
-/** A low-poly arming sword, grip at the origin, blade along +Y (about 0.95 m long). */
-function buildSwordModel(): THREE.Group {
-  const g = new THREE.Group();
-  const steel = new THREE.MeshLambertMaterial({ color: '#C4C8CE' }), edge = new THREE.MeshLambertMaterial({ color: '#E8ECF0' });
-  const grip = new THREE.MeshLambertMaterial({ color: '#4A3222' }), brass = new THREE.MeshLambertMaterial({ color: '#B08A3E' });
-  const part = (geo: THREE.BufferGeometry, m: THREE.Material, y: number, name?: string) => {
-    const o = new THREE.Mesh(geo, m); o.position.y = y; o.castShadow = true; o.raycast = () => {}; if (name) o.name = name; g.add(o); return o;
-  };
-  part(new THREE.BoxGeometry(0.055, 0.68, 0.014), steel, 0.46, 'blade');
-  part(new THREE.BoxGeometry(0.012, 0.68, 0.018), edge, 0.46, 'edge');   // the fuller's bright line
-  steel.userData.steel = true; edge.userData.edge = true;
-  const tip = part(new THREE.ConeGeometry(0.039, 0.12, 4), steel, 0.86); tip.scale.z = 0.36; tip.rotation.y = Math.PI / 4;
-  part(new THREE.BoxGeometry(0.24, 0.035, 0.05), brass, 0.105);      // cross-guard
-  part(new THREE.CylinderGeometry(0.019, 0.022, 0.17, 6), grip, 0.0);
-  part(new THREE.SphereGeometry(0.03, 6, 4), brass, -0.1);            // pommel
-  return g;
-}
-
 const ease = (x: number) => x * x * (3 - 2 * x);
 
 export class Sword {
@@ -97,10 +80,10 @@ export class Sword {
 
   constructor(camera: THREE.Camera, private player: Player, private inventory: Inventory) {
     this.held.name = 'held-sword';
-    this.held.add(buildSwordModel());
+    this.held.add(buildSwordModel(this.look));
     this.held.visible = false;
     this.viewmodel.name = 'sword-viewmodel';
-    const vm = buildSwordModel(); vm.scale.setScalar(0.62); this.viewmodel.add(vm);
+    const vm = buildSwordModel(this.look); vm.scale.setScalar(0.62); this.viewmodel.add(vm);
     this.viewmodel.visible = false;
     camera.add(this.viewmodel);
     this.attach();
@@ -137,10 +120,16 @@ export class Sword {
   setKind(kind: MeleeKind) {
     if (kind === this.kind) return;
     this.kind = kind; this.t = -1; this.combo = 0; this.queued = false;
-    this.held.clear(); this.held.add(buildMelee(kind));
-    this.viewmodel.clear(); const vm = buildMelee(kind); vm.scale.setScalar(kind === 'spear' ? 0.5 : 0.62); this.viewmodel.add(vm);
+    this.rebuild();
+  }
+  private rebuild() {
+    this.held.clear(); this.held.add(buildMelee(this.kind, this.look));
+    this.viewmodel.clear(); const vm = buildMelee(this.kind, this.look); vm.scale.setScalar(this.kind === 'spear' ? 0.5 : 0.62); this.viewmodel.add(vm);
     this.setCondition(this.condition.sharp, this.condition.rust);
   }
+  /** Mike 2026-11-05: the forged sword's look (the weapon forge's Sword tab). Other kinds keep their own. */
+  look: SwordCosmetic = loadSword();
+  applyCosmetic(c: SwordCosmetic) { this.look = c; if (this.kind === 'sword') this.rebuild(); }
   /** You have one of this kind. */
   get has() { return this.inventory.count(this.kind) > 0; }
   setSide(side: 1 | -1) { if (side === this.side) return; this.side = side; this.attach(); }

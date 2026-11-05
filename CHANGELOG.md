@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 4: the sword forge, and the weapon shown centre screen (Mike 2026-11-05)
+- The weapon forge has Crossbow and Sword tabs. The sword takes a blade (arming, broad, curved, slim), a guard (cross,
+  swept, disc), a pommel (round, disc, ring), steel, metal and grip colours, an engraving, a name and a legend. Done
+  puts the new look on the sword in hand (both hands if you hold two) and saves it; Submit exports it like the crossbow.
+- The weapon being forged now shows large in the middle of the free screen, on a soft dark backdrop, instead of over
+  the anvil. Drag it, use the right stick or the arrow keys to turn it.
+- Test: `e2e-sword-forge`.
+
 ### v0.16 changelog, part 3: daggers, maces, spears, rocks and slings (Mike 2026-11-05)
 - The smith's counter now also sells a dagger, a flanged mace and an ash spear; the General Store sells a shepherd's sling. Like everything else, they go in either hand, in any pair.
 - The dagger cuts in half a sword's time for less, so two make a flurry. The mace is slow and heavy: every blow goes through a pot lid and knocks a goblin back. The spear jabs straight out a long way on a narrow line, so you can reach a goblin before it reaches you. Any of them comes up to turn half a blow if you keep holding its button after the blow, like the sword.
