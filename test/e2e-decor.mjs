@@ -51,6 +51,9 @@ check('Woodpiles, carts and hay bales: one merged mesh, flat painted, at least 3
 // 5. Wells and signposts: one merged mesh; signposts at the footpaths' starts, wells off the paths.
 const way = m0['decor-wayside'];
 check('Wells and signposts: one merged mesh, flat painted, 2 wells and 6+ signposts', way?.n === 1 && !way.map && way.tris < 12000 && way.user.wells === 2 && way.user.signs >= 6, JSON.stringify(way));
+// 6. Ivy and moss: one ivy mesh, one moss mesh for every wall and plinth; cheap enough for phones.
+const ivyM = m0['decor-ivy'], mossM = m0['decor-moss'];
+check('Ivy and moss: one mesh each, flat painted, together under 16000 triangles', ivyM?.n === 1 && mossM?.n === 1 && !ivyM.map && !mossM.map && ivyM.user.ivyLeaves > 300 && ivyM.tris + mossM.tris < 16000, JSON.stringify({ ivy: ivyM?.tris, moss: mossM?.tris, user: ivyM?.user }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;
