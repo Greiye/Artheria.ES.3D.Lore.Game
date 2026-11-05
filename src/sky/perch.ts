@@ -3,7 +3,7 @@ import { buildGlider } from './scene';
 
 // Skyrunner: the launch perch in the meadow east of the library, where a sky run starts. A timber tower with a
 // ladder and a glider resting on the deck. You use it from the foot of the ladder.
-export const PERCH = { x: 36, z: 4, r: 4 };
+export const PERCH = { x: 36, z: 4, r: 6.5 };   // r: keep-out for trees and rocks (the perch, Lenju, Taitai and his sawhorse)
 
 export function buildPerch(): { group: THREE.Group; hit: THREE.Mesh } {
   const wood = new THREE.MeshLambertMaterial({ color: '#8A5A32', flatShading: true }), dark = new THREE.MeshLambertMaterial({ color: '#6B4426', flatShading: true });
