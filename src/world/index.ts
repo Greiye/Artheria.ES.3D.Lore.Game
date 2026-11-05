@@ -304,7 +304,7 @@ export function buildWorld(): World {
   const town = buildTown(scene, B, townTex, colliders);   // v0.04
   const river = buildRiver(scene, B, tex, colliders);   // references review (Willowbrook)
   const smoke = buildSmoke(scene, town.chimneys);   // UX pass
-  const statics = B.flush(scene, 'static');
+  const statics = [...B.flush(scene, 'static'), ...town.props];   // + the merged barrels and crates
   statics.forEach((m) => { solids.push(m); shadowCasters.push(m); });
   outlineStatic(statics, scene);   // G2: ink outlines on buildings and props
 

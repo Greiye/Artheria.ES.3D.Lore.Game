@@ -31,7 +31,8 @@ const r = await page.evaluate(() => {
     if (o.name === 'cloud-cards') out.clouds = o.geometry.index.count / 6;
     if (o.name === 'hill-cards-near' || o.name === 'hill-cards-far') out.hillCards = (out.hillCards ?? 0) + o.geometry.index.count / 6;
     if (o.name === 'fence-cards') { out.fencePanels = o.geometry.index.count / 12; out.fenceTex = !!o.material.map; }
-    if (o.name === 'prop-cards') { out.props = o.count; out.propKinds = new Set(o.geometry.attributes.aCard.array.filter((_, i) => i % 2 === 0)).size; out.propTex = !!o.material.map; }
+    if (o.name === 'prop-cards') out.propCards = true;
+    if (o.name === 'prop-barrels' || o.name === 'prop-crates') { out.propMeshes = (out.propMeshes ?? 0) + 1; out.propTris = (out.propTris ?? 0) + o.geometry.attributes.position.count / 3; out.propTex = !!o.material.map; out.propCast = o.castShadow; }
     if (o.name === 'foliage:tuftCards') { out.tufts = o.instanceMatrix.count; out.cards = new Set(o.geometry.attributes.aCard.array).size; out.tuftTex = !!o.material.map; }
   });
   return out;
@@ -49,8 +50,8 @@ const rot0 = await page.evaluate(() => { let r = 0; window.__gametool.world.scen
 await page.waitForTimeout(1500);
 const rot1 = await page.evaluate(() => { let r = 0; window.__gametool.world.scene.traverse((o) => { if (o.name === 'cloud-cards') r = o.rotation.y; }); return r; });
 check('Sky: two rings of hill cards and drifting cloud cards', r.hillCards >= 12 && r.clouds >= 20 && rot1 !== rot0, JSON.stringify({ hills: r.hillCards, clouds: r.clouds, rot0, rot1 }));
-// Quad detail 4: barrels, kegs and crates as camera-facing painted cards, one instanced mesh.
-check('Props: barrels, kegs and crates as painted cards in one mesh', r.propTex && r.props >= 12 && r.propKinds === 4, JSON.stringify({ props: r.props, kinds: r.propKinds }));
+// Barrels, kegs and crates (Mike 2026-11-05: not billboards): low-poly 3D, merged into two meshes, painted, casting shadows.
+check('Props: barrels and crates are low-poly 3D in two merged meshes', r.propTex && r.propMeshes === 2 && r.propTris >= 16 * 40 && r.propTris < 6000 && !r.propCards, JSON.stringify({ meshes: r.propMeshes, tris: r.propTris }));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((x) => !x.ok).length;

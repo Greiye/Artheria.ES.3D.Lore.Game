@@ -6,7 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Collider } from './index';
 import { TOWN_PALETTE as P } from './palette';
 import { waterMaterial } from './river';
-import { propCards, type Prop } from './propCards';
+import { propMeshes, type Prop } from './propMeshes';
 
 // v0.04: a small storybook town south of the glade, down the path from the spawn point. One building per
 // tool, scattered round an oval green at odd angles (Mike, 2026-10-28: "make it feel lively"): the library
@@ -134,6 +134,8 @@ export interface Town {
   chimneys: THREE.Vector3[];
   /** UX pass: the fingerpost where the lane meets the green, one arm per building. */
   fingerpost: THREE.Vector3;
+  /** Barrels, kegs and crates: merged meshes (index.ts gives them shadows and outlines with the other statics). */
+  props: THREE.Mesh[];
 }
 
 export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[]): Town {
@@ -290,7 +292,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
     colliders.push({ kind: 'circle', x, z, r: 0.15 });
   });
 
-  dressTown(scene, B, tex, colliders, local, ring);
+  const props = dressTown(scene, B, tex, colliders, local, ring);
 
   // The shopkeeper stands behind the counter, facing the green.
   const shop = LOTS.find((l) => l.id === 'shop')!, sa = local(shop);
@@ -302,7 +304,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
   const shopkeeperHit = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
   shopkeeperHit.position.copy(sa(2.0, 0.9, shop.d / 2 + 2.55)); shopkeeperHit.rotation.y = shop.ry; shopkeeperHit.name = 'shopkeeper';
   scene.add(shopkeeperHit);
-  return { doors, shopkeeper, shopkeeperHit, cinema: cin, bed, lanterns, windows: glow, windowSpots, chimneys, fingerpost };
+  return { doors, shopkeeper, shopkeeperHit, cinema: cin, bed, lanterns, windows: glow, windowSpots, chimneys, fingerpost, props };
 }
 
 // ---------- Style pass 2: storybook dressing (window boxes, pots, awnings, barrels, a well, bunting) ----------
@@ -310,7 +312,7 @@ export function buildTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THR
 const FLOWERS = ['#E86A8A', '#F2C94C', '#F2F0E6', '#B07AD8', '#E8603A'];
 const AWNING = [P.brick, P.cream];
 const BUNTING = [P.brick, P.tan, P.slate, P.moss, P.cream];
-function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[], local: (L: Spot) => (lx: number, y: number, lz: number) => THREE.Vector3, ring: Spot[]) {
+function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Material, colliders: Collider[], local: (L: Spot) => (lx: number, y: number, lz: number) => THREE.Vector3, ring: Spot[]): THREE.Mesh[] {
   const R = rng(6262), V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
   const painted: THREE.BufferGeometry[] = [];
   const props: Prop[] = [];
@@ -356,7 +358,7 @@ function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Mate
       }
       if (L.id === 'shop') for (const x of [cx - w / 2 + 0.05, cx + w / 2 - 0.05]) B.add(tex('wood'), new THREE.BoxGeometry(0.1, 1.95, 0.1), at(x, 0.97, D / 2 + dep - 0.05), undefined, L.ry);
     }
-    // Quad detail 4: barrels and crates against a side wall on some houses, as painted cards (one draw call).
+    // Barrels and crates against a side wall on some houses (low-poly 3D, merged: src/world/propMeshes.ts).
     if (li % 2 === 0 && L.id !== 'shop') {
       const side = li % 4 ? 1 : -1;
       const b = at(side * (W / 2 + 0.55), 0, D / 2 - 0.2), c = at(side * (W / 2 + 0.55), 0, D / 2 - 1.15);
@@ -414,6 +416,6 @@ function dressTown(scene: THREE.Scene, B: Batch, tex: (n: TexName) => THREE.Mate
   const mesh = new THREE.Mesh(mergeGeometries(painted), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
   mesh.name = 'town-dressing'; mesh.raycast = () => {};
   scene.add(mesh);
-  propCards(scene, props);
+  return propMeshes(scene, props);
 }
 type PropCardKind = Prop['kind'];
