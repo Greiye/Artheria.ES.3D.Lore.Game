@@ -17,6 +17,9 @@ export interface AnimInput {
   sword?: boolean;        // v0.08: a sword in the right hand (guard)
   swing?: number | null;  // v0.08: 0..1 through a sword cut
   combo?: number;         // v0.08: 1 forehand, 2 backhand, 3 heavy overhead
+  swordP?: boolean;       // Mike 2026-11-05: a sword in the left hand too (or instead), mirrored
+  swingP?: number | null;
+  comboP?: number;
   lean?: number;          // B41/B42: -1 left … 1 right, the upper body tilts out past a wall edge
   // Fight (B35, limbs 2026-11-04): fists up, a crouch, and a strike with one limb. k runs 0..0.5 through the move's
   // startup (wind up, then out), stays at 0.5 while it is active and runs 0.5..1 through the recovery.
@@ -41,7 +44,7 @@ const smooth = (cur: number, target: number, rate: number, dt: number) => cur + 
 export class FigureAnim {
   private phase = 0;
   private t = Math.random() * 10;   // de-sync idle breathing between figures
-  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0, sword: 0, fight: 0, crouch: 0 };
+  private w = { walk: 0, run: 0, talk: 0, aim: 0, air: 0, squash: 0, pose: 0, sword: 0, swordP: 0, fight: 0, crouch: 0 };
   private pose: Pose = 'stance';
   private poseT = 0;
   private head = { yaw: 0, pitch: 0 };
@@ -165,20 +168,38 @@ export class FigureAnim {
     zN = THREE.MathUtils.lerp(zN, 0.35, w.aim); zP = THREE.MathUtils.lerp(zP, -0.15, w.aim);
     // v0.08 sword: a guard with the blade forward; a cut winds up and sweeps across the body (the third overhead).
     w.sword = smooth(w.sword, i.sword ? 1 : 0, 12, dt);
+    w.swordP = smooth(w.swordP, i.swordP ? 1 : 0, 12, dt);
     if (w.sword > 0.01) {
       aN = THREE.MathUtils.lerp(aN, -0.5 + s * 0.15 * loco, w.sword); fN = THREE.MathUtils.lerp(fN, -0.95, w.sword); zN = THREE.MathUtils.lerp(zN, 0.05, w.sword);
     }
-    if (i.swing != null) {
-      const k = i.swing, heavy = i.combo === 3, flip = i.combo === 2 ? -1 : 1, L = THREE.MathUtils.lerp;
+    if (w.swordP > 0.01) {   // the left hand's guard, mirrored
+      aP = THREE.MathUtils.lerp(aP, -0.5 - s * 0.15 * loco, w.swordP); fP = THREE.MathUtils.lerp(fP, -0.95, w.swordP); zP = THREE.MathUtils.lerp(zP, -0.05, w.swordP);
+    }
+    // A cut on one side (m = 1 the right arm, -1 the left, mirrored); the other arm swings out for balance unless it holds a sword.
+    const cut = (k: number, combo: number | undefined, m: 1 | -1, arm: { a: number; z: number; f: number }, free: boolean) => {
+      const heavy = combo === 3, flip = combo === 2 ? -1 : 1, L = THREE.MathUtils.lerp;
       const e = (x: number) => x * x * (3 - 2 * x);
       const a = e(Math.min(1, k / 0.3)), b = e(THREE.MathUtils.clamp((k - 0.3) / 0.25, 0, 1)), c = e(THREE.MathUtils.clamp((k - 0.55) / 0.45, 0, 1));
       const W = heavy ? { a: -2.8, z: 0.1, f: -0.7, sy: 0, sx: -0.15 } : { a: -1.7, z: flip > 0 ? -1.0 : 0.7, f: -1.2, sy: 0.45 * flip, sx: 0 };
       const C = heavy ? { a: -0.45, z: 0.1, f: -0.1, sy: 0, sx: 0.3 } : { a: -1.25, z: flip > 0 ? 0.75 : -0.9, f: -0.15, sy: -0.55 * flip, sx: 0.1 };
-      const R = { a: aN, z: zN, f: fN, sy: 0, sx: 0 };
+      const Rz = arm.z * m;   // work in the right arm's frame, then mirror back
+      const R = { a: arm.a, z: Rz, f: arm.f, sy: 0, sx: 0 };
       const at = (key: keyof typeof R) => L(L(L(R[key], W[key], a), C[key], b), R[key], c);
-      aN = at('a'); zN = at('z'); fN = at('f');
-      B.spine.rotation.y += at('sy'); B.spine.rotation.x += at('sx');
-      aP = L(aP, -0.4, 1 - c); zP = L(zP, 0.45, 1 - c);   // the free arm swings out for balance
+      arm.a = at('a'); arm.z = at('z') * m; arm.f = at('f');
+      B.spine.rotation.y += at('sy') * m; B.spine.rotation.x += at('sx');
+      return free ? 1 - c : 0;
+    };
+    if (i.swing != null) {
+      const n = { a: aN, z: zN, f: fN };
+      const bal = cut(i.swing, i.combo, 1, n, !i.swordP);
+      aN = n.a; zN = n.z; fN = n.f;
+      if (bal) { aP = THREE.MathUtils.lerp(aP, -0.4, bal); zP = THREE.MathUtils.lerp(zP, 0.45, bal); }
+    }
+    if (i.swingP != null) {
+      const q = { a: aP, z: zP, f: fP };
+      const bal = cut(i.swingP, i.comboP, -1, q, !i.sword);
+      aP = q.a; zP = q.z; fP = q.f;
+      if (bal) { aN = THREE.MathUtils.lerp(aN, -0.4, bal); zN = THREE.MathUtils.lerp(zN, -0.45, bal); }
     }
     // Airborne: arms rise for balance.
     B.armN.rotation.set(aN - 0.4 * w.air, 0, zN - 0.5 * w.air);
@@ -193,7 +214,7 @@ export class FigureAnim {
     B.head.rotation.set(this.head.pitch - Math.sin(t * 5.2) * 0.07 * w.talk - B.spine.rotation.x * 0.6, this.head.yaw - B.spine.rotation.y, 0, 'YXZ');
 
     // B34: idle fidgets, then whatever one-shot is playing, layered over the pose so far.
-    const still = i.speed < 0.05 && !i.pose && !i.talking && !i.aiming && !i.airborne && !i.sword;
+    const still = i.speed < 0.05 && !i.pose && !i.talking && !i.aiming && !i.airborne && !i.sword && !i.swordP;
     this.idleT = still ? this.idleT + dt : 0;
     if (this.fidgets && still && !this.gesture && this.idleT > this.nextFidget) {
       this.play(FIDGETS[Math.floor(Math.random() * FIDGETS.length)]);

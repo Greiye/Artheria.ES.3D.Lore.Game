@@ -257,6 +257,8 @@ button.secondary:hover { border-color: var(--rune); color: var(--parchment); }
 /* F3.4 inventory grid */
 .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 14px; }
 .inv-cell { display: grid; justify-items: center; gap: 4px; padding: 12px 8px; border: 1px solid var(--stone-d); border-radius: 8px; background: rgba(239,227,196,.05); }
+.inv-hands { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
+.inv-hand { flex: 1 1 140px; }
 .inv-icon { font-size: 28px; color: var(--rune); }
 .inv-name { font-size: 13px; text-align: center; color: var(--parchment); }
 .inv-count { font-size: 12px; color: var(--stone-l); }

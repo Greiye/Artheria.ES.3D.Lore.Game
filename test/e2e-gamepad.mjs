@@ -59,7 +59,8 @@ if (onText) { await btn(B); await frames(page, 4); }
 check('In a text box the first B only steps out of it', penDown);
 const mapShut = await G(page, () => !window.__gametool.livingMap.isOpen && window.__gametool.state === 'play');
 check('B leaves the map through its own Close button', mapShut, await st());
-await btn(VIEW); await frames(page, 3);
+// A tap is let go on the very next frame: software-rendered frames can run past the 0.4 s hold on their own.
+await hold(VIEW, true); await frames(page, 1); await hold(VIEW, false); await frames(page, 3);
 check('A tap on View still opens the bag', (await st()) === 'inventory');
 await btn(B); await frames(page, 3);
 

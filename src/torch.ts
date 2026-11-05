@@ -30,34 +30,40 @@ function torchModel(tex: THREE.Texture): { group: THREE.Group; flame: THREE.Spri
 
 export class Torch {
   lit = false;
+  /** Which hand holds it: -1 left (the usual), 1 right. Mike 2026-11-05: any item in either hand. */
+  side: 1 | -1 = -1;
+  /** Two torches: the first one's light burns brighter; the second carries none (one light keeps phones fast). */
+  boost = 1;
   readonly light = new THREE.PointLight(FLAME, 0, 11, 1.6);
   private held: { group: THREE.Group; flame: THREE.Sprite };     // in the figure's hand
   private view: { group: THREE.Group; flame: THREE.Sprite };     // first-person viewmodel
   private t = 0;
   private tmp = new THREE.Vector3();
 
-  constructor(scene: THREE.Scene, camera: THREE.Camera, private player: Player) {
+  constructor(scene: THREE.Scene, camera: THREE.Camera, private player: Player, private ownLight = true) {
     const tex = flameTexture();
     this.held = torchModel(tex); this.view = torchModel(tex);
     this.held.group.visible = this.view.group.visible = false;
-    this.view.group.position.set(-0.32, -0.3, -0.55); this.view.group.rotation.set(0.25, 0, 0.18);
+    this.placeView();
     camera.add(this.view.group);
     this.light.castShadow = false;
-    scene.add(this.light);
+    if (ownLight) scene.add(this.light);
     this.attach();
   }
 
   /** Put the torch in the player figure's hand (again after the forge swaps the figure). */
   attach() {
     const rig = this.player.body.children[0]?.userData.rig as { bones: Record<string, THREE.Bone> } | undefined;
-    const bone = rig?.bones.foreP;
+    const bone = this.side < 0 ? rig?.bones.foreP : rig?.bones.foreN;
     if (!bone) return;
     bone.add(this.held.group);
-    this.held.group.position.set(0.03, -0.3, 0.06);
+    this.held.group.position.set(-0.03 * this.side, -0.3, 0.06);
     this.held.group.rotation.set(0.35, 0, 0);
   }
 
   set(on: boolean) { this.lit = on; }
+  setSide(side: 1 | -1) { if (side === this.side) return; this.side = side; this.attach(); this.placeView(); }
+  private placeView() { this.view.group.position.set(0.32 * this.side, -0.3, -0.55); this.view.group.rotation.set(0.25, 0, -0.18 * this.side); }
   /** A copy of the hand-held torch (shared geometry) for another player's figure (multiplayer). */
   cloneHeld() { const g = this.held.group.clone(); g.visible = false; return g; }
   toggle() { this.lit = !this.lit; }
@@ -65,8 +71,8 @@ export class Torch {
   update(dt: number, firstPerson: boolean) {
     this.t += dt;
     const fl = 1 + Math.sin(this.t * 13) * 0.06 + Math.sin(this.t * 31.7) * 0.04 + Math.sin(this.t * 5.3) * 0.05;
-    this.light.intensity = this.lit ? 8 * fl : 0;
-    this.light.visible = this.lit;
+    this.light.intensity = this.lit && this.ownLight ? 8 * fl * this.boost : 0;
+    this.light.visible = this.lit && this.ownLight;
     this.held.group.visible = this.lit && !firstPerson && this.player.body.visible;
     this.view.group.visible = this.lit && firstPerson;
     for (const m of [this.held, this.view]) m.flame.scale.set(0.16 * fl, 0.24 * (2 - fl), 1);

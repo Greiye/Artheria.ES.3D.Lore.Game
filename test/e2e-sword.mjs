@@ -45,14 +45,15 @@ const took = await G(page, () => { const g = window.__gametool, s = g.world.stan
 check('Taking it: the sword is in the bag and in your hand, and the stand is empty', took.n === 1 && took.eq && !took.stand && took.held && !took.when, JSON.stringify(took));
 await page.screenshot({ path: path.join(shots, 'sword-taken.png') });
 
-// The right hand cycles hands → sword → crossbow.
+// The right hand cycles hands → sword → crossbow → torch.
 const cyc = await G(page, () => {
-  const g = window.__gametool, out = [], now = () => (g.crossbow.equipped ? 'crossbow' : g.sword.equipped ? 'sword' : 'hands');
+  const g = window.__gametool, out = [], now = () => (g.crossbow.equipped ? 'crossbow' : g.sword.equipped ? 'sword' : g.torch.lit ? 'torch' : 'hands');
   g.inventory.give('crossbow', 1); g.sword.unequip(); g.crossbow.unequip();
-  for (let i = 0; i < 4; i++) { window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })); out.push(now()); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ' })); }
+  for (let i = 0; i < 5; i++) { window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })); out.push(now()); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ' })); }
   return out;
 });
-check('Q / D-pad right cycles the right hand: sword, crossbow, hands, sword', cyc.join() === 'sword,crossbow,hands,sword', cyc.join());
+// Mike 2026-11-05: either hand can hold anything you own, so the cycle takes in the torch too.
+check('Q / D-pad right cycles the right hand: sword, crossbow, torch, hands, sword', cyc.join() === 'sword,crossbow,torch,hands,sword', cyc.join());
 await page.keyboard.press('Digit2');
 check('2 puts it away; 3 draws it', await G(page, () => !window.__gametool.sword.equipped) && (await page.keyboard.press('Digit3'), await G(page, () => window.__gametool.sword.equipped)));
 

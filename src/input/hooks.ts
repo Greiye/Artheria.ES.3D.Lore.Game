@@ -13,6 +13,12 @@ export interface GameHooks {
   book: Book;
   crossbow: Crossbow;
   fire(): void;
+  /** Mike 2026-11-05: a hand's button went down or up (LMB / RT = right, RMB / LT = left). */
+  hand(h: 'left' | 'right', down: boolean): void;
+  /** A touch tap on a hand's button: uses what it holds, or latches aiming when it aims. */
+  handTap(h: 'left' | 'right'): void;
+  /** What a hand's button does now ('Fire', 'Swing', 'Aim'), or null when it does nothing. */
+  handVerb(h: 'left' | 'right'): string | null;
   hasCrossbow(): boolean;
   sword: Sword;               // v0.08
   hasSword(): boolean;

@@ -12,6 +12,8 @@ export class GamepadControls {
   private bookStickArmed = true;
   private torchHold = 0;   // when D-pad down went down (ms)
   private torchDone = false;
+  private rt = false;   // the triggers' last state (each hand's button acts on a change)
+  private lt = false;
   private viewHold = 0;    // B40: when View went down (ms); a hold opens the map, a tap the bag
   private viewDone = false;
   private navDir: PadDir | null = null;   // B40: the direction held on the D-pad / left stick in a panel, for repeats
@@ -95,9 +97,10 @@ export class GamepadControls {
       // Torch: hold D-pad down for 0.4 s to light it or put it out.
       if (pressed(B.dpadDown)) { this.torchHold = performance.now(); this.torchDone = false; }
       if (now[B.dpadDown] && !this.torchDone && performance.now() - this.torchHold >= 400) { this.torchDone = true; this.g.toggleTorch(); }
-      if (pressed(B.fire)) this.g.fire();
+      // Mike 2026-11-05: RT is the right hand, LT the left (fire, swing, or aim when that hand holds nothing).
+      if (!!now[B.fire] !== this.rt) { this.rt = !!now[B.fire]; this.g.hand('right', this.rt); }
+      if (!!now[B.aim] !== this.lt) { this.lt = !!now[B.aim]; this.g.hand('left', this.lt); }
       if (pressed(B.reload)) cb.pressReload();
-      cb.setADS(!!now[B.aim]);
     } else {
       this.release();
       if (st === 'forge' && (rx || ry)) this.g.forgeStick?.(rx, ry);

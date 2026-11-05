@@ -10,14 +10,18 @@ export class Inventory {
   readonly counts = new Map<string, number>();
   readonly root: HTMLDivElement;
   private grid: HTMLElement;
+  private handsRow: HTMLElement;
   onChange: () => void = () => undefined;
+  /** Mike 2026-11-05: the Hands row: what each hand holds, and a press to change it. */
+  hands: { label(h: 'left' | 'right'): string; cycle(h: 'left' | 'right'): void } | null = null;
 
   constructor() {
     this.root = document.createElement('div');
     this.root.id = 'inventory';
     this.root.className = 'screen hidden';
-    this.root.innerHTML = '<div class="card narrow"><h1>Inventory</h1><div class="inv-grid"></div><p class="fine">I, Tab or Esc to close</p><button class="secondary inv-close">Close</button></div>';
+    this.root.innerHTML = '<div class="card narrow"><h1>Inventory</h1><div class="inv-hands"></div><div class="inv-grid"></div><p class="fine">I, Tab or Esc to close</p><button class="secondary inv-close">Close</button></div>';
     this.grid = this.root.querySelector('.inv-grid')!;
+    this.handsRow = this.root.querySelector('.inv-hands')!;
     document.body.appendChild(this.root);
   }
 
@@ -35,6 +39,7 @@ export class Inventory {
   }
 
   render() {
+    this.renderHands();
     const all = [...this.counts];
     if (DEBUG_UNLIMITED_CROWNS && !this.counts.get('crown')) all.unshift(['crown', 0]);   // v0.06 E1: the purse always shows ∞
     const cells = all.filter(([id, n]) => n > 0 || id === 'crown' && DEBUG_UNLIMITED_CROWNS).map(([id, n]) => {
@@ -55,5 +60,20 @@ export class Inventory {
       p.textContent = 'Nothing yet. Someone by the library door might help.';
       this.grid.replaceChildren(p);
     } else this.grid.replaceChildren(...cells);
+  }
+
+  private renderHands() {
+    const H = this.hands;
+    this.handsRow.classList.toggle('hidden', !H);
+    if (!H) return;
+    const btns = (['left', 'right'] as const).map((h) => {
+      const b = document.createElement('button');
+      b.className = 'secondary inv-hand'; b.dataset.hand = h;
+      b.innerHTML = `<span class="fine">${h === 'left' ? 'Left hand' : 'Right hand'}</span> <b></b> ▸`;
+      b.querySelector('b')!.textContent = H.label(h);
+      b.addEventListener('click', () => { H.cycle(h); this.renderHands(); });
+      return b;
+    });
+    this.handsRow.replaceChildren(...btns);
   }
 }
