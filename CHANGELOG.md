@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 20: stair cinematics and floor hints (Mike 2026-11-05, thread "Add dungeon floor cinematics and hints")
+- Dropping through the trapdoor and going down each floor's stairs now plays a short cinematic (about 4 s and 3 s): the camera rides down a torch-lit spiral stair while a card reads "Leaving Floor 3 / Floor 4 of 30". Any key, click, tap or pad button skips it; with reduced motion the camera holds still.
+- Each card carries up to two hints of what's below, felt rather than told and always true to the floor just built: damp and sweating walls for a flooded floor, moist air where there are many pools, a guttering torch for a dark one, heat and smoke for a burning one, breath fogging on a Frost floor, roots on a Verdant one, deep breathing before a guardian, woodsmoke before a camp, goblin sign when a tougher band starts, and gold-light before the hoard.
+- The stair shaft is dressed to match (fog colour, torch strength, drips, embers, frost, leaves or dust), with footsteps on stone and drips, crackle or a low rumble. If Natalie is following, she says a line about it at the bottom.
+
 ### v0.16 changelog, part 19: chimney smoke (decoration 7, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Chimney smoke is now chunky low-poly puffs that swell, turn and fade as they drift up in the wind, instead of flat cards. One instanced mesh for the whole town.
 

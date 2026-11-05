@@ -9,7 +9,7 @@ import { generate, isFloor, N, CELL, mulberry32, type Layout, type Room, type Th
 // and each one's brightness comes from nearby torches plus a little wall occlusion, stored in instance
 // colours. Five draw calls: floor, walls, ceiling, torches, props.
 const ORIGIN = new THREE.Vector3(400, 0, 0);
-const THEME: Record<Theme, { floor: string; wall: string; torch: string; liquid: string; fog: string }> = {
+export const THEME: Record<Theme, { floor: string; wall: string; torch: string; liquid: string; fog: string }> = {
   Ancient: { floor: '#C9B48A', wall: '#B8A07A', torch: '#FFB347', liquid: '#3F7FB0', fog: '#1A1510' },
   Frost: { floor: '#AFC4D6', wall: '#9FB4C8', torch: '#9FE8FF', liquid: '#BFEFFF', fog: '#0E1620' },
   Molten: { floor: '#B07A5A', wall: '#8A5A44', torch: '#FF7A2A', liquid: '#FF5A1A', fog: '#1E0D08' },

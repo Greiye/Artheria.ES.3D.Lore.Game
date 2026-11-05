@@ -99,9 +99,11 @@ export class CameraRig {
   get currentShot(): Shot | null { return this.shot; }
   get switching(): boolean { return this.viewT < 1; }
 
-  setShot(s: Shot | null) {
+  /** `cut`: jump straight to (or out of) the shot instead of blending over ~0.6 s (the descent cinematic, under black). */
+  setShot(s: Shot | null, cut = false) {
     if (s) this.lastShot = s;
     this.shot = s;
+    if (cut) this.blend = s ? 1 : 0;
   }
 
   // Run once per frame, after the simulation steps.

@@ -419,6 +419,24 @@ class AudioEngine {
   // B17: steel on the whetstone: a clean hiss for a good stroke, a scratchy one for a bad.
   grind(good = true): void { this.noise('sfx', 0.35, good ? 2600 : 1200, good ? 3 : 1, 0.22, good ? 1 : 0.8); }
   goblinMurmur(): void { this.noise('sfx', 0.3, 400, 1, 0.25); }
+  // Mike 2026-11-05: the descent cinematic: footsteps going down stone stairs, plus what's below (drips, a crackle,
+  // a low rumble). `fx` is the shaft's particles (src/delve/hints.ts); `secs` how long the walk lasts.
+  stairs(fx: string, rumble: boolean, secs: number): void {
+    if (!this.ensure() || !this.ctx || !this.bus) return;
+    const steps = Math.max(3, Math.round(secs / 0.42));
+    for (let i = 0; i < steps; i++) window.setTimeout(() => this.noise('sfx', 0.11, 520 + Math.random() * 160, 1.4, 0.26, 0.8), 150 + i * 420);
+    if (rumble) this.noise('sfx', Math.min(3, secs), 70, 0.8, 0.55, 0.5);
+    const ctx = this.ctx, out = this.bus.sfx;
+    const drip = (at: number) => {
+      const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(1500 + Math.random() * 700, t); o.frequency.exponentialRampToValueAtTime(500, t + 0.09);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.09, t + 0.004); g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+      o.connect(g).connect(out); o.start(t); o.stop(t + 0.16);
+    };
+    if (fx === 'drip') for (let k = 0; k < 6; k++) drip(0.2 + Math.random() * secs);
+    if (fx === 'ember') for (let k = 0; k < 9; k++) window.setTimeout(() => this.noise('sfx', 0.05, 2400 + Math.random() * 1500, 2, 0.12), 100 + Math.random() * secs * 1000);
+    if (fx === 'gold') window.setTimeout(() => this.coins(4), secs * 600);
+  }
 }
 
 export const audio = new AudioEngine();
