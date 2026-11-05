@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 15: the knight frame, a pilotable mech (Mike 2026-11-05, "Robots? Can you add pilotable mechs?")
+- A **knight frame** kneels asleep in the treeline east of the green: ten feet of elvish bronze gone green, the same make as the Caerne's *Telandor Savior* (Tales Part I), with a dark gem in its chest. **Clear the descent's third floor** (take the stairs down from floor 3) and it wakes and stands. The wake is saved with your profile. For testing, `?mech` on the URL wakes it straight away.
+- **Climb in** at it with E / A / Use; the same button **climbs out** of the back hatch. It stays where you leave it.
+- Inside, you move as usual (Alt / L3 / the sprint button pushes it to a stomping run; it turns slowly). **Strike** with LMB / RT / Strike, **guard** with the shield arm on RMB / LT / Guard, **ground-slam** with Space / Y / jump, and a **rune pulse** that staggers everything near on Q / D-pad up / ✦ (6 s to recharge). Footfalls rumble the pad and shake up dust. The camera pulls back and up; there is no first person inside.
+- It can't use doors, the trapdoor or the roads out of Aralon (climb out first). No passengers and no multiplayer sync yet (next round). Low poly: 588 triangles, ink outlines, never cut away by see-through.
+- New `test/e2e-knight-frame.mjs` (15/15).
+
 ### v0.16 changelog, part 14: market stalls (decoration 2, Mike 2026-11-05, Graphics thread "Add all decorations")
 - Three market stalls stand round the paved plaza: timber frames under striped, scalloped awnings (red, blue, green), with goods on the counters (fruit, bread, cloth, pots). You walk round them, not through. One merged mesh.
 

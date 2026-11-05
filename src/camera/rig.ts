@@ -48,6 +48,7 @@ export class CameraRig {
   private shoulderT = 0;                  // 0..1 blend into the over-the-shoulder framing
   private sideCur = 1;                    // eases toward `shoulderSide` when the shoulder swaps
   private stepAcc = 0;
+  private pilotT = 0;
   /** Which shoulder the shoulder view looks over: 1 right, -1 left. */
   shoulderSide = 1;
   /** Follow-camera step: 1 (shoulder) or 2 (overhead). */
@@ -122,11 +123,13 @@ export class CameraRig {
       this.shoulderT = L(this.shoulderT, this.step === 1 ? 1 : 0, ek);
       this.sideCur = L(this.sideCur, this.shoulderSide, 1 - Math.pow(0.0005, dt));
       const z = this.cur, sh = this.shoulderT;
-      const dist = L(L(FOLLOW.distNear, FOLLOW.distFar, Math.pow(z, 1.2)), SHOULDER.dist, sh);
+      // Mike 2026-11-05: piloting the knight frame pulls the camera back and up to frame a 3.2 m body.
+      this.pilotT = L(this.pilotT, p.piloting ? 1 : 0, 1 - Math.pow(0.02, dt));
+      const dist = L(L(FOLLOW.distNear, FOLLOW.distFar, Math.pow(z, 1.2)), SHOULDER.dist, sh) * (1 + 0.8 * this.pilotT * (1 - z * 0.6));
       let elev = L(L(FOLLOW.elevNear, FOLLOW.elevFar, z), SHOULDER.elev, sh);
       // Over the shoulder: the look point shifts to the player's right (or left) and the camera follows it sideways.
       const side = SHOULDER.side * sh * this.sideCur, rx = -Math.cos(yaw), rz = Math.sin(yaw);
-      this.look.set(p.pos.x + rx * side, p.pos.y + L(L(FOLLOW.lookNear, FOLLOW.lookFar, z), SHOULDER.look, sh), p.pos.z + rz * side);
+      this.look.set(p.pos.x + rx * side, p.pos.y + L(L(FOLLOW.lookNear, FOLLOW.lookFar, z), SHOULDER.look, sh) + 1.3 * this.pilotT, p.pos.z + rz * side);
       const offset = new THREE.Vector3();
       const q = new THREE.Vector3();
       // F2.4 wall collision: walk out from the look point in 5% steps and stop before a collider
@@ -180,7 +183,7 @@ export class CameraRig {
     }
     this.wasThird = p.thirdPerson;
     // The body stays visible while the camera glides into the eyes, and disappears at the end.
-    p.body.visible = (p.thirdPerson && !near) || (!p.thirdPerson && this.viewT < 0.8) || this.blend > 0.01 || this.shot !== null;
+    p.body.visible = !p.piloting && ((p.thirdPerson && !near) || (!p.thirdPerson && this.viewT < 0.8) || this.blend > 0.01 || this.shot !== null);
 
     this.blend = THREE.MathUtils.clamp(this.blend + (this.shot ? dt : -dt) / 0.6, 0, 1);
     const s = this.shot ?? this.lastShot;
