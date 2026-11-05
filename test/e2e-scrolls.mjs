@@ -31,7 +31,7 @@ await G(() => { const g = window.__gametool; g.inventory.give('sword', 1); g.han
 
 await G(() => { const g = window.__gametool; for (const i of ['sword', 'crossbow', 'shield', 'rock']) g.inventory.give(i, i === 'rock' ? 5 : 1); g.hands.set('right', 'sword'); });
 await G(() => window.__gametool.startDescent());
-await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, null, { timeout: 20000 });
 await G(() => window.__gametool.goDown());
 await frames(2);
 const offer = await G(() => [...document.querySelectorAll('#scrolls [data-scroll]')].map((b) => b.dataset.scroll));
@@ -39,7 +39,7 @@ check('Taking the stairs down: three scrolls on the step, and a way to leave the
 await page.screenshot({ path: path.join(shots, 'scrolls-offer.png') });
 const pick = offer.find((x) => x !== 'none');
 await page.click(`#scrolls [data-scroll="${pick}"]`);
-await page.waitForFunction(() => window.__gametool.descent?.floor === 2 && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.descent?.floor === 2 && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, null, { timeout: 20000 });
 await frames(3);
 const took = await G(() => ({ s: window.__gametool.descent.scrolls, hud: document.getElementById('delveHp').textContent }));
 check('Taking one imbues you, shows on the HUD, and on down you go', took.s?.length === 1 && took.s[0] === pick && took.hud.includes('✦'), JSON.stringify(took));
@@ -48,7 +48,7 @@ await frames(2);
 const offer2 = await G(() => [...document.querySelectorAll('#scrolls [data-scroll]')].map((b) => b.dataset.scroll));
 check("The next step doesn't offer one you already have", !offer2.includes(pick), JSON.stringify(offer2));
 await page.click('#scrolls [data-scroll="none"]');
-await page.waitForFunction(() => window.__gametool.descent?.floor === 3 && !window.__gametool.loadScreen.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.descent?.floor === 3 && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, null, { timeout: 20000 });
 check('Leaving them: on down, no new scroll', await G(() => window.__gametool.descent.scrolls.length === 1));
 
 // The boons themselves (set directly, then try them on a goblin in front of you).

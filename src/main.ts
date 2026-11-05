@@ -84,12 +84,12 @@ import { buildSkillTable, SkillsPanel, SkillsBook, SKILL_TABLE } from './skills/
 import './skills/skills.css';
 import './dojo/dojo.css';
 import { drawSketch, loadSketches } from './writing/sketch';
-import { Dungeon } from './dungeon/dungeon';
+import { Dungeon, THEME as DUNGEON_THEME } from './dungeon/dungeon';
 import { Goblins, MAX_FOES } from './foes/goblins';
 import { rollGoblin, describeGoblin, goblinStats } from './traits/goblin';
 import { roll, seedOf } from './traits/roll';
 import { rollTownsfolk } from './traits/townsfolk';
-import { dailySeed } from './dungeon/gen';
+import { dailySeed, type Layout } from './dungeon/gen';
 import { LivingMap, type Mark } from './map/livingmap';
 import { haptics } from './input/haptics';
 import { leanTarget, NO_LEAN } from './lean';
@@ -109,6 +109,8 @@ import { InnWalls, LastWords, buildInnBoards } from './delve/walls';
 import { ScrollPicker, offerScrolls, scrollById, type ScrollSlot } from './delve/scrolls';
 import { KillStatue, loadKills, saveKills, plaqueText } from './world/statue';
 import { FirstMeeting, metNatalie } from './cinematic/firstmeet';
+import { DescentCine } from './cinematic/descend';
+import { floorHint, type FloorHint } from './delve/hints';
 import { DmView, type Place } from './dm/dm';
 import { watchPanels, setPanelTab } from './ui/fit-panel';
 import { riverClear } from './world/river';
@@ -1378,14 +1380,55 @@ const innBoards = buildInnBoards();
 function startDescent(from = 1) {
   descent = newDescent(from);
   record.runs++; saveRecord(record);
-  enterDungeon((Math.random() * 2 ** 31) | 0, from);
-  companion.say('Thirty floors, they say. Bring me what you find. Bring yourself back too.', { force: true });
-  // F2: the patrons' scroll before the first step.
-  const opts = hasGift(record.delivered, 'scroll') ? offerScrolls([], ownsSlot) : [];
-  if (opts.length) {
-    enterForge();
-    scrollPicker.open(opts, from, (sc) => { leaveForge(); if (sc && descent) { (descent.scrolls ??= []).push(sc.id); applyScrolls(); toast(`${sc.name}: ${sc.boon}${sc.curse ? ` Curse: ${sc.curse}` : ''}`, 5200); } });
-  }
+  // Mike 2026-11-05: through the trapdoor and down the stairs (src/cinematic/descend.ts); the floor is built under black.
+  const yaw = player.yaw, fx = -Math.sin(yaw), fz = -Math.cos(yaw), p = player.pos;
+  const opening = { pos: new THREE.Vector3(p.x - fx * 1.6 + fz * 0.7, p.y + 2.3, p.z - fz * 1.6 - fx * 0.7), look: new THREE.Vector3(p.x + fx * 1.2, p.y, p.z + fz * 1.2), fov: 52 };
+  playDescent('enter', 0, from, opening, () => enterDungeon((Math.random() * 2 ** 31) | 0, from), () => {
+    companion.say('Thirty floors, they say. Bring me what you find. Bring yourself back too.', { force: true });
+    // F2: the patrons' scroll before the first step.
+    const opts = hasGift(record.delivered, 'scroll') ? offerScrolls([], ownsSlot) : [];
+    if (opts.length) {
+      enterForge();
+      scrollPicker.open(opts, from, (sc) => { leaveForge(); if (sc && descent) { (descent.scrolls ??= []).push(sc.id); applyScrolls(); toast(`${sc.name}: ${sc.boon}${sc.curse ? ` Curse: ${sc.curse}` : ''}`, 5200); } });
+    }
+  });
+}
+/** Mike 2026-11-05: the stair cinematic. `build` makes the floor (under black) and returns its layout; `after` runs
+ *  when the ride is over. The floor card and the hint lines come from what was actually built. */
+const descendCine = new DescentCine(world.scene, (s, cut) => rig.setShot(s, cut));
+function playDescent(kind: 'enter' | 'down', from: number, to: number, opening: Shot | undefined, build: () => Layout, after: () => void) {
+  player.held.clear(); mouseHeld = false;
+  descendCine.play({
+    kind, opening, reduced: reducedMotion.matches, light: settings.preset === 'lowpower',
+    eyebrow: kind === 'enter' ? 'Under the Ruined Library' : `Leaving Floor ${from}`,
+    title: `Floor ${to} of ${FLOORS}`,
+    mid: () => {
+      const L = build();
+      const hint = floorHint(floorInfo(L, to, from));
+      const T = DUNGEON_THEME[L.theme];
+      return { hint, palette: { wall: T.wall, floor: T.floor, torch: T.torch, fog: T.fog } };
+    },
+    sound: (h) => audio.stairs(h.fx, h.rumble, kind === 'enter' ? 2.6 : 2.2),
+    done: (h: FloorHint | null) => {
+      if (kind === 'down' && h && companion.prefs.follow) companion.say(h.natalie, { force: true });
+      const B = band(to);
+      if (from > 0 && B !== band(from) && BAND_NOTE[B]) toast(BAND_NOTE[B], 4200);
+      else if (descent?.flux && descent.flux !== 'none') toast(FLUX_NOTE[descent.flux], 4200);
+      after();
+    },
+  });
+}
+/** What the hint reads off a freshly built floor (src/delve/hints.ts). */
+function floorInfo(L: Layout, floor: number, from: number) {
+  let tiles = 0, pools = 0;
+  for (const v of L.grid) { if (v) tiles++; if (v === 2) pools++; }
+  const g = record.guardians.indexOf(floor), lost = [...carried.values()][0];
+  return {
+    floor, flux: descent?.flux ?? 'none', theme: L.theme, poolShare: tiles ? pools / tiles : 0,
+    guardian: g >= 0 ? GUARDIAN_NAMES[g % GUARDIAN_NAMES.length] : null, camp: isCamp(floor),
+    newBand: from > 0 && band(floor) !== band(from) ? band(floor) : -1,
+    lostItem: lost ? `${lost.owner}'s ${ITEMS[lost.item]?.name.toLowerCase() ?? lost.item}` : null, hoard: floor === FLOORS,
+  } as const;
 }
 // F1: the witch's scrolls on the top step, each time you go down.
 const scrollPicker = station(new ScrollPicker());
@@ -1415,14 +1458,13 @@ function goDown(skipScrolls = false) {
       return;
     }
   }
-  const B = band(next), flux = fluxFor(next, record.guardians);
-  const note = flux !== 'none' ? FLUX_NOTE[flux] : record.guardians.includes(next) ? 'Something big is waiting at the bottom of these stairs.' : isCamp(next) ? 'Firelight below: a rest camp.'
-    : B !== band(descent.floor) ? BAND_NOTE[B] : next === FLOORS ? BAND_NOTE[6] : 'The stairs turn the wrong way twice, then go on down.';
-  descent.flux = flux;
-  loadScreen.show(`Floor ${next}`, note, () => {
+  const from = descent.floor;
+  descent.flux = fluxFor(next, record.guardians);
+  // Mike 2026-11-05: down the spiral stairs, with a hint of what's below (src/cinematic/descend.ts).
+  playDescent('down', from, next, undefined, () => {
     descent!.floor = next; descent!.rested = false;
     clearFloor();
-    enterDungeon((Math.random() * 2 ** 31) | 0, next, true);
+    return enterDungeon((Math.random() * 2 ** 31) | 0, next, true);
   }, () => undefined);
 }
 /** Take the current floor's walls and goblins away (between floors). */
@@ -1432,7 +1474,7 @@ function clearFloor() {
   goblins.clear(); dungeon.hideSpots();
 }
 /** `floor` > 0: a floor of the descent (stairs down, harder goblins); 0: the old walk-about dungeon. `between`: already below. */
-function enterDungeon(seed: number, floor = 0, between = false) {
+function enterDungeon(seed: number, floor = 0, between = false): Layout {
   const L = dungeon.build(seed, { down: floor > 0 && floor < FLOORS, hoard: floor === FLOORS, camp: isCamp(floor) });
   if (descent && floor && descent.flux === undefined) descent.flux = fluxFor(floor, record.guardians);
   dungeon.group.visible = true;
@@ -1451,8 +1493,8 @@ function enterDungeon(seed: number, floor = 0, between = false) {
     applyFlux(descent?.flux ?? 'none');
     delves[seed] = { theme: L.theme, at: new Date().toISOString().slice(0, 10) }; pruneDelves(); saveDelves();
     const g = record.guardians.indexOf(floor), extraNote = g >= 0 ? ` ${GUARDIAN_NAMES[g % GUARDIAN_NAMES.length]} guards this floor.` : isCamp(floor) ? ' A rest camp by the stairs.' : '';
-    toast(`Floor ${floor} of ${FLOORS} · ${L.theme}.${floor === FLOORS ? ' Gold glints in the deepest room.' : ' The stairs down are in the deepest room.'}${extraNote}${descent?.flux && descent.flux !== 'none' ? ' ' + FLUX_NOTE[descent.flux] : ''}`, 5200);
-    return;
+    if (!descendCine.active) toast(`Floor ${floor} of ${FLOORS} · ${L.theme}.${floor === FLOORS ? ' Gold glints in the deepest room.' : ' The stairs down are in the deepest room.'}${extraNote}${descent?.flux && descent.flux !== 'none' ? ' ' + FLUX_NOTE[descent.flux] : ''}`, 5200);
+    return L;
   }
   player.bounds = rig.bounds = companion.bounds = 2000;
   const fog = world.scene.fog as THREE.Fog;
@@ -1468,9 +1510,10 @@ function enterDungeon(seed: number, floor = 0, between = false) {
   if (floor) pruneDelves();
   saveDelves();
   applyFlux(descent?.flux ?? 'none');
-  if (floor) toast(`Floor ${floor} of ${FLOORS} · ${L.theme}. The library has moved again. The stairs down are in the deepest room.`, 4500);
+  if (floor) { if (!descendCine.active) toast(`Floor ${floor} of ${FLOORS} · ${L.theme}. The library has moved again. The stairs down are in the deepest room.`, 4500); }
   else toast(`Under the library · seed ${seed} · ${L.theme}. Same seed, same dungeon.`, 4500);
   if (!floor) companion.say('Stay close. I can hear something chewing.', { key: 'dungeon:' + seed, force: true });
+  return L;
 }
 /** Up the stairs alive: the carried books go to Natalie (and the gallery), the deepest floor is recorded. With the
  *  hoard, it's the good ending: the hero's drawing goes up on the Inn's survivors' wall and they retire. */
@@ -1579,7 +1622,7 @@ function applyFlux(f: Flux) {
   dungeon.group.add(fluxFx);
 }
 function fluxTick(dt: number) {
-  if (!inDungeon || fluxNow !== 'burning' || state !== 'play') return;
+  if (!inDungeon || fluxNow !== 'burning' || state !== 'play' || descendCine.active) return;
   if ((fluxHeat -= dt) > 0) return;
   fluxHeat = 9;
   delveHp = Math.max(1, delveHp - 1); hurtFlash = 0.3; haptics.play('hurt');
@@ -1835,7 +1878,7 @@ function spawnGoblins(keepHp = false) {
       if (!f) break;
       goblins.arm(f, g.item, `${g.owner}'s ${ITEMS[g.item]?.name.toLowerCase() ?? g.item}`); carried.set(f, g);
     }
-    if (carried.size) setTimeout(() => { if (inDungeon) toast(`Something down here carries ${[...carried.values()][0].owner}'s gear.`, 3600); }, 5600);
+    if (carried.size) setTimeout(() => { const g = [...carried.values()][0]; if (inDungeon && g) toast(`Something down here carries ${g.owner}'s gear.`, 3600); }, 5600);
   }
 }
 /** F2: which goblin carries which fallen hero's piece, this floor. */
@@ -1846,7 +1889,7 @@ const delveHpEl = document.getElementById('delveHp')!;
 let breathT = 0;
 function updateDelve(dt: number) {
   if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); if (wear.level) wear.set(0); return; }
-  if (state === 'play') { if (hitStop > 0) hitStop -= dt; else goblins.update(dt); }   // v0.08: a beat's pause on a sword hit
+  if (state === 'play' && !descendCine.active) { if (hitStop > 0) hitStop -= dt; else goblins.update(dt); }   // v0.08: a beat's pause on a sword hit
   const frac = Math.min(1, delveHp / DELVE_HP);
   wear.set(1 - frac);
   slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1) * (isBlocking() ? 0.6 : 1) * (fluxNow === 'flooded' ? 0.72 : 1) * (imbued('swift') ? 1.12 : 1);
@@ -3516,6 +3559,7 @@ function frame() {
     return;
   }
   if (firstMeet.active) firstMeet.update(dt, [...(navigator.getGamepads?.() ?? [])].some((p) => p?.buttons.some((b) => b.pressed)));   // B50
+  if (descendCine.active) descendCine.update(dt, [...(navigator.getGamepads?.() ?? [])].some((p) => p?.buttons.some((b) => b.pressed)));
   if (waking) {   // B31: the get-up runs its course, or any pad button skips it
     waking = state === 'play' ? waking - dt : 0;
     const pad = [...(navigator.getGamepads?.() ?? [])].some((p) => p?.buttons.some((b) => b.pressed));
@@ -3525,7 +3569,7 @@ function frame() {
   if (state === 'play') {
     simAcc += dt;
     while (simAcc >= SIM_STEP) {
-      if (!waking) player.update(SIM_STEP); simAcc -= SIM_STEP; perf.simSeconds += SIM_STEP;   // B31: no moving while getting up
+      if (!waking && !descendCine.active) player.update(SIM_STEP); simAcc -= SIM_STEP; perf.simSeconds += SIM_STEP;   // B31: no moving while getting up
       // A7: footsteps while actually moving (not just holding a speed modifier) and not sneaking.
       const moving = MOVE_ACTIONS.some((a) => player.held.has(a)) || Math.hypot(player.analog.x, player.analog.y) > 0.05;
       if (moving && !player.sneaking) {
@@ -3646,4 +3690,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });

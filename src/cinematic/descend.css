@@ -1,0 +1,18 @@
+/* Mike 2026-11-05: the descent cinematic: a black fade, thin letterbox bars and the floor card with its hint. */
+#descendFade { position: fixed; inset: 0; z-index: 44; background: #000; opacity: 0; pointer-events: none; }
+#descendBars { position: fixed; inset: 0; z-index: 45; pointer-events: none; display: none; }
+#descendBars.on { display: block; }
+#descendBars .db { position: absolute; left: 0; right: 0; height: min(9vh, 64px); background: #000; }
+#descendBars .top { top: 0; } #descendBars .bottom { bottom: 0; }
+#descendCard { position: fixed; left: 50%; bottom: calc(min(9vh, 64px) + 4vh + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 46; pointer-events: none;
+  width: min(760px, calc(100vw - 32px)); text-align: center; color: #FFF1C8; text-shadow: 0 2px 8px rgba(0,0,0,.9); opacity: 0; transition: opacity .35s ease; }
+#descendCard.dc-on, #descendCard.dc-full { opacity: 1; }
+#descendCard .dc-eyebrow { font: 600 clamp(11px, 1.4vw, 14px) var(--ui, sans-serif); letter-spacing: .14em; text-transform: uppercase; color: #E2C98A; }
+#descendCard .dc-title, #descendCard .dc-lines { opacity: 0; transform: translateY(6px); transition: opacity .45s ease, transform .45s ease; }
+#descendCard.dc-full .dc-title, #descendCard.dc-full .dc-lines { opacity: 1; transform: none; }
+#descendCard .dc-title { font: 600 clamp(26px, 4.4vw, 44px) Georgia, serif; letter-spacing: .02em; margin-top: 2px; }
+#descendCard .dc-lines { font: italic clamp(15px, 2vw, 20px)/1.4 Georgia, serif; margin-top: 6px; }
+#descendCard .dc-lines div + div { margin-top: 2px; color: #E8DCC0; }
+#descendCard .dc-skip { font: 11px var(--ui, sans-serif); color: rgba(255,241,200,.55); margin-top: 10px; letter-spacing: .08em; text-transform: uppercase; }
+body.cutscene #hud, body.cutscene #companionLine { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { #descendCard, #descendCard .dc-title, #descendCard .dc-lines { transition: none; } }
