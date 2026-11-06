@@ -388,7 +388,7 @@ async function begin() {
   setView('overhead');                          // v0.06 M7: every Begin starts in the overhead camera
   setState('play');                             // in the world immediately, even before lock resolves
   if (wakeIntro()) wakeUp(lastRest);            // B31: fade in on the player getting up from the bed or bedroll
-  if (firstDayOn()) firstDay.begin(!save);      // B36: a new profile's first day (or the rest of one)
+  if (firstDayOn()) firstDay.begin();            // B36: the rest of a first day begun before Mike 2026-11-06 (new games start with no quest)
   if (inviteCode) { const c = inviteCode; inviteCode = null; setTimeout(() => { if (state === 'play' && !friends.room) openFriends(c); }, 600); }
   // Mike 2026-10-30: Begin goes straight into the game. What's new moved to Extras (it read as a menu in the way).
   audio.resume(); audio.startWind();            // F1.2/A7: first user gesture unlocks WebAudio

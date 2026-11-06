@@ -1,5 +1,6 @@
 // B36 (Mike 2026-11-04): the first-day guided quest. Get up → Scriptorium → Tailor or Smithy → campfire, once per
-// profile, skippable from the casebook. Test browsers skip it unless localStorage gametool.firstdaytest = 'on'.
+// profile, skippable from the casebook. Mike 2026-11-06: a new game starts with no quest, so only a profile part-way
+// through (seeded here) still has one. Test browsers skip it unless localStorage gametool.firstdaytest = 'on'.
 // Usage: node test/e2e-first-day.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
 import path from 'node:path';
@@ -12,7 +13,8 @@ const browser = await chromium.launch({
 const results = [];
 const check = (id, ok, detail = '') => { results.push({ id, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${id}${detail ? '  — ' + detail : ''}`); };
 const errors = [];
-async function boot(flag = true, seed = null) {
+const PART_WAY = { 'gametool.firstday': JSON.stringify({ step: 0, done: false }) };
+async function boot(flag = true, seed = PART_WAY) {
   const ctx = await browser.newContext({ viewport: { width: 960, height: 540 } });
   await ctx.addInitScript(([flag, seed]) => {
     if (sessionStorage.getItem('booted')) return;
@@ -39,7 +41,7 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
   const { ctx, page } = await boot();
   const up = await stepIs(page, 'read');
   const d1 = await day(page);
-  check('New profile: the day starts and "Get up" ticks off', up && d1.state?.step === 1, JSON.stringify(d1));
+  check('A profile part-way through: the day goes on and "Get up" ticks off', up && d1.state?.step === 1, JSON.stringify(d1));
   const near = await page.evaluate(() => { const g = window.__gametool, m = g.firstDay.marker.position, d = g.world.town.doors.library.position; return Math.hypot(m.x - d.x, m.z - d.z); });
   check('Lore first: the goal card and gold marker point at the Library', d1.hud && d1.marker && /Library/.test(d1.text) && near < 0.5, `${d1.text} · ${near.toFixed(2)}`);
   const line = await page.evaluate(() => window.__gametool.companion.lastLine);
@@ -99,6 +101,15 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
   await page.waitForTimeout(1500);
   const d = await day(page);
   check('A profile that already has a save skips the first day', d.state === null && !d.hud, JSON.stringify(d));
+  await ctx.close();
+}
+// 4) Mike 2026-11-06: a new game starts with no quest: no first day, nothing in the casebook, side games open.
+{
+  const { ctx, page } = await boot(true, null);
+  await page.waitForTimeout(1500);
+  const d = await day(page);
+  const q = await page.evaluate(() => ({ quest: window.__gametool.quest.stage, spar: window.__gametool.interactables.find((i) => /Talk to Kavik/.test(i.verb()))?.verb() ?? null }));
+  check('A new game starts with no quest (no first day, Natalie\'s case not started, side games open)', d.state === null && !d.hud && !d.marker && q.quest === 'none' && !/after your first day/.test(q.spar ?? ''), JSON.stringify({ d, q }));
   await ctx.close();
 }
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
