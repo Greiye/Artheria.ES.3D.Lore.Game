@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 41: the Ruined Library looks its age, 2: books on every wall (Mike 2026-11-06, Graphics thread: "The walls have countless books.")
+- **Tall bookcases climb every wall**: over the lore shelves up to the broken ceiling on both sides, over the pictures and full height in the corners at the back, and high either side of the door. There are 25 cases and nearly 200 shelves of books.
+- The books are our own pixel-painted spines (four strips of an atlas, with gaps where books were taken and a few leaning). Each shelf is one recessed plane, so thousands of books cost a few hundred triangles; the cases are one merged mesh.
+- The lore shelves and their red books are unchanged.
+
 ### v0.16 changelog, part 40: the Ruined Library looks its age, 1: the ruin (Mike 2026-11-06, Graphics thread: "Change the library. It needs to look old, decrepid.")
 - **Rubble heaps** where the upper walls came down (big blocks, a skirt of stones, moss), **toppled bookcases** with snapped shelves and spilled planks, a **fallen roof beam**, worn scorch on the flagstones and grit everywhere.
 - **Cracked walls**: thin cracks wander down all four inner walls, and bricks have fallen out here and there (they lie at the wall's foot).
