@@ -52,6 +52,8 @@ check('B15 E opens the descend sheet (Mike 2026-11-05: the descent, no seed box)
 const nCol = await G(page, () => window.__gametool.world.colliders.length);
 await page.click('#descend [data-act=go]');
 await resume();
+// #120: the stair cinematic builds the floor under black, so wait for the dungeon before reading it.
+await until(page, () => window.__gametool.inDungeon && window.__gametool.dungeon.group.visible && window.__gametool.player.pos.x > 330, null, 30000);
 const inside = await G(page, () => { const g = window.__gametool; return { in: g.inDungeon, x: g.player.pos.x, seed: g.dungeon.layout.seed, vis: g.dungeon.group.visible, delve: !!g.delves[g.dungeon.layout.seed] }; });
 check('B15 Descend takes you below (built at x≈400, out of the glade\'s view), to floor 1', inside.in && inside.vis && inside.x > 330 && inside.delve, JSON.stringify(inside));
 check('B15 the dungeon\'s walls collide', await G(page, (n) => window.__gametool.world.colliders.length > n + 20, nCol));
@@ -144,7 +146,8 @@ await G(page, () => { for (let i = 0; i < 21; i++) window.__gametool.dojo.tick(1
 check('B14 a hold drill counts seconds and is marked done at the target', await G(page, () => { const d = window.__gametool.dojo; return d.count === 20 && d.st.done.includes('stance') && /Horse stance ✓/i.test(document.querySelector('[data-drill=stance]').textContent); }));
 await page.click('[data-drill=hang]');
 check('B14 risky drills carry a "character only" badge and a safe real-life version', await G(page, () => !!document.querySelector('.dj-badge') && /seated knee tucks/.test(document.querySelector('.dj-steps').textContent) && window.__gametool.dojo.pose === 'hang'));
-await page.waitForTimeout(500);
+// Poll (not a fixed wait): after the stair cinematic a slow software frame can hold the blend back.
+await until(page, () => { const r = window.__gametool.puppets.get('player').root.userData.rig?.bones.root; return !r || r.rotation.z > 2; }, null, 8000);
 check('B14 the character hangs upside down from the bar', await G(page, () => { const r = window.__gametool.puppets.get('player').root.userData.rig?.bones.root; return !r || (r.rotation.z > 2 && r.position.y > 2); }));
 for (let i = 0; i < 3; i++) await page.click('#djRep');
 check('B14 rep drills count on the honour system', await G(page, () => window.__gametool.dojo.count === 3));
