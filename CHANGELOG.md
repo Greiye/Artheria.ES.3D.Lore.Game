@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 40: the Ruined Library looks its age, 1: the ruin (Mike 2026-11-06, Graphics thread: "Change the library. It needs to look old, decrepid.")
+- **Rubble heaps** where the upper walls came down (big blocks, a skirt of stones, moss), **toppled bookcases** with snapped shelves and spilled planks, a **fallen roof beam**, worn scorch on the flagstones and grit everywhere.
+- **Cracked walls**: thin cracks wander down all four inner walls, and bricks have fallen out here and there (they lie at the wall's foot).
+- **The ceiling has fallen in places**: nine holes open to the sky, with splintered boards hanging at their edges.
+- All of it is one merged mesh of flat-coloured low-poly pieces (`src/world/ruin.ts`), placed off the aisle and clear of everything you use. It only draws when you're near the hall.
+- New `test/e2e-library-ruin.mjs`.
+
 ### v0.16 changelog, part 39: the Monk locks on and fights hand to hand (Mike 2026-11-06, Round B)
 - **Monks** lock on to the nearest goblin ahead in the descent with Z (LB on a pad, a Lock on button on touch), and the fight moves into **fight mode** right where you stand: the mat is laid between you, turned so you keep your side, and the camera comes in closer for corridors.
 - A duel is **one round**. The goblin's health bar is scaled to its toughness, and leaders, guardians and floors 10+ fight at Kavik's "fair" level. Win and it falls, loot and all. Lose, or leave the mat, and you break away for 3 health.
