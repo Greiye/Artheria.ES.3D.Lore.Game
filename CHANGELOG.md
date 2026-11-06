@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 31: gamepad: click the left stick to crouch (Mike 2026-11-06, "Gamepad: Left thumbstick is crouch")
+- **L3** (click the left stick) now toggles crouch / sneak. Sprint moved to **B**: press it while moving and you sprint until you let go of the stick (B still backs out of menus). In the knight frame, B pushes it to a stomping run.
+- The controller map in Pause → Controls shows the new layout. `test/e2e-mobile.mjs` checks both buttons.
+
 ### v0.16 changelog, part 30: ask Natalie for the Archer's crossbow (Mike 2026-11-06, "Add Natalie dialogue option to ask for a crossbow from her former arbalest")
 - Once her quest has started, whenever you have no crossbow, talking to Natalie adds **"Could I borrow the Archer's crossbow?"** (the Archer is her party's crossbowman). She hands it over and tops your bolts up to 10. Ask again as often as you lose it.
 - `test/e2e-quest.mjs` checks the choice is hidden while you carry one and works twice in a row; it also counts her newer "What is under the library?" choice (a stale check).

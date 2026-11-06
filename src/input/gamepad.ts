@@ -76,7 +76,7 @@ export class GamepadControls {
       const ls = controls.gamepad.lookSpeed * this.sensitivity();
       pl.analogLook.x = rx * Math.abs(rx) * ls;     // squared response: fine aim near centre
       pl.analogLook.y = ry * Math.abs(ry) * ls;
-      // Sprint: click L3, it holds until the stick is let go.
+      // Sprint: press B, it holds until the stick is let go. L3 crouches (Mike 2026-11-06).
       if (pressed(B.sprint)) pl.held.add('sprint');
       else if (Math.hypot(lx, ly) < 0.2) pl.held.delete('sprint');
       if (pressed(B.jump)) { pl.jump(); haptics.play('jump'); }

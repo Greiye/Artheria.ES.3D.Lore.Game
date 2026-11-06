@@ -54,7 +54,7 @@ export const controls = {
     buttons: {
       activate: 0,   // A: use / talk / read / confirm
       back: 1,       // B: back out of menus, close the book
-      sneak: 1,      // B (in play): sneak toggle
+      sneak: 10,     // L3 (in play): crouch / sneak toggle (Mike 2026-11-06)
       reload: 2,     // X (F4.3)
       jump: 3,       // Y
       zoomIn: 4,     // LB: camera one step in (toward first person)
@@ -65,7 +65,7 @@ export const controls = {
       fire: 7,       // RT (analog, past halfway): fire
       inventory: 8,  // View / Create: bag
       pause: 9,      // Menu / Options
-      sprint: 10,    // L3: sprint until the stick is let go
+      sprint: 1,     // B (in play): sprint until the stick is let go (moved off L3, Mike 2026-11-06)
       view: 11,      // R3: cycle first person / shoulder / overhead
       equip: 12,     // D-pad up: swap shoulder (shoulder view) or crossbow / hands
       dpadUp: 12,    // (menus: up)
