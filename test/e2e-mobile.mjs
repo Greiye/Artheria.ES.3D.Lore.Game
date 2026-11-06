@@ -237,11 +237,11 @@ async function open(opts, init) {
   const half = await stickRun(-0.45);
   check('Gamepad: left stick full = run, forward', full.v > 4 && full.v < 5.8 && full.dx < 0, full.v.toFixed(2) + ' m/s');
   check('Gamepad: left stick partial = walk', half.v > 0.3 && half.v < 2.6, half.v.toFixed(2) + ' m/s');
-  await axes([0, -1, 0, 0]); await btn(10);   // L3 click while moving: sprint until the stick is let go
+  await axes([0, -1, 0, 0]); await btn(1);   // B while moving: sprint until the stick is let go (Mike 2026-11-06: L3 crouches now)
   const spr = await stickRun(-1);
   await frames(page, 3);
   const sprintOff = await G(page, () => !window.__gametool.player.held.has('sprint'));
-  check('v0.04 Gamepad: L3 sprints until the stick is let go', sprintOff && spr.v > 6.8 && spr.v < 8.8, spr.v.toFixed(2) + ' m/s');
+  check('A4 Gamepad: B sprints until the stick is let go', sprintOff && spr.v > 6.8 && spr.v < 8.8, spr.v.toFixed(2) + ' m/s');
   await restoreColliders(page);
   const y0 = await G(page, () => window.__gametool.player.yaw);
   await axes([0, 0, 1, 0]); await frames(page, 12); await axes([0, 0, 0, 0]);   // frame-based: slow SwiftShader frames
@@ -257,10 +257,10 @@ async function open(opts, init) {
   await frames(page, 2);
   check('Gamepad: Y jumps', peak > 0.5, 'apex ' + peak.toFixed(2));
   await page.waitForTimeout(800);
-  await btn(1);
+  await btn(10);
   const sn = await G(page, () => window.__gametool.player.sneaking);
-  await btn(1);
-  check('v0.04 Gamepad: B toggles sneak', sn && !(await G(page, () => window.__gametool.player.sneaking)));
+  await btn(10);
+  check('A4 Gamepad: L3 (left stick click) toggles crouch', sn && !(await G(page, () => window.__gametool.player.sneaking)));
   const h0 = await G(page, () => window.__gametool.haptics.played);
   await btn(3, 60); await page.waitForTimeout(900);
   check('v0.04 Gamepad: haptics fire on jump and landing', (await G(page, () => window.__gametool.haptics.played)) >= h0 + 2);

@@ -3178,7 +3178,7 @@ function versionNote() {
 
 // ---------- Mike 2026-11-05: the knight frame, a pilotable rune mech (src/mech/frame.ts) ----------
 // It stands in the treeline east of the green, awake and rideable from the start (Mike 2026-11-06; it used to sleep
-// until the descent's third floor was cleared, and wait for the first day). E / A / the Use button climbs in at its back; the same climbs out. Inside: move as usual (Alt / L3 /
+// until the descent's third floor was cleared, and wait for the first day). E / A / the Use button climbs in at its back; the same climbs out. Inside: move as usual (Alt / B /
 // the sprint button pushes it to a run), LMB / RT / Strike punches, RMB / LT / Guard raises the shield arm, Space /
 // Y / jump is a ground-slam, Q / D-pad up / ✦ a rune pulse that staggers everything near. It can't use doors,
 // roads out of town or the trapdoor: climb out first.
