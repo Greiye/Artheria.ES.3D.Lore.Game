@@ -23,6 +23,9 @@ export class LivingMap {
   private seen = new Uint8Array(G * G);
   pins: Pin[] = [];
   private canvas!: HTMLCanvasElement;
+  /** Mike 2026-11-06: where a right-click (or a long-press on a phone) asked for a note, in world metres. */
+  noteAt: { x: number; z: number } | null = null;
+  private pressTimer = 0;
 
   constructor(readonly marks: () => Mark[], private player: () => { x: number; z: number; yaw: number }, private onClose: () => void, private author: () => string,
     readonly sights: () => Sight[] = () => [], private lots: MapLot[] = [], private exits: MapExit[] = []) {
@@ -36,7 +39,51 @@ export class LivingMap {
     this.el.className = 'map-screen hidden';
     document.body.appendChild(this.el);
     this.el.addEventListener('click', (e) => this.click(e));
+    // Mike 2026-11-06: right-click the map (long-press on touch) to add a note at that spot.
+    this.el.addEventListener('contextmenu', (e) => { if ((e.target as HTMLElement).id !== 'mpCanvas') return; e.preventDefault(); this.askNote(e.clientX, e.clientY); });
+    let down: { x: number; y: number } | null = null;
+    const cancelPress = () => { clearTimeout(this.pressTimer); down = null; };
+    this.el.addEventListener('pointerdown', (e) => {
+      if ((e.target as HTMLElement).id !== 'mpCanvas' || e.pointerType === 'mouse') return;
+      down = { x: e.clientX, y: e.clientY };
+      clearTimeout(this.pressTimer);
+      this.pressTimer = window.setTimeout(() => { if (down) this.askNote(down.x, down.y); down = null; }, 500);
+    });
+    this.el.addEventListener('pointermove', (e) => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 12) cancelPress(); });
+    this.el.addEventListener('pointerup', cancelPress);
+    this.el.addEventListener('pointercancel', cancelPress);
+    this.el.addEventListener('keydown', (e) => {
+      const t = e.target as HTMLElement;
+      if (t.id !== 'mpNoteText') return;
+      if (e.key === 'Enter') { e.preventDefault(); this.addPin((t as HTMLInputElement).value, this.noteAt ?? undefined); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.cancelNote(); }
+    });
   }
+  /** Screen point on the map canvas -> world metres (x east, z south), or null off the map. */
+  mapToWorld(clientX: number, clientY: number): { x: number; z: number } | null {
+    const c = this.canvas, r = c.getBoundingClientRect();
+    if (!c.clientWidth || !c.clientHeight) return null;
+    const u = (clientX - r.left - c.clientLeft) / c.clientWidth, v = (clientY - r.top - c.clientTop) / c.clientHeight;   // inside the border
+    if (u < 0 || v < 0 || u > 1 || v > 1) return null;
+    return { x: Math.round((u * HALF * 2 - HALF) * 10) / 10, z: Math.round((v * HALF * 2 - HALF) * 10) / 10 };
+  }
+  /** Open the little note box where the map was right-clicked / long-pressed. */
+  askNote(clientX: number, clientY: number) {
+    const at = this.mapToWorld(clientX, clientY);
+    if (!at) return;
+    this.noteAt = at;
+    this.draw();
+    const wrap = this.el.querySelector<HTMLElement>('.map-canvas-wrap')!, r = wrap.getBoundingClientRect();
+    wrap.querySelector('.map-note-pop')?.remove();
+    const pop = document.createElement('div');
+    pop.className = 'map-note-pop';
+    pop.innerHTML = `<input id="mpNoteText" type="text" maxlength="120" placeholder="A note for this spot" aria-label="Note for this spot"><div class="map-note-btns"><button class="secondary" id="mpNoteCancel">Cancel</button><button class="primary" id="mpNoteAdd">Add note</button></div>`;
+    pop.style.left = Math.max(4, Math.min(r.width - 234, clientX - r.left + 12)) + 'px';
+    pop.style.top = Math.max(4, Math.min(r.height - 90, clientY - r.top + 12)) + 'px';
+    wrap.appendChild(pop);
+    pop.querySelector<HTMLInputElement>('input')!.focus();
+  }
+  cancelNote() { this.noteAt = null; this.el.querySelector('.map-note-pop')?.remove(); this.draw(); }
   get isOpen() { return !this.el.classList.contains('hidden'); }
   get revealed() { return this.seen.reduce((n, v) => n + v, 0) / (G * G); }
 
@@ -57,20 +104,22 @@ export class LivingMap {
   }
   isSeen(x: number, z: number) { const cx = Math.floor((x + HALF) / CELLM), cy = Math.floor((z + HALF) / CELLM); return cx >= 0 && cy >= 0 && cx < G && cy < G && !!this.seen[cy * G + cx]; }
 
-  addPin(text: string): Pin | null {
-    const p = this.player();
+  addPin(text: string, at?: { x: number; z: number }): Pin | null {
+    const p = at ?? this.player();
     if (!text.trim() || Math.abs(p.x) > HALF || Math.abs(p.z) > HALF) return null;
     const pin = { id: 'pin' + Date.now().toString(36), x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10, text: text.trim().slice(0, 120), created: new Date().toISOString().slice(0, 10) };
-    this.pins.push(pin); this.save(); this.render();
+    this.pins.push(pin); this.noteAt = null; this.save(); this.render();
     return pin;
   }
-  open() { this.render(); this.el.classList.remove('hidden'); }
+  open() { this.noteAt = null; this.render(); this.el.classList.remove('hidden'); }
   close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.onClose(); }
 
   private click(ev: Event) {
     const b = (ev.target as HTMLElement).closest('button') as HTMLButtonElement | null;
     if (!b) return;
-    if (b.id === 'mpPin') this.addPin((this.el.querySelector('#mpText') as HTMLInputElement).value);
+    if (b.id === 'mpNoteAdd') this.addPin((this.el.querySelector('#mpNoteText') as HTMLInputElement).value, this.noteAt ?? undefined);
+    else if (b.id === 'mpNoteCancel') this.cancelNote();
+    else if (b.id === 'mpPin') this.addPin((this.el.querySelector('#mpText') as HTMLInputElement).value);
     else if (b.dataset.del) { this.pins = this.pins.filter((p) => p.id !== b.dataset.del); this.save(); this.render(); }
     else if (b.id === 'mpSubmit' && this.pins.length) openSubmitSheet({ kind: 'map notes', title: 'Notes on the glade map', markdown: entryMarkdown({
       title: 'Notes on the glade map', author: this.author(), type: 'map-notes', tags: ['map'],
@@ -83,10 +132,11 @@ export class LivingMap {
     this.el.innerHTML = `
       <div class="map-card">
         <div class="eyebrow">The living map · M</div>
-        <canvas id="mpCanvas" width="600" height="600"></canvas>
+        <div class="map-canvas-wrap"><canvas id="mpCanvas" width="600" height="600"></canvas></div>
         <div class="map-side">
           <p class="fine">${Math.round(this.revealed * 100)}% of Aralon explored. The land fills in as you walk; the places to visit are marked from the start.</p>
           ${this.sightList()}
+          <p class="fine">Right-click the map (long-press on a phone) to add a note at that spot.</p>
           <div class="map-pin-row"><input id="mpText" type="text" maxlength="120" placeholder="A note for this spot"><button class="secondary" id="mpPin">Pin it here</button></div>
           <ul class="map-pins">${this.pins.map((p) => `<li>${escapeHtml(p.text)} <button class="sk-del" data-del="${p.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
           <div class="forge-actions">${this.pins.length ? '<button class="secondary" id="mpSubmit">Submit my notes…</button>' : ''}<button class="primary" id="mpClose">Close</button></div>
@@ -124,7 +174,6 @@ export class LivingMap {
       g.fillStyle = col; g.font = 'bold 16px Georgia, serif'; g.textAlign = 'center'; g.fillText(ch, X(m.x), Z(m.z) + 5);
       if (m.label) { g.font = 'italic 12px Georgia, serif'; g.fillText(m.label, X(m.x), Z(m.z) + 20); }
     }
-    for (const p of this.pins) { g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--my-ink') || '#2B2A24'; g.beginPath(); g.arc(X(p.x), Z(p.z), 5, 0, 7); g.fill(); g.font = '12px Georgia, serif'; g.textAlign = 'left'; g.fillText(p.text.slice(0, 28), X(p.x) + 8, Z(p.z) + 4); }
     // Fog over the unexplored cells.
     for (let cy = 0; cy < G; cy++) for (let cx = 0; cx < G; cx++) if (!this.seen[cy * G + cx]) { g.fillStyle = 'rgba(120,100,70,.82)'; g.fillRect(cx * CELLM * S, cy * CELLM * S, CELLM * S + 0.5, CELLM * S + 0.5); }
     // Over the fog, so a new player sees the town and what there is to do from the start.
@@ -150,6 +199,9 @@ export class LivingMap {
       const name = t.label;
       g.strokeText(name, x, z + 24); g.fillStyle = t.locked ? '#4A4238' : '#7A2420'; g.fillText(name, x, z + 24);
     }
+    // Your notes, over the fog (a note can mark a place you haven't walked to yet).
+    for (const p of this.pins) { g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--my-ink') || '#2B2A24'; g.beginPath(); g.arc(X(p.x), Z(p.z), 5, 0, 7); g.fill(); g.font = '12px Georgia, serif'; g.textAlign = 'left'; g.fillText(p.text.slice(0, 28), X(p.x) + 8, Z(p.z) + 4); }
+    if (this.noteAt) { g.strokeStyle = '#C8423A'; g.lineWidth = 3; g.beginPath(); g.arc(X(this.noteAt.x), Z(this.noteAt.z), 9, 0, 7); g.stroke(); }
     // You are here.
     const me = this.player();
     if (Math.abs(me.x) <= HALF && Math.abs(me.z) <= HALF) {

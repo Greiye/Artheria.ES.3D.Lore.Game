@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 32: map notes where you click (Mike 2026-11-06, "Map pinning doesn't work right. Right click on the map, then add a note there")
+- **Right-click** anywhere on the living map (M), or **long-press** on a phone, and a small note box opens at that spot with a red ring on the map. Type and press Enter or **Add note**; **Cancel** or Esc drops it. The note is pinned where you clicked, not where you stand.
+- Notes are now drawn over the fog, so you can mark a place you haven't walked to yet. **Pin it here** (at your own spot) still works.
+- New `test/e2e-map-notes.mjs`.
+
 ### v0.16 changelog, part 31: gamepad: click the left stick to crouch (Mike 2026-11-06, "Gamepad: Left thumbstick is crouch")
 - **L3** (click the left stick) now toggles crouch / sneak. Sprint moved to **B**: press it while moving and you sprint until you let go of the stick (B still backs out of menus). In the knight frame, B pushes it to a stomping run.
 - The controller map in Pause → Controls shows the new layout. `test/e2e-mobile.mjs` checks both buttons.
