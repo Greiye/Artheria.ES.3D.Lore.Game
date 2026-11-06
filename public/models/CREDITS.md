@@ -4,6 +4,7 @@
 | --- | --- | --- | --- | --- |
 | `witch.glb` | Witch (rig and animations) | [Quaternius](https://quaternius.com) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Simplified from 6.9k to 4.5k triangles for phones (flat normals rebuilt). |
 | `sword.glb` | Sword | [Quaternius](https://quaternius.com) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | None. |
+| `candor.glb` | Painted Archer (Candor) | Mike Go | Mike's own model, for this game | Textures cut from 4096 to 1024 px (face and hair cards 512 px); the unused normal and ORM maps dropped (9.5 MB to 0.8 MB). |
 | (not a model) `src/art/trees/tree-cards.png` | [Low Poly Forest Tree Pack](https://sketchfab.com/3d-models/low-poly-forest-tree-pack-5ff5a51e74324845a4e4905f182dfb2b) | [99.Miles](https://sketchfab.com/99.Miles) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Eleven of its trees drawn side-on into 128 x 256 cards for crossed-quad trees (`scripts/bake-tree-cards.mjs`); the .glb no longer ships. |
 | (not a model) | MediaPipe Pose Landmarker Lite (`assets/pose/`) and `@mediapipe/tasks-vision` | [Google](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) | None. Ships in `dist/pose/`, loaded only when the dojo camera is turned on. |
 

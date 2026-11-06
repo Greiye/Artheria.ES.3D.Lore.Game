@@ -8,7 +8,8 @@ import { tuftCards, type TuftCard } from './tuftCards';
 import { buildFences } from './fenceCards';
 import { buildSkyCards } from './skyCards';
 import { CARAVAN } from '../spanish/caravan';   // built later (main.ts): keep the fences clear of its camp
-import { PERCH } from '../sky/perch';   // skyrunner launch perch: keep trees and rocks off it
+import { PERCH } from '../sky/perch';
+import { RANGE, rangeClear, buildRange, type Butt } from './archery';   // skyrunner launch perch: keep trees and rocks off it
 import { cardTree, cardMesh, CARD_COUNT } from './treeCards';
 import { bushCard, bushMesh, BUSH_CARDS } from './bushCards';
 import { buildFigure, buildCoach } from './figure';
@@ -56,6 +57,7 @@ export interface World {
   doorOpen: boolean;
   openDoor(instant?: boolean): void; // F3.4 `unlock:library_door`; open from the start (Mike 2026-11-06)
   standees: Record<string, THREE.Object3D>;  // placeholder characters; .glb model slots replace them
+  archery: Butt[];              // Mike 2026-11-06: Candor's three straw butts
   solids: THREE.Object3D[];     // F4.2: what a bolt can stick in (the ground is handled separately)
   update(t: number, camera: THREE.Camera): void;
   setShadows(on: boolean): void;   // F1.1
@@ -222,7 +224,8 @@ export function buildWorld(): World {
     || (x > 19 - pad && x < 29 + pad && z > -28 - pad && z < -17 + pad)   // v0.04 rock climb
     || townClear(x, z, pad)   // v0.04 town
     || riverClear(x, z, pad)   // references review: the river and the windmill
-    || Math.hypot(x - PERCH.x, z - PERCH.z) < PERCH.r + pad;   // the skyrunner perch
+    || Math.hypot(x - PERCH.x, z - PERCH.z) < PERCH.r + pad   // the skyrunner perch
+    || rangeClear(x, z, pad);   // Mike 2026-11-06: Candor's archery range
   // Style pass 2: the meadow gets gentle bumps, except where something stands on flat ground.
   const flatSpots: [number, number, number][] = [
     ...QUEST.clues.map((c) => [c.at[0], c.at[2], 2.5] as [number, number, number]),
@@ -415,6 +418,9 @@ export function buildWorld(): World {
     g.position.set(x, 0, z); g.rotation.y = -0.4; scene.add(g);
     colliders.push({ kind: 'circle', x, z, r: 0.7 });
   }
+  // Mike 2026-11-06: Candor the archer (Mike's Painted Archer model) teaches archery at his range in the east meadow.
+  place('candor', buildFigure({ skin: '#E2B48C', hair: '#E8E0D0', primary: '#1F5A5A', secondary: '#C9B48A', boots: '#3A2A1E', accent: '#B08A3E', eyes: '#2A3A3A', hairStyle: 'long', build: 0.95 }, 1.8), RANGE.x, RANGE.z, RANGE.ry, 0.35);
+  const archery = buildRange(scene, solids, colliders, heightAt);
   // References review models (CC0, Quaternius): public/models/witch.glb and sword.glb replace these placeholders.
   // The Witch (a placeholder NPC, role name only) keeps the windmill on the far bank.
   place('witch', buildFigure({ skin: '#E8C8A8', hair: '#1E1A22', primary: '#5A3A7A', secondary: '#C9A23A', boots: '#3A2A1E', accent: '#C9A23A', hairStyle: 'long', dress: true }, 1.7), WINDMILL.x + 3.4, WINDMILL.z - 1.4, Math.PI / 2 + 0.3, 0.35);
@@ -526,6 +532,7 @@ export function buildWorld(): World {
     libraryDoor,
     natalieTarget,
     standees,
+    archery,
     solids,
     get doorOpen() { return doorOpen; },
     openDoor(instant = false) {
