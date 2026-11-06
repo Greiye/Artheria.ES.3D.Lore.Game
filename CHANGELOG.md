@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 27: wake at the camp, and Natalie's welcome (Mike 2026-11-06, "Spawn at the campfire, not at the inn")
+- A new game now wakes on the camp bedroll by the fire instead of the inn bed. Continuing an older save still wakes where you last slept.
+- Once you're up, Natalie explains the camp: it's her party's base camp at the Ruined Library (once the Library of the Wise), set up to map it and bring its lost books home, until one goblin scattered them. She then says how to play (find her party, read and write in the Library, go down when ready) and how to win (thirty floors to a dragon's hoard, bring her the lore books, climb back out alive and your drawing goes up on the Inn wall beside Kavik's). It plays once per profile. Ask her "Why is the camp here?" to hear it again. The text lives in `content/dialogue/natalie-camp.json`.
+
 ### v0.16 changelog, part 26: the map shows what there is to do (Mike 2026-11-05, "Mark it on the map. Update the map so that new players can see what the game has to offer")
 - The living map (M) now marks every place to visit from the start, over the fog: the knight frame (grey and locked until it wakes), the skyrunner perch, the descent's trapdoor, Natalie, the camp (campfire, mirror, anvil, sketchbook), Kavik, the caravan, the practice table, the grindstone, the cinema and the record statue.
 - Beside it, a **What's here** list gives each one a line on what you do there (and, for the frame, how to wake it).

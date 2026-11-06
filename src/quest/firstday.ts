@@ -11,7 +11,7 @@ import { escapeHtml } from '../submit';
 export type DayStep = 'up' | 'read' | 'write' | 'make' | 'fire';
 export const DAY_STEPS: DayStep[] = ['up', 'read', 'write', 'make', 'fire'];
 const TEXT: Record<DayStep, { goal: string; natalie: string }> = {
-  up: { goal: 'Get up', natalie: 'Morning. First day here? Let me show you how a day goes.' },
+  up: { goal: 'Get up', natalie: 'Right. Let me show you how a day goes.' },
   read: { goal: 'Read a tale in the Library 📖', natalie: 'Everything here grew out of stories. Start at the Library, where the gold light is, and read one.' },
   write: { goal: 'Write something at the Scriptorium ✒', natalie: 'Now add your own words. The Scriptorium by the water.' },
   make: { goal: 'Make something at the Tailor ✂ or the Smithy ⚒', natalie: 'Good. Now make something: a new look at the Tailor, or a weapon at the Smithy.' },
@@ -78,7 +78,7 @@ export class FirstDay {
     if (!step) { this.marker.visible = false; return; }
     if (step === 'up') {
       // Up once the wake-up is over and you've stood a moment; Natalie's hello is the first line.
-      if (!f.waking) { this.upFor += dt; if (this.upFor > 0.8) this.advance(); }
+      if (!f.waking && playing) { this.upFor += dt; if (this.upFor > 0.8) this.advance(); }
     } else if ((step === 'read' && f.reading) || (step === 'write' && f.writing) || (step === 'make' && f.making) || (step === 'fire' && f.atFire)) this.advance();
     const at = this.step ? this.targets[this.step]?.() : undefined;
     this.marker.visible = !!at && playing;
