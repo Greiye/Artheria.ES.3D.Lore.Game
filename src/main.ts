@@ -80,6 +80,7 @@ import { RANGE } from './world/archery';
 import { FighterKit, TECH, BREATH, type Technique } from './fighter';
 import { MagicMissile } from './missile';
 import type { Fighter } from './fight/engine';
+import type { Level } from './fight/ai';
 import { pushupCardHtml } from './dojo/card';
 import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
 import './spanish/caravan.css';
@@ -89,7 +90,7 @@ import './skills/skills.css';
 import './dojo/dojo.css';
 import { drawSketch, loadSketches } from './writing/sketch';
 import { Dungeon, THEME as DUNGEON_THEME } from './dungeon/dungeon';
-import { Goblins, MAX_FOES } from './foes/goblins';
+import { Goblins, MAX_FOES, type Foe, type FoeWorld } from './foes/goblins';
 import { rollGoblin, describeGoblin, goblinStats } from './traits/goblin';
 import { roll, seedOf } from './traits/roll';
 import { rollTownsfolk } from './traits/townsfolk';
@@ -1855,7 +1856,7 @@ const forcedGoblin = Number(urlFlags.get('seed')) || 0;
 quick.forcedGoblin = forcedGoblin;
 const DELVE_HP = 10;
 let delveHp = DELVE_HP, slowT = 0, hurtFlash = 0;
-const goblins = new Goblins(world.scene, {
+const goblinWorld: FoeWorld = {
   walkable: (x, z) => dungeon.walkable(x, z),
   colliders: world.colliders,   // B42: goblins lean at the same wall edges
   player: player.pos,
@@ -1908,7 +1909,8 @@ const goblins = new Goblins(world.scene, {
     fog.far = Math.max(8, far * 0.45); fog.near = 1.5;
     setTimeout(() => { if (inDungeon) { fog.far = far; fog.near = near; } }, 4000);
   },
-});
+};
+const goblins = new Goblins(world.scene, goblinWorld);
 for (const s of [sword, sword2]) {
   s.foes = () => goblins.alive.map((f) => f.root.position);
   s.slash = (c) => {
@@ -2077,9 +2079,10 @@ world.scene.add(kavikHit);
 interactables.push({ obj: kavikHit, verb: () => sideGate(fightMode.record.beaten ? 'Talk to Kavik (spar, no holding back)' : 'Talk to Kavik (spar)'), act: () => sideGo(talkToKavik), when: () => !inDungeon });
 // The fight runs on the mats: its x along them (the world's -x), its z across (the world's +z). The camera starts on
 // the -Z side, side-on, and swings round with the line between the fighters as they sidestep.
-const RING = { x: DOJO.x, y: 0.24, z: DOJO.z - 0.3 };
-const ringX = (f: { x: number }) => RING.x - f.x;
-const ringZ = (f: { z: number }) => RING.z + f.z;
+const DOJO_RING = { x: DOJO.x, y: 0.24, z: DOJO.z - 0.3, rot: 0 };
+// B5: a Monk's duel puts the mat wherever the duel starts, turned (rot about Y) so you keep your side of it.
+let RING = DOJO_RING;
+const ringPt = (fx: number, fz: number) => { const c = Math.cos(RING.rot), s = Math.sin(RING.rot), lx = -fx; return { x: RING.x + lx * c + fz * s, z: RING.z - lx * s + fz * c }; };
 let kavikWas: { x: number; y: number; z: number; ry: number } | null = null, fightView: boolean | null = null;
 const fightFx = new THREE.Group(); fightFx.name = 'fight-fx'; world.scene.add(fightFx);
 // A flash where a hit lands: gold on a hit, pale on a block, red on a counter hit.
@@ -2124,13 +2127,14 @@ function kavikAfter(won: boolean, first: boolean): DialogueScript {
 }
 function openFight() {
   if (state !== 'play') return;
-  lastSpar = null;
+  lastSpar = null; duel = null; RING = DOJO_RING;
   enterForge();
   fightView = player.thirdPerson; player.thirdPerson = true;
   kavikWas = { x: kavikRoot.position.x, y: kavikRoot.position.y, z: kavikRoot.position.z, ry: kavikRoot.rotation.y };
   fightMode.open();
 }
 fightMode.onClose = () => {
+  if (duel) { endDuel(); return; }
   if (kavikWas) { kavikRoot.position.set(kavikWas.x, kavikWas.y, kavikWas.z); kavikRoot.rotation.y = kavikWas.ry; kavikWas = null; }
   fightFx.visible = false;
   player.spawn(new THREE.Vector3(RING.x, 0, RING.z - 2.2), Math.PI);   // off the mats, facing them
@@ -2140,13 +2144,13 @@ fightMode.onClose = () => {
   const last = lastSpar; lastSpar = null;
   if (last) setTimeout(() => { if (state === 'play' || state === 'resume') talkTo('kavik', kavikHit.position, kavikAfter(last.won, last.first)); }, 250);
 };
-fightMode.onResult = (won, crowns, first) => { lastSpar = { won, first }; if (crowns) earn(crowns, first ? 'your first win over Kavik' : 'a win over Kavik'); };
+fightMode.onResult = (won, crowns, first) => { if (duel) { duel.won = won; return; } lastSpar = { won, first }; if (crowns) earn(crowns, first ? 'your first win over Kavik' : 'a win over Kavik'); };
 fightMode.onHit = (e) => {
-  if (!e.blocked) gesture('hit', e.on === fightMode.fight.a ? 'player' : 'kavik');
+  if (!e.blocked && (!duel || e.on === fightMode.fight.a)) gesture('hit', e.on === fightMode.fight.a ? 'player' : 'kavik');
   if (e.on === fightMode.fight.a || e.by === fightMode.fight.a) haptics.play(e.blocked ? 'tap' : 'hurt');
   if (e.outcome !== 'break') {
     const m = e.move, hy = m.level === 'low' ? 0.35 : m.level === 'high' ? 1.5 : 1.05;
-    spark.position.set(ringX({ x: (e.by.x + e.on.x) / 2 }), RING.y + e.on.y + hy, ringZ({ z: (e.by.z + e.on.z) / 2 }));
+    { const w = ringPt((e.by.x + e.on.x) / 2, (e.by.z + e.on.z) / 2); spark.position.set(w.x, RING.y + e.on.y + hy, w.z); }
     sparkMat.color.set(e.blocked ? '#CFE8FF' : e.outcome === 'counter' ? '#FF6A4A' : '#FFE08A');
     sparkT = e.blocked ? 0.12 : 0.2;
     if (!e.blocked) fightMode.hitStop = e.outcome === 'counter' || m.launch ? 0.09 : 0.05;   // a beat's pause, for weight
@@ -2285,10 +2289,12 @@ function updateFighter(dt: number) {
 function techHud() {
   const el = document.getElementById('techHud');
   if (!el) return;
-  const mage = isMage() && missile.learned, on = (isFighter() || mage) && state === 'play' && !player.piloting;
+  const mage = isMage() && missile.learned, monk = isMonk() && inDungeon, on = (isFighter() || mage || monk) && state === 'play' && !player.piloting;
   el.classList.toggle('hidden', !on);
   el.classList.toggle('mage', mage);
+  el.classList.toggle('monk', monk);
   if (!on) return;
+  if (monk) { el.querySelector<HTMLElement>('[data-tech="lock"]')!.classList.toggle('cooling', !lockTarget()); return; }
   if (mage) {
     const b = el.querySelector<HTMLElement>('[data-tech="missile"]')!, cd = missile.cd;
     b.classList.toggle('cooling', cd > 0);
@@ -2305,8 +2311,8 @@ function techHud() {
 }
 {
   const el = document.createElement('div'); el.id = 'techHud'; el.className = 'hidden';
-  el.innerHTML = '<button data-tech="lunge" aria-label="Lunge">Lunge</button><button data-tech="sweep" aria-label="Sweep">Sweep</button><button data-tech="breath" aria-label="Take a breath">Breath</button><button data-tech="missile" aria-label="Magic missile">Missile</button>';
-  el.addEventListener('pointerdown', (e) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tech]')?.dataset.tech; if (!t) return; e.preventDefault(); e.stopPropagation(); if (t === 'breath') breathe(); else if (t === 'missile') castMissile(); else technique(t as Technique); });
+  el.innerHTML = '<button data-tech="lunge" aria-label="Lunge">Lunge</button><button data-tech="sweep" aria-label="Sweep">Sweep</button><button data-tech="breath" aria-label="Take a breath">Breath</button><button data-tech="missile" aria-label="Magic missile">Missile</button><button data-tech="lock" aria-label="Lock on">Lock on</button>';
+  el.addEventListener('pointerdown', (e) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tech]')?.dataset.tech; if (!t) return; e.preventDefault(); e.stopPropagation(); if (t === 'breath') breathe(); else if (t === 'missile') castMissile(); else if (t === 'lock') lockOn(); else technique(t as Technique); });
   document.getElementById('hud')?.appendChild(el);
 }
 // ---------- Mike 2026-11-06 (B4): the Mage's magic missile, taught by Magister Greer (src/missile.ts) ----------
@@ -2332,6 +2338,53 @@ function castMissile() {
   if (!missile.cast(player.eyePos.clone().addScaledVector(dir, 0.5).add(new THREE.Vector3(0, -0.15, 0)), dir)) return;
   audio.blip(); haptics.play('tap'); gesture('wave');
   techHud();
+}
+// ---------- Mike 2026-11-06 (B5): the Monk locks on to a goblin and meets it hand to hand, in fight mode ----------
+const isMonk = () => character.profession === 'monk';
+const LOCK = { range: 6, cone: 1.2, lossDmg: 3 };
+let duel: { foe: Foe; won: boolean | null; view: boolean } | null = null;
+let lockToldAt = 0;
+/** The goblin a Monk would lock on to: the nearest awake one ahead, inside a few strides. */
+function lockTarget(): Foe | null {
+  const yaw = player.thirdPerson ? player.bodyYaw : player.yaw, fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  let best: Foe | null = null, bd = Infinity;
+  for (const f of goblins.alive) {
+    if (f.state === 'hidden') continue;
+    const dx = f.root.position.x - player.pos.x, dz = f.root.position.z - player.pos.z, d = Math.hypot(dx, dz);
+    if (d > LOCK.range || d < 0.01) continue;
+    if (Math.acos(THREE.MathUtils.clamp((dx * fx + dz * fz) / d, -1, 1)) > LOCK.cone) continue;
+    if (d < bd) { bd = d; best = f; }
+  }
+  return best;
+}
+function lockOn() {
+  if (!isMonk() || state !== 'play' || player.piloting || fightMode.isOpen) return;
+  const tell = (m: string) => { if (performance.now() - lockToldAt > 1500) { lockToldAt = performance.now(); toast(m, 1600); } };
+  if (!inDungeon) { tell('Nothing here to lock on to. Below, in the descent, you can meet a goblin hand to hand.'); return; }
+  const f = lockTarget();
+  if (!f) { tell('No goblin close enough ahead to lock on to.'); return; }
+  // The mat goes down between you, turned so you keep your side of it.
+  const mx = (player.pos.x + f.root.position.x) / 2, mz = (player.pos.z + f.root.position.z) / 2;
+  const dx = player.pos.x - mx, dz = player.pos.z - mz;
+  RING = { x: mx, y: player.pos.y, z: mz, rot: Math.atan2(-dz, dx) };
+  duel = { foe: f, won: null, view: player.thirdPerson };
+  enterForge();
+  player.thirdPerson = true;
+  const lvl: Level = f.st.leader || f.role === 'guardian' || (goblins.floor ?? 1) >= 10 ? 'fair' : 'easy';
+  fightMode.open({ name: f.v.display, hp: Math.round(THREE.MathUtils.clamp(f.hp * 8, 30, 100)), level: lvl });
+  haptics.play('tap');
+}
+function endDuel() {
+  const d = duel!; duel = null; RING = DOJO_RING;
+  fightFx.visible = false;
+  player.thirdPerson = d.view;
+  leaveForge();
+  if (d.won) { goblins.defeat(d.foe); haptics.play('hit'); }
+  else {   // lost, or left the mat: you break away and it costs you
+    const p = player.pos, f = d.foe.root.position, dx = p.x - f.x, dz = p.z - f.z, n = Math.hypot(dx, dz) || 1;
+    if (dungeon.walkable(p.x + (dx / n) * 1.2, p.z + (dz / n) * 1.2)) player.pos.set(p.x + (dx / n) * 1.2, p.y, p.z + (dz / n) * 1.2);
+    goblinWorld.hurt(LOCK.lossDmg, d.foe, 0, null);
+  }
 }
 function lenjuScript(): DialogueScript {
   const r = sky.record, flown = r.runs > 0;
@@ -2395,15 +2448,18 @@ function syncFight(dt: number) {
   fightMode.update(dt);
   const F = fightMode.fight, a = F.a, b = F.b;
   // Facing on the mat to a yaw in the world (the mat's x is the world's -x).
-  player.pos.set(ringX(a), RING.y + a.y, ringZ(a)); player.yaw = player.bodyYaw = Math.atan2(a.face.x, -a.face.z); player.pitch = 0; player.syncNow();
-  kavikRoot.position.set(ringX(b), RING.y + b.y, ringZ(b)); kavikRoot.rotation.y = Math.atan2(-b.face.x, b.face.z);
+  const pa = ringPt(a.x, a.z), pb = ringPt(b.x, b.z), foe = duel ? duel.foe.root : kavikRoot;
+  player.pos.set(pa.x, RING.y + a.y, pa.z); player.yaw = player.bodyYaw = Math.atan2(a.face.x, -a.face.z) + RING.rot; player.pitch = 0; player.syncNow();
+  foe.position.set(pb.x, RING.y + b.y, pb.z); foe.rotation.y = Math.atan2(-b.face.x, b.face.z) + RING.rot;
+  if (duel) duel.foe.anim.update(dt, fightInput(b));
   fightFx.visible = true;
   sparkT -= dt; spark.visible = sparkT > 0;
   if (spark.visible) { spark.scale.setScalar(1 + (0.2 - sparkT) * 6); sparkMat.opacity = Math.min(1, sparkT * 8); }
   // Side-on to the line between the fighters, from the side the screen's right says: it swings round as they circle.
-  const mx = (ringX(a) + ringX(b)) / 2, mz = (ringZ(a) + ringZ(b)) / 2, gap = F.dist(), up = Math.max(a.y, b.y) * 0.6;   // follow a jump up
-  const rx = -F.right.x, rz = F.right.z, back = 4.8 + gap * 0.45;   // the screen's right in the world; the camera sits behind it
-  fightCam.x = mx - rz * back; fightCam.z = mz + rx * back;
+  const mx = (pa.x + pb.x) / 2, mz = (pa.z + pb.z) / 2, gap = F.dist(), up = Math.max(a.y, b.y) * 0.6;   // follow a jump up
+  const rx = -F.right.x, rz = F.right.z, back = (duel ? 3.6 : 4.8) + gap * 0.45;   // the screen's right in the world; the camera sits behind it (closer below: corridors)
+  const c = Math.cos(RING.rot), sn = Math.sin(RING.rot), ox = -rz * back, oz = rx * back;
+  fightCam.x = mx + ox * c + oz * sn; fightCam.z = mz - ox * sn + oz * c;
   rig.setShot({ pos: new THREE.Vector3(fightCam.x, 1.7 + up, fightCam.z), look: new THREE.Vector3(mx, 1.15 + up, mz), fov: 46 });
 }
 
@@ -3583,8 +3639,8 @@ const hooks: GameHooks = {
   bookPen: () => (reader.isOpen ? readerDesk : lecternDesk).pressPen(),
   piloting: () => player.piloting,
   fighter: () => isFighter(),
-  mage: () => isMage(),
-  cast: () => castMissile(),
+  mage: () => isMage() || isMonk(),
+  cast: () => { if (isMonk()) lockOn(); else castMissile(); },
   technique: (t) => technique(t),
   breathe: () => breathe(),
   canSwapShoulder: () => state === 'play' && player.piloting || state === 'play' && player.thirdPerson && rig.step === 1 && !crossbow.equipped,
@@ -3680,6 +3736,7 @@ window.addEventListener('keydown', (e) => {
     if (actionFor(e.code, ['breath'])) { breathe(); return; }
   }
   if (isMage() && !e.repeat && actionFor(e.code, ['lunge'])) { castMissile(); return; }   // B4: the Mage casts on the same key
+  if (isMonk() && !e.repeat && actionFor(e.code, ['lunge'])) { lockOn(); return; }   // B5: the Monk locks on
   // v0.04: no L hotkey; in the world, lore is written at the campfire with Natalie (the title screen keeps its button).
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
@@ -4115,4 +4172,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile } });
+Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; } } });

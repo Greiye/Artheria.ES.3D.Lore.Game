@@ -56,7 +56,7 @@ export interface GameHooks {
   /** Mike 2026-11-06: a Fighter's LB / RB techniques and breath (LB + RB held). */
   fighter?(): boolean;
   technique?(t: 'lunge' | 'sweep'): void;
-  /** B4: a Mage casts magic missile on LB (RB still zooms). */
+  /** B4 / B5: a Mage casts magic missile, a Monk locks on, on LB (RB still zooms). */
   mage?(): boolean;
   cast?(): void;
   breathe?(): void;

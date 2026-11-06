@@ -11,7 +11,7 @@ export const PROFESSIONS: ProfessionInfo[] = [
   { id: 'fighter', label: 'Fighter', icon: '⚔', blurb: 'Trained techniques on the shoulder buttons (LB / RB), and a steadying breath that gives temporary health.' },
   { id: 'ranger', label: 'Ranger', icon: '➶', blurb: 'A true crosshair: far better aim with the crossbow. Everyone else aims down the iron sights.' },
   { id: 'mage', label: 'Mage', icon: '✦', blurb: 'Magister Greer will teach you magic missile, a bolt of light that lights the way as it flies.' },
-  { id: 'monk', label: 'Monk', icon: '☯', blurb: 'Locks on to a foe and meets them hand to hand, in fight mode.', soon: true },
+  { id: 'monk', label: 'Monk', icon: '☯', blurb: 'Locks on to a foe and meets them hand to hand, in fight mode.' },
 ];
 export const isProfession = (v: unknown): v is Profession => PROFESSIONS.some((p) => p.id === v);
 export const professionInfo = (id: string | undefined) => PROFESSIONS.find((p) => p.id === id);
