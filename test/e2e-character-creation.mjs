@@ -34,7 +34,9 @@ await page.click('#forge [data-prof="ranger"]');
 const picked = await G(() => ({ on: document.querySelector('#forge .fg-prof.on')?.dataset.prof, h: document.querySelector('#forge h2').textContent, tab: document.querySelector('#forge .fp-tab.on')?.textContent }));
 check('picking one marks it and names it in the heading, staying on the tab', picked.on === 'ranger' && /Ranger/.test(picked.h) && picked.tab === 'Profession', JSON.stringify(picked));
 await page.click('#fgDone');
-check('Done goes into play', await until(() => window.__gametool.state === 'play' && !window.__gametool.characterForge.isOpen));
+// Mike 2026-11-06: after a new hero is made, Natalie's scene plays first, then play resumes.
+check('Done starts Natalie\'s scene (she watched the creation)', await until(() => window.__gametool.firstMeet.active, null, 15000));
+check('Done goes into play once her scene ends', await until(() => window.__gametool.state === 'play' && !window.__gametool.characterForge.isOpen, null, 90000));
 const saved = await G(() => JSON.parse(localStorage.getItem('gametool.character')));
 check('the profession is saved with the hero', saved.profession === 'ranger' && saved.created, JSON.stringify(saved));
 check('the game knows it', await G(() => window.__gametool.character.profession === 'ranger'));
