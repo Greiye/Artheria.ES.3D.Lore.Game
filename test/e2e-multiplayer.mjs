@@ -86,8 +86,10 @@ const bub = await G(a, () => [...window.__gametool.remotes.values()][0].bubble.t
 check('Say: a preset phrase shows over the friend\'s head', says >= 8 && bub === 'Hello!', JSON.stringify({ says, bub }));
 check('Say: no free-text box in the room panel', await G(b, () => { window.__gametool.openFriends(); const n = document.querySelectorAll('#friendsPanel input[type=text]').length; window.__gametool.friends.close(); return n === 1; }));   // just your name
 await G(b, () => window.__gametool.torch.set(true));
-await a.waitForFunction(() => [...window.__gametool.remotes.values()][0]?.torch, null, { timeout: 30000 }).catch(() => {});
-check('Held: a lit torch shows in the friend\'s hand', await G(a, () => { const r = [...window.__gametool.remotes.values()][0]; let vis = false; r.figure.traverse((o) => { if (o.parent?.isBone && o.visible && o.type === 'Group') vis = true; }); return r.torch && vis; }));
+// Poll the friend's view until the torch arrives (a slow software frame can lag the state sync).
+await a.waitForFunction(() => { const r = [...window.__gametool.remotes.values()][0]; return !!r?.torch; }, null, { timeout: 30000 }).catch(() => {});
+const held = await G(a, () => { const r = [...window.__gametool.remotes.values()][0]; let vis = false; r?.figure.traverse((o) => { if (o.parent?.isBone && o.visible && o.type === 'Group') vis = true; }); return { torch: !!r?.torch, vis, remotes: window.__gametool.remotes.size }; });
+check('Held: a lit torch shows in the friend\'s hand', held.torch && held.vis, JSON.stringify(held));
 await G(b, () => window.__gametool.torch.set(false));
 await G(b, () => { const g = window.__gametool; g.dog.befriend(); g.callPet(g.dog, true); g.dog.rename('Biscuit'); });
 await a.waitForFunction(() => !!window.__gametool.world.scene.children.find((o) => o.name.startsWith('netpet:')), null, { timeout: 8000 }).catch(() => {});
