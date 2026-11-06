@@ -85,12 +85,16 @@ await a.waitForFunction(() => [...window.__gametool.remotes.values()][0]?.bubble
 const bub = await G(a, () => [...window.__gametool.remotes.values()][0].bubble.text);
 check('Say: a preset phrase shows over the friend\'s head', says >= 8 && bub === 'Hello!', JSON.stringify({ says, bub }));
 check('Say: no free-text box in the room panel', await G(b, () => { window.__gametool.openFriends(); const n = document.querySelectorAll('#friendsPanel input[type=text]').length; window.__gametool.friends.close(); return n === 1; }));   // just your name
-await G(b, () => window.__gametool.torch.set(true));
+await b.bringToFront();   // the sender's frames must run: only the front tab gets animation frames here
+await G(b, () => window.__gametool.hands.set('left', 'torch'));   // through the hands, as the game does (hands.apply() owns torch.lit)
 // Poll the friend's view until the torch arrives (a slow software frame can lag the state sync).
-await a.waitForFunction(() => { const r = [...window.__gametool.remotes.values()][0]; return !!r?.torch; }, null, { timeout: 30000 }).catch(() => {});
+await a.waitForFunction(() => { const r = [...window.__gametool.remotes.values()][0]; return !!r?.torch; }, null, { timeout: 30000, polling: 200 }).catch(() => {});
+await a.bringToFront();   // and now the viewer's frames, to draw it
+const torchVis = () => { const r = [...window.__gametool.remotes.values()][0]; let vis = false; r?.figure?.traverse((o) => { if (o.parent?.isBone && o.visible && o.type === 'Group') vis = true; }); return vis; };
+await a.waitForFunction(torchVis, null, { timeout: 15000, polling: 200 }).catch(() => {});
 const held = await G(a, () => { const r = [...window.__gametool.remotes.values()][0]; let vis = false; r?.figure.traverse((o) => { if (o.parent?.isBone && o.visible && o.type === 'Group') vis = true; }); return { torch: !!r?.torch, vis, remotes: window.__gametool.remotes.size }; });
 check('Held: a lit torch shows in the friend\'s hand', held.torch && held.vis, JSON.stringify(held));
-await G(b, () => window.__gametool.torch.set(false));
+await G(b, () => window.__gametool.hands.set('left', 'none'));
 await G(b, () => { const g = window.__gametool; g.dog.befriend(); g.callPet(g.dog, true); g.dog.rename('Biscuit'); });
 await a.waitForFunction(() => !!window.__gametool.world.scene.children.find((o) => o.name.startsWith('netpet:')), null, { timeout: 8000 }).catch(() => {});
 check('Pets: the friend\'s pet comes along on your screen', await G(a, () => !!window.__gametool.world.scene.children.find((o) => o.name.startsWith('netpet:'))));
