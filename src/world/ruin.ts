@@ -519,3 +519,63 @@ export function buildQuadPlants(group: THREE.Object3D, scene: THREE.Scene, floor
   }
   return { inside, outside };
 }
+
+// ---------- 7 · Flooding ----------
+// Mike 2026-11-06: "There's flooding too." Shallow, still water has pooled across the low end of the hall: a few
+// irregular sheets of painted water a hand deep, dark wet stone round their edges, bookcases toppled into them and
+// half under, and books floating. You can wade through (it's ankle deep, nothing blocks). Under a ceiling hole the
+// water catches the sky. Two meshes: the wet stone and wreckage (merged), and the water (one transparent mesh).
+function waterTexture(R: () => number): THREE.CanvasTexture {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#3E5E62'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 160; i++) { g.fillStyle = R() < 0.5 ? 'rgba(90,130,130,.35)' : 'rgba(30,50,55,.35)'; g.fillRect(Math.floor(R() * S), Math.floor(R() * S), 2 + Math.floor(R() * 10), 1); }   // still, painted ripples
+  for (let i = 0; i < 14; i++) { g.fillStyle = 'rgba(200,225,220,.35)'; g.fillRect(Math.floor(R() * S), Math.floor(R() * S), 3 + Math.floor(R() * 6), 1); }   // glints
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.NearestFilter;
+  return t;
+}
+export const FLOOD_Y = 0.11;
+export function buildFlood(group: THREE.Object3D, floor: Floor): { pools: { x: number; z: number; r: number }[]; water: THREE.Mesh } {
+  const R = rng(9191), P = new Painter(9192);
+  const pools: { x: number; z: number; r: number }[] = [];
+  // The low end: the back half of the hall, mostly to the left (the stairs keep their own dry kerb).
+  const want = [[-7.5, -33.5, 3.4], [-3.2, -38.6, 2.4], [-9.2, -26.5, 2.2], [9.6, -24.8, 1.8]] as const;
+  const shapes: THREE.BufferGeometry[] = [];
+  const blob = (x: number, z: number, r: number, k = 1) => {
+    const sh = new THREE.Shape(), n = 14;
+    for (let i = 0; i <= n; i++) { const a = (i / n) * Math.PI * 2, rr = r * k * (0.72 + R() * 0.38); const px = x + Math.cos(a) * rr, pz = z + Math.sin(a) * rr; if (i === 0) sh.moveTo(px, pz); else if (i < n) sh.lineTo(px, pz); }
+    return new THREE.ShapeGeometry(sh, 1).rotateX(Math.PI / 2);
+  };
+  for (const [x, z, r] of want) {
+    pools.push({ x, z, r }); floor.take(x, z, r * 0.95);
+    const wet = blob(x, z, r, 1.18);   // the wet stone ring, under the water's edge
+    wet.translate(0, 0.014, 0);
+    P.add(wet, '#3A3836', V(0, 0, 0));
+    const w = blob(x, z, r);
+    w.translate(0, FLOOD_Y, 0);
+    shapes.push(w);
+  }
+  // ShapeGeometry in world XZ: UVs from position (1 tile per 2.5 m).
+  const geo = mergeGeometries(shapes.map((g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; }));
+  const p = geo.attributes.position as THREE.BufferAttribute, uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) { uv[i * 2] = p.getX(i) / 2.5; uv[i * 2 + 1] = p.getZ(i) / 2.5; }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.computeVertexNormals();
+  const water = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ map: waterTexture(R), transparent: true, opacity: 0.78, depthWrite: false, shininess: 60, specular: 0x557070, side: THREE.DoubleSide }));
+  water.name = 'library-flood'; water.renderOrder = 2; water.raycast = () => {};
+  // Bookcases toppled into the water, half under; books floating round them; a chair on its side.
+  for (const [x, z, ry] of [[-7.2, -33.0, 0.5], [-3.6, -38.8, -0.9]] as const) {
+    const c = Math.cos(ry), s = Math.sin(ry), at = (a: number, b: number, y: number) => V(x + a * c + b * s, y, z - a * s + b * c);
+    P.add(new THREE.BoxGeometry(2.8, 0.45, 0.06), '#3E2A1A', at(0, 0.06, 0), ry, Math.PI / 2 - 0.12);
+    for (const e of [-1.37, 1.37]) P.add(new THREE.BoxGeometry(0.06, 0.45, 0.42), '#4A321F', at(e, 0.1, 0.18), ry, 0, 0);
+    for (let k = 0; k < 4; k++) P.add(new THREE.BoxGeometry(2.7, 0.42, 0.04), '#4A321F', at(0, 0.08, -0.2 + k * 0.14 + 0.2), ry, 0.12);
+    for (let k = 0; k < 9; k++) P.add(new THREE.BoxGeometry(0.2, 0.05, 0.28), ['#7A1F1C', '#2A3A4A', '#3E4A2A', '#6B4A2E'][k % 4], at((R() - 0.5) * 3.2, FLOOD_Y - 0.01, (R() - 0.5) * 2.2 + 0.6), ry + R() * 3, (R() - 0.5) * 0.15);
+    floor.take(x, z, 1.6);
+  }
+  // Stepping stones someone laid across the widest pool.
+  for (let k = 0; k < 5; k++) P.add(new THREE.CylinderGeometry(0.22 + R() * 0.08, 0.26, 0.16, 7), '#6E6862', V(-9.8 + k * 0.85, 0.08, -31.4 - k * 0.55), R() * 3);
+  const m = P.mesh(group as THREE.Scene, 'library-flood-wet');
+  if (m) { m.raycast = () => {}; m.receiveShadow = true; }
+  group.add(water);
+  return { pools, water };
+}

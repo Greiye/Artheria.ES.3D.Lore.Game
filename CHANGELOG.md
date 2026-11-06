@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 46: the Ruined Library looks its age, 7: flooding (Mike 2026-11-06, Graphics thread: "There's flooding too.")
+- **Shallow, still water** has pooled across the low end of the hall: four irregular sheets of painted water, a hand deep, with dark wet stone round their edges.
+- **Bookcases have toppled into the water**, half under, with books floating round them. Someone laid stepping stones across the widest pool.
+- You can wade straight through. The pools are laid out first, so the goblins' fires and beds stay dry.
+
 ### v0.16 changelog, part 45: the Ruined Library looks its age, 6: ivy and plants (Mike 2026-11-06, Graphics thread: "Add 2d quad ivy and plants.")
 - **Cut-out quad ivy and plants**, painted in our own leaf, fern and grass textures and swaying in the wind. **Ivy curtains** hang down the inside walls. **Vines** dangle through every hole in the ceiling, with grass and ferns growing on the floor below where the sky comes in. **Tufts** sprout in the floor's cracks and at the walls' foot.
 - Outside, ferns and grass grow along the hall's walls, and more ivy hangs off the top of the front.
