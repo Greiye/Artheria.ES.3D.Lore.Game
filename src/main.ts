@@ -78,6 +78,7 @@ import { SkyRun } from './sky/mode';
 import { buildPerch, PERCH } from './sky/perch';
 import { RANGE } from './world/archery';
 import { FighterKit, TECH, BREATH, type Technique } from './fighter';
+import { MagicMissile } from './missile';
 import type { Fighter } from './fight/engine';
 import { pushupCardHtml } from './dojo/card';
 import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
@@ -1233,7 +1234,7 @@ pedlarHit.position.copy(world.standees.pedlar.position).setY(0.85);
 world.scene.add(pedlarHit);
 interactables.push({ obj: pedlarHit, verb: () => 'Talk to Magister Greer', act: () => {
   if (inventory.count('crossbow') > 0) markSeen('crossbow');
-  talkTo('pedlar', pedlarHit.position, pedlarScript(seen));
+  talkTo('pedlar', pedlarHit.position, pedlarScript(seen, isMage() ? (missile.learned ? 'known' : 'teach') : null));
 } });
 // ---------- Phase E: B8 campfire telling + B11 bard tunes, B9 gallery hall ----------
 const campfire = station(new CampfirePanel(() => {
@@ -2284,9 +2285,17 @@ function updateFighter(dt: number) {
 function techHud() {
   const el = document.getElementById('techHud');
   if (!el) return;
-  const on = isFighter() && state === 'play' && !player.piloting;
+  const mage = isMage() && missile.learned, on = (isFighter() || mage) && state === 'play' && !player.piloting;
   el.classList.toggle('hidden', !on);
+  el.classList.toggle('mage', mage);
   if (!on) return;
+  if (mage) {
+    const b = el.querySelector<HTMLElement>('[data-tech="missile"]')!, cd = missile.cd;
+    b.classList.toggle('cooling', cd > 0);
+    const label = cd > 0 ? cd.toFixed(1) : 'Missile';
+    if (b.textContent !== label) b.textContent = label;
+    return;
+  }
   for (const k of ['lunge', 'sweep', 'breath'] as const) {
     const b = el.querySelector<HTMLElement>(`[data-tech="${k}"]`)!, cd = fighterKit.cd[k];
     b.classList.toggle('cooling', cd > 0);
@@ -2296,9 +2305,33 @@ function techHud() {
 }
 {
   const el = document.createElement('div'); el.id = 'techHud'; el.className = 'hidden';
-  el.innerHTML = '<button data-tech="lunge" aria-label="Lunge">Lunge</button><button data-tech="sweep" aria-label="Sweep">Sweep</button><button data-tech="breath" aria-label="Take a breath">Breath</button>';
-  el.addEventListener('pointerdown', (e) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tech]')?.dataset.tech; if (!t) return; e.preventDefault(); e.stopPropagation(); if (t === 'breath') breathe(); else technique(t as Technique); });
+  el.innerHTML = '<button data-tech="lunge" aria-label="Lunge">Lunge</button><button data-tech="sweep" aria-label="Sweep">Sweep</button><button data-tech="breath" aria-label="Take a breath">Breath</button><button data-tech="missile" aria-label="Magic missile">Missile</button>';
+  el.addEventListener('pointerdown', (e) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tech]')?.dataset.tech; if (!t) return; e.preventDefault(); e.stopPropagation(); if (t === 'breath') breathe(); else if (t === 'missile') castMissile(); else technique(t as Technique); });
   document.getElementById('hud')?.appendChild(el);
+}
+// ---------- Mike 2026-11-06 (B4): the Mage's magic missile, taught by Magister Greer (src/missile.ts) ----------
+const MISSILE_KEY = 'gametool.missile';
+const missile = new MagicMissile(world.scene, world.solids, (x, z) => player.terrain(x, z));
+const isMage = () => character.profession === 'mage';
+missile.targets = (from, dir, len) => {
+  const h = goblins.list.length ? goblins.hitTest(from, dir, len) : null;
+  return h && { dist: h.dist, hit: (dmg, d) => { haptics.play('hit'); return goblins.shoot(h.foe, dmg, d); } };
+};
+missile.foes = () => goblins.alive.map((f) => f.root.position);
+try { if (localStorage.getItem(MISSILE_KEY) === '1') missile.learn(); } catch { /* storage blocked: unlearned */ }
+function learnMissile() {
+  if (!missile.learned) { missile.learn(); storeSet(MISSILE_KEY, '1'); }
+  setTimeout(() => toast(`You know magic missile. Cast it with Z (LB on a pad).`, 3500), 400);
+}
+let castToldAt = 0;
+function castMissile() {
+  if (!isMage() || state !== 'play' || player.piloting) return;
+  const tell = (m: string) => { if (performance.now() - castToldAt > 1500) { castToldAt = performance.now(); toast(m, 1600); } };
+  if (!missile.learned) { tell('You have no spell yet. Magister Greer, by the coach road, teaches mages.'); return; }
+  const dir = new THREE.Vector3(); player.lookDir(dir);
+  if (!missile.cast(player.eyePos.clone().addScaledVector(dir, 0.5).add(new THREE.Vector3(0, -0.15, 0)), dir)) return;
+  audio.blip(); haptics.play('tap'); gesture('wave');
+  techHud();
 }
 function lenjuScript(): DialogueScript {
   const r = sky.record, flown = r.runs > 0;
@@ -2878,6 +2911,7 @@ dialogue.onAction = (a) => {
   else if (verb === 'kavik' && id === 'fight') afterDialogue = () => { setState('play'); openFight(); };
   else if (verb === 'archery' && id === 'start') afterDialogue = () => { void resumePlay(); startLesson(); };
   else if (verb === 'archery' && id === 'stop') lesson = null;
+  else if (verb === 'magic' && id === 'learn') learnMissile();
   else if (verb === 'sky' && id === 'fly') afterDialogue = () => { setState('play'); openSky(); };
   else console.warn('Unknown dialogue action', a);
 };
@@ -3549,6 +3583,8 @@ const hooks: GameHooks = {
   bookPen: () => (reader.isOpen ? readerDesk : lecternDesk).pressPen(),
   piloting: () => player.piloting,
   fighter: () => isFighter(),
+  mage: () => isMage(),
+  cast: () => castMissile(),
   technique: (t) => technique(t),
   breathe: () => breathe(),
   canSwapShoulder: () => state === 'play' && player.piloting || state === 'play' && player.thirdPerson && rig.step === 1 && !crossbow.equipped,
@@ -3643,6 +3679,7 @@ window.addEventListener('keydown', (e) => {
     if (actionFor(e.code, ['sweep'])) { technique('sweep'); return; }
     if (actionFor(e.code, ['breath'])) { breathe(); return; }
   }
+  if (isMage() && !e.repeat && actionFor(e.code, ['lunge'])) { castMissile(); return; }   // B4: the Mage casts on the same key
   // v0.04: no L hotkey; in the world, lore is written at the campfire with Natalie (the title screen keeps its button).
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
@@ -3975,6 +4012,7 @@ function frame() {
     updateSteadyRing();
     updateLesson();
     updateFighter(dt);
+    missile.update(dt);
     sword.update(dt); sword2.update(dt);
     touch?.update();
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
@@ -4077,4 +4115,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog } });
+Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile } });

@@ -91,6 +91,9 @@ export class GamepadControls {
         if (pressed(B.zoomOut) && !now[B.zoomIn]) this.g.technique?.('sweep');
         if (now[B.zoomIn] && now[B.zoomOut]) { if (!this.bothHeld) this.bothHeld = performance.now(); if (performance.now() - this.bothHeld >= 600 && !this.breathDone) { this.breathDone = true; this.g.breathe?.(); } }
         else { this.bothHeld = 0; this.breathDone = false; }
+      } else if (this.g.mage?.()) {
+        if (pressed(B.zoomIn)) this.g.cast?.();
+        if (pressed(B.zoomOut)) this.g.stepCamera(1);
       } else {
         if (pressed(B.zoomIn)) this.g.stepCamera(-1);
         if (pressed(B.zoomOut)) this.g.stepCamera(1);

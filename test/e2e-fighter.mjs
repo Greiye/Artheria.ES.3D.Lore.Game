@@ -27,7 +27,7 @@ await G(() => document.querySelector('#begin').click());
 await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 180000 });
 await G(() => window.__gametool.endWake?.());
 await page.waitForTimeout(500);
-check('a Fighter sees the three technique buttons', await until(() => !document.getElementById('techHud').classList.contains('hidden') && document.querySelectorAll('#techHud [data-tech]').length === 3));
+check('a Fighter sees the three technique buttons', await until(() => !document.getElementById('techHud').classList.contains('hidden') && [...document.querySelectorAll('#techHud [data-tech]')].filter((b) => getComputedStyle(b).display !== 'none').length === 3));
 
 // Z: the lunge carries you forward.
 await G(() => { const p = window.__gametool.player; p.pos.set(-20, 0, 30); p.yaw = p.bodyYaw = 0; });

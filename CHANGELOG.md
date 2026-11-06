@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 38: the Mage's magic missile, taught by Magister Greer (Mike 2026-11-06, Round B)
+- **Mages** can ask **Magister Greer** by the coach road for a spell. He teaches **magic missile** (kept on your profile), then has advice instead.
+- **Cast** with Z (LB on a pad, a Missile button on touch): a small bolt of pale light flies where you look, bends gently toward a goblin ahead, hurts it (2) and bursts on walls. It **lights the walls and floor as it flies**, which helps in the dark below. A short cooldown (1.2 s) between casts.
+- One shared light, added only once the spell is learned, so other heroes pay nothing for it on phones.
+- New `test/e2e-mage.mjs` (11/11).
+
 ### v0.16 changelog, part 37: the Fighter's techniques and steadying breath (Mike 2026-11-06, Round B)
 - **Fighters** trade the shoulder-button zoom for two trained techniques with a sword: **Lunge** (LB, or Z) dashes forward into a hard thrust (4 s cooldown), **Sweep** (RB, or X) cuts all around you (6 s). On touch they get two technique buttons.
 - **Steadying breath** (hold LB + RB together, or V): stand still a moment and gain 4 temporary health that soaks hits first and fades after 30 s (45 s cooldown). The health line shows it as "+N".
