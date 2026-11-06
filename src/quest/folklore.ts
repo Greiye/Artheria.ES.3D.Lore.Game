@@ -29,15 +29,21 @@ export function folkMarkdown(it: FolkItem, f: Folk, author: string): string {
 }
 
 // The pedlar's talk: canon for each legendary item you have seen, then "let me tell you about…".
-export function pedlarScript(seen: string[]): DialogueScript {
+// `magic` (Mike 2026-11-06, B4): a Mage can ask Greer for magic missile ('teach'), or for advice once they know it ('known').
+export function pedlarScript(seen: string[], magic: 'teach' | 'known' | null = null): DialogueScript {
   const known = seen.filter((id) => LEGENDS[id]);
   const nodes: DialogueScript['nodes'] = {
     p1: { text: PEDLAR.greeting, choices: [
+      ...(magic === 'teach' ? [{ text: "I'm a mage. Will you teach me a spell?", next: 'm1' }] : magic === 'known' ? [{ text: 'Any advice on the missile?', next: 'm_tip' }] : []),
       ...known.map((id) => ({ text: `Tell me about the ${LEGENDS[id].name}.`, next: 'l_' + id })),
       { text: "I want to tell you about something I found.", next: 'tell' },
       { text: 'Just looking.', next: 'bye' },
     ] },
     tell: { text: "Go on, then. Give it a name, a past, and one good lie.", actions: ['folklore:open'], end: true },
+    m1: { text: "A mage, is it? Then you'll want the first spell every apprentice learns: magic missile. A little bolt of light. It finds its mark, mostly, and it lights the dark on the way.", next: 'm2' },
+    m2: { text: "Hold out your hand. Think of a lamp you've left burning, and throw the thought. There. That glow is yours now. It'll come back to you a breath after each cast.", actions: ['magic:learn'], next: 'm3' },
+    m3: { text: "Mind the walls; it bursts on stone. Down in the dark it's as good as a torch, if you keep throwing it.", end: true },
+    m_tip: { text: "Aim a little ahead of the goblin and let the light bend to it. And never in my shop.", next: 'p1' },
     bye: { text: "Looking is free. Lies cost extra. Everything else costs triple.", end: true },
   };
   for (const id of known) nodes['l_' + id] = { text: LEGENDS[id].canon, next: 'p1' };

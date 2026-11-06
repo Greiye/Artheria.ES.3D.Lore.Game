@@ -56,6 +56,9 @@ export interface GameHooks {
   /** Mike 2026-11-06: a Fighter's LB / RB techniques and breath (LB + RB held). */
   fighter?(): boolean;
   technique?(t: 'lunge' | 'sweep'): void;
+  /** B4: a Mage casts magic missile on LB (RB still zooms). */
+  mage?(): boolean;
+  cast?(): void;
   breathe?(): void;
   piloting?(): boolean;               // Mike 2026-11-05: in the knight frame         // B40: the touch shoulder button shows only in the shoulder view
 }
