@@ -34,6 +34,13 @@ const aisle = await G(() => { const g = window.__gametool, p = g.player; let blo
   for (let z = -19.5; z > -38; z -= 0.5) { p.pos.set(1.3, 0, z); p.update(0.016); if (Math.abs(p.pos.x - 1.3) > 0.3 || Math.abs(p.pos.z - z) > 0.3) blocked++; }
   return blocked; });
 check('1 · a walk down the aisle beside the tables is clear, door to altar', aisle === 0, String(aisle));
+// 2 · books on every wall
+const r2 = await G(() => { const g = window.__gametool, w = g.wallBooks; return { cases: w.cases, rows: w.rows, tris: w.mesh.geometry.attributes.position.count / 3, inHall: w.mesh.parent === g.library.group, map: !!w.mesh.material.map, cases3d: !!g.library.group.getObjectByName('library-bookcases') }; });
+check('2 · tall bookcases on all four walls, hundreds of shelves of books in one textured mesh', r2.cases >= 20 && r2.rows >= 150 && r2.tris < 2000 && r2.inHall && r2.map && r2.cases3d, JSON.stringify(r2));
+check('2 · the lore shelves are untouched (every red book still on its shelf)', await G(() => [...window.__gametool.library.redBooks.values()].every((b) => b.parent === window.__gametool.library.group)));
+await G(() => { const pl = window.__gametool.player; pl.pos.set(-5, 0, -26); pl.yaw = pl.bodyYaw = -1.4; pl.pitch = 0.45; pl.thirdPerson = false; });
+await page.waitForTimeout(1500);
+await page.screenshot({ path: 'test/screenshots/library-books.png' });
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-8, 0, -38); pl.yaw = pl.bodyYaw = -2.3; pl.pitch = 0.1; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-ruin.png' });

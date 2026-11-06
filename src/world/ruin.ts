@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Painter } from './decor';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { rng } from '../tex/pixel';
 import type { Collider } from './index';
 
@@ -144,4 +145,83 @@ export function buildRuin(group: THREE.Object3D, colliders: Collider[], floor: F
   const m = P.mesh(group as THREE.Scene, 'library-ruin');
   if (m) { m.castShadow = true; m.receiveShadow = true; m.raycast = () => {}; }
   return { pieces: P.count };
+}
+
+// ---------- 2 · Books on every wall ----------
+// "The walls have countless books": tall cases climb every wall above the lore shelves, up to the broken ceiling.
+// The books are a painted strip of spines (four rows of an atlas, our own pixel painting) on a recessed plane per
+// shelf, so thousands of books cost a few triangles; the cases are flat-coloured wood in one merged mesh. Here and
+// there a stretch has been pulled out (goblins) and a few volumes lean in the gap.
+const SPINES = ['#7A1F1C', '#5A2A1A', '#3E4A2A', '#2A3A4A', '#6B4A2E', '#8A6A3A', '#4A2A3A', '#3A3028', '#9A7A4A', '#5E5A50', '#2E2A3A', '#6A3020'];
+function spineAtlas(R: () => number): THREE.CanvasTexture {
+  const W = 512, H = 64, c = document.createElement('canvas'); c.width = W; c.height = H * 4;
+  const g = c.getContext('2d')!;
+  for (let row = 0; row < 4; row++) {
+    const y0 = row * H;
+    g.fillStyle = '#16110D'; g.fillRect(0, y0, W, H);
+    let x = 0;
+    while (x < W) {
+      if (R() < 0.04 + row * 0.03) { x += 10 + R() * 40; continue; }   // a gap where books were taken
+      const w = 5 + Math.floor(R() * 10), h = Math.floor(H * (0.62 + R() * 0.34)), col = SPINES[Math.floor(R() * SPINES.length)];
+      const lean = R() < 0.06 ? (R() < 0.5 ? -1 : 1) * (3 + R() * 5) : 0;
+      g.save(); g.translate(x + w / 2, y0 + H); g.transform(1, 0, lean / h, 1, 0, 0);
+      g.fillStyle = col; g.fillRect(-w / 2, -h, w, h);
+      g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(w / 2 - 1, -h, 1, h);                      // the spine's shadow side
+      g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(-w / 2, -h, 1, h);
+      if (R() < 0.6) { g.fillStyle = R() < 0.5 ? '#C9A24A' : '#D8C8A0'; const b = h * (0.15 + R() * 0.1); g.fillRect(-w / 2, -h + b, w, 1); g.fillRect(-w / 2, -h * 0.25, w, 1); }
+      if (R() < 0.3) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-w / 2, -h, w, Math.floor(h * 0.2)); }   // dust and soot at the top
+      g.restore();
+      x += w + (R() < 0.3 ? 1 : 0);
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.wrapS = THREE.RepeatWrapping;
+  return t;
+}
+
+export function buildWallBooks(group: THREE.Object3D): { cases: number; rows: number; mesh: THREE.Mesh } {
+  const R = rng(5150), P = new Painter(5151);
+  const strips: THREE.BufferGeometry[] = [];
+  const ROW = 0.62, DEEP = 0.4, TEXM = 2.2;   // shelf pitch, case depth, metres of books one atlas width covers
+  let cases = 0;
+  // A case against a wall: from y0 to y1, `len` long, centred `t` along the face.
+  const bookcase = (o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, t: number, len: number, y0: number, y1: number) => {
+    cases++;
+    const ry = Math.atan2(n.x, n.z), c = o.clone().addScaledVector(along, t);
+    const at = (a: number, y: number, d: number) => c.clone().addScaledVector(along, a).addScaledVector(n, d).setY(y);
+    const wood = R() < 0.5 ? '#4A321F' : '#563B25';
+    P.add(new THREE.BoxGeometry(len, y1 - y0, 0.04), '#2A1E14', at(0, (y0 + y1) / 2, 0.02), ry);   // back
+    for (const s of [-1, 1]) P.add(new THREE.BoxGeometry(0.08, y1 - y0, DEEP), wood, at(s * (len / 2 - 0.04), (y0 + y1) / 2, DEEP / 2), ry);
+    P.add(new THREE.BoxGeometry(len + 0.12, 0.12, DEEP + 0.06), wood, at(0, y1, DEEP / 2), ry);   // cornice
+    for (let y = y0; y < y1 - 0.2; y += ROW) {
+      P.add(new THREE.BoxGeometry(len - 0.1, 0.045, DEEP), wood, at(0, y, DEEP / 2), ry);
+      const h = Math.min(ROW - 0.06, y1 - y - 0.08), row = Math.floor(R() * 4), u0 = R();
+      // A plane of spines just behind the shelf's lip, its UVs in metres (so every book is the same size).
+      const g = new THREE.PlaneGeometry(len - 0.16, h);
+      const uv = g.attributes.uv as THREE.BufferAttribute;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (len - 0.16) / TEXM, (3 - row + uv.getY(i) * (h / (ROW - 0.06))) / 4);
+      g.rotateY(ry).translate(...at(0, y + 0.025 + h / 2, DEEP * 0.72).toArray() as [number, number, number]);
+      strips.push(g);
+    }
+  };
+  const L = HALL.front - HALL.back, Wd = HALL.maxX - HALL.minX;
+  // Side walls: over the lore shelves (2.7 m up) to just under the ceiling, the whole length.
+  for (const [o, along, n] of [[V(HALL.minX, 0, HALL.front), V(0, 0, -1), V(1, 0, 0)], [V(HALL.maxX, 0, HALL.back), V(0, 0, 1), V(-1, 0, 0)]] as const) {
+    for (let t = 0.4; t + 3 <= L; t += 3.6) bookcase(o, along, n, t + 1.5, 3, 2.86, 7.6);
+  }
+  // The back wall: high cases over the pictures, full height at the corners (clear of the altar and the exit).
+  { const o = V(HALL.minX, 0, HALL.back), along = V(1, 0, 0), n = V(0, 0, 1);
+    for (const t of [1.6, Wd - 1.6]) bookcase(o, along, n, t, 2.8, 0.05, 7.6);
+    for (let t = 4.2; t < Wd - 3; t += 3.4) bookcase(o, along, n, t, 3, 3.7, 7.6); }
+  // The front wall: either side of the door, high (the lanterns and the crate stay clear below).
+  { const o = V(HALL.maxX, 0, HALL.front), along = V(-1, 0, 0), n = V(0, 0, -1);
+    for (let t = 1.6; t < Wd - 1; t += 3.4) { if (Math.abs(HALL.maxX - t) < 3.2) continue; bookcase(o, along, n, t, 3, 2.9, 7.6); } }
+  const geo = mergeGeometries(strips);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: spineAtlas(R) }));
+  mesh.name = 'library-wall-books'; mesh.receiveShadow = true; mesh.raycast = () => {};
+  group.add(mesh);
+  const wood = P.mesh(group as THREE.Scene, 'library-bookcases');
+  if (wood) wood.raycast = () => {};
+  return { cases, rows: strips.length, mesh };
 }
