@@ -211,7 +211,7 @@ export class QuickDungeon {
         <div class="qd-foot"><span class="fine">${r ? '' : opts.length ? 'Pick a room: tap it, or D-pad / arrows and A.' : ''}</span><button class="secondary" id="qdLeave">Back up the stairs</button></div>
         ${r ? `<div class="qd-result"><div class="card-in"><div class="credit">${escapeHtml(KIND_LABEL[this.node.kind])}</div><h3>${escapeHtml(r.title)}</h3><p>${escapeHtml(r.text)}</p>
           ${r.reward && (r.reward.crowns || r.reward.items.length) ? `<p class="qd-loot">${r.reward.crowns ? `◎ +${r.reward.crowns}` : ''}${r.reward.items.map(([id, n]) => ` · ${escapeHtml(id)} × ${n}`).join('')}</p>` : ''}
-          <div class="forge-actions"><button class="primary" id="qdOk">${r.end ? 'Back to the trapdoor' : 'Onward'}</button></div></div></div>` : ''}
+          <div class="forge-actions"><button class="primary" id="qdOk">${r.end ? 'Back to the stairs' : 'Onward'}</button></div></div></div>` : ''}
       </div>`;
   }
 }

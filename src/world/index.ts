@@ -22,6 +22,7 @@ import { buildSmoke, type Smoke } from './smoke';
 import { buildTown, townClear, TOWN_LOTS, GATE, type Town } from './town';
 import { buildRiver, riverClear, WINDMILL, type River } from './river';
 import { buildKavik } from './kavik';
+import { sinkGround } from './stairs';
 
 // Rebuild R2 (docs/vision.md, docs/rebuild-plan.md): the start glade in the new look.
 // Vintage Story environment (pixel-textured, lit, dense undergrowth) + Mega Man Legends figures
@@ -234,6 +235,7 @@ export function buildWorld(): World {
   ];
   setFlatMask((x, z) => clear(x, z, 0.5) || flatSpots.some(([fx, fz, r]) => Math.hypot(x - fx, z - fz) < r));
   shapeGround(groundGeo);
+  sinkGround(groundGeo);   // Mike 2026-11-06: under the library's stairwell (src/world/stairs.ts)
 
   // ---------- trees: crossed-quad cards (Mike 2026-11-03: "crossed on all"), one merged mesh ----------
   // Every tree in the meadow and the horizon ring is two or three upright cards from src/art/trees/tree-cards.png,

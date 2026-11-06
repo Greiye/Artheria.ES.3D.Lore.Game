@@ -294,3 +294,158 @@ export function buildGoblinSigns(group: THREE.Object3D, colliders: Collider[], f
   if (m) m.raycast = () => {};
   return { pieces: P.count, spots };
 }
+
+// ---------- 4 · Goblin life: how they live here ----------
+// Cookfires, loot heaps, hammocks, chalk drawings, a throne of books with a chair on top, a rope bridge high across
+// the hall, loose pages, broken chandeliers, a smashed stained-glass rose over the door, rugs thrown over rubble and
+// dens made of collapsed shelving. Two merged meshes: the lit things, and what glows (fire, glass), unlit.
+export function buildGoblinLife(group: THREE.Object3D, colliders: Collider[], floor: Floor): { pieces: number; glow: number; spots: Keep[]; throne: { x: number; z: number } | null } {
+  const R = rng(7070), P = new Painter(7071), GL = new Painter(7072), pick = <T,>(a: T[]) => a[Math.floor(R() * a.length)];
+  const spots: Keep[] = [];
+  const place = (r: number, wallGap = 0.5, tries = 300): [number, number] | null => {
+    for (let i = 0; i < tries; i++) {
+      const x = (R() < 0.5 ? -1 : 1) * (2.4 + R() * 9.2), z = HALL.front - 3.5 - R() * 19;
+      if (floor.free(x, z, r, wallGap)) { floor.take(x, z, r); spots.push({ x, z, r }); return [x, z]; }
+    }
+    return null;
+  };
+  const STONE2 = ['#6A645F', '#77706A', '#5E5954'], WOOD2 = ['#5A3E26', '#6B4A2E', '#4A321F'], GOLD = ['#D8B048', '#C99A38', '#E8C860'];
+  const CLOTH = ['#7A2A22', '#3E4A6A', '#5A6A2A', '#6A4A2A', '#5A2A4A'];
+  let throneAt: { x: number; z: number } | null = null;
+  // A throne: a heap of books with a high-backed chair on top, a ragged cloth over the back.
+  { const spot = ([[HALL.maxX - 3.2, HALL.back + 2.4], [HALL.minX + 3.2, HALL.back + 2.4], [HALL.maxX - 3.6, HALL.back + 5.2], [HALL.minX + 3.6, HALL.back + 5.2], [HALL.maxX - 4.5, HALL.front - 12]] as const).find(([x, z]) => floor.free(x, z, 1.1, 0.2)) ?? place(1.1, 0.3);
+    if (spot) {
+      const [x, z] = spot; throneAt = { x, z };
+      if (!spots.some((k) => k.x === x && k.z === z)) { floor.take(x, z, 1.4); spots.push({ x, z, r: 1.4 }); }
+      for (let k = 0; k < 70; k++) { const a = R() * 6.28, d = R() * 0.9, y = Math.max(0, (0.9 - d) * 0.75 - R() * 0.15); P.add(new THREE.BoxGeometry(0.22, 0.06, 0.3), pick(['#7A1F1C', '#5A2A1A', '#3E4A2A', '#2A3A4A', '#6B4A2E', '#9A7A4A']), V(x + Math.cos(a) * d, y + 0.03, z + Math.sin(a) * d), R() * 6, (R() - 0.5) * 0.3); }
+      const y = 0.7, wood = '#4A2A1A';
+      P.add(new THREE.BoxGeometry(0.62, 0.08, 0.58), wood, V(x, y + 0.45, z), Math.PI * 0.85);
+      P.add(new THREE.BoxGeometry(0.62, 1.2, 0.08), wood, V(x + Math.sin(Math.PI * 0.85) * -0.27, y + 1.05, z + Math.cos(Math.PI * 0.85) * -0.27), Math.PI * 0.85);
+      for (const [a, b] of [[-0.27, -0.25], [0.27, -0.25], [-0.27, 0.25], [0.27, 0.25]]) P.add(new THREE.BoxGeometry(0.06, 0.45, 0.06), wood, V(x + a, y + 0.22, z + b), Math.PI * 0.85);
+      for (const s of [-1, 1]) P.add(new THREE.ConeGeometry(0.05, 0.16, 5), '#D8B048', V(x + s * 0.25, y + 1.72, z - 0.25 * Math.cos(Math.PI * 0.85)), 0);
+      P.add(new THREE.BoxGeometry(0.5, 0.7, 0.03), '#7A2A22', V(x + Math.sin(Math.PI * 0.85) * -0.32, y + 1.15, z + Math.cos(Math.PI * 0.85) * -0.32), Math.PI * 0.85, 0.08);
+      colliders.push({ kind: 'circle', x, z, r: 0.95, top: 0.7 });
+    } }
+  // Cookfires: a ring of stones, crossed logs, a low flame, a spit with something on it, a pot beside.
+  for (let n = 0; n < 2; n++) {
+    const at = place(1.1); if (!at) break;
+    const [x, z] = at;
+    for (let k = 0; k < 9; k++) { const a = (k / 9) * Math.PI * 2; P.add(new THREE.DodecahedronGeometry(0.12, 0).scale(1, 0.7, 1), pick(STONE2), V(x + Math.cos(a) * 0.42, 0.06, z + Math.sin(a) * 0.42), R() * 6); }
+    for (let k = 0; k < 3; k++) P.add(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6).rotateZ(Math.PI / 2), '#3A2A1C', V(x, 0.07, z), k * 1.05, 0, 0.12);
+    GL.add(new THREE.ConeGeometry(0.2, 0.42, 6), '#F08A2A', V(x, 0.28, z), R());
+    GL.add(new THREE.ConeGeometry(0.11, 0.3, 5), '#FFD060', V(x + 0.03, 0.24, z - 0.02), R());
+    GL.add(new THREE.CircleGeometry(0.3, 7).rotateX(-Math.PI / 2), '#C0401A', V(x, 0.03, z));
+    for (const s of [-1, 1]) P.add(new THREE.CylinderGeometry(0.025, 0.025, 0.9, 5), '#4A321F', V(x + s * 0.55, 0.45, z), 0, 0, s * 0.12);
+    P.add(new THREE.CylinderGeometry(0.02, 0.02, 1.25, 5).rotateZ(Math.PI / 2), '#4A321F', V(x, 0.82, z));
+    P.add(new THREE.SphereGeometry(0.12, 6, 4).scale(1.6, 1, 1), '#7A4A2A', V(x, 0.74, z));   // whatever's roasting
+    P.add(new THREE.CylinderGeometry(0.16, 0.12, 0.22, 8), '#2E2E34', V(x + 0.7, 0.11, z + 0.35));
+    colliders.push({ kind: 'circle', x, z, r: 0.55 });
+  }
+  // Loot heaps: coins, cups, a dented helm, swords and stolen books, piled against the wall.
+  for (let n = 0; n < 3; n++) {
+    const at = place(0.8, 0.2); if (!at) break;
+    const [x, z] = at;
+    P.add(new THREE.SphereGeometry(0.45, 7, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.5, 1), '#B08A30', V(x, 0, z));
+    for (let k = 0; k < 26; k++) { const a = R() * 6.28, d = R() * 0.5; P.add(new THREE.CylinderGeometry(0.04, 0.04, 0.012, 6), pick(GOLD), V(x + Math.cos(a) * d, 0.02 + (0.5 - d) * 0.4 * R(), z + Math.sin(a) * d), R() * 6, (R() - 0.5) * 0.8); }
+    P.add(new THREE.CylinderGeometry(0.06, 0.04, 0.12, 7), pick(GOLD), V(x + 0.2, 0.25, z - 0.1), 0, 0.3);
+    P.add(new THREE.SphereGeometry(0.14, 7, 4, 0, Math.PI * 2, 0, Math.PI / 2), '#7A7A80', V(x - 0.25, 0.15, z + 0.1), 0, 0.5);
+    P.add(new THREE.BoxGeometry(0.05, 0.02, 0.8), '#A8A8B0', V(x + 0.1, 0.12, z + 0.2), R() * 3, 0.2);
+    for (let k = 0; k < 3; k++) P.add(new THREE.BoxGeometry(0.22, 0.05, 0.3), pick(['#7A1F1C', '#2A3A4A', '#3E4A2A']), V(x + (R() - 0.5) * 0.6, 0.16 + k * 0.05, z + (R() - 0.5) * 0.6), R() * 6);
+    colliders.push({ kind: 'circle', x, z, r: 0.45, top: 0.3 });
+  }
+  // Hammocks: sacking slung between bookcase ends along the walls, sagging, a lump of blanket in one.
+  const W = HALL.maxX - HALL.minX;
+  for (const [x, z0, z1] of [[HALL.minX + 0.9, HALL.front - 6.2, HALL.front - 8.6], [HALL.maxX - 0.9, HALL.front - 13.4, HALL.front - 15.8], [HALL.minX + 0.9, HALL.front - 17.2, HALL.front - 19.6]] as const) {
+    const len = Math.abs(z1 - z0), zc = (z0 + z1) / 2, segs = 6;
+    for (let k = 0; k < segs; k++) {
+      const t0 = k / segs, t1 = (k + 1) / segs, sag = (t: number) => 3.35 - Math.sin(t * Math.PI) * 0.55;
+      const y0 = sag(t0), y1 = sag(t1), za = z0 + (z1 - z0) * t0, zb = z0 + (z1 - z0) * t1;
+      P.add(new THREE.BoxGeometry(0.55, 0.03, Math.hypot(zb - za, y1 - y0) + 0.02), pick(['#8A7656', '#7A6A4E']), V(x, (y0 + y1) / 2, (za + zb) / 2), 0, Math.atan2(y1 - y0, zb - za) * -1 * (z1 < z0 ? -1 : 1));
+    }
+    for (const zz of [z0, z1]) P.add(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 4), '#C8B48A', V(x, 3.6, zz), 0, 0.5);
+    P.add(new THREE.SphereGeometry(0.22, 6, 4).scale(1.8, 0.6, 1), pick(CLOTH), V(x, 2.95, zc), Math.PI / 2);
+    void len;
+  }
+  // Chalk drawings on the walls: goblins (big heads, long ears), a dragon, a stick figure with a sword, an X.
+  const chalk = '#E8E4D8', line = (o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, ax: number, ay: number, bx: number, by: number) => {
+    const a = o.clone().addScaledVector(along, ax).setY(o.y + ay), b = o.clone().addScaledVector(along, bx).setY(o.y + by);
+    const mid = a.clone().add(b).multiplyScalar(0.5).addScaledVector(n, 0.013), len = a.distanceTo(b);
+    P.add(new THREE.PlaneGeometry(0.03, len + 0.02), chalk, mid, Math.atan2(n.x, n.z), 0, -Math.atan2(bx - ax, by - ay));
+  };
+  const goblin = (o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, s: number) => {
+    const L = (a: number, b: number, c: number, d: number) => line(o, along, n, a * s, b * s, c * s, d * s);
+    for (let k = 0; k < 8; k++) { const a0 = (k / 8) * 6.28, a1 = ((k + 1) / 8) * 6.28; L(Math.cos(a0) * 0.22, 0.9 + Math.sin(a0) * 0.2, Math.cos(a1) * 0.22, 0.9 + Math.sin(a1) * 0.2); }
+    L(-0.2, 0.95, -0.5, 1.15); L(0.2, 0.95, 0.5, 1.15);   // ears
+    L(0, 0.7, 0, 0.3); L(0, 0.6, -0.25, 0.4); L(0, 0.6, 0.28, 0.5); L(0, 0.3, -0.15, 0); L(0, 0.3, 0.15, 0);
+  };
+  { const o = V(HALL.minX, 0.2, HALL.back), along = V(1, 0, 0), n = V(0, 0, 1);
+    goblin(o.clone().addScaledVector(along, 3.4), along, n, 1); goblin(o.clone().addScaledVector(along, 4.1), along, n, 0.8); goblin(o.clone().addScaledVector(along, 4.7), along, n, 0.7);
+    const st = o.clone().addScaledVector(along, 5.6), L = (a: number, b: number, c: number, d: number) => line(st, along, n, a, b, c, d);
+    L(0, 0.55, 0, 1.1); L(0, 1.1, 0, 1.3); L(0, 0.55, -0.15, 0.1); L(0, 0.55, 0.15, 0.1); L(0, 0.95, 0.3, 1.25); L(0.3, 1.25, 0.6, 1.7);   // a hero with a sword
+    L(0.75, 0.6, 1.15, 1.0); L(0.75, 1.0, 1.15, 0.6); }   // and an X over them
+  { const o = V(HALL.maxX, 0.4, HALL.front), along = V(-1, 0, 0), n = V(0, 0, -1), d = o.clone().addScaledVector(along, 6.4), L = (a: number, b: number, c: number, e: number) => line(d, along, n, a, b, c, e);
+    L(0, 0.6, 0.6, 0.9); L(0.6, 0.9, 1.2, 0.7); L(1.2, 0.7, 1.7, 0.95); L(1.7, 0.95, 1.95, 1.3); L(1.95, 1.3, 2.15, 1.1);   // a dragon: neck and head
+    L(0.6, 0.9, 0.8, 1.6); L(0.8, 1.6, 1.2, 0.95); L(0.3, 0.75, 0, 0.35); L(1.2, 0.7, 1.3, 0.3); L(0.8, 0.8, 0.8, 0.4);
+    goblin(d.clone().addScaledVector(along, 2.8), along, n, 0.6); }
+  // A rope bridge high across the hall, from the top of one wall's cases to the other's, sagging, planks missing.
+  { const z = HALL.front - 11.4, y = 7.2, segs = 26;
+    for (let k = 0; k < segs; k++) {
+      if (R() < 0.12) continue;
+      const t = (k + 0.5) / segs, x = HALL.minX + 0.4 + t * (W - 0.8), sag = Math.sin(t * Math.PI) * 1.4;
+      P.add(new THREE.BoxGeometry(0.16, 0.05, 0.7), pick(['#8A6A44', '#7A5A38', '#946E48']), V(x, y - sag, z), 0, 0, (R() - 0.5) * 0.15);
+    }
+    for (const dz of [-0.38, 0.38]) for (const dy of [0.02, 0.75]) for (let k = 0; k < segs; k++) {
+      const t0 = k / segs, t1 = (k + 1) / segs, x0 = HALL.minX + 0.4 + t0 * (W - 0.8), x1 = HALL.minX + 0.4 + t1 * (W - 0.8);
+      const y0 = y + dy - Math.sin(t0 * Math.PI) * 1.4, y1 = y + dy - Math.sin(t1 * Math.PI) * 1.4;
+      P.add(new THREE.CylinderGeometry(0.015, 0.015, Math.hypot(x1 - x0, y1 - y0), 4).rotateZ(Math.PI / 2), '#B8A27A', V((x0 + x1) / 2, (y0 + y1) / 2, z + dz), 0, 0, Math.atan2(y1 - y0, x1 - x0));
+    } }
+  // Loose pages drifted across the floor.
+  for (let k = 0; k < 110; k++) {
+    const x = (R() * 2 - 1) * 12, z = HALL.front - 0.6 - R() * 22.4;
+    P.add(new THREE.PlaneGeometry(0.16, 0.22).rotateX(-Math.PI / 2), R() < 0.8 ? '#E4D8B8' : '#CFC0A0', V(x, 0.008 + (k % 7) * 0.0006, z), R() * 6, (R() - 0.5) * 0.15);
+  }
+  // Broken chandeliers: one crashed on the floor (a bent iron ring, candles spilled), one still hanging askew.
+  const chandelier = (at: THREE.Vector3, rx: number, rz: number) => {
+    P.add(new THREE.TorusGeometry(0.6, 0.035, 4, 12).rotateX(Math.PI / 2).scale(1, 1, 0.85), '#2E2E34', at, 0, rx, rz);
+    for (let k = 0; k < 6; k++) { const a = (k / 6) * 6.28; P.add(new THREE.CylinderGeometry(0.025, 0.025, 0.12, 5), '#E8DCC0', at.clone().add(V(Math.cos(a) * 0.6, 0.08, Math.sin(a) * 0.5)), 0, rx, rz); }
+  };
+  { const at = place(0.8); if (at) { chandelier(V(at[0], 0.05, at[1]), 0.15, -0.1); for (let k = 0; k < 4; k++) P.add(new THREE.CylinderGeometry(0.025, 0.025, 0.12, 5).rotateZ(Math.PI / 2), '#E8DCC0', V(at[0] + (R() - 0.5) * 1.4, 0.03, at[1] + (R() - 0.5) * 1.4), R() * 6); } }
+  { const at = V(-5.5, 5.6, HALL.front - 15); chandelier(at, 0.35, 0.2);
+    P.add(new THREE.CylinderGeometry(0.012, 0.012, HALL.h - 6.0, 4), '#2E2E34', V(at.x, (HALL.h + 6.0) / 2, at.z)); }
+  // The rose window over the door, smashed: lead tracery, a few panes left (they glow with the light behind),
+  // and coloured shards on the floor below.
+  { const cy = 5.6, cz = HALL.front - 0.02, r = 1.5, PANES = ['#C0302A', '#2A50B0', '#E0B030', '#3A9050', '#8A40A0'];
+    GL.add(new THREE.CircleGeometry(r, 16).translate(0, 0, -0.03), '#9AB8D8', V(0, cy, cz), Math.PI);   // the sky through the empty frame
+    for (let k = 0; k < 12; k++) {
+      if (R() < 0.45) continue;   // smashed out
+      const a0 = (k / 12) * 6.28, g = new THREE.CircleGeometry(r * (0.55 + R() * 0.4), 2, a0, 6.28 / 12 * (0.6 + R() * 0.35));
+      GL.add(g.translate(0, 0, -0.02), pick(PANES), V(0, cy, cz), Math.PI);
+    }
+    P.add(new THREE.TorusGeometry(r, 0.07, 4, 20), '#3A3430', V(0, cy, cz - 0.04), Math.PI);
+    for (let k = 0; k < 6; k++) P.add(new THREE.BoxGeometry(0.05, r * 2, 0.04), '#3A3430', V(0, cy, cz - 0.04), Math.PI, 0, (k / 6) * Math.PI);
+    for (let k = 0; k < 40; k++) { const x = (R() - 0.5) * 4, z = HALL.front - 1 - R() * 2.6; if (Math.abs(x) < 1 && R() < 0.7) continue; GL.add(new THREE.CircleGeometry(0.04 + R() * 0.05, 3).rotateX(-Math.PI / 2), pick(PANES), V(x, 0.01, z), R() * 6); } }
+  // Rugs thrown over rubble heaps, and dens of collapsed shelving with straw inside.
+  for (let n = 0; n < 3; n++) {
+    const at = place(0.9); if (!at) break;
+    const [x, z] = at, col = pick(CLOTH), ry = R() * 6;
+    P.add(new THREE.DodecahedronGeometry(0.45, 0).scale(1.3, 0.5, 1), '#6A645F', V(x, 0.18, z), ry);
+    const g = new THREE.PlaneGeometry(1.6, 1.1, 6, 4).rotateX(-Math.PI / 2), p = g.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < p.count; i++) { const px = p.getX(i), pz = p.getZ(i), d = Math.hypot(px / 0.8, pz / 0.55); p.setY(i, Math.max(0.02, 0.42 * (1 - d * d)) + (R() - 0.5) * 0.03); }
+    g.computeVertexNormals();
+    P.add(g, (c) => (Math.abs(c.x) > 0.72 ? "#B89048" : col), V(x, 0, z), ry);
+    colliders.push({ kind: 'circle', x, z, r: 0.6, top: 0.4 });
+  }
+  for (let n = 0; n < 2; n++) {
+    const at = place(1.0, 0.2); if (!at) break;
+    const [x, z] = at, ry = R() * 6, c = Math.cos(ry), s = Math.sin(ry), L = (a: number, b: number, y: number) => V(x + a * c + b * s, y, z - a * s + b * c);
+    for (let k = 0; k < 5; k++) P.add(new THREE.BoxGeometry(0.08, 1.5, 0.3 + R() * 0.15), pick(WOOD2), L(-0.45 + k * 0.22, 0.6, -0.2), ry, -0.55, (R() - 0.5) * 0.1);
+    for (let k = 0; k < 5; k++) P.add(new THREE.BoxGeometry(0.08, 1.5, 0.3), pick(WOOD2), L(-0.45 + k * 0.22, 0.6, 0.3), ry, 0.55, (R() - 0.5) * 0.1);
+    for (let k = 0; k < 10; k++) P.add(new THREE.BoxGeometry(0.35, 0.02, 0.03), '#C9A85A', L((R() - 0.5) * 0.9, 0.012, (R() - 0.5) * 0.5), ry + R() * 3);
+    colliders.push({ kind: 'circle', x, z, r: 0.7 });
+  }
+  const m = P.mesh(group as THREE.Scene, 'library-goblin-life');
+  if (m) m.raycast = () => {};
+  const g = GL.mesh(group as THREE.Scene, 'library-goblin-glow');
+  if (g) { g.material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }); g.castShadow = false; g.raycast = () => {}; }
+  return { pieces: P.count, glow: GL.count, spots, throne: throneAt };
+}

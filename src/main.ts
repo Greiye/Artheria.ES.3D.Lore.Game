@@ -1,6 +1,5 @@
 import './bootMigrate';   // must run before anything reads a saved profile
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import './render/grade';   // style pass 1: global colour grade (patches a shader chunk, so it must load first)
 import { updateSprites, setSpriteCharacters, faceExpression } from './render/sprites';
 import './style.css';
@@ -12,7 +11,8 @@ import { Player } from './player';
 import { Book } from './book';
 import { lore, entryById } from './lore';
 import { buildLibrary, type LibraryHit } from './library';
-import { buildRuin, buildWallBooks, buildGoblinSigns, Floor, type Keep } from './world/ruin';
+import { buildStairwell, STAIRS } from './world/stairs';
+import { buildRuin, buildWallBooks, buildGoblinSigns, buildGoblinLife, Floor, type Keep } from './world/ruin';
 import { setLinkResolver } from './markdown';
 import greyBooks from '../content/rolltables/grey-books.json';
 import { controls, actionFor, binds, REBINDABLE, bindKey, resetKeys, keyLabel, type Action } from './controls';
@@ -1418,18 +1418,11 @@ gallery.hitboxes.forEach((hb, i) => interactables.push({ obj: hb, verb: () => { 
 let inGallery = false;
 // ---------- Phase F: B15 seeded dungeon under the library ----------
 const dungeon = new Dungeon(world.scene);
-const TRAPDOOR = new THREE.Vector3(6.5, 0, -33);
-{
-  const hatch = new THREE.Mesh(mergeGeometries([
-    new THREE.BoxGeometry(1.4, 0.06, 1.4).translate(0, 0.03, 0),
-    new THREE.BoxGeometry(1.5, 0.04, 0.12).translate(0, 0.07, -0.4), new THREE.BoxGeometry(1.5, 0.04, 0.12).translate(0, 0.07, 0.4),
-    new THREE.TorusGeometry(0.1, 0.02, 4, 8).rotateX(Math.PI / 2).translate(0.45, 0.08, 0).deleteAttribute('uv') as THREE.BufferGeometry,
-  ].map((g) => (g.index ? g.toNonIndexed() : g)).map((g) => { g.deleteAttribute('uv'); return g; })), new THREE.MeshLambertMaterial({ color: 0x5A3E26 }));
-  hatch.position.copy(TRAPDOOR); hatch.name = 'trapdoor'; hatch.raycast = () => {};
-  world.scene.add(hatch);
-}
+const TRAPDOOR = new THREE.Vector3(STAIRS.x, 0, STAIRS.top - 1.0);   // the head of the stairs (the old trapdoor's spot)
+// Mike 2026-11-06 (library item 5): the trapdoor is now a stone stairwell down (src/world/stairs.ts).
+const stairwell = buildStairwell(library.group as unknown as THREE.Scene, world.colliders);
 const trapHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
-trapHit.position.copy(TRAPDOOR).setY(0.3); world.scene.add(trapHit);
+trapHit.position.set(STAIRS.x, 0.3, STAIRS.top - 0.4); trapHit.scale.set(1.2, 1, 1); world.scene.add(trapHit);
 let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
 // The follow camera stays under the dungeon ceiling, and (v0.06 W2) under the library's and gallery's while the player is inside.
 rig.ceiling = (x, z) => { if (inDungeon) return 2.9; const r = roofOver(player.pos.x, player.pos.z); return r && roofOver(x, z, 1) === r ? r.y - 0.3 : Infinity; };
@@ -1726,9 +1719,9 @@ function exitDungeon(fell = false) {
   if (savedFog) { fog.color.copy(savedFog.color); fog.near = savedFog.near; fog.far = savedFog.far; (world.scene.background as THREE.Color).copy(savedFog.bg); }
   dungeon.group.visible = false; dungeon.hideSpots();
   goblins.clear(); slowT = 0; player.speedMul = 1; sturdy = false;
-  player.spawn(TRAPDOOR.clone().add(new THREE.Vector3(0, 0, 1.6)), 0);
-  if (companion.prefs.follow) natalieRoot().position.copy(TRAPDOOR).add(new THREE.Vector3(1.4, 0, 1.4));
-  for (const p of pets) if (p.following) p.placeNear(TRAPDOOR, -1.4, 1.4);
+  player.spawn(new THREE.Vector3(STAIRS.x, 0, STAIRS.top + 1.2), 0);
+  if (companion.prefs.follow) natalieRoot().position.set(STAIRS.x + 1.4, 0, STAIRS.top + 1.6);
+  for (const p of pets) if (p.following) p.placeNear(new THREE.Vector3(STAIRS.x, 0, STAIRS.top), -1.4, 1.8);
 }
 // ---------- B48 (Mike 2026-11-04): delving deeper pays, in crowns and lore books ----------
 // Each room you reach pays 1 crown per room of depth (the entrance pays nothing), once per room per seed, so walking
@@ -1846,7 +1839,7 @@ quick.onReward = (r) => { if (r.crowns) inventory.give(CROWN, r.crowns); for (co
 quick.onFinish = (seed, end) => {
   const d = delves[seed] ?? (delves[seed] = { theme: quick.graph!.theme, at: new Date().toISOString().slice(0, 10) });
   if (end !== 'fled' && d.quick !== 'won') { d.quick = end; saveDelves(); }
-  toast(end === 'won' ? 'The nest is cleared. Quick Dungeon done.' : end === 'lost' ? 'Back at the trapdoor. Rest up and try again.' : 'Back at the trapdoor.', 3200);
+  toast(end === 'won' ? 'The nest is cleared. Quick Dungeon done.' : end === 'lost' ? 'Back at the top of the stairs. Rest up and try again.' : 'Back at the top of the stairs.', 3200);
 };
 quick.onClose = () => leaveForge();
 function openQuick(seed: number) { if (state !== 'forge') enterForge(); quick.open(seed); }
@@ -2033,7 +2026,7 @@ function mapSights(): Sight[] {
       : { x: kp.x, z: kp.z, icon: '⚙', label: 'Knight frame (asleep)', note: 'A rune mech kneeling in the trees. Clear floor 3 of the descent to wake it.', locked: true },
     { x: RANGE.x, z: RANGE.z, icon: '➶', label: "Candor's range", note: 'Candor teaches archery: three straw butts, one bolt in each.' },
     { x: PERCH.x, z: PERCH.z, icon: '✈', label: 'Skyrunner perch', note: 'Fly a glider from A to B in about a minute. Sometimes a dogfight.' },
-    { x: TRAPDOOR.x, z: TRAPDOOR.z, icon: '▼', label: 'The descent', note: `A trapdoor in the ruins: ${FLOORS} floors of goblins, lost lore books and a hoard. One life.` },
+    { x: TRAPDOOR.x, z: TRAPDOOR.z, icon: '▼', label: 'The descent', note: `Stone stairs down from the library floor: ${FLOORS} floors of goblins, lost lore books and a hoard. One life.` },
     { x: nat.x, z: nat.z, icon: '❦', label: 'Natalie', note: 'The warner by the library. Lore books, quests and the crossbow.' },
     { x: st.campfire.position.x, z: st.campfire.position.z, icon: '♨', label: 'Camp', note: 'The campfire (write lore, tell stories, play music), the mirror (make your hero), the anvil (forge a weapon) and the sketchbook (draw your banner).' },
     { x: kv.x, z: kv.z, icon: '✊', label: 'Kavik', note: 'Spar with him (best of 3). Drills in the dojo.' },
@@ -2637,7 +2630,7 @@ const wikiLectern = buildWikiLectern(library.group, world.colliders);
 function openWiki() { if (state !== 'play') return; enterForge(); wiki.open(() => leaveForge(), 'library'); }
 interactables.push({ obj: wikiLectern, verb: () => 'Read the wiki', act: () => openWiki(), when: () => !inDungeon });
 function openPhrasebook() { if (state !== 'play' && state !== 'pause') return; enterForge(); phrasebook.open(); }
-interactables.push({ obj: trapHit, verb: () => sideGate('Open the trapdoor'), act: () => sideGo(openDescend), when: () => !inDungeon });
+interactables.push({ obj: trapHit, verb: () => sideGate('Go down the stairs'), act: () => sideGo(openDescend), when: () => !inDungeon });
 const shrineLines = lore.entries.filter((e) => e.type === 'lore' && e.body.length > 80);
 for (const hit of (dungeon as unknown as { hits: THREE.Mesh[] }).hits) {
   const spotOf = () => dungeon.spots.find((s) => s.hit === hit);
@@ -4178,10 +4171,11 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) void
 const ruinKeep: Keep[] = [
   ...interactables.map((i) => { const p = i.obj.getWorldPosition(new THREE.Vector3()); return { x: p.x, z: p.z, r: 1.4 }; }),
   ...library.targets.map((t) => { const p = t.getWorldPosition(new THREE.Vector3()); return { x: p.x, z: p.z, r: 0.9 }; }),
-  { x: TRAPDOOR.x, z: TRAPDOOR.z, r: 2.4 },
+  { x: STAIRS.x, z: STAIRS.top - STAIRS.len / 2, r: 3.6 },
 ];
 const ruinFloor = new Floor(world.colliders, ruinKeep);
 const ruin = buildRuin(library.group, world.colliders, ruinFloor);
 const wallBooks = buildWallBooks(library.group);
 const goblinSigns = buildGoblinSigns(library.group, world.colliders, ruinFloor);
-Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns } });
+const goblinLife = buildGoblinLife(library.group, world.colliders, ruinFloor);
+Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS } });

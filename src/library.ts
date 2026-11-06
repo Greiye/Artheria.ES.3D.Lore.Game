@@ -11,6 +11,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { buildFigure } from './world/figure';
 import { lore, entryById, resolveImage, type LoreEntry } from './lore';
 import type { Collider } from './world';
+import { STAIR_HOLE } from './world/stairs';
 
 export type LibraryHit = { kind: 'red'; slug: string } | { kind: 'grey'; shelf: string } | { kind: 'artifact'; slug: string } | { kind: 'relic' };
 
@@ -240,8 +241,12 @@ export function buildLibrary(scene: THREE.Scene, colliders: Collider[], solids: 
   staticBox(1.4, 0.15, 0.2, 0x6B5F58, 0, 2.08, HALL.back + 0.1);
 
   // Flagstone floor over the grass inside the hall (the roof burned away; the floor survived).
-  baked.add(new THREE.MeshLambertMaterial({ map: pixelTexture('paving') }), new THREE.BoxGeometry(1, 1, 1),
-    new THREE.Vector3(0, 0.005, (HALL.front + HALL.back) / 2), new THREE.Vector3(HALL.maxX - HALL.minX, 0.01, HALL.front - HALL.back));
+  // Mike 2026-11-06: with a gap where the stairwell goes down (src/world/stairs.ts), laid as four slabs round it.
+  const paving = new THREE.MeshLambertMaterial({ map: pixelTexture('paving') }), H = STAIR_HOLE;
+  const slab = (minX: number, maxX: number, minZ: number, maxZ: number) => baked.add(paving, new THREE.BoxGeometry(1, 1, 1),
+    new THREE.Vector3((minX + maxX) / 2, 0.005, (minZ + maxZ) / 2), new THREE.Vector3(maxX - minX, 0.01, maxZ - minZ));
+  slab(HALL.minX, HALL.maxX, H.maxZ, HALL.front); slab(HALL.minX, HALL.maxX, HALL.back, H.minZ);
+  slab(HALL.minX, H.minX, H.minZ, H.maxZ); slab(H.maxX, HALL.maxX, H.minZ, H.maxZ);
   for (const m of baked.flush(scene, 'library-furniture')) { scene.remove(m); group.add(m); solids.push(m); m.receiveShadow = true; }
 
   // Phase D budget: the red books draw as one vertex-coloured mesh. Each book mesh stays where it was,
