@@ -13,6 +13,12 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - Coming back up (from the descent or a Quick Dungeon) puts you at the top of the stairs. "Back to the stairs" replaces "Back to the trapdoor", and the map and patrons' kit say "stairs" too.
 - The descent and Quick Dungeon flows are unchanged (`e2e-descent`, `e2e-descent-cinematic`, `e2e-descent-extras`, `e2e-patrons` pass). `e2e-places` is updated for the new prompt; its B15 floor-1 check still fails as it does on main.
 
+### v0.16 changelog, part 44: the Ruined Library looks its age, 5: stone stairs down (Mike 2026-11-06, Graphics thread: "Trap doors are now stairs down.")
+- **The trapdoor is gone.** In its place a **stone stairwell** is cut into the library floor: twelve worn steps go down into the dark under a black arch, with a torch in a bracket halfway down. A low kerb with corner posts runs round three sides, and you go down from the side facing the door ("Go down the stairs"). You can't fall in.
+- The flagstones leave a gap for it, and the ground under the hall is sunk well below so you can see down the steps.
+- Coming back up (from the descent or a Quick Dungeon) puts you at the top of the stairs. "Back to the stairs" replaces "Back to the trapdoor", and the map and patrons' kit say "stairs" too.
+- The descent and Quick Dungeon flows are unchanged (`e2e-descent`, `e2e-descent-cinematic`, `e2e-descent-extras`, `e2e-patrons` pass). `e2e-places` is updated for the new prompt; its B15 floor-1 check still fails as it does on main.
+
 ### v0.16 changelog, part 42: the Ruined Library looks its age, 3: goblins moved in (Mike 2026-11-06, Graphics thread: "Make it look like goblins moved in.")
 - **Bedrolls** of sacking on scattered straw, a few with a stolen blanket; **gnawed bones** in little heaps, some with a skull; a **cart wheel** dragged in and propped against a wall.
 - **Chalk tally marks** on the walls at goblin height, in rows of five. Someone is counting something.
