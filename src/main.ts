@@ -2644,6 +2644,13 @@ dialogue.onAction = (a) => {
     inventory.give(id, Number(n) || 1);
     toast(`Received ${ITEMS[id]?.name ?? id} × ${Number(n) || 1}`);
     setTimeout(() => hint(`It's in your bag now. ${keyName('bag')} opens it.`, '(I: inventory)', 2600), 1800);
+  } else if (verb === 'lend' && id === 'crossbow') {
+    // Mike 2026-11-06: ask Natalie for the Archer's crossbow again whenever you have none (no once-per-session guard).
+    if (inventory.count('crossbow') > 0) return;
+    inventory.give('crossbow', 1);
+    const bolts = Math.max(0, 10 - inventory.count('bolt'));
+    if (bolts) inventory.give('bolt', bolts);
+    toast(`Received ${ITEMS.crossbow?.name ?? 'crossbow'} × 1${bolts ? ` and ${ITEMS.bolt?.name ?? 'bolt'} × ${bolts}` : ''}`);
   } else if (verb === 'unlock' && id === 'library_door') {
     world.openDoor();
   } else if (verb === 'quest' && id === 'start') {
@@ -2709,12 +2716,15 @@ function natalieCompanionScript(): DialogueScript {
     { text: 'Let me check the casebook.', next: 'book' },
     { text: 'What is under the library?', next: 'deep' },
     { text: 'Why is the camp here?', next: 'camp' },
+    // Mike 2026-11-06: whenever you have no crossbow, you can ask for the Archer's (her party's arbalest).
+    ...(inventory.count('crossbow') === 0 ? [{ text: "Could I borrow the Archer's crossbow?", next: 'lend' }] : []),
   ];
   Object.assign(base.nodes, {
     hint: { text: hint, next: 'n2' },
     wait: { text: n.wait, actions: ['companion:wait'], end: true },
     follow: { text: n.follow, actions: ['companion:follow'], end: true },
     book: { text: 'Read it out to me as you go.', actions: ['casebook:open'], end: true },
+    lend: { text: "Lost it already? He'll have words when we find him. Here. Mind the reload this time.", actions: ['lend:crossbow'], end: true },
     // Mike 2026-11-05: the descent's premise.
     deep: { text: `It moves. The witch in the ruins keeps the whole place in flux: the stairs are never where I left them. They say it goes ${FLOORS} floors down, with a dragon's hoard at the bottom. Bring me the books you find. ${record.deepest ? `The deepest anyone's brought me word from is floor ${record.deepest}.` : 'Nobody has brought me word from very deep yet.'}`, next: 'deep2' },
     camp: { text: (natalieCampScript.nodes.c2.text + ' ' + natalieCampScript.nodes.c3.text), next: 'camp2' },

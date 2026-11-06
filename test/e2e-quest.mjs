@@ -60,7 +60,8 @@ await page.keyboard.press('KeyE');
 await until(page, () => window.__gametool.state === 'dialogue');
 await toN2();
 const choices = await G(page, () => [...document.querySelectorAll('#dialogue .d-choice span')].map((s) => s.textContent));
-check('B2 talking again keeps her three choices and adds the companion ones', choices.length === 6 && choices[0] === 'Is it dangerous?' && choices.includes('Come with me.'), JSON.stringify(choices));
+check('B2 talking again keeps her three choices and adds the companion ones', choices.length === 7 && choices[0] === 'Is it dangerous?' && choices.includes('Come with me.') && choices.includes('What is under the library?'), JSON.stringify(choices));
+check('A3 with a crossbow in the bag there is no "borrow the Archer\'s crossbow" choice', !choices.some((c) => /borrow/.test(c)), JSON.stringify(choices));
 await page.keyboard.press(`Digit${choices.indexOf('Come with me.') + 1}`);
 await page.waitForTimeout(150);
 await through();
@@ -154,6 +155,28 @@ await resume();
 // ---------- quiet companion ----------
 await G(page, () => { const q = document.getElementById('companionQuiet'); q.checked = true; q.dispatchEvent(new Event('change')); });
 check('B2 the quiet toggle silences ambient lines', await G(page, () => window.__gametool.companion.say('test line') === false));
+
+// ---------- A3 (Mike 2026-11-06): no crossbow? Ask Natalie for the Archer's, again and again ----------
+await resume();
+await G(page, () => { const g = window.__gametool; if (g.crossbow.equipped) g.crossbow.unequip(); g.inventory.take('crossbow', g.inventory.count('crossbow')); g.inventory.take('bolt', g.inventory.count('bolt')); });
+for (let round = 1; round <= 2; round++) {
+  await aimAt('g.world.natalieTarget', 1.6, [0.2, 1]);
+  await verbIs('Talk to Natalie');
+  await page.keyboard.press('KeyE');
+  await until(page, () => window.__gametool.state === 'dialogue');
+  await toN2();
+  const ch = await G(page, () => [...document.querySelectorAll('#dialogue .d-choice span')].map((s) => s.textContent));
+  const i = ch.indexOf("Could I borrow the Archer's crossbow?");
+  check(`A3 round ${round}: with no crossbow she offers the Archer's`, i >= 0, JSON.stringify({ ch, node: await node() }));
+  if (i < 0) break;
+  await page.keyboard.press(`Digit${i + 1}`);
+  await page.waitForTimeout(150);
+  await through();
+  const inv = await G(page, () => ({ crossbow: window.__gametool.inventory.count('crossbow'), bolt: window.__gametool.inventory.count('bolt') }));
+  check(`A3 round ${round}: she lends the crossbow and tops bolts up to 10`, inv.crossbow === 1 && inv.bolt === 10, JSON.stringify(inv));
+  await resume();
+  await G(page, () => { const g = window.__gametool; if (g.crossbow.equipped) g.crossbow.unequip(); g.inventory.take('crossbow', 1); });
+}
 
 // ---------- persistence ----------
 const snap = await G(page, () => ({ ...localStorage }));
