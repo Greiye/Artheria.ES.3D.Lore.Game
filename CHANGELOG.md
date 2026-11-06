@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 30: ask Natalie for the Archer's crossbow (Mike 2026-11-06, "Add Natalie dialogue option to ask for a crossbow from her former arbalest")
+- Once her quest has started, whenever you have no crossbow, talking to Natalie adds **"Could I borrow the Archer's crossbow?"** (the Archer is her party's crossbowman). She hands it over and tops your bolts up to 10. Ask again as often as you lose it.
+- `test/e2e-quest.mjs` checks the choice is hidden while you carry one and works twice in a row; it also counts her newer "What is under the library?" choice (a stale check).
+
 ### v0.16 changelog, part 29: the knight frame is rideable from the start (Mike 2026-11-06, "Make the Mech rideable from the start")
 - The knight frame now stands awake in the treeline east of the green from the first moment: walk up and climb in (E / A / Use). It no longer waits for the descent's third floor or for a new friend's first day.
 - The map marks it as ready from the start. `?mech` is no longer needed.
