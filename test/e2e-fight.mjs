@@ -29,10 +29,25 @@ await page.waitForTimeout(400);
 await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play');
 
-// Kavik offers a spar.
-const verb = await G(page, () => { const g = window.__gametool; const k = g.interactables.find((i) => /Spar with Kavik/.test(i.verb())); return k?.verb(); });
-check('Kavik at the dojo offers "Spar with Kavik"', /Spar with Kavik/.test(verb ?? ''), verb);
-await G(page, () => window.__gametool.openFight());
+// Kavik offers a talk, and the spar starts from it (A6, Mike 2026-11-06: dialogue before the fight and after).
+const verb = await G(page, () => { const g = window.__gametool; const k = g.interactables.find((i) => /Talk to Kavik/.test(i.verb())); return k?.verb(); });
+check('Kavik at the dojo offers "Talk to Kavik (spar)"', /Talk to Kavik \(spar/.test(verb ?? ''), verb);
+await G(page, () => window.__gametool.talkToKavik());
+await until(page, () => window.__gametool.state === 'dialogue' && window.__gametool.dialogue.currentId === 'k1', null, 10000);
+const choicesNow = async () => { for (let i = 0; i < 20; i++) { const c = await G(page, () => [...document.querySelectorAll('#dialogue .d-choice span')].map((x) => x.textContent)); if (c.length) return c; await page.waitForTimeout(200); if (i === 5) await page.keyboard.press('Space'); } return []; };
+const pre = await choicesNow();
+check('A6 before the spar he talks: spar, ask about the descent, or not now', pre.includes("Let's spar.") && pre.includes('Not now.') && pre.some((c) => /descent/.test(c)), JSON.stringify(pre));
+await G(page, () => window.__gametool.dialogue.choose(2));   // Not now.
+for (let i = 0; i < 10 && await G(page, () => window.__gametool.state === 'dialogue'); i++) { await page.keyboard.press('Space'); await page.waitForTimeout(150); }
+check('A6 "Not now." leaves without a fight', await G(page, () => !window.__gametool.fightMode.isOpen && window.__gametool.state !== 'forge'));
+if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn');
+await until(page, () => window.__gametool.state === 'play', null, 5000);
+await G(page, () => window.__gametool.talkToKavik());
+await until(page, () => window.__gametool.dialogue.currentId === 'k1', null, 10000);
+await choicesNow();
+await G(page, () => window.__gametool.dialogue.choose(0));   // Let's spar.
+for (let i = 0; i < 10 && !(await G(page, () => window.__gametool.fightMode.isOpen)); i++) { await page.keyboard.press('Space'); await page.waitForTimeout(150); }
+check('A6 "Let\'s spar." starts the fight', await until(page, () => window.__gametool.fightMode.isOpen, null, 5000));
 await until(page, () => document.querySelector('#fight .fx-banner').textContent !== '', null, 10000);
 const open = await G(page, () => { const g = window.__gametool, f = g.fightMode; return { state: g.state, open: f.isOpen, shown: !document.getElementById('fight').classList.contains('hidden'), level: f.level, label: document.querySelector('#fight .fx-level').textContent, banner: document.querySelector('#fight .fx-banner').textContent }; });
 check('The fight opens: health bars, round banner, Kavik going easy', open.open && open.shown && open.state === 'forge' && open.level === 'easy' && /easy/.test(open.label) && /Round 1|Fight/.test(open.banner), JSON.stringify(open));
@@ -103,8 +118,18 @@ check('Losing shows Kavik wins; he stays at the fair level', !lost.won && lost.l
 
 // Esc leaves the mat; Kavik goes back to his spot by the door.
 await page.keyboard.press('Escape');
-const left = await until(page, () => window.__gametool.state === 'play' && !window.__gametool.fightMode.isOpen, null, 10000);
-check('Esc leaves the fight and returns to play', left);
+const left = await until(page, () => window.__gametool.state !== 'forge' && !window.__gametool.fightMode.isOpen, null, 10000);
+// A6: after the match he has a word; a loss reads differently from a win.
+const after = await until(page, () => window.__gametool.state === 'dialogue' && window.__gametool.dialogue.currentId === 'a1', null, 10000);
+await choicesNow();
+const afterText = await G(page, () => { const d = window.__gametool.dialogue; return d.script?.nodes[d.currentId]?.text ?? ''; });
+check('A6 after a lost match Kavik talks (loss lines)', after && /not today|Block first/i.test(afterText), afterText.slice(0, 160));
+const afterChoices = await choicesNow();
+check('A6 after the match: rematch or leave', afterChoices.includes('Again!') && afterChoices.length === 2, JSON.stringify(afterChoices));
+await G(page, () => window.__gametool.dialogue.choose(0));
+for (let i = 0; i < 10 && await G(page, () => window.__gametool.state === 'dialogue'); i++) { await page.keyboard.press('Space'); await page.waitForTimeout(150); }
+if (await G(page, () => window.__gametool.state === 'resume')) await page.click('#relockBtn');
+check('Esc leaves the fight and returns to play', left && await until(page, () => window.__gametool.state === 'play', null, 5000));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 // Touch: the four limb buttons and Throw show for touch input.

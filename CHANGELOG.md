@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 33: Kavik talks before and after a spar (Mike 2026-11-06, "Kavik needs a dialogue before the fight and after")
+- E on Kavik now opens a talk (**Talk to Kavik (spar)**): **Let's spar.**, **Have you been down the descent?** (his floor-thirty story, which used to be a one-off toast) or **Not now.** His greeting changes once you've sparred, and again once you've beaten him.
+- After a match, leaving the mats brings his reply: different lines for a first win, a later win, a loss while he's going easy, and a loss after you've beaten him. Then **Again!** for a rematch or a parting line.
+- `test/e2e-fight.mjs` covers both talks (29/29).
+
 ### v0.16 changelog, part 32: map notes where you click (Mike 2026-11-06, "Map pinning doesn't work right. Right click on the map, then add a note there")
 - **Right-click** anywhere on the living map (M), or **long-press** on a phone, and a small note box opens at that spot with a red ring on the map. Type and press Enter or **Add note**; **Cancel** or Esc drops it. The note is pinned where you clicked, not where you stand.
 - Notes are now drawn over the fog, so you can mark a place you haven't walked to yet. **Pin it here** (at your own spot) still works.

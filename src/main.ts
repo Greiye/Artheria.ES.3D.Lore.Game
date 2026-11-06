@@ -744,7 +744,7 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
   const folk = root.userData.folk as import('./world/townsfolk').Folk | undefined;
   if (folk) return folk.active ? { speed: folk.speed, talking: folk.talking, pose: folk.pose, look: folk.speed > 0.3 || folk.pose ? null : look } : null;
-  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar' || id === 'lenju' || id === 'taitai') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
+  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar' || id === 'lenju' || id === 'taitai' || id === 'kavik') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
   return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
@@ -2016,7 +2016,8 @@ const kavikRoot = world.standees.kavik;
 const kavikHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.9, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
 kavikHit.position.copy(kavikRoot.position).setY(0.95);
 world.scene.add(kavikHit);
-interactables.push({ obj: kavikHit, verb: () => sideGate(fightMode.record.beaten ? 'Spar with Kavik (no holding back)' : 'Spar with Kavik'), act: () => sideGo(openFight), when: () => !inDungeon });
+// Mike 2026-11-06 ("Kavik needs a dialogue before the fight and after"): E talks first; the fight starts from his talk.
+interactables.push({ obj: kavikHit, verb: () => sideGate(fightMode.record.beaten ? 'Talk to Kavik (spar, no holding back)' : 'Talk to Kavik (spar)'), act: () => sideGo(talkToKavik), when: () => !inDungeon });
 // The fight runs on the mats: its x along them (the world's -x), its z across (the world's +z). The camera starts on
 // the -Z side, side-on, and swings round with the line between the fighters as they sidestep.
 const RING = { x: DOJO.x, y: 0.24, z: DOJO.z - 0.3 };
@@ -2029,10 +2030,44 @@ const sparkMat = new THREE.MeshBasicMaterial({ color: '#FFE08A', transparent: tr
 const spark = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), sparkMat); spark.visible = false; fightFx.add(spark);
 let sparkT = 0;
 const fightCam = { x: 0, z: 0 };
-let kavikToldDeep = false;
+function talkToKavik() {
+  if (state !== 'play') return;
+  talkTo('kavik', kavikHit.position, kavikBefore());
+}
+/** Before the spar: fight or not now (and, once, what he saw at the bottom of the descent). */
+function kavikBefore(): DialogueScript {
+  const r = fightMode.record, met = r.wins + r.losses > 0;
+  const open = r.beaten ? "You again. You beat me once. That means I stop being polite." : met ? 'Back on the mats? Good. Shoes off.' : "New face. You've got the look of someone who's never been hit properly. Want to fix that?";
+  return { speaker: 'Kavik', start: 'k1', nodes: {
+    k1: { text: open, choices: [
+      { text: r.beaten ? "Let's go. Best of three." : "Let's spar.", next: 'fight' },
+      { text: 'Have you been down the descent?', next: 'deep' },
+      { text: 'Not now.', next: 'later' },
+    ] },
+    fight: { text: r.beaten ? 'No holding back. Hands up.' : met ? 'Best of three. Hold back to block.' : "Best of three. I'll go easy until you win one. Hold back to block.", actions: ['kavik:fight'], end: true },
+    deep: { text: "Floor thirty? I went. Gold to the ceiling, and something asleep on it. I didn't stay to ask its name.", next: 'k1' },
+    later: { text: "The mats aren't going anywhere. Neither am I.", end: true },
+  } };
+}
+/** After the spar: different words for a win and a loss (the last match decides). */
+let lastSpar: { won: boolean; first: boolean } | null = null;
+function kavikAfter(won: boolean, first: boolean): DialogueScript {
+  const text = first ? "Hm. You got me. Don't let it go to your head. From now on I fight properly."
+    : won ? "Again. Fine. I'll be thinking about that one all night."
+    : fightMode.record.beaten ? "You beat me once. Not today. Watch for the low ones."
+    : 'Down you go. You swing and then you stand there. Block first, then hit me while I recover.';
+  return { speaker: 'Kavik', start: 'a1', nodes: {
+    a1: { text, choices: [
+      { text: won ? 'Good fight.' : "I'll be back.", next: 'a2' },
+      { text: 'Again!', next: 'again' },
+    ] },
+    a2: { text: won ? 'It was. Go rest those hands.' : 'I know. Eat something first.', end: true },
+    again: { text: 'Hands up, then.', actions: ['kavik:fight'], end: true },
+  } };
+}
 function openFight() {
   if (state !== 'play') return;
-  if (!kavikToldDeep) { kavikToldDeep = true; toast("Kavik: \"Floor thirty? I went. Gold to the ceiling, and something asleep on it. I didn't stay to ask its name.\"", 5600); }
+  lastSpar = null;
   enterForge();
   fightView = player.thirdPerson; player.thirdPerson = true;
   kavikWas = { x: kavikRoot.position.x, y: kavikRoot.position.y, z: kavikRoot.position.z, ry: kavikRoot.rotation.y };
@@ -2044,8 +2079,11 @@ fightMode.onClose = () => {
   player.spawn(new THREE.Vector3(RING.x, 0, RING.z - 2.2), Math.PI);   // off the mats, facing them
   if (fightView !== null) { player.thirdPerson = fightView; fightView = null; }
   leaveForge();
+  // Mike 2026-11-06: after a match, Kavik has a word (a win and a loss read differently).
+  const last = lastSpar; lastSpar = null;
+  if (last) setTimeout(() => { if (state === 'play' || state === 'resume') talkTo('kavik', kavikHit.position, kavikAfter(last.won, last.first)); }, 250);
 };
-fightMode.onResult = (won, crowns, first) => { if (crowns) earn(crowns, first ? 'your first win over Kavik' : 'a win over Kavik'); };
+fightMode.onResult = (won, crowns, first) => { lastSpar = { won, first }; if (crowns) earn(crowns, first ? 'your first win over Kavik' : 'a win over Kavik'); };
 fightMode.onHit = (e) => {
   if (!e.blocked) gesture('hit', e.on === fightMode.fight.a ? 'player' : 'kavik');
   if (e.on === fightMode.fight.a || e.by === fightMode.fight.a) haptics.play(e.blocked ? 'tap' : 'hurt');
@@ -2659,6 +2697,7 @@ dialogue.onAction = (a) => {
     companion.prefs.follow = id === 'follow'; saveCompanion(companion.prefs);
   } else if (verb === 'folklore' && id === 'open') afterDialogue = openFolklore;
   else if (verb === 'casebook' && id === 'open') afterDialogue = openCasebook;
+  else if (verb === 'kavik' && id === 'fight') afterDialogue = () => { setState('play'); openFight(); };
   else if (verb === 'sky' && id === 'fly') afterDialogue = () => { setState('play'); openSky(); };
   else console.warn('Unknown dialogue action', a);
 };
@@ -3848,4 +3887,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
