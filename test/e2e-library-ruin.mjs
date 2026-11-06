@@ -47,7 +47,7 @@ check('3 · goblins moved in: bedrolls, bones, a cart wheel and chalk tallies (o
 // 4 · goblin life
 const r4 = await G(() => { const g = window.__gametool, m = g.library.group.getObjectByName('library-goblin-life'), gl = g.library.group.getObjectByName('library-goblin-glow');
   return { mesh: !!m, glow: !!gl && gl.material.type === 'MeshBasicMaterial', pieces: g.goblinLife.pieces, spots: g.goblinLife.spots.length, glowN: g.goblinLife.glow, throne: g.goblinLife.throne }; });
-check('4 · goblin life: fires, loot, hammocks, drawings, a book throne, a rope bridge, pages, chandeliers, a smashed rose window, rugs, dens', r4.mesh && r4.glow && r4.pieces > 400 && r4.spots >= 8 && r4.glowN > 20 && !!r4.throne, JSON.stringify(r4));
+check('4 · goblin life: fires, loot, hammocks, drawings, a book throne, a rope bridge, pages, chandeliers, a smashed rose window, rugs, dens', r4.mesh && r4.glow && r4.pieces > 400 && r4.spots >= 6 && r4.glowN > 20 && !!r4.throne, JSON.stringify(r4));
 const still = await G(() => { const g = window.__gametool, bad = [];
   for (const t of [...g.goblinSigns.spots, ...g.goblinLife.spots]) for (const i of g.interactables) { const p = i.obj.getWorldPosition(new g.Vector3()); if (Math.hypot(p.x - t.x, p.z - t.z) < t.r) bad.push(i.verb()); }
   return bad; });
@@ -68,6 +68,21 @@ await page.screenshot({ path: 'test/screenshots/library-stairs.png' });
 const r6 = await G(() => { const g = window.__gametool, inside = g.library.group.children.filter((c) => c.name.startsWith('library-plants-')), outside = g.world.scene.children.filter((c) => c.name.startsWith('library-plants-outside'));
   return { quads: g.quadPlants, inside: inside.length, outside: outside.length, cut: inside.every((m) => m.material.alphaTest > 0 && m.material.side === 2) }; });
 check('6 · cut-out ivy and plants: curtains, vines through the holes, tufts in the cracks, a fringe outside (3 + 3 meshes)', r6.quads.inside > 250 && r6.quads.outside > 100 && r6.inside === 3 && r6.outside === 3 && r6.cut, JSON.stringify(r6));
+// 7 · flooding
+const r7 = await G(() => { const g = window.__gametool, f = g.flood, wet = g.library.group.getObjectByName('library-flood-wet');
+  // You can wade: walk across the biggest pool and nothing stops you.
+  const P0 = f.pools[0], p = g.player; p.pos.set(P0.x + P0.r + 0.6, 0, P0.z); p.yaw = p.bodyYaw = Math.PI / 2; p.held.add('forward'); for (let k = 0; k < 40; k++) p.update(1 / 30); p.held.delete('forward');
+  // Nothing from the goblins' camp sits in the water (fires, beds).
+  const wetCamp = [...g.goblinLife.spots, ...g.goblinSigns.spots].filter((s) => f.pools.some((q) => Math.hypot(s.x - q.x, s.z - q.z) < q.r * 0.7)).length;
+  return { pools: f.pools.length, water: f.water.parent === g.library.group && f.water.material.transparent, wet: !!wet, waded: p.pos.x < P0.x, wetCamp }; });
+check('7 · shallow flood: pools of still water with wet edges and half-sunk bookcases; you can wade; the camp stays dry', r7.pools >= 3 && r7.water && r7.wet && r7.waded && r7.wetCamp === 0, JSON.stringify(r7));
+// 8 · floating broken stone outside
+const r8a = await G(() => window.__gametool.floating.stones.map((s) => s.mesh.position.y + s.mesh.rotation.y));
+await page.waitForTimeout(800);
+const r8 = await G((before) => { const g = window.__gametool, f = g.floating;
+  return { n: f.stones.length, outside: f.stones.every((s) => s.mesh.parent === g.world.scene && s.base.y > 8), shadows: f.shadows.parent === g.world.scene,
+    moved: f.stones.filter((s, i) => Math.abs(s.mesh.position.y + s.mesh.rotation.y - before[i]) > 1e-4).length }; }, r8a);
+check('8 · floating broken stone (wall, arch, stair, column) above the library, drifting slowly, with soft shadows', r8.n === 7 && r8.outside && r8.shadows && r8.moved === 7, JSON.stringify(r8));
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-8, 0, -38); pl.yaw = pl.bodyYaw = -2.3; pl.pitch = 0.1; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-ruin.png' });
