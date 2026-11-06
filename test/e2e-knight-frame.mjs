@@ -1,4 +1,4 @@
-// Mike 2026-11-05: the knight frame, a pilotable rune mech. Asleep until the descent's third floor is cleared (or ?mech).
+// Mike 2026-11-05: the knight frame, a pilotable rune mech. Awake and rideable from the start (Mike 2026-11-06).
 // Usage: node test/e2e-knight-frame.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
@@ -25,40 +25,20 @@ const G = (fn, a) => page.evaluate(fn, a);
 const faceFrame = () => G(() => { const g = window.__gametool, k = g.knight.root, ry = k.rotation.y; g.player.pos.set(k.position.x + Math.sin(ry) * 2.4, k.position.y, k.position.z + Math.cos(ry) * 2.4); g.player.yaw = g.player.bodyYaw = ry; g.player.pitch = 0; });
 fs.mkdirSync('test/screenshots', { recursive: true });
 
+// Mike 2026-11-06: awake and rideable from the start, with no save, no ?mech and no first-day wait.
 await boot();
 await faceFrame();
 await page.waitForTimeout(600);
-const s0 = await G(() => { const g = window.__gametool; return { inScene: !!g.world.scene.getObjectByName('knight-frame'), awake: g.knight.awake, standing: g.knight.standing, verb: g.lookingAtVerb, tris: g.knight.root.userData.tris }; });
-check('frame kneels asleep in the treeline at first (low poly)', s0.inScene && !s0.awake && !s0.standing && s0.tris < 1500, JSON.stringify(s0));
-check('the prompt says it is asleep', /asleep/.test(s0.verb ?? ''), s0.verb);
+const s0 = await G(() => { const g = window.__gametool; return { inScene: !!g.world.scene.getObjectByName('knight-frame'), awake: g.knight.awake, standing: g.knight.standing, verb: g.lookingAtVerb, tris: g.knight.root.userData.tris, firstDay: g.firstDay.sideGamesOpen }; });
+check('frame stands awake in the treeline from the start (low poly)', s0.inScene && s0.awake && s0.standing && s0.tris < 1500, JSON.stringify(s0));
+check('the prompt offers to climb in, even before the first day is done', /^Climb into/.test(s0.verb ?? ''), JSON.stringify(s0));
 const m0 = await G(() => { const g = window.__gametool; g.openMap(); const t = g.livingMap.sights().find((x) => /Knight frame/.test(x.label)); const listed = /Knight frame/.test(g.livingMap.el.textContent); g.livingMap.close(); return { t, listed, n: g.livingMap.sights().length }; });
-check('the map marks the sleeping frame (locked, with how to wake it) and lists what there is to do', !!m0.t?.locked && /floor 3/.test(m0.t.note) && m0.listed && m0.n >= 10, JSON.stringify(m0));
-await page.keyboard.press('KeyE'); await page.waitForTimeout(200);
-check('E on a sleeping frame does not climb in', !(await G(() => window.__gametool.player.piloting)));
+check('the map marks the frame as ready (not locked) and lists what there is to do', m0.t && !m0.t.locked && m0.listed && m0.n >= 10, JSON.stringify(m0));
 await G(() => { const g = window.__gametool, k = g.knight.root; g.player.pos.set(k.position.x - 5.5, k.position.y, k.position.z + 1.5); g.player.yaw = g.player.bodyYaw = -Math.PI / 2 - 0.3; });
 await page.waitForTimeout(500);
-await page.screenshot({ path: 'test/screenshots/knight-frame-asleep.png' });
-
-// Clearing floor 3 (going down its stairs) wakes it, and the wake is saved.
-await G(() => { const g = window.__gametool; g.startDescent(); });
-await page.waitForFunction(() => window.__gametool.inDungeon && window.__gametool.descent, null, { timeout: 30000 });
-await G(() => { const g = window.__gametool; g.descent.floor = 2; g.goDown(true); });
-await page.waitForTimeout(300);
-check('going down from floor 2 leaves it asleep', !(await G(() => window.__gametool.knight.awake)));
-await page.waitForTimeout(2500);
-await G(() => { const g = window.__gametool; g.descent.floor = 3; g.goDown(true); });
-await page.waitForTimeout(300);
-const s1 = await G(() => ({ awake: window.__gametool.knight.awake, saved: localStorage.getItem('gametool.frame') }));
-check('clearing floor 3 wakes it, and the wake is saved', s1.awake && s1.saved === 'awake', JSON.stringify(s1));
-
-// A new boot: awake and standing from the save (give the storage write a moment to land before navigating).
-await page.waitForTimeout(1500);
-await boot();
+await page.screenshot({ path: 'test/screenshots/knight-frame-ready.png' });
 await faceFrame();
 await page.waitForTimeout(600);
-const s2 = await G(() => { const g = window.__gametool; return { standing: g.knight.standing, verb: g.lookingAtVerb, saved: localStorage.getItem('gametool.frame'), url: location.search, awake: g.knight.awake }; });
-check('the map shows it awake now', await G(() => window.__gametool.livingMap.sights().some((x) => x.label === 'Knight frame' && !x.locked)));
-check('after a reload it stands, ready to climb into', s2.standing && /Climb into/.test(s2.verb ?? ''), JSON.stringify(s2));
 await page.keyboard.press('KeyE');
 await page.waitForFunction(() => window.__gametool.lookingAtVerb === 'Climb out' && !window.__gametool.player.body.visible, null, { timeout: 10000 }).catch(() => {});
 const s3 = await G(() => { const g = window.__gametool; return { piloting: g.player.piloting, body: g.player.body.visible, verb: g.lookingAtVerb, col: g.world.colliders.some((c) => c.kind === 'circle' && c.r === 1 && Math.hypot(c.x - g.knight.root.position.x, c.z - g.knight.root.position.z) < 0.01) }; });
@@ -90,11 +70,6 @@ await page.screenshot({ path: 'test/screenshots/knight-frame-pilot.png' });
 await page.keyboard.press('KeyE'); await page.waitForTimeout(300);
 const s4 = await G(() => { const g = window.__gametool, k = g.knight.root.position; return { piloting: g.player.piloting, d: g.player.pos.distanceTo(k), col: g.world.colliders.some((c) => c.kind === 'circle' && c.r === 1 && Math.hypot(c.x - k.x, c.z - k.z) < 0.01) }; });
 check('E climbs out behind it; it stays where you left it, solid again', !s4.piloting && s4.d > 1.2 && s4.col, JSON.stringify(s4));
-
-// ?mech wakes it for testing without the save.
-await G(() => localStorage.removeItem('gametool.frame'));
-await boot('?mech');
-check('?mech wakes it straight away (testing)', await G(() => window.__gametool.knight.awake && window.__gametool.knight.standing));
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 const passed = results.filter((r) => r.ok).length;

@@ -1466,7 +1466,6 @@ function applyScrolls() {
 function goDown(skipScrolls = false) {
   if (!descent || !inDungeon) return;
   const next = descent.floor + 1;
-  if (descent.floor >= 3) wakeFrame();   // Mike 2026-11-05: clearing the third floor wakes the knight frame
   if (!skipScrolls) {
     const opts = offerScrolls(descent.scrolls ?? [], ownsSlot);
     if (opts.length) {
@@ -3168,8 +3167,8 @@ function versionNote() {
 // ---------- touch + gamepad ----------
 
 // ---------- Mike 2026-11-05: the knight frame, a pilotable rune mech (src/mech/frame.ts) ----------
-// It kneels, asleep, in the treeline east of the green. Clearing the descent's third floor wakes it (or ?mech, for
-// testing). E / A / the Use button climbs in at its back; the same climbs out. Inside: move as usual (Alt / L3 /
+// It stands in the treeline east of the green, awake and rideable from the start (Mike 2026-11-06; it used to sleep
+// until the descent's third floor was cleared, and wait for the first day). E / A / the Use button climbs in at its back; the same climbs out. Inside: move as usual (Alt / L3 /
 // the sprint button pushes it to a run), LMB / RT / Strike punches, RMB / LT / Guard raises the shield arm, Space /
 // Y / jump is a ground-slam, Q / D-pad up / ✦ a rune pulse that staggers everything near. It can't use doors,
 // roads out of town or the trapdoor: climb out first.
@@ -3181,19 +3180,18 @@ knight.root.rotation.y = FRAME_AT.ry;
 world.scene.add(knight.root);
 const frameCol: Extract<Collider, { kind: 'circle' }> = { kind: 'circle', x: FRAME_AT.x, z: FRAME_AT.z, r: 1.0 };
 world.colliders.push(frameCol);
-if (urlFlags.has('mech') || (() => { try { return localStorage.getItem(FRAME_KEY) === 'awake'; } catch { return false; } })()) knight.wake(true);
-function wakeFrame() {
+knight.wake(true);
+function wakeFrame() {   // kept for old saves and tests; the frame is awake from the start now
   if (knight.awake) return;
   knight.wake(); storeSet(FRAME_KEY, 'awake');
-  toast('Far above, in the treeline east of the green, something old and heavy stands up. The knight frame is awake.', 5200);
 }
 const frameExit: Interactable = { obj: knight.hit, verb: () => 'Climb out', act: () => exitFrame() };
 interactables.push({
   obj: knight.hit, when: () => !inDungeon && !knight.piloted && regions.current === 'town',
-  verb: () => knight.awake ? (knight.standing ? (urlFlags.has('mech') ? 'Climb into the knight frame' : sideGate('Climb into the knight frame')) : 'The knight frame is waking...') : 'A rusted knight frame (asleep)',
+  verb: () => knight.awake ? (knight.standing ? 'Climb into the knight frame' : 'The knight frame is waking...') : 'A rusted knight frame (asleep)',
   act: () => {
     if (!knight.awake) { toast('A knight frame, ten feet of elvish bronze gone green, kneeling in the ferns. The gem in its chest is dark. Clear the third floor of the descent and something down there might wake it.', 6000); return; }
-    if (knight.standing) { if (urlFlags.has('mech')) enterFrame(); else sideGo(enterFrame); }   // a side game: waits for the first day (lore first), unless ?mech
+    if (knight.standing) enterFrame();   // Mike 2026-11-06: rideable from the start (no first-day wait)
   },
 });
 let viewBeforeFrame: View | null = null;

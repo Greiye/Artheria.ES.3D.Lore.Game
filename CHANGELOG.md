@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 29: the knight frame is rideable from the start (Mike 2026-11-06, "Make the Mech rideable from the start")
+- The knight frame now stands awake in the treeline east of the green from the first moment: walk up and climb in (E / A / Use). It no longer waits for the descent's third floor or for a new friend's first day.
+- The map marks it as ready from the start. `?mech` is no longer needed.
+- `test/e2e-knight-frame.mjs` checks it stands and offers "Climb into" on a fresh profile.
+
 ### v0.16 changelog, part 28: the Ruined Library is open from the start (Mike 2026-11-06, "Make the library accessible right from the start")
 - The library's door stands open when the world loads, so you can walk in before talking to Natalie. Her crossbow talk still gives the crossbow and bolts; its old unlock step does nothing now.
 - `test/e2e-world-controls.mjs`: the door check now walks through the open doorway. Two stale checks were fixed too: the camera-against-the-wall check turns see-through off (B45) and checks that the camera never sits inside a wall (in the overhead view it may pass over the top).
