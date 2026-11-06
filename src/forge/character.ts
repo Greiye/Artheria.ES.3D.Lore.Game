@@ -9,6 +9,7 @@ import { ConstraintDice, rollText, type DieKind, type Roll } from './dice';
 import { entryMarkdown, openSubmitSheet, escapeHtml } from '../submit';
 import { SKILLS } from '../skills/content';
 import { storeSet } from '../store';
+import { PROFESSIONS, professionInfo, type Profession } from '../professions';
 
 export interface ForgeCharacter { look: FigureLook; height: number; name: string; backstory: string; roll?: Roll | null }
 
@@ -89,7 +90,9 @@ export class CharacterForge {
   private c: ForgeCharacter = defaultForge();
   private dice: ConstraintDice;
   /** B22: the "Who you are" answers (kept on the game's character; main sets them before opening, reads them on close). */
-  who = { motivation: '', secret: '' };
+  who: { motivation: string; secret: string; profession: Profession | '' } = { motivation: '', secret: '', profession: '' };
+  /** Mike 2026-11-06: a new hero is being made (shows the welcome line on the Profession tab). */
+  creating = false;
 
   constructor(private onPreview: (c: ForgeCharacter) => void, private onClose: (c: ForgeCharacter) => void, loreWords: string[], private author: () => string) {
     this.dice = new ConstraintDice(loreWords);
@@ -114,12 +117,20 @@ export class CharacterForge {
     if (!this.isOpen) return;
     this.c.name = (this.el.querySelector('#fgName') as HTMLInputElement).value.trim();
     this.c.backstory = (this.el.querySelector('#fgStory') as HTMLTextAreaElement).value.trim();
-    this.who = { motivation: (this.el.querySelector('#fgMotivation') as HTMLTextAreaElement).value.trim(), secret: (this.el.querySelector('#fgSecret') as HTMLTextAreaElement).value.trim() };
+    this.who = { motivation: (this.el.querySelector('#fgMotivation') as HTMLTextAreaElement).value.trim(), secret: (this.el.querySelector('#fgSecret') as HTMLTextAreaElement).value.trim(), profession: this.who.profession };
+    this.creating = false;
     saveForge(this.c);
     this.el.classList.add('hidden');
     this.onClose(this.c);
   }
 
+  /** Pick a profession (also a test hook). Keeps whatever was typed in the other tabs. */
+  setProfession(p: Profession) {
+    this.c.name = (this.el.querySelector('#fgName') as HTMLInputElement | null)?.value ?? this.c.name;
+    this.c.backstory = (this.el.querySelector('#fgStory') as HTMLTextAreaElement | null)?.value ?? this.c.backstory;
+    this.who.profession = p;
+    this.render();
+  }
   // Test / tool hook: apply a change as if picked in the panel.
   set(field: Field | 'height', value: unknown) {
     if (field === 'height') this.c.height = Number(value);
@@ -153,6 +164,8 @@ export class CharacterForge {
     const motivation = (this.el.querySelector('#fgMotivation') as HTMLTextAreaElement | null)?.value ?? this.who.motivation;
     const secret = (this.el.querySelector('#fgSecret') as HTMLTextAreaElement | null)?.value ?? this.who.secret;
     const aid = SKILLS.find((k) => k.id === 'firstaid');
+    const prof = professionInfo(this.who.profession);
+    this.who = { ...this.who, motivation, secret };   // keep typed answers across a re-render
     // B22 (Mike 2026-11-01): the character forge is the Tailor & Barber-Surgeon. Who you are (the old Journal form, folded
     // in), Body, Barber (face and hair), Tailor (clothes) and Surgeon (markings, and first aid); one tab each (B27).
     // Mike 2026-11-04 ("The extra tabs"): split further so every tab fits a phone at full text size: Who you are,
@@ -160,7 +173,11 @@ export class CharacterForge {
     this.el.innerHTML = `
       <div class="forge-panel">
         <div class="eyebrow">Tailor &amp; Barber-Surgeon</div>
-        <h2>${escapeHtml(name || 'Your hero')}</h2>
+        <h2>${escapeHtml(name || 'Your hero')}${prof ? ` · ${escapeHtml(prof.label)}` : ''}</h2>
+        <section><h4>Profession</h4>
+          ${this.creating ? '<p class="fg-welcome">Make your hero. Pick a profession first; every tab after it is optional, and you can change any of it later at the tailor or the camp mirror.</p>' : ''}
+          <div class="fg-profs">${PROFESSIONS.map((p) => `<button class="fg-prof${p.id === this.who.profession ? ' on' : ''}" data-prof="${p.id}" aria-pressed="${p.id === this.who.profession}"><span class="fg-prof-ic">${p.icon}</span><b>${p.label}</b><span class="fine">${escapeHtml(p.blurb)}${p.soon ? ' <i>(arrives in a coming update)</i>' : ''}</span></button>`).join('')}</div>
+        </section>
         <section><h4>Who you are</h4>
           <label class="field">Name<input id="fgName" type="text" maxlength="40" value="${escapeHtml(name)}" placeholder="e.g. Kazka of the Ash Road"></label>
           <label class="field">What do they want most? <span class="hint">optional</span><textarea id="fgMotivation" rows="2" maxlength="400" placeholder="Revenge, a cure, a crown, to be forgiven...">${escapeHtml(motivation)}</textarea></label>
@@ -223,6 +240,7 @@ export class CharacterForge {
       const r = this.c.roll && this.dice.reroll(this.c.roll, d.dataset.die as DieKind);
       if (r) { this.c.roll = r; this.render(); }
     }));
+    this.el.querySelectorAll<HTMLElement>('[data-prof]').forEach((b) => b.addEventListener('click', () => this.setProfession(b.dataset.prof as Profession)));
     q('#fgDone').addEventListener('click', () => this.close());
     q('#fgSubmit').addEventListener('click', () => {
       this.c.name = q<HTMLInputElement>('#fgName').value.trim();
