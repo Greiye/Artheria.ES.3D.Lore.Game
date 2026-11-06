@@ -1,5 +1,6 @@
 // B31 (Mike 2026-11-03): the wake-up intro. Begin / Continue goes black, then fades in on the player getting up:
-// from the inn's guest bed on a new game, from the bedroll if the last sleep was at camp. Any input skips it.
+// on a new game from the camp bedroll (Mike 2026-11-06: "Spawn at the campfire, not at the inn"), then Natalie's camp
+// welcome; on Continue from the bedroll if the last sleep was at camp. Any input skips it.
 // Test browsers skip the intro unless localStorage gametool.waketest = 'on' (set here).
 // Usage: node test/e2e-wake.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
@@ -29,21 +30,32 @@ await page.goto('file://' + file);
 await page.waitForFunction(() => window.__gametool);
 await page.waitForTimeout(400);
 
-// New game: the inn bed.
+// New game: the camp bedroll.
 await G(page, () => document.getElementById('begin').click());
 const start = await G(page, () => {
-  const g = window.__gametool, b = g.world.town.bed, root = g.player.body.children[0].userData.rig.bones.root;
+  const g = window.__gametool, b = g.world.stations.bedroll.position, root = g.player.body.children[0].userData.rig.bones.root;
   return { state: g.state, pose: g.stationPose, waking: g.waking, d: Math.hypot(g.player.pos.x - b.x, g.player.pos.z - b.z), black: document.getElementById('sleepFade').classList.contains('on') || getComputedStyle(document.getElementById('sleepFade')).opacity > 0.5 };
 });
-check('A new game wakes at the inn bed, in play, getting up', start.state === 'play' && start.pose === 'wake' && start.waking > 0 && start.d < 0.3, JSON.stringify(start));
+check('A new game wakes at the campfire, on the bedroll, getting up', start.state === 'play' && start.pose === 'wakeroll' && start.waking > 0 && start.d < 1.5, JSON.stringify(start));
 check('The screen starts black and fades in', start.black);
 const lying = await until(page, () => { const r = window.__gametool.player.body.children[0].userData.rig.bones.root; return r.rotation.x < -1.2; }, null, 8000);
 await page.screenshot({ path: path.join(shots, 'b31-wake-bed.png') });
-check('The player starts lying on the bed', lying);
+check('The player starts lying on the bedroll', lying);
 const p0 = await G(page, () => window.__gametool.player.pos.clone());
 await until(page, () => !window.__gametool.waking, null, 30000);
 const done = await G(page, (p) => { const g = window.__gametool, r = g.player.body.children[0].userData.rig.bones.root; return { pose: g.stationPose, moved: Math.hypot(g.player.pos.x - p.x, g.player.pos.z - p.z), rot: r.rotation.x, fade: document.getElementById('sleepFade').classList.contains('on') }; }, p0);
-check('The get-up finishes on its own and hands back control (standing, screen clear)', done.pose === null && done.moved < 0.05 && !done.fade, JSON.stringify(done));
+check('The get-up finishes on its own and hands back control (standing, screen clear)', done.pose === null && done.moved < 0.05, JSON.stringify(done));
+// Then Natalie explains the camp, how to play and how to beat it; once, and back to play after.
+const welcome = await until(page, () => window.__gametool.state === 'dialogue' && window.__gametool.dialogue.open, null, 10000);
+const lines = [];
+for (let i = 0; i < 30 && await G(page, () => window.__gametool.dialogue.open); i++) {
+  await G(page, () => { const d = window.__gametool.dialogue; if (d.typing) d.advance(); });
+  lines.push(await G(page, () => window.__gametool.dialogue.text));
+  await G(page, () => { const d = window.__gametool.dialogue; if (d.node?.choices?.length) d.choose(0); else d.advance(); });
+}
+const said = [...new Set(lines)].join(' ');
+check("Natalie's camp welcome: why the camp is at the Ruined Library, the descent, and how to win", welcome && /base camp/.test(said) && /Ruined Library/.test(said) && /Thirty floors/.test(said) && /climb back out alive/.test(said), said.slice(0, 160));
+check('After the welcome you are back in play, and it is remembered', await until(page, () => window.__gametool.state === 'play', null, 8000) && await G(page, () => localStorage.getItem('gametool.campwelcome') === '1'));
 check('Standing upright again', await until(page, () => Math.abs(window.__gametool.player.body.children[0].userData.rig.bones.root.rotation.x) < 0.05, null, 10000));
 await page.screenshot({ path: path.join(shots, 'b31-wake-standing.png') });
 

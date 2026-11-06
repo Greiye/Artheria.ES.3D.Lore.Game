@@ -1,0 +1,9 @@
+{"speaker":"Natalie Bourbon","start":"c1","nodes":{
+"c1":{"text":"You're up. Good. Welcome to camp.","next":"c2"},
+"c2":{"text":"This fire is my party's base camp. We came to the Ruined Library to map it and carry its lost books home. It was the Library of the Wise once, before the orcs burned it.","next":"c3"},
+"c3":{"text":"Then one goblin scattered all four of us. I keep the fire lit for them, and for anyone willing to help.","choices":[{"text":"How can I help?","next":"c4"},{"text":"What's under the library?","next":"c5"}]},
+"c4":{"text":"Three ways. Find my party: look for clues in the ruins and tell me what you think happened. Read the tales in the town Library and add your own; every book here is someone's story. And when you're ready, go down.","next":"c5"},
+"c5":{"text":"There's a trapdoor in the ruins. The witch who lives there keeps the place in flux, so the floors are new every time you go down. Thirty floors, they say, with a dragon's hoard at the bottom.","next":"c6"},
+"c6":{"text":"Bring me the lore books you find. They only count once you climb out and put them in my hands. Die down there and that hero is gone, bag, crowns, books and all. What you wrote and drew up here stays.","next":"c7"},
+"c7":{"text":"Reach the hoard and climb back out alive, and your drawing goes up on the Inn wall next to Kavik's. That's how you beat it. Only he ever has.","next":"c8"},
+"c8":{"text":"Not today, though. Today is for the stories. Follow the gold light.","end":true}}}

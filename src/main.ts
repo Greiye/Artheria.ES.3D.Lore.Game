@@ -38,6 +38,7 @@ import './gear/gear.css';
 import { CookPanel, RecipeBook } from './cooking/cooking';
 import { BUFFS } from './cooking/recipes';
 import natalieScript from '../content/dialogue/natalie.json';
+import natalieCampScript from '../content/dialogue/natalie-camp.json';   // Mike 2026-11-06: the camp welcome
 import { Post } from './render/post';
 import { SHELL_HTML } from './ui/shell';
 import { buildCinemaSpot } from './world/cinema-spot';
@@ -370,7 +371,11 @@ async function begin() {
   if (regions.current !== 'town') placeIn('town', regions.current);
   if (save?.pos && wantRegion === 'town') player.spawn(new THREE.Vector3(...save.pos), save.yaw); else player.spawn(world.spawn.pos, world.spawn.yaw);
   if (wantRegion !== 'town') placeIn(wantRegion, 'town');
-  lastRest = save?.rest ?? 'inn';
+  // Mike 2026-11-06: "Spawn at the campfire, not at the inn." A new game wakes on the camp bedroll, and Natalie
+  // explains the camp and how the game is played and beaten (content/dialogue/natalie-camp.json). Old saves wake
+  // where they last slept, as before.
+  lastRest = save ? (save.rest ?? 'inn') : 'camp';
+  if (!save && !campWelcomed()) welcomePending = true;
   if (save && !begun) {
     setWorldTime(save.time);
     for (const [id, n] of save.items) if (inventory.count(id) < n) inventory.give(id, n - inventory.count(id));
@@ -404,6 +409,16 @@ async function begin() {
 // Any key, click, touch or pad button skips it. Test browsers skip it unless localStorage gametool.waketest = 'on'
 // (like the coach), so the suites still start at the glade spawn.
 let lastRest: 'inn' | 'camp' = 'inn';
+// The camp welcome: once per profile, after the get-up, on a new game. Test browsers skip it unless the wake-up test
+// flag is on (like the get-up itself).
+const CAMP_WELCOME = 'gametool.campwelcome';
+let welcomePending = false;
+function campWelcomed() { try { return !!localStorage.getItem(CAMP_WELCOME); } catch { return true; } }
+function campWelcome() {
+  welcomePending = false;
+  storeSet(CAMP_WELCOME, '1');
+  talkTo('natalie', world.stations.campfire.position, natalieCampScript as DialogueScript);
+}
 let waking = 0;   // seconds left of the get-up; 0 = not waking
 const WAKE_TIME = 2.0;
 function wakeIntro() {
@@ -2693,6 +2708,7 @@ function natalieCompanionScript(): DialogueScript {
     companion.prefs.follow ? { text: 'Wait here.', next: 'wait' } : { text: 'Come with me.', next: 'follow' },
     { text: 'Let me check the casebook.', next: 'book' },
     { text: 'What is under the library?', next: 'deep' },
+    { text: 'Why is the camp here?', next: 'camp' },
   ];
   Object.assign(base.nodes, {
     hint: { text: hint, next: 'n2' },
@@ -2701,6 +2717,8 @@ function natalieCompanionScript(): DialogueScript {
     book: { text: 'Read it out to me as you go.', actions: ['casebook:open'], end: true },
     // Mike 2026-11-05: the descent's premise.
     deep: { text: `It moves. The witch in the ruins keeps the whole place in flux: the stairs are never where I left them. They say it goes ${FLOORS} floors down, with a dragon's hoard at the bottom. Bring me the books you find. ${record.deepest ? `The deepest anyone's brought me word from is floor ${record.deepest}.` : 'Nobody has brought me word from very deep yet.'}`, next: 'deep2' },
+    camp: { text: (natalieCampScript.nodes.c2.text + ' ' + natalieCampScript.nodes.c3.text), next: 'camp2' },
+    camp2: { text: natalieCampScript.nodes.c7.text, next: 'n2' },
     deep2: { text: "Only Kavik ever came back from the bottom. His drawing's on the Inn wall. The names on the other wall at the Inn didn't come back at all.", next: 'n2' },
   });
   return base;
@@ -3724,6 +3742,7 @@ function frame() {
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
     if (bestiary) goblins.idle(dt);
   } else { lookingAt = null; crossbow.setADS(false); handDown.left = handDown.right = false; player.leanWant = NO_LEAN; rig.update(dt); updateSteadyRing(); $('coach').classList.add('hidden'); }
+  if (welcomePending && !waking && state === 'play' && inWorld && !inDungeon && wakeIntro()) campWelcome();
   firstDay.update(dt, { waking: waking > 0, reading: state === 'book', writing: sketchPad.isOpen, making: characterForge.isOpen || weaponForge.isOpen, atFire: campfire.isOpen }, state === 'play' && inWorld && !inDungeon);
   // v0.06 T3: the ears are at the player's eyes, facing where the camera looks.
   camera.getWorldDirection(earDir);
