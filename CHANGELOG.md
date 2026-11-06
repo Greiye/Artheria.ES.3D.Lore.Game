@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 58: Natalie saw the creation (Mike 2026-11-06, "When players start the game, they go right into character creation. Then a cinematic plays of Natalie talking to the player")
+- Once a new hero is made, a short cinematic plays: Natalie, in the letterbox, says she saw the whole creation, that it was odd to watch someone change so quickly, and that it bothers her a little. Then the camp welcome, if it was still to come, follows.
+- `test/e2e-natalie-creation.mjs` checks the four lines play in order and play resumes; `test/e2e-character-creation.mjs` now expects the scene after Done.
+
 ### v0.16 changelog, part 34: make your hero, with a profession (Mike 2026-11-06, "There's no character creation at new game" and "Character Creation: Give character choice of profession")
 - A new game now makes your hero: once you're up, you step to the camp mirror and the Tailor & Barber-Surgeon opens on a new first tab, **Profession**. Pick **Fighter**, **Ranger**, **Mage** or **Monk**; every other tab (name, story, body, hair, clothes) stays optional, and **Done** goes into play. No text box opens a phone keyboard by itself.
 - The profession is saved with the hero and shown in the panel's heading. Change it any time at the tailor or the mirror. Heroes made before this get a one-time note saying where to pick one.
