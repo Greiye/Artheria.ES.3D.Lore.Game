@@ -40,6 +40,7 @@ export const SHELL_HTML = `
   <div id="hud" class="hidden">
     <div id="crosshair"></div>
     <div id="steady" class="hidden"></div>
+    <div id="reticle" class="hidden"><i></i><i></i><i></i><i></i></div>
     <div id="prompt" class="hidden"><kbd>E</kbd> — <span id="promptVerb">Read</span></div>
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>

@@ -601,16 +601,27 @@ function updateAmmoHud() {
   if (r.active) reloadFill.style.width = Math.min(100, (r.t / r.total) * 100) + '%';
   reloadBar.classList.toggle('jam', r.active && r.mode === 'jam');
 }
-// B44: the steadiness ring replaces the crosshair while the crossbow is in hand in first person.
-const steadyRing = $('steady');
-let steadyShown = false;
+// B44: the steadiness ring replaced the crosshair while the crossbow is in hand in first person.
+// Mike 2026-11-06 ("ranger: has better crosshairs ... Everyone else does not have crosshairs and must use iron sights"):
+// a Ranger gets a true crosshair (a reticle that opens and closes with their steadiness, any view); everyone else gets
+// no crosshair at all with a crossbow in hand, and aims down the iron sights on the bow (first person).
+const steadyRing = $('steady'), reticle = $('reticle');
+let steadyShown = '';
 function updateSteadyRing() {
-  const on = state === 'play' && crossbow.equipped && !player.thirdPerson;
-  if (on !== steadyShown) { steadyShown = on; steadyRing.classList.toggle('hidden', !on); document.body.classList.toggle('steadyAim', on); }
-  if (!on) return;
+  const ranger = character.profession === 'ranger';
+  crossbow.ranger = crossbow2.ranger = ranger;
+  const armed = state === 'play' && crossbow.equipped;
+  const mode = !armed ? '' : ranger ? 'reticle' : 'sights';
+  if (mode !== steadyShown) {
+    steadyShown = mode;
+    steadyRing.classList.add('hidden');
+    reticle.classList.toggle('hidden', mode !== 'reticle');
+    document.body.classList.toggle('steadyAim', mode !== '');   // hides the plain dot
+  }
+  if (mode !== 'reticle') return;
   const s = crossbow.stability;
-  steadyRing.style.transform = `scale(${(0.3 + 0.7 * (1 - s)).toFixed(3)})`;
-  steadyRing.classList.toggle('steady', s > 0.85);
+  reticle.style.setProperty('--gap', `${(4 + 10 * (1 - s)).toFixed(1)}px`);
+  reticle.classList.toggle('steady', s > 0.85);
 }
 // Mike 2026-11-05: each hand's button uses what that hand holds: LMB / RT / Fire = right hand, RMB / LT / Aim = left
 // hand. A crossbow fires and a sword swings. A hand holding nothing (or a torch) aims the crossbow while its button is

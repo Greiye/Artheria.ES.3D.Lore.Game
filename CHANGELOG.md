@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 35: the Ranger's crosshair, and iron sights for everyone else (Mike 2026-11-06, "ranger: Has better crosshairs that give them way better aim. Everyone else does not have crosshairs and must use iron sights")
+- **Rangers** get a true crosshair whenever a crossbow is in hand, in every view: four ticks around a dot that close in and turn gold as they steady. Their aim sways a quarter as much, steadies twice as fast and spreads a third as much from the hip.
+- **Everyone else** has no crosshair with a crossbow in hand (the steadiness ring is gone too). The held crossbow now carries **iron sights**, a notched rear sight and a front post with a brass bead; aim down the sights in first person and the bead sits where the bolt goes.
+- `test/e2e-steady-aim.mjs` checks both (14/14).
+
 ### v0.16 changelog, part 58: Natalie saw the creation (Mike 2026-11-06, "When players start the game, they go right into character creation. Then a cinematic plays of Natalie talking to the player")
 - Once a new hero is made, a short cinematic plays: Natalie, in the letterbox, says she saw the whole creation, that it was odd to watch someone change so quickly, and that it bothers her a little. Then the camp welcome, if it was still to come, follows.
 - `test/e2e-natalie-creation.mjs` checks the four lines play in order and play resumes; `test/e2e-character-creation.mjs` now expects the scene after Done.

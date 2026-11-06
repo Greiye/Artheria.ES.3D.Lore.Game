@@ -41,6 +41,9 @@ export class Crossbow {
   bonusNextShot = false;
   /** B44: 0 (shaky) .. 1 (steady). */
   stability = 0;
+  /** Mike 2026-11-06: a Ranger's eye. A true crosshair (main.ts draws it), a quarter of the sway, a third of the hip
+   *  spread and steadying twice as fast. Everyone else has no crosshair and aims down the iron sights. */
+  ranger = false;
   /** B44: the aim's wander from the view, radians. */
   readonly sway = { yaw: 0, pitch: 0 };
   private swayT = Math.random() * 100;
@@ -58,6 +61,10 @@ export class Crossbow {
   lastReloadOutcome: 'normal' | 'fast' | 'jam' | null = null;
   readonly bolts: Bolt[] = [];
   readonly viewmodel = new THREE.Group();
+  /** Mike 2026-11-06: iron sights on the held crossbow, a notched rear sight and a front post. Their tops sit on the
+   *  line of sight when aiming down the sights (the viewmodel is then 0.09 below the eye), so the post in the notch is
+   *  where the bolt goes. Hidden for a Ranger, who has a crosshair instead. */
+  readonly ironSights = buildIronSights();
   private loadedBolt!: THREE.Mesh;
   private fovOffset = 0;
   private ray = new THREE.Raycaster();
@@ -83,6 +90,7 @@ export class Crossbow {
     const model = buildCrossbowModel(c);
     this.viewmodel.add(...model.children);
     this.loadedBolt = this.viewmodel.getObjectByName('loadedBolt') as THREE.Mesh;
+    this.viewmodel.add(this.ironSights);
     return this.loadedBolt;
   }
 
@@ -108,7 +116,7 @@ export class Crossbow {
     const dir = new THREE.Vector3();
     this.player.lookDir(dir);   // R3: aim follows the player's view even while the camera rig is blending
     // B44: the bolt goes where the wandering aim points, plus a little spread when you're not steady.
-    const spread = STEADY.spread * (1 - this.stability), a = Math.random() * Math.PI * 2, r = spread * Math.sqrt(Math.random());
+    const spread = STEADY.spread * (1 - this.stability) * (this.ranger ? 0.3 : 1), a = Math.random() * Math.PI * 2, r = spread * Math.sqrt(Math.random());
     dir.set(0, 0, -1).applyEuler(new THREE.Euler(this.player.pitch + this.sway.pitch + Math.sin(a) * r, this.player.yaw + this.sway.yaw + Math.cos(a) * r, 0, 'YXZ'));
     this.stability *= STEADY.fireKeep;   // the kick unsettles you
     const start = this.player.eyePos.clone().addScaledVector(dir, 0.45);
@@ -213,6 +221,7 @@ export class Crossbow {
     if (this.drivesCamera && Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     this.viewmodel.visible = this.equipped && !this.player.thirdPerson;
     this.loadedBolt.visible = this.loaded;
+    this.ironSights.visible = !this.ranger;
     this.placeViewmodel(this.fovOffset / ADS_FOV_DROP);
   }
 
@@ -224,12 +233,12 @@ export class Crossbow {
     if (!this.equipped) { this.stability = 0; this.sway.yaw = this.sway.pitch = 0; return; }
     const moving = p.hSpeed > 0.3 || !p.onGround, cap = this.ads ? 1 : STEADY.hipCap;
     if (moving || turn > 1.5) this.stability = Math.max(0, this.stability - dt * STEADY.moveDrain * (moving ? 1 : 0.5));
-    else if (this.stability < cap) this.stability = Math.min(cap, this.stability + dt / STEADY.fillSec);
+    else if (this.stability < cap) this.stability = Math.min(cap, this.stability + dt / STEADY.fillSec * (this.ranger ? 2 : 1));
     else this.stability = Math.max(cap, this.stability - dt / STEADY.fillSec);
     this.swayT += dt;
     // Mike 2026-11-05: sway only while aiming down the sights; it eases in and out as you raise and lower.
     this.swayAmp += ((this.ads ? 1 : 0) - this.swayAmp) * Math.min(1, dt * 8);
-    const t = this.swayT, amp = THREE.MathUtils.lerp(1, SWAY.steadyMin, this.stability) * this.swayAmp;
+    const t = this.swayT, amp = THREE.MathUtils.lerp(1, SWAY.steadyMin, this.stability) * this.swayAmp * (this.ranger ? 0.25 : 1);
     // Slow drift: incommensurate sines read as noise. Breathing: a slow rise and fall, mostly vertical.
     const nx = Math.sin(t * 0.73) * 0.6 + Math.sin(t * 1.37 + 1.3) * 0.3 + Math.sin(t * 2.91 + 4.1) * 0.1;
     const ny = Math.sin(t * 0.61 + 2.2) * 0.6 + Math.sin(t * 1.53 + 0.4) * 0.3 + Math.sin(t * 3.17 + 2.9) * 0.1;
@@ -248,3 +257,18 @@ export class Crossbow {
     this.viewmodel.position.set(THREE.MathUtils.lerp(0.22 * this.side, 0, k), THREE.MathUtils.lerp(-0.2, -0.09, k), THREE.MathUtils.lerp(-0.45, -0.36, k));
   }
 }
+
+/** Notched rear sight near the eye and a front post at the muzzle; tops at y 0.09 (the sight line in ADS). */
+function buildIronSights(): THREE.Group {
+  const g = new THREE.Group(); g.name = 'ironSights';
+  const m = new THREE.MeshBasicMaterial({ color: 0x1C1A18 });
+  const post = (w: number, h: number, x: number, z: number, top = 0.09) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.008), m); b.position.set(x, top - h / 2, z); b.raycast = () => {}; g.add(b); };
+  post(0.006, 0.022, -0.008, 0.06); post(0.006, 0.022, 0.008, 0.06);   // rear notch ears (a 10 mm gap), a hand's length ahead of the eye
+  post(0.022, 0.006, 0, 0.06, 0.074);                                  // the notch's floor, so the gap reads as a U
+  post(0.008, 0.034, 0, 0.06, 0.068);                                  // its stand, down to the stock
+  post(0.004, 0.05, 0, -0.2);                                         // front post
+  const bead = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.006, 0.006), new THREE.MeshBasicMaterial({ color: 0xE8D27A }));
+  bead.position.set(0, 0.087, -0.2); bead.raycast = () => {}; g.add(bead);   // a brass bead on the post
+  return g;
+}
+
