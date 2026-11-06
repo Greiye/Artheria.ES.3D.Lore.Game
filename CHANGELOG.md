@@ -7,6 +7,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 57: no quest at the start (Mike 2026-11-06, "Make it so that the players don't have a quest when they start new game")
+- A new game no longer starts the guided first day: no goal card, no gold marker, and the side games (spar, sky run, dojo, the stairs down) are open from the start. A friend part-way through an old first day can finish it or skip it from the casebook.
+- `test/e2e-first-day.mjs` checks a new game starts with no quest.
+
 ### v0.16 changelog, part 33: Kavik talks before and after a spar (Mike 2026-11-06, "Kavik needs a dialogue before the fight and after")
 - E on Kavik now opens a talk (**Talk to Kavik (spar)**): **Let's spar.**, **Have you been down the descent?** (his floor-thirty story, which used to be a one-off toast) or **Not now.** His greeting changes once you've sparred, and again once you've beaten him.
 - After a match, leaving the mats brings his reply: different lines for a first win, a later win, a loss while he's going easy, and a loss after you've beaten him. Then **Again!** for a rematch or a parting line.

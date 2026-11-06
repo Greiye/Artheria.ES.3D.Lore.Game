@@ -50,9 +50,9 @@ export class FirstDay {
   get sideGamesOpen() { return !this.active; }
   get step(): DayStep | null { return this.active ? DAY_STEPS[this.state!.step] ?? null : null; }
 
-  /** A new profile's first Begin starts it; a profile part-way through picks it up again. */
-  begin(fresh: boolean) {
-    if (!this.state && fresh) { this.state = { step: 0, done: false }; this.save(); }
+  /** A profile part-way through picks it up again. Mike 2026-11-06: "Make it so that the players don't have a quest
+   *  when they start new game", so a new profile no longer starts one. */
+  begin() {
     this.upFor = 0;
     this.render();
   }
