@@ -83,6 +83,12 @@ const r8 = await G((before) => { const g = window.__gametool, f = g.floating;
   return { n: f.stones.length, outside: f.stones.every((s) => s.mesh.parent === g.world.scene && s.base.y > 8), shadows: f.shadows.parent === g.world.scene,
     moved: f.stones.filter((s, i) => Math.abs(s.mesh.position.y + s.mesh.rotation.y - before[i]) > 1e-4).length }; }, r8a);
 check('8 · floating broken stone (wall, arch, stair, column) above the library, drifting slowly, with soft shadows', r8.n === 7 && r8.outside && r8.shadows && r8.moved === 7, JSON.stringify(r8));
+// 9 · rare magic (about a tenth of what you see)
+const r9 = await G(() => { const g = window.__gametool, m = g.magic, add = (x) => x.material.blending === 2;
+  m.update(0.8); const turning = m.book.page.rotation.z > 0.1; m.update(5); const settled = m.book.page.rotation.z === 0;
+  return { runes: m.runes.length, circle: !!m.circle && m.circle.parent === g.library.group, book: turning && settled, motes: m.motes.geometry.attributes.position.count, hum: !!m.hum && g.floating.stones.some((s) => s.mesh.children.includes(m.hum)),
+    unlit: [...m.runes, m.circle, m.motes, m.hum].every(add), lights: [m.book.group, ...m.runes].some((o) => o.isLight || o.children?.some((c) => c.isLight)) }; });
+check('9 · rare magic: three rune stones, a scuffed rune circle, a book that turns its own pages, motes through the roof, a hum under a floating stone (no new lights)', r9.runes === 3 && r9.circle && r9.book && r9.motes >= 30 && r9.hum && r9.unlit && !r9.lights, JSON.stringify(r9));
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-8, 0, -38); pl.yaw = pl.bodyYaw = -2.3; pl.pitch = 0.1; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-ruin.png' });
