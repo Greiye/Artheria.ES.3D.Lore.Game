@@ -33,3 +33,10 @@
 .map-sights .map-ic { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #F4E6C0; color: #2B2418; font-size: 13px; }
 .map-sights li.locked .map-ic { background: #6E6455; color: #E9DCB8; }
 .map-pin-row button { flex: none; width: auto; }
+
+/* Mike 2026-11-06: right-click / long-press the map to add a note at that spot. */
+.map-canvas-wrap { position: relative; line-height: 0; }
+.map-note-pop { position: absolute; z-index: 2; width: 230px; padding: 8px; line-height: normal; background: rgba(34,27,20,.97); border: 2px solid #B08A4A; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+.map-note-pop input { width: 100%; box-sizing: border-box; }
+.map-note-btns { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+.map-note-btns button { padding: 6px 12px; font-size: 14px; white-space: nowrap; }
