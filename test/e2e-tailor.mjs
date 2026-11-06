@@ -34,7 +34,7 @@ check('The town calls it the Tailor & Barber-Surgeon', await G(page, () => windo
 await G(page, () => window.__gametool.townAct.tailor());
 await page.waitForSelector('#forge .fp-tab');
 const tabs = await G(page, () => ({ eyebrow: document.querySelector('#forge .eyebrow').textContent, tabs: [...document.querySelectorAll('#forge .fp-tab')].map((b) => b.textContent) }));
-check('Nine tabs: Who you are, Secret, Backstory, Body, Barber, Face, Tailor, Outfit, Surgeon', tabs.eyebrow === 'Tailor & Barber-Surgeon' && tabs.tabs.join() === 'Who you are,Secret,Backstory,Body,Barber,Face,Tailor,Outfit,Surgeon', JSON.stringify(tabs));
+check('Ten tabs: Profession (Mike 2026-11-06), Who you are, Secret, Backstory, Body, Barber, Face, Tailor, Outfit, Surgeon', tabs.eyebrow === 'Tailor & Barber-Surgeon' && tabs.tabs.join() === 'Profession,Who you are,Secret,Backstory,Body,Barber,Face,Tailor,Outfit,Surgeon', JSON.stringify(tabs));
 await tab('Barber');
 check('Barber: hair styles and colours', await G(page, () => !!document.querySelector('#forge section:not(.fp-hide) [data-f="hairStyle"]') && !!document.querySelector('#forge section:not(.fp-hide) [data-f="hair"]') && !document.querySelector('#forge section:not(.fp-hide) [data-f="primary"]')));
 await page.click('#forge [data-f="hairStyle"][data-v="topknot"]');

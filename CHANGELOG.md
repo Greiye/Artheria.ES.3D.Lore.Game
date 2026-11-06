@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 34: make your hero, with a profession (Mike 2026-11-06, "There's no character creation at new game" and "Character Creation: Give character choice of profession")
+- A new game now makes your hero: once you're up, you step to the camp mirror and the Tailor & Barber-Surgeon opens on a new first tab, **Profession**. Pick **Fighter**, **Ranger**, **Mage** or **Monk**; every other tab (name, story, body, hair, clothes) stays optional, and **Done** goes into play. No text box opens a phone keyboard by itself.
+- The profession is saved with the hero and shown in the panel's heading. Change it any time at the tailor or the mirror. Heroes made before this get a one-time note saying where to pick one.
+- What each profession does arrives one update at a time (each card says so until it's in): Fighter techniques on LB / RB and a steadying breath, the Ranger's crosshair, the Mage's magic missile from Magister Greer, the Monk's lock-on.
+- New `test/e2e-character-creation.mjs`; `test/e2e-tailor.mjs` counts the new tab.
+
 ### v0.16 changelog, part 57: no quest at the start (Mike 2026-11-06, "Make it so that the players don't have a quest when they start new game")
 - A new game no longer starts the guided first day: no goal card, no gold marker, and the side games (spar, sky run, dojo, the stairs down) are open from the start. A friend part-way through an old first day can finish it or skip it from the casebook.
 - `test/e2e-first-day.mjs` checks a new game starts with no quest.

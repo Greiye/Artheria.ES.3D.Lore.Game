@@ -388,6 +388,11 @@ async function begin() {
   setView('overhead');                          // v0.06 M7: every Begin starts in the overhead camera
   setState('play');                             // in the world immediately, even before lock resolves
   if (wakeIntro()) wakeUp(lastRest);            // B31: fade in on the player getting up from the bed or bedroll
+  if (!save && !character.profession && createIntro()) { createPending = true; if (!waking) setTimeout(openCreation, 300); }
+  else if (save && !character.profession && createIntro()) {
+    let told = false; try { told = !!localStorage.getItem('gametool.proftip'); } catch { /* blocked */ }
+    if (!told) { storeSet('gametool.proftip', '1'); setTimeout(() => toast('New: pick a profession for your hero (Fighter, Ranger, Mage or Monk) at the camp mirror or the tailor.', 6500), 2600); }
+  }
   if (firstDayOn()) firstDay.begin();            // B36: the rest of a first day begun before Mike 2026-11-06 (new games start with no quest)
   if (inviteCode) { const c = inviteCode; inviteCode = null; setTimeout(() => { if (state === 'play' && !friends.room) openFriends(c); }, 600); }
   // Mike 2026-10-30: Begin goes straight into the game. What's new moved to Extras (it read as a menu in the way).
@@ -448,6 +453,7 @@ function endWake() {
   waking = 0;
   if (stationPose === 'wake' || stationPose === 'wakeroll') { stationPose = null; rig.setShot(null); }
   $('sleepFade').classList.remove('on');
+  if (createPending) setTimeout(openCreation, 300);
 }
 for (const ev of ['keydown', 'pointerdown'] as const) window.addEventListener(ev, () => { if (waking && state === 'play') endWake(); }, true);
 let inWorld = false;   // v0.06: false at the main menu (and the screens opened from it), true from Begin until back at the menu
@@ -969,12 +975,29 @@ function openCharacterForge() {
     takeStation(spot, face, 'mirror');   // back to the glass, facing the camera
   } else { player.thirdPerson = true; stationPose = 'mirror'; }
   frameForge('body');
-  characterForge.who = { motivation: character.motivation, secret: character.secret };   // B22: "Who you are" lives here now
+  characterForge.who = { motivation: character.motivation, secret: character.secret, profession: character.profession };   // B22: "Who you are" lives here now
   characterForge.open(loadForge(character.name));
 }
 /** B22: the Journal's (and Gameplay's) "Who you are" opens the Tailor & Barber-Surgeon on that tab. */
 function openWhoYouAre() {
+  setPanelTab('Tailor & Barber-Surgeon', 1);
+  openCharacterForge();
+}
+// Mike 2026-11-06 ("There's no character creation at new game" + "Give character choice of profession"): a new hero
+// (no save, no profession yet) gets the Tailor & Barber-Surgeon on its Profession tab once the wake-up ends. Only the
+// profession is asked for; Done leaves everything else as it is. Test browsers skip it unless gametool.createtest = 'on'.
+let createPending = false;
+function createIntro() {
+  try { return !navigator.webdriver || localStorage.getItem('gametool.createtest') === 'on'; } catch { return !navigator.webdriver; }
+}
+function openCreation() {
+  createPending = false;
+  if (state !== 'play' || character.profession) return;
+  // Step up to the camp mirror first, so the hero stands in view while you make them.
+  const m = world.stations.mirror.position, ry = world.stations.mirror.rotation.y;
+  player.spawn(new THREE.Vector3(m.x + Math.sin(ry) * 1.6, 0, m.z + Math.cos(ry) * 1.6), ry + Math.PI);
   setPanelTab('Tailor & Barber-Surgeon', 0);
+  characterForge.creating = true;
   openCharacterForge();
 }
 // B5; Mike 2026-11-05: the weapon you're forging shows large in the middle of the free screen (src/forge/preview.ts),
@@ -1580,7 +1603,7 @@ function newHero(note: string) {
   clearGame();
   try { localStorage.removeItem(REGION_KEY); } catch { /* blocked */ }
   record.heroes++; saveRecord(record);
-  character = { ...character, name: '', created: false }; saveCharacter(character);
+  character = { ...character, name: '', created: false, profession: '' }; saveCharacter(character);
   player.spawn(world.spawn.pos, world.spawn.yaw);
   delveHp = DELVE_HP;
   if (hasGift(record.delivered, 'purse')) inventory.give(CROWN, 20);

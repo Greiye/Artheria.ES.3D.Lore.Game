@@ -73,3 +73,11 @@
   .forge-panel .field > :is(input, textarea, select) { grid-column: 2; grid-row: 1 / span 2; }
   .forge-panel .fine { margin: 2px 0; }
 }
+
+/* Mike 2026-11-06: profession cards on the first tab of the Tailor & Barber-Surgeon (and at a new game). */
+.fg-welcome { margin: 0 0 10px; }
+.fg-profs { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.fg-prof { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: start; text-align: left; padding: 10px; border-radius: 8px; border: 2px solid rgba(176,138,74,.45); background: rgba(255,255,255,.04); color: inherit; cursor: pointer; }
+.fg-prof .fg-prof-ic { grid-row: span 2; font-size: 24px; line-height: 1; }
+.fg-prof .fine { grid-column: 2; }
+.fg-prof.on { border-color: #E0B060; background: rgba(224,176,96,.16); box-shadow: 0 0 0 2px rgba(224,176,96,.35); }
