@@ -3,6 +3,7 @@ import { Painter } from './decor';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { rng } from '../tex/pixel';
 import type { Collider } from './index';
+import { leafMaterial } from './foliage';
 
 // Mike 2026-11-06 (Graphics thread, "All"): the Ruined Library looks its age. Mostly ruin and goblin life, with a
 // little magic (about one thing in ten). Every kind is low-poly 3D in flat vertex colours, merged into one mesh per
@@ -448,4 +449,73 @@ export function buildGoblinLife(group: THREE.Object3D, colliders: Collider[], fl
   const g = GL.mesh(group as THREE.Scene, 'library-goblin-glow');
   if (g) { g.material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }); g.castShadow = false; g.raycast = () => {}; }
   return { pieces: P.count, glow: GL.count, spots, throne: throneAt };
+}
+
+// ---------- 6 · 2D quad ivy and plants ----------
+// Mike 2026-11-06: "Add 2d quad ivy and plants." Painted cut-out quads (our own leaves, ferns and grass textures,
+// alpha-tested, swaying in the shared wind): ivy curtains down the inside walls, vines hanging through the holes in
+// the ceiling, ferns and grass in the floor's cracks and round the rubble, more where the sky comes in, and a
+// fringe of growth round the outside of the hall. Three merged meshes (one per texture) inside, three outside.
+export function buildQuadPlants(group: THREE.Object3D, scene: THREE.Scene, floor: Floor, holes: { x: number; z: number }[]): { inside: number; outside: number } {
+  const R = rng(8080);
+  const parts = { leaves: [] as THREE.BufferGeometry[], fern: [] as THREE.BufferGeometry[], grassBlades: [] as THREE.BufferGeometry[] };
+  const out = { leaves: [] as THREE.BufferGeometry[], fern: [] as THREE.BufferGeometry[], grassBlades: [] as THREE.BufferGeometry[] };
+  type K = keyof typeof parts;
+  const quad = (bag: typeof parts, k: K, w: number, h: number, at: THREE.Vector3, ry: number, rx = 0, anchorTop = false) => {
+    const g = new THREE.PlaneGeometry(w, h).translate(0, anchorTop ? -h / 2 : h / 2, 0);
+    g.applyMatrix4(new THREE.Matrix4().compose(at, new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0, 'YXZ')), new THREE.Vector3(1, 1, 1)));
+    bag[k].push(g);
+  };
+  const tuft = (bag: typeof parts, k: K, x: number, z: number, s: number) => { const a = R() * Math.PI; for (let i = 0; i < 2; i++) quad(bag, k, s * 1.1, s, V(x, 0.01, z), a + i * Math.PI / 2); };
+  // Ivy curtains down the inside walls, from the top or from a hole, in the gaps between the high cases.
+  const faces = [
+    { o: V(HALL.minX + 0.03, 0, HALL.front), along: V(0, 0, -1), ry: Math.PI / 2, len: HALL.front - HALL.back },
+    { o: V(HALL.maxX - 0.03, 0, HALL.back), along: V(0, 0, 1), ry: -Math.PI / 2, len: HALL.front - HALL.back },
+    { o: V(HALL.minX, 0, HALL.back + 0.03), along: V(1, 0, 0), ry: 0, len: HALL.maxX - HALL.minX },
+    { o: V(HALL.maxX, 0, HALL.front - 0.03), along: V(-1, 0, 0), ry: Math.PI, len: HALL.maxX - HALL.minX },
+  ];
+  for (const f of faces) for (let i = 0; i < Math.round(f.len / 2.2); i++) {
+    const t = 0.6 + R() * (f.len - 1.2), h = 2 + R() * 4.5, w = 0.6 + R() * 1.1;
+    quad(parts, R() < 0.8 ? 'leaves' : 'fern', w, h, f.o.clone().addScaledVector(f.along, t).setY(HALL.h - 0.1 - R() * 0.6), f.ry, 0, true);
+  }
+  // Vines through the ceiling: long strands hanging from each hole, a leafy tangle round its rim.
+  for (const h of holes) {
+    for (let k = 0; k < 5; k++) {
+      const x = h.x + (R() - 0.5) * 1.6, z = h.z + (R() - 0.5) * 1.6, len = 1.5 + R() * 3.2, ry = R() * Math.PI;
+      quad(parts, 'leaves', 0.35 + R() * 0.3, len, V(x, HALL.h, z), ry, 0, true);
+      quad(parts, 'leaves', 0.35 + R() * 0.3, len * 0.8, V(x, HALL.h, z), ry + Math.PI / 2, 0, true);
+    }
+    // Where the sky comes in, things grow: a patch of grass and ferns on the floor below the hole.
+    for (let k = 0; k < 7; k++) { const x = h.x + (R() - 0.5) * 2.4, z = h.z + (R() - 0.5) * 2.4; if (floor.free(x, z, 0.15, 0.2) || R() < 0.3) tuft(parts, R() < 0.5 ? 'grassBlades' : 'fern', x, z, 0.35 + R() * 0.4); }
+  }
+  // Grass and ferns in the floor's cracks, at the walls' foot and round the rubble.
+  for (let k = 0; k < 90; k++) {
+    const wallFoot = R() < 0.5;
+    const x = wallFoot ? (R() < 0.5 ? HALL.minX + 0.5 + R() * 0.5 : HALL.maxX - 0.5 - R() * 0.5) : (R() * 2 - 1) * 11.5;
+    const z = wallFoot && R() < 0.3 ? (R() < 0.5 ? HALL.back + 0.5 : HALL.front - 0.5) : HALL.front - 0.6 - R() * 22.4;
+    if (Math.abs(x) < 1.3) continue;
+    tuft(parts, R() < 0.6 ? 'grassBlades' : 'fern', x, z, 0.22 + R() * 0.35);
+  }
+  // Outside: a fringe of ferns and grass along the hall's walls, and ivy hanging off the top of the front.
+  for (let k = 0; k < 70; k++) {
+    const side = Math.floor(R() * 3);
+    const x = side === 0 ? HALL.minX - 1.2 - R() * 0.8 : side === 1 ? HALL.maxX + 1.2 + R() * 0.8 : (R() * 2 - 1) * 12.5;
+    const z = side === 2 ? HALL.back - 1.2 - R() * 0.8 : HALL.front - R() * 23;
+    tuft(out, R() < 0.5 ? 'fern' : 'grassBlades', x, z, 0.4 + R() * 0.6);
+  }
+  for (let k = 0; k < 10; k++) { const x = (R() < 0.5 ? -1 : 1) * (3 + R() * 9); quad(out, 'leaves', 0.7 + R() * 1.2, 1.5 + R() * 3, V(x, 8.6, HALL.front + 0.48), 0, 0, true); }
+
+  const mats = new Map<K, THREE.Material>();
+  const mat = (k: K) => mats.get(k) ?? (mats.set(k, (() => { const m = leafMaterial(k); m.side = THREE.DoubleSide; return m; })()), mats.get(k)!);
+  let inside = 0, outside = 0;
+  for (const [bag, parent, name] of [[parts, group, 'library-plants'], [out, scene, 'library-plants-outside']] as const) {
+    for (const k of Object.keys(bag) as K[]) {
+      if (!bag[k].length) continue;
+      const m = new THREE.Mesh(mergeGeometries(bag[k]), mat(k));
+      m.name = `${name}-${k}`; m.raycast = () => {}; m.castShadow = false; m.receiveShadow = true;
+      parent.add(m);
+      if (parent === group) inside += bag[k].length; else outside += bag[k].length;
+    }
+  }
+  return { inside, outside };
 }

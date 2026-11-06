@@ -64,6 +64,10 @@ check('5 · stone stairs go down where the trapdoor was ("Go down the stairs"), 
 await G(() => { const g = window.__gametool, S = g.STAIRS, pl = g.player; pl.pos.set(S.x, 0, S.top + 1.4); pl.yaw = pl.bodyYaw = 0; pl.pitch = -0.6; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-stairs.png' });
+// 6 · 2D quad ivy and plants
+const r6 = await G(() => { const g = window.__gametool, inside = g.library.group.children.filter((c) => c.name.startsWith('library-plants-')), outside = g.world.scene.children.filter((c) => c.name.startsWith('library-plants-outside'));
+  return { quads: g.quadPlants, inside: inside.length, outside: outside.length, cut: inside.every((m) => m.material.alphaTest > 0 && m.material.side === 2) }; });
+check('6 · cut-out ivy and plants: curtains, vines through the holes, tufts in the cracks, a fringe outside (3 + 3 meshes)', r6.quads.inside > 250 && r6.quads.outside > 100 && r6.inside === 3 && r6.outside === 3 && r6.cut, JSON.stringify(r6));
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-8, 0, -38); pl.yaw = pl.bodyYaw = -2.3; pl.pitch = 0.1; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-ruin.png' });

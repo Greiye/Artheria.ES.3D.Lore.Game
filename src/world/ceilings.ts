@@ -13,6 +13,13 @@ export const ROOFED: Record<'library' | 'gallery', Roofed> = {
   gallery: { minX: GALLERY.minX, maxX: GALLERY.maxX, minZ: GALLERY.minZ, maxZ: GALLERY.maxZ, y: 3.22 },   // under the lintel
 };
 
+// The library ceiling's fallen panels (13 x 12 grid of 2 m panels), and their centres (plants hang from them).
+const LIB_HOLES = ['1,2', '2,2', '4,6', '5,6', '5,7', '9,3', '10,9', '2,9', '7,4'];
+export function libraryHoles(): { x: number; z: number }[] {
+  const L = ROOFED.library, PW = (L.maxX - L.minX) / 13, PD = (L.maxZ - L.minZ) / 12;
+  return LIB_HOLES.map((k) => { const [i, j] = k.split(',').map(Number); return { x: L.minX + (i + 0.5) * PW, z: L.minZ + (j + 0.5) * PD }; });
+}
+
 /** The hall whose ceiling is over (x, z), if any. */
 export function roofOver(x: number, z: number, pad = 0): Roofed | null {
   for (const r of Object.values(ROOFED)) if (x > r.minX - pad && x < r.maxX + pad && z > r.minZ - pad && z < r.maxZ + pad) return r;
@@ -30,7 +37,7 @@ export function buildCeilings(scene: THREE.Scene): THREE.Mesh[] {
   const L = ROOFED.library, G = ROOFED.gallery;
   // Mike 2026-11-06 (the library's ruin pass): the library's ceiling has fallen in places. It's laid as 2 m panels
   // with a few missing (fixed, seeded), splintered boards hanging at the edges of each hole, and sky beyond.
-  const holes = new Set(['1,2', '2,2', '4,6', '5,6', '5,7', '9,3', '10,9', '2,9', '7,4']);
+  const holes = new Set(LIB_HOLES);
   const PW = (L.maxX - L.minX) / 13, PD = (L.maxZ - L.minZ) / 12;
   for (let i = 0; i < 13; i++) for (let j = 0; j < 12; j++) {
     const cx = L.minX + (i + 0.5) * PW, cz = L.minZ + (j + 0.5) * PD;
