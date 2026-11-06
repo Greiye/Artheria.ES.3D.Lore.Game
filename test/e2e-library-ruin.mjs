@@ -76,6 +76,13 @@ const r7 = await G(() => { const g = window.__gametool, f = g.flood, wet = g.lib
   const wetCamp = [...g.goblinLife.spots, ...g.goblinSigns.spots].filter((s) => f.pools.some((q) => Math.hypot(s.x - q.x, s.z - q.z) < q.r * 0.7)).length;
   return { pools: f.pools.length, water: f.water.parent === g.library.group && f.water.material.transparent, wet: !!wet, waded: p.pos.x < P0.x, wetCamp }; });
 check('7 · shallow flood: pools of still water with wet edges and half-sunk bookcases; you can wade; the camp stays dry', r7.pools >= 3 && r7.water && r7.wet && r7.waded && r7.wetCamp === 0, JSON.stringify(r7));
+// 8 · floating broken stone outside
+const r8a = await G(() => window.__gametool.floating.stones.map((s) => s.mesh.position.y + s.mesh.rotation.y));
+await page.waitForTimeout(800);
+const r8 = await G((before) => { const g = window.__gametool, f = g.floating;
+  return { n: f.stones.length, outside: f.stones.every((s) => s.mesh.parent === g.world.scene && s.base.y > 8), shadows: f.shadows.parent === g.world.scene,
+    moved: f.stones.filter((s, i) => Math.abs(s.mesh.position.y + s.mesh.rotation.y - before[i]) > 1e-4).length }; }, r8a);
+check('8 · floating broken stone (wall, arch, stair, column) above the library, drifting slowly, with soft shadows', r8.n === 7 && r8.outside && r8.shadows && r8.moved === 7, JSON.stringify(r8));
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-8, 0, -38); pl.yaw = pl.bodyYaw = -2.3; pl.pitch = 0.1; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-ruin.png' });
