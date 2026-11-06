@@ -45,7 +45,7 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
   const line = await page.evaluate(() => window.__gametool.companion.lastLine);
   check('Natalie points the way to the stories', /Library/.test(line), line);
   // The side games wait: the prompt says so, and using it doesn't start the game.
-  const gated = await page.evaluate(() => { const g = window.__gametool, it = g.interactables.find((i) => /Spar with Kavik/.test(i.verb())); const v = it.verb(); it.act(); return { v, state: g.state }; });
+  const gated = await page.evaluate(() => { const g = window.__gametool, it = g.interactables.find((i) => /Talk to Kavik/.test(i.verb())); const v = it.verb(); it.act(); return { v, state: g.state }; });
   check('Side games wait for the first day (spar shows "after your first day" and stays shut)', /after your first day/.test(gated.v) && gated.state === 'play', JSON.stringify(gated));
   await page.evaluate(() => window.__gametool.townAct.library());
   const r = await stepIs(page, 'write');
@@ -68,7 +68,7 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
   const d4 = await day(page);
   const coins1 = await page.evaluate(() => window.__gametool.purse.crowns);
   check('The campfire ends the day: done, marker and card gone, a reward', d4.state.done && !d4.state.skipped && !d4.marker && d4.step === null && (coins0 === null || coins1 > coins0), `${JSON.stringify(d4.state)} coins ${coins0}→${coins1}`);
-  const open = await page.evaluate(() => window.__gametool.interactables.find((i) => /Spar with Kavik/.test(i.verb())).verb());
+  const open = await page.evaluate(() => window.__gametool.interactables.find((i) => /Talk to Kavik/.test(i.verb())).verb());
   check('After the first day the side games open', !/after your first day/.test(open), open);
   await page.evaluate(() => window.__gametool.campfire.close());
   await page.reload();
