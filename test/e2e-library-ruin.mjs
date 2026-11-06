@@ -41,6 +41,9 @@ check('2 · the lore shelves are untouched (every red book still on its shelf)',
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-5, 0, -26); pl.yaw = pl.bodyYaw = -1.4; pl.pitch = 0.45; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-books.png' });
+// 3 · goblin signs
+const r3 = await G(() => { const g = window.__gametool, m = g.library.group.getObjectByName('library-goblin-signs'); return { mesh: !!m, pieces: g.goblinSigns.pieces, spots: g.goblinSigns.spots.length }; });
+check('3 · goblins moved in: bedrolls, bones, a cart wheel and chalk tallies (one mesh)', r3.mesh && r3.pieces > 150 && r3.spots >= 8, JSON.stringify(r3));
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-8, 0, -38); pl.yaw = pl.bodyYaw = -2.3; pl.pitch = 0.1; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-ruin.png' });

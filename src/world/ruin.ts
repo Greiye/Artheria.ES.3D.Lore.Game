@@ -225,3 +225,72 @@ export function buildWallBooks(group: THREE.Object3D): { cases: number; rows: nu
   if (wood) wood.raycast = () => {};
   return { cases, rows: strips.length, mesh };
 }
+
+// ---------- 3 · Goblin signs: they've moved in ----------
+// Bedrolls of sacking and straw, gnawed bones, a cart wheel they dragged in, and tally marks scratched in chalk on
+// the walls (someone is counting something). One merged mesh.
+export function buildGoblinSigns(group: THREE.Object3D, colliders: Collider[], floor: Floor): { pieces: number; spots: Keep[] } {
+  const R = rng(6060), P = new Painter(6061), pick = <T,>(a: T[]) => a[Math.floor(R() * a.length)];
+  const spots: Keep[] = [];
+  const place = (r: number, tries = 300, wallGap = 0.5): [number, number] | null => {
+    for (let i = 0; i < tries; i++) {
+      const x = (R() < 0.5 ? -1 : 1) * (2.4 + R() * 9.2), z = HALL.front - 3.5 - R() * 19;
+      if (floor.free(x, z, r, wallGap)) { floor.take(x, z, r); spots.push({ x, z, r }); return [x, z]; }
+    }
+    return null;
+  };
+  const SACK = ['#8A7656', '#7A6A4E', '#6E5E44', '#94805C'], STRAW = ['#C9A85A', '#B8964A', '#D4B868'], BONE = ['#E4DCC8', '#D8CDB4', '#CFC2A6'];
+  // Bedrolls: a lumpy sack mattress on a scatter of straw, a rolled blanket at the head.
+  for (let n = 0; n < 5; n++) {
+    const at = place(1.0); if (!at) break;
+    const [x, z] = at, ry = R() * Math.PI * 2, c = Math.cos(ry), s = Math.sin(ry), L = (a: number, b: number, y: number) => V(x + a * c + b * s, y, z - a * s + b * c);
+    for (let i = 0; i < 14; i++) P.add(new THREE.BoxGeometry(0.4 + R() * 0.3, 0.02, 0.03), pick(STRAW), L((R() - 0.5) * 1.8, (R() - 0.5) * 1.2, 0.012), ry + R() * 3);
+    P.add(new THREE.BoxGeometry(1.25, 0.1, 0.62).translate(0, 0.05, 0), pick(SACK), L(0, 0, 0.02), ry, 0, 0.03);
+    P.add(new THREE.CylinderGeometry(0.13, 0.13, 0.6, 7).rotateX(Math.PI / 2).rotateY(Math.PI / 2), pick(SACK), L(-0.55, 0, 0.17), ry);
+    if (R() < 0.6) P.add(new THREE.BoxGeometry(0.7, 0.03, 0.55), pick(['#6A2A22', '#3E4A5A', '#5A4A2A']), L(0.25, 0.05, 0.12), ry + 0.15, 0, 0.05);   // a stolen blanket
+  }
+  // Bones: little heaps of gnawed bones and a skull or two near the bedrolls and in corners.
+  const bone = (len: number) => {
+    const g = new THREE.CylinderGeometry(0.018, 0.018, len, 5).rotateZ(Math.PI / 2);
+    return mergeGeometries([g, new THREE.SphereGeometry(0.035, 5, 4).translate(-len / 2, 0, 0), new THREE.SphereGeometry(0.035, 5, 4).translate(len / 2, 0, 0)].map((q) => { q.deleteAttribute('uv'); return q.index ? q.toNonIndexed() : q; }));
+  };
+  for (let n = 0; n < 7; n++) {
+    const at = place(0.5, 200, 0.2); if (!at) break;
+    const [x, z] = at;
+    for (let i = 0; i < 6 + R() * 6; i++) P.add(bone(0.18 + R() * 0.22), pick(BONE), V(x + (R() - 0.5) * 0.7, 0.03 + R() * 0.05, z + (R() - 0.5) * 0.7), R() * 6, 0, (R() - 0.5) * 0.4);
+    if (R() < 0.5) {   // a skull: a squashed sphere with dark sockets
+      const sx = x + (R() - 0.5) * 0.3, sz = z + (R() - 0.5) * 0.3, ry = R() * 6;
+      P.add(new THREE.SphereGeometry(0.11, 7, 5).scale(1, 0.85, 1.15), pick(BONE), V(sx, 0.09, sz), ry);
+      for (const e of [-1, 1]) P.add(new THREE.SphereGeometry(0.028, 5, 4), '#2A221C', V(sx + Math.cos(ry) * e * 0.045 + Math.sin(ry) * 0.1, 0.1, sz - Math.sin(ry) * e * 0.045 + Math.cos(ry) * 0.1), ry);
+    }
+  }
+  // A cart wheel, dragged in and propped against a wall (the cart's long gone).
+  { const at = place(0.9, 300, 0.2);
+    if (at) {
+      const [x0, z0] = at, wallX = x0 < 0 ? HALL.minX : HALL.maxX, x = wallX + (x0 < 0 ? 0.35 : -0.35), z = z0, ry = Math.PI / 2;
+      const rim = new THREE.TorusGeometry(0.62, 0.05, 5, 14);
+      P.add(rim, '#5A3E26', V(x, 0.66, z), ry, 0, x0 < 0 ? 0.25 : -0.25);
+      P.add(new THREE.CylinderGeometry(0.1, 0.1, 0.16, 8).rotateX(Math.PI / 2), '#4A321F', V(x, 0.66, z), ry, 0, x0 < 0 ? 0.25 : -0.25);
+      for (let k = 0; k < 8; k++) P.add(new THREE.BoxGeometry(0.04, 1.2, 0.04), '#6B4A2E', V(x, 0.66, z), ry, 0, k * Math.PI / 8 + (x0 < 0 ? 0.25 : -0.25));
+      colliders.push({ kind: 'circle', x, z, r: 0.35 });
+    } }
+  // Tally marks in chalk on the walls: groups of four strokes and a slash, in rows, at goblin height.
+  const chalk = '#E8E4D8';
+  const tallies = (o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, t: number, y: number, count: number) => {
+    const ry = Math.atan2(n.x, n.z);
+    let a = 0;
+    for (let i = 0; i < count; i++) {
+      const g = i % 5, base = o.clone().addScaledVector(along, t + a).addScaledVector(n, 0.012).setY(y);
+      if (g < 4) { P.add(new THREE.PlaneGeometry(0.025, 0.22), chalk, base.clone().addScaledVector(along, g * 0.06), ry, 0, (R() - 0.5) * 0.15); }
+      else { P.add(new THREE.PlaneGeometry(0.025, 0.3), chalk, base.clone().addScaledVector(along, 0.09), ry, 0, -1.1); a += 0.36; }
+    }
+  };
+  const W = HALL.maxX - HALL.minX, Lz = HALL.front - HALL.back;
+  tallies(V(HALL.minX, 0, HALL.back), V(1, 0, 0), V(0, 0, 1), 8.2, 1.05, 23);
+  tallies(V(HALL.minX, 0, HALL.back), V(1, 0, 0), V(0, 0, 1), 8.2, 0.75, 17);
+  tallies(V(HALL.maxX, 0, HALL.front), V(-1, 0, 0), V(0, 0, -1), W - 8.6, 1.1, 32);
+  tallies(V(HALL.minX, 0, HALL.front), V(0, 0, -1), V(1, 0, 0), Lz - 0.35, 1.6, 9);   // squeezed in at a back corner
+  const m = P.mesh(group as THREE.Scene, 'library-goblin-signs');
+  if (m) m.raycast = () => {};
+  return { pieces: P.count, spots };
+}
