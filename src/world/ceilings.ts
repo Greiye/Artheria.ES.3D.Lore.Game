@@ -28,7 +28,18 @@ export function buildCeilings(scene: THREE.Scene): THREE.Mesh[] {
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
   const plane = (r: Roofed) => B.add(planks, new THREE.PlaneGeometry(r.maxX - r.minX, r.maxZ - r.minZ).rotateX(Math.PI / 2), V((r.minX + r.maxX) / 2, r.y, (r.minZ + r.maxZ) / 2));
   const L = ROOFED.library, G = ROOFED.gallery;
-  plane(L);
+  // Mike 2026-11-06 (the library's ruin pass): the library's ceiling has fallen in places. It's laid as 2 m panels
+  // with a few missing (fixed, seeded), splintered boards hanging at the edges of each hole, and sky beyond.
+  const holes = new Set(['1,2', '2,2', '4,6', '5,6', '5,7', '9,3', '10,9', '2,9', '7,4']);
+  const PW = (L.maxX - L.minX) / 13, PD = (L.maxZ - L.minZ) / 12;
+  for (let i = 0; i < 13; i++) for (let j = 0; j < 12; j++) {
+    const cx = L.minX + (i + 0.5) * PW, cz = L.minZ + (j + 0.5) * PD;
+    if (!holes.has(`${i},${j}`)) { B.add(planks, new THREE.PlaneGeometry(PW, PD).rotateX(Math.PI / 2), V(cx, L.y, cz)); continue; }
+    for (let k = 0; k < 3; k++) {   // splinters hanging into the hole
+      const sx = cx + (k - 1) * PW * 0.3, len = 0.4 + ((i * 7 + j * 3 + k * 5) % 5) * 0.15;
+      B.add(planks, new THREE.BoxGeometry(0.22, 0.04, len), V(sx, L.y - len * 0.35, cz - PD / 2 + len * 0.35), undefined, 0, 0.8 + k * 0.1);
+    }
+  }
   for (let x = L.minX + 2.6; x < L.maxX - 1; x += 3.2) B.box(beam, V(x, L.y - 0.24, (L.minZ + L.maxZ) / 2), 0.4, 0.46, L.maxZ - L.minZ - 0.6);
   plane(G);
   for (let z = G.minZ + 1.75; z < G.maxZ - 1; z += 1.75) B.box(beam, V((G.minX + G.maxX) / 2 + 0.4, G.y - 0.1, z), G.maxX - G.minX - 0.8, 0.2, 0.22);

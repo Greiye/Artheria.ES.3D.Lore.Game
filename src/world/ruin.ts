@@ -1,0 +1,147 @@
+import * as THREE from 'three';
+import { Painter } from './decor';
+import { rng } from '../tex/pixel';
+import type { Collider } from './index';
+
+// Mike 2026-11-06 (Graphics thread, "All"): the Ruined Library looks its age. Mostly ruin and goblin life, with a
+// little magic (about one thing in ten). Every kind is low-poly 3D in flat vertex colours, merged into one mesh per
+// kind (src/world/decor.ts Painter), so the whole pass costs a handful of draw calls and stays cheap on phones.
+// Inside pieces join the library's group, so they only draw when the camera is near the hall (main.ts).
+
+/** Inner faces of the hall's walls (src/library.ts HALL) and its height (world/index.ts LIB). */
+export const HALL = { minX: -12.6, maxX: 12.6, front: -18.4, back: -41.6, h: 8.35 };
+
+/** Spots that must stay clear: things you use (their position and a radius). */
+export interface Keep { x: number; z: number; r: number }
+
+const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+
+/** Is (x, z) inside the hall, off the walk lines and clear of furniture, things you use, and what's placed already? */
+export class Floor {
+  readonly taken: Keep[] = [];
+  constructor(private colliders: Collider[], private keep: Keep[]) {}
+  free(x: number, z: number, r: number, wallGap = 0.5): boolean {
+    if (x - r < HALL.minX + wallGap || x + r > HALL.maxX - wallGap || z + r > HALL.front - wallGap || z - r < HALL.back + wallGap) return false;
+    if (Math.abs(x) < 1.7 + r) return false;                       // the aisle, door to altar
+    if (z > HALL.front - 3.2 && Math.abs(x) < 3.5 + r) return false;   // inside the door
+    for (const k of [...this.keep, ...this.taken]) if (Math.hypot(x - k.x, z - k.z) < k.r + r) return false;
+    for (const c of this.colliders) {
+      if (c.kind === 'circle') { if (Math.hypot(x - c.x, z - c.z) < c.r + r) return false; continue; }
+      const wall = c.maxX - c.minX > 20 || c.maxZ - c.minZ > 20;   // the hall's own walls (handled above)
+      if (wall) continue;
+      if (x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ) return false;
+    }
+    return true;
+  }
+  take(x: number, z: number, r: number) { this.taken.push({ x, z, r }); }
+}
+
+const STONE = ['#77706A', '#6A645F', '#827B73', '#5E5954'];
+const MOSS = ['#4F6B34', '#5C7A3A', '#3F5A2C'];
+const WOOD = ['#5A3E26', '#6B4A2E', '#4A321F'];
+
+/** 1 · The ruin pass: fallen stone, broken shelves, cracked and holed walls, a fallen beam, scorch and grit. */
+export function buildRuin(group: THREE.Object3D, colliders: Collider[], floor: Floor): { pieces: number } {
+  const R = rng(4711), pick = <T,>(a: T[]) => a[Math.floor(R() * a.length)];
+  const P = new Painter(4712);
+  const rock = (s: number) => new THREE.DodecahedronGeometry(s, 0).scale(1, 0.62 + R() * 0.3, 0.8 + R() * 0.4);
+  const block = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+  /** A ragged hole outline (a jittered disc in the XY plane). */
+  const jagged = (w: number, h: number) => {
+    const g = new THREE.CircleGeometry(0.5, 9), p = g.attributes.position as THREE.BufferAttribute;
+    for (let i = 1; i < p.count; i++) { const k = 0.7 + R() * 0.5; p.setXY(i, p.getX(i) * k, p.getY(i) * k); }
+    return g.scale(w, h, 1);
+  };
+
+  // Rubble heaps where the upper walls came down: big blocks, a skirt of smaller stones, a little moss.
+  const heaps: [number, number][] = [];
+  for (let tries = 0; heaps.length < 7 && tries < 400; tries++) {
+    const sideWall = R() < 0.65, x = sideWall ? (R() < 0.5 ? HALL.minX + 1.4 + R() * 2.2 : HALL.maxX - 1.4 - R() * 2.2) : (R() * 2 - 1) * 9;
+    const z = sideWall ? HALL.front - 3 - R() * 20 : (R() < 0.5 ? HALL.back + 1.6 : HALL.front - 4.2);
+    if (!floor.free(x, z, 1.3, 0.3)) continue;
+    floor.take(x, z, 1.5); heaps.push([x, z]);
+    for (let i = 0; i < 3; i++) {
+      const w = 0.6 + R() * 0.7, h = 0.35 + R() * 0.35, d = 0.4 + R() * 0.4;
+      P.add(block(w, h, d), pick(STONE), V(x + (R() - 0.5) * 1.1, h / 2 + i * 0.12, z + (R() - 0.5) * 1.1), R() * 6, (R() - 0.5) * 0.4, (R() - 0.5) * 0.4);
+    }
+    for (let i = 0; i < 12; i++) { const s = 0.08 + R() * 0.2, a = R() * Math.PI * 2, d = 0.7 + R() * 0.9; P.add(rock(s), pick(STONE), V(x + Math.cos(a) * d, s * 0.4, z + Math.sin(a) * d), R() * 6); }
+    for (let i = 0; i < 4; i++) P.add(new THREE.BoxGeometry(0.3 + R() * 0.4, 0.04, 0.3 + R() * 0.4), pick(MOSS), V(x + (R() - 0.5) * 1.2, 0.5 + R() * 0.2, z + (R() - 0.5) * 1.2), R() * 6, (R() - 0.5) * 0.4);
+    colliders.push({ kind: 'circle', x, z, r: 0.9, top: 0.75 });
+  }
+
+  // Toppled bookcases: a frame on its back or side, its shelves snapped, planks spilled.
+  for (let n = 0, tries = 0; n < 3 && tries < 300; tries++) {
+    const x = (R() < 0.5 ? -1 : 1) * (3.5 + R() * 6), z = HALL.front - 5 - R() * 17, ry = (R() < 0.5 ? 0 : Math.PI / 2) + (R() - 0.5) * 0.5;
+    if (!floor.free(x, z, 1.6)) continue;
+    floor.take(x, z, 1.7); n++;
+    const w = pick(WOOD), lean = R() < 0.5;
+    const frame = new THREE.Group();
+    // On its back (lean = false) or tipped against a heap of its own books (lean = true).
+    const tilt = lean ? 0.35 : Math.PI / 2 - 0.04;
+    const c = Math.cos(ry), s = Math.sin(ry), at = (lx: number, ly: number, lz: number) => V(x + lx * c + lz * s, ly, z - lx * s + lz * c);
+    P.add(block(2.6, 0.06, 0.45), w, at(0, 0.24 + (lean ? 0.4 : 0), 0), ry, 0, lean ? tilt : 0);
+    for (const e of [-1.27, 1.27]) P.add(block(0.06, lean ? 0.9 : 0.45, 0.45), w, at(e, lean ? 0.45 : 0.24, 0), ry, 0, lean ? tilt : 0);
+    P.add(block(1.1, 0.05, 0.42), w, at(-0.6, 0.06, 0.1), ry + 0.2, 0, 0.1);   // a snapped shelf
+    for (let i = 0; i < 5; i++) P.add(block(0.5 + R() * 0.7, 0.04, 0.08 + R() * 0.06), pick(WOOD), at((R() - 0.5) * 2.4, 0.03, (R() - 0.5) * 1.4), ry + R() * 3);
+    void frame;
+    colliders.push({ kind: 'circle', x, z, r: 1.2, top: 0.5 });
+  }
+
+  // Cracked walls: dark zig-zag cracks and holes where bricks fell out, on all four inner faces.
+  const crack = (o: THREE.Vector3, along: THREE.Vector3, n: THREE.Vector3, len: number) => {
+    let p = o.clone();
+    const up = V(0, 1, 0), segs = 4 + Math.floor(R() * 4), ry = Math.atan2(n.x, n.z);
+    for (let i = 0; i < segs; i++) {
+      const d = len / segs, ang = (R() - 0.5) * 1.2 - Math.PI / 2;   // mostly downward, wandering
+      const step = along.clone().multiplyScalar(Math.cos(ang) * d * 0.6).addScaledVector(up, Math.sin(ang) * d);
+      const mid = p.clone().addScaledVector(step, 0.5).addScaledVector(n, 0.02);
+      P.add(new THREE.PlaneGeometry(0.025 + R() * 0.025, step.length() + 0.03), '#3B2F27', mid, ry, 0, -Math.atan2(step.dot(along), -step.y));
+      p = p.add(step);
+    }
+  };
+  const faces: { o: THREE.Vector3; along: THREE.Vector3; n: THREE.Vector3; len: number }[] = [
+    { o: V(HALL.minX, 0, HALL.front), along: V(0, 0, -1), n: V(1, 0, 0), len: HALL.front - HALL.back },
+    { o: V(HALL.maxX, 0, HALL.back), along: V(0, 0, 1), n: V(-1, 0, 0), len: HALL.front - HALL.back },
+    { o: V(HALL.maxX, 0, HALL.front), along: V(-1, 0, 0), n: V(0, 0, -1), len: HALL.maxX - HALL.minX },
+    { o: V(HALL.minX, 0, HALL.back), along: V(1, 0, 0), n: V(0, 0, 1), len: HALL.maxX - HALL.minX },
+  ];
+  for (const f of faces) {
+    for (let i = 0; i < Math.round(f.len / 4); i++) crack(f.o.clone().addScaledVector(f.along, 1 + R() * (f.len - 2)).setY(3.2 + R() * 4.5), f.along, f.n, 1.2 + R() * 2.2);
+    for (let i = 0; i < Math.round(f.len / 7); i++) {   // missing bricks: a dark recess and a few loose bricks below it
+      const t = 1.5 + R() * (f.len - 3), y = 3 + R() * 4.6, at = f.o.clone().addScaledVector(f.along, t).setY(y).addScaledVector(f.n, 0.015);
+      const w = 0.4 + R() * 0.7, h = 0.3 + R() * 0.35, ry = Math.atan2(f.n.x, f.n.z);
+      P.add(jagged(w, h), '#2A2320', at, ry);
+      P.add(jagged(w + 0.16, h + 0.14), '#4A3E35', at.clone().addScaledVector(f.n, -0.006), ry);
+      // the bricks that fell out, at the wall's foot
+      for (let k = 0; k < 4; k++) P.add(block(0.22, 0.07, 0.11), R() < 0.5 ? '#8A5A3E' : '#5C5650', f.o.clone().addScaledVector(f.along, t + (R() - 0.5) * 1.2).setY(0.035).addScaledVector(f.n, 0.25 + R() * 0.6), R() * 6);
+    }
+  }
+
+  // A roof beam came down: one end on the floor, the other still caught high on the wall.
+  {
+    const x0 = -6.5, z0 = HALL.back + 4.5;
+    if (floor.free(x0, z0, 1.2)) {
+      floor.take(x0, z0, 1.6);
+      const len = 7.2, tilt = 0.62;
+      P.add(block(0.42, 0.46, len), '#6E5440', V(x0 - 2.6, (len / 2) * Math.sin(tilt) * 0.95, z0), Math.PI / 2, tilt);
+      for (let i = 0; i < 6; i++) P.add(block(0.08 + R() * 0.1, 0.06, 0.3 + R() * 0.6), '#6E5440', V(x0 + (R() - 0.5) * 1.6, 0.04, z0 + (R() - 0.5) * 1.6), R() * 6);
+      colliders.push({ kind: 'circle', x: x0, z: z0, r: 0.6, top: 0.5 });
+    }
+  }
+
+  // Scorch on the flagstones (the fire) and grit everywhere.
+  for (let i = 0; i < 8; i++) {
+    const x = (R() * 2 - 1) * 11, z = HALL.front - 1 - R() * 22, r = 0.5 + R() * 1.0;
+    const g = new THREE.CircleGeometry(r, 9), p = g.attributes.position as THREE.BufferAttribute;
+    for (let k = 1; k < p.count; k++) { const j = 0.6 + R() * 0.5; p.setXY(k, p.getX(k) * j, p.getY(k) * j); }
+    P.add(g.rotateX(-Math.PI / 2).scale(1, 1, 0.6 + R() * 0.6), R() < 0.5 ? '#6A625B' : '#736A62', V(x, 0.012 + i * 0.0004, z), R() * 6);
+  }
+  for (let i = 0; i < 160; i++) {
+    const x = (R() * 2 - 1) * 12, z = HALL.front - 0.5 - R() * 22.6, s = 0.03 + R() * 0.07;
+    if (Math.abs(x) < 1.2 && R() < 0.6) continue;
+    P.add(rock(s), pick(STONE), V(x, s * 0.35, z), R() * 6);
+  }
+  const m = P.mesh(group as THREE.Scene, 'library-ruin');
+  if (m) { m.castShadow = true; m.receiveShadow = true; m.raycast = () => {}; }
+  return { pieces: P.count };
+}
