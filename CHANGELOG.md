@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 36: Candor teaches archery (Mike 2026-11-06, "Add to world. Have him teach Archery. Name him Candor.")
+- **Candor**, in Mike's own Painted Archer model, stands at a new **archery range** in the east meadow between the library and the skyrunner perch: a chalk shooting line and three straw butts on stands, 7, 10 and 13 m out.
+- Talk to him (**Talk to Candor (archery)**): **Teach me archery.**, **How do I aim?** (iron sights or, for a Ranger, the crosshair) or **Not now.** No crossbow? He lends one with ten bolts.
+- The lesson: one bolt in each butt. He calls every hit by its ring (gold, red, blue, black, white) and how many are left, and a miss gets a word too. The first full lesson pays 15 crowns; after that he remembers your best (fewest bolts for all three). Walk off the range and the lesson ends.
+- The map's "What's here" lists his range. The model ships at 0.8 MB (its 4K textures cut to 1K; the unused normal and ORM maps dropped); credited in `public/models/CREDITS.md`.
+- New `test/e2e-candor.mjs` (13/13).
+
 ### v0.16 changelog, part 35: the Ranger's crosshair, and iron sights for everyone else (Mike 2026-11-06, "ranger: Has better crosshairs that give them way better aim. Everyone else does not have crosshairs and must use iron sights")
 - **Rangers** get a true crosshair whenever a crossbow is in hand, in every view: four ticks around a dot that close in and turn gold as they steady. Their aim sways a quarter as much, steadies twice as fast and spreads a third as much from the hip.
 - **Everyone else** has no crosshair with a crossbow in hand (the steadiness ring is gone too). The held crossbow now carries **iron sights**, a notched rear sight and a front post with a brass bead; aim down the sights in first person and the bead sits where the bolt goes.

@@ -76,6 +76,7 @@ import { buildDojo, DojoPanel, DOJO } from './dojo/dojo';
 import { FightMode } from './fight/mode';
 import { SkyRun } from './sky/mode';
 import { buildPerch, PERCH } from './sky/perch';
+import { RANGE } from './world/archery';
 import type { Fighter } from './fight/engine';
 import { pushupCardHtml } from './dojo/card';
 import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
@@ -761,7 +762,7 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
   const folk = root.userData.folk as import('./world/townsfolk').Folk | undefined;
   if (folk) return folk.active ? { speed: folk.speed, talking: folk.talking, pose: folk.pose, look: folk.speed > 0.3 || folk.pose ? null : look } : null;
-  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar' || id === 'lenju' || id === 'taitai' || id === 'kavik') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
+  return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar' || id === 'lenju' || id === 'taitai' || id === 'kavik' || id === 'candor') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
   return i.talking ? 'talk' : i.aiming ? 'aim' : i.speed > controls.speeds.walk + 0.5 ? 'run' : i.speed > 0.3 ? 'walk' : 'idle';
@@ -2024,6 +2025,7 @@ function mapSights(): Sight[] {
   return [
     knight.awake ? { x: kp.x, z: kp.z, icon: '⚙', label: 'Knight frame', note: 'A ten-foot rune mech. Climb in and pilot it (E).' }
       : { x: kp.x, z: kp.z, icon: '⚙', label: 'Knight frame (asleep)', note: 'A rune mech kneeling in the trees. Clear floor 3 of the descent to wake it.', locked: true },
+    { x: RANGE.x, z: RANGE.z, icon: '➶', label: "Candor's range", note: 'Candor teaches archery: three straw butts, one bolt in each.' },
     { x: PERCH.x, z: PERCH.z, icon: '✈', label: 'Skyrunner perch', note: 'Fly a glider from A to B in about a minute. Sometimes a dogfight.' },
     { x: TRAPDOOR.x, z: TRAPDOOR.z, icon: '▼', label: 'The descent', note: `A trapdoor in the ruins: ${FLOORS} floors of goblins, lost lore books and a hoard. One life.` },
     { x: nat.x, z: nat.z, icon: '❦', label: 'Natalie', note: 'The warner by the library. Lore books, quests and the crossbow.' },
@@ -2174,6 +2176,71 @@ const skyFolk = (['lenju', 'taitai'] as const).map((id) => {
   interactables.push({ obj: hit, verb: () => `Talk to ${id === 'lenju' ? 'Lenju' : 'Taitai'}`, act: () => talkTo(id, hit.position, id === 'lenju' ? lenjuScript() : taitaiScript()), when: () => !inDungeon });
   return hit;
 });
+// ---------- Mike 2026-11-06: Candor the archer (Mike's Painted Archer model) teaches archery at his range ----------
+// Talk to him and ask for a lesson: he lends the Archer's spare if you have no crossbow, then calls three straw butts
+// (7, 10 and 13 m out). Put one bolt in each; he calls each hit by its ring. The first full lesson pays 15 crowns;
+// after that he keeps your best (fewest bolts for all three). Walk off the range and the lesson ends.
+const ARCHERY_KEY = 'gametool.archery';
+const archery: { lessons: number; best: number } = (() => { try { const v = JSON.parse(localStorage.getItem(ARCHERY_KEY) ?? 'null'); return { lessons: Number(v?.lessons) || 0, best: Number(v?.best) || 0 }; } catch { return { lessons: 0, best: 0 }; } })();
+let lesson: { hit: boolean[]; seen: Set<object>; shots: number } | null = null;
+const candorHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.9, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+candorHit.position.copy(world.standees.candor.position).setY(0.95); candorHit.name = 'candor-hit';
+world.scene.add(candorHit);
+interactables.push({ obj: candorHit, verb: () => lesson ? 'Talk to Candor (lesson on)' : 'Talk to Candor (archery)', act: () => talkTo('candor', candorHit.position, candorScript()), when: () => !inDungeon });
+function candorScript(): DialogueScript {
+  const ranger = character.profession === 'ranger', none = inventory.count('crossbow') === 0;
+  const hi = lesson ? `${lesson.hit.filter(Boolean).length} of three so far. Breathe, then loose.`
+    : archery.lessons ? `Back on the line. Your best is all three butts in ${archery.best} bolt${archery.best === 1 ? '' : 's'}. Beat it.`
+    : ranger ? "I'm Candor. I teach archery. A Ranger, by the look of your eyes. Let's see if your hands agree."
+    : "I'm Candor. I teach archery, out here where a miss only hurts the hay. Bow, crossbow, it's the same lesson: still feet, slow breath, then loose.";
+  return { speaker: 'Candor', start: 'hi', nodes: {
+    hi: { text: hi, choices: [
+      ...(lesson ? [{ text: 'I give up for now.', next: 'stop' }] : [{ text: 'Teach me archery.', next: none ? 'lend' : 'lesson' }]),
+      { text: 'How do I aim?', next: 'aim' },
+      { text: 'Not now.', next: 'bye' },
+    ] },
+    lend: { text: "No bow? Take this crossbow for the lesson, and keep it after. Ten bolts. Pick them up when you're done; hay is soft.", actions: ['lend:crossbow'], next: 'lesson' },
+    lesson: { text: 'Three butts: seven, ten and thirteen paces out, each a step further left. One bolt in each. Take your time; I count bolts, not seconds.', actions: ['archery:start'], end: true },
+    aim: { text: ranger ? 'Rangers see the mark without sights; let the crosshair close, then loose. Everyone else: raise the bow (right mouse, LT) and set the brass bead in the notch. Hold still and the wobble settles.'
+      : 'Raise it to your eye (right mouse, LT). Set the brass bead on the front post down in the notch of the rear sight, on the gold. Stand still; breathe out; the wobble settles. Then loose (left mouse, RT).', next: 'hi' },
+    stop: { text: 'Fair. The butts will wait.', actions: ['archery:stop'], end: true },
+    bye: { text: 'Mind the line when others are shooting.', end: true },
+  } };
+}
+function startLesson() {
+  const seen = new Set<object>([...crossbow.bolts, ...crossbow2.bolts]);
+  lesson = { hit: world.archery.map(() => false), seen, shots: 0 };
+  toast('Candor: "Three butts. Crossbow in hand, raise it (right mouse / LT), steady, loose. One bolt in each."', 5000);
+}
+function updateLesson() {
+  if (!lesson) return;
+  if (inDungeon || Math.hypot(player.pos.x - RANGE.x, player.pos.z - RANGE.z) > 30) { lesson = null; toast('Candor: "Lesson over. Come back when you have time."', 3000); return; }
+  for (const b of [...crossbow.bolts, ...crossbow2.bolts]) {
+    if (!lesson.seen.has(b)) { lesson.seen.add(b); lesson.shots++; }
+    if (!b.stuck || (b as { scored?: boolean }).scored) continue;
+    (b as { scored?: boolean }).scored = true;
+    const i = world.archery.findIndex((t) => Math.abs(b.mesh.position.x - t.centre.x) < 0.45 && Math.hypot(b.mesh.position.y - t.centre.y, b.mesh.position.z - t.centre.z) < 0.62);
+    if (i < 0) { toast('Candor: "Wide. Breathe out before you loose."', 2000); continue; }
+    const t = world.archery[i], r = Math.hypot(b.mesh.position.y - t.centre.y, b.mesh.position.z - t.centre.z);
+    const ring = r < 0.12 ? 'Gold!' : r < 0.24 ? 'Red.' : r < 0.36 ? 'Blue.' : r < 0.48 ? 'Black.' : 'White, on the edge.';
+    const fresh = !lesson.hit[i]; lesson.hit[i] = true;
+    const left = lesson.hit.filter((h) => !h).length;
+    toast(`Candor: "${ring} ${fresh ? (left ? `${left} to go.` : 'That\'s all three.') : 'That one was already hit.'}"`, 2400);
+    haptics.play('hit');
+    if (!left) finishLesson();
+  }
+}
+function finishLesson() {
+  if (!lesson) return;
+  const n = lesson.shots; lesson = null;
+  const first = archery.lessons === 0, better = !archery.best || n < archery.best;
+  archery.lessons++; if (better) archery.best = n;
+  storeSet(ARCHERY_KEY, JSON.stringify(archery));
+  setTimeout(() => {
+    toast(`Candor: "All three in ${n} bolt${n === 1 ? '' : 's'}.${better && !first ? ' Your best yet.' : ''}${n === 3 ? ' Clean. I have nothing to teach you today.' : ''}"`, 4200);
+    if (first) setTimeout(() => earn(15, 'your first archery lesson with Candor', 'archery-first'), 1200);
+  }, 900);
+}
 function lenjuScript(): DialogueScript {
   const r = sky.record, flown = r.runs > 0;
   return { speaker: 'Lenju', start: 'hi', nodes: {
@@ -2750,6 +2817,8 @@ dialogue.onAction = (a) => {
   } else if (verb === 'folklore' && id === 'open') afterDialogue = openFolklore;
   else if (verb === 'casebook' && id === 'open') afterDialogue = openCasebook;
   else if (verb === 'kavik' && id === 'fight') afterDialogue = () => { setState('play'); openFight(); };
+  else if (verb === 'archery' && id === 'start') afterDialogue = () => { void resumePlay(); startLesson(); };
+  else if (verb === 'archery' && id === 'stop') lesson = null;
   else if (verb === 'sky' && id === 'fly') afterDialogue = () => { setState('play'); openSky(); };
   else console.warn('Unknown dialogue action', a);
 };
@@ -3837,6 +3906,7 @@ function frame() {
       { aiming: crossbow.ads, crouched: player.sneaking, speed: player.hSpeed, eye: player.eyeHeight, stand: controls.eyeHeight }) : NO_LEAN;
     if (crossbow.equipped && !player.thirdPerson && !rig.inShot && !rig.switching) crossbow.applySway();   // B44
     updateSteadyRing();
+    updateLesson();
     sword.update(dt); sword2.update(dt);
     touch?.update();
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
@@ -3939,4 +4009,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
