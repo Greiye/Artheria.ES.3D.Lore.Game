@@ -129,7 +129,7 @@ export interface Gift { at: number; id: 'purse' | 'smith' | 'kit' | 'scroll'; na
 export const GIFTS: Gift[] = [
   { at: 2, id: 'purse', name: 'A purse for each hero', text: 'Every new hero starts with 20 crowns.' },
   { at: 5, id: 'smith', name: "The smith's bill, part paid", text: 'The smith charges a quarter less.' },
-  { at: 8, id: 'kit', name: 'A kit for each hero', text: 'Each hero may take one set of arms from the patrons at the trapdoor.' },
+  { at: 8, id: 'kit', name: 'A kit for each hero', text: 'Each hero may take one set of arms from the patrons at the top of the stairs.' },
   { at: 12, id: 'scroll', name: 'A scroll before the first step', text: 'Every run starts with a choice of the witch\'s scrolls.' },
 ];
 export const hasGift = (delivered: number, id: Gift['id']) => GIFTS.some((g) => g.id === id && delivered >= g.at);

@@ -55,6 +55,15 @@ check('4 · still nothing you use is crowded out', still.length === 0, still.joi
 await G(() => { const pl = window.__gametool.player; pl.pos.set(0, 0, -30); pl.yaw = pl.bodyYaw = Math.PI; pl.pitch = 0.2; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-goblin-life.png' });
+// 5 · the trapdoor is now stone stairs down
+const r5 = await G(() => { const g = window.__gametool, S = g.STAIRS, i = g.interactables.find((x) => x.verb() === 'Go down the stairs');
+  const p = g.player; p.pos.set(S.x, 0, S.top + 1.2); p.yaw = p.bodyYaw = 0; p.held.add('forward'); for (let k = 0; k < 90; k++) p.update(1 / 30); p.held.delete('forward');
+  const pushed = p.pos.z > S.top - 0.05;   // walked forward 15 m worth, stopped at the edge
+  return { verb: !!i, steps: S.steps, mesh: !!g.library.group.getObjectByName('library-stairwell'), pushed, noHatch: !g.world.scene.getObjectByName('trapdoor') }; });
+check('5 · stone stairs go down where the trapdoor was ("Go down the stairs"), and you cannot fall in', r5.verb && r5.mesh && r5.pushed && r5.noHatch, JSON.stringify(r5));
+await G(() => { const g = window.__gametool, S = g.STAIRS, pl = g.player; pl.pos.set(S.x, 0, S.top + 1.4); pl.yaw = pl.bodyYaw = 0; pl.pitch = -0.6; pl.thirdPerson = false; });
+await page.waitForTimeout(1500);
+await page.screenshot({ path: 'test/screenshots/library-stairs.png' });
 await G(() => { const pl = window.__gametool.player; pl.pos.set(-8, 0, -38); pl.yaw = pl.bodyYaw = -2.3; pl.pitch = 0.1; pl.thirdPerson = false; });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: 'test/screenshots/library-ruin.png' });
