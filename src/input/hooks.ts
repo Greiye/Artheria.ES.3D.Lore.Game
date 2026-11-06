@@ -53,5 +53,9 @@ export interface GameHooks {
   deskOpen?(): boolean;               // B40: the margin-note desk is open in the book
   bookPen?(): void;                   // B40: pick up the pen in the open book
   canSwapShoulder(): boolean;         // B40 (and the rune pulse while piloting the knight frame)
+  /** Mike 2026-11-06: a Fighter's LB / RB techniques and breath (LB + RB held). */
+  fighter?(): boolean;
+  technique?(t: 'lunge' | 'sweep'): void;
+  breathe?(): void;
   piloting?(): boolean;               // Mike 2026-11-05: in the knight frame         // B40: the touch shoulder button shows only in the shoulder view
 }

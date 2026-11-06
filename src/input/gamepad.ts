@@ -8,6 +8,8 @@ import type { PadDir } from './padnav';
 // Chrome, Edge, Firefox, Safari incl. iOS). Owner promoted B7 gamepad on 2026-10-16.
 // Bindings live in controls.gamepad (F2.2). Browsers only expose a pad after a button press.
 export class GamepadControls {
+  private bothHeld = 0;
+  private breathDone = false;
   private prev: boolean[] = [];
   private bookStickArmed = true;
   private torchHold = 0;   // when D-pad down went down (ms)
@@ -82,8 +84,17 @@ export class GamepadControls {
       if (pressed(B.jump)) { pl.jump(); haptics.play('jump'); }
       if (pressed(B.sneak)) pl.toggleSneak();
       if (pressed(B.view)) this.g.toggleView();
-      if (pressed(B.zoomIn)) this.g.stepCamera(-1);
-      if (pressed(B.zoomOut)) this.g.stepCamera(1);
+      // Mike 2026-11-06: a Fighter's LB / RB are techniques (Lunge, Sweep), both held 0.6 s takes a breath; the camera
+      // keeps R3 for its views. Everyone else zooms with them as before.
+      if (this.g.fighter?.()) {
+        if (pressed(B.zoomIn) && !now[B.zoomOut]) this.g.technique?.('lunge');
+        if (pressed(B.zoomOut) && !now[B.zoomIn]) this.g.technique?.('sweep');
+        if (now[B.zoomIn] && now[B.zoomOut]) { if (!this.bothHeld) this.bothHeld = performance.now(); if (performance.now() - this.bothHeld >= 600 && !this.breathDone) { this.breathDone = true; this.g.breathe?.(); } }
+        else { this.bothHeld = 0; this.breathDone = false; }
+      } else {
+        if (pressed(B.zoomIn)) this.g.stepCamera(-1);
+        if (pressed(B.zoomOut)) this.g.stepCamera(1);
+      }
       if (pressed(B.activate)) this.g.activate();
       // B40: View: a tap opens the bag, a 0.4 s hold opens the map.
       if (pressed(B.inventory)) { this.viewHold = performance.now(); this.viewDone = false; }

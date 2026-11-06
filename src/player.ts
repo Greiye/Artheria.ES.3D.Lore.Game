@@ -125,6 +125,10 @@ export class Player {
   gravityMul = 1;
   /** B18: a meal buff (Light on your feet). */
   buffMul = 1;
+  /** Mike 2026-11-06: a Fighter's lunge carries the body forward (collides like walking). */
+  private dashV = { x: 0, z: 0, t: 0 };
+  dash(dirX: number, dirZ: number, dist: number, secs: number) { this.dashV = { x: dirX * dist / secs, z: dirZ * dist / secs, t: secs }; }
+  get dashing() { return this.dashV.t > 0; }
   speed(): number {
     const s = controls.speeds;
     if (this.piloting) return (this.held.has('sprint') ? 7 : 3.6) * this.speedMul;   // heavy: a stomping walk, a run when pushed
@@ -145,6 +149,15 @@ export class Player {
     if (this.vault) {   // the vault owns the body until it lands
       const x0 = this.pos.x, z0 = this.pos.z;
       this.stepVault(dt);
+      this.hSpeed = Math.hypot(this.pos.x - x0, this.pos.z - z0) / dt;
+      this.syncBody();
+      return;
+    }
+    if (this.dashV.t > 0) {
+      const t = Math.min(dt, this.dashV.t), dx = this.dashV.x * t, dz = this.dashV.z * t;
+      this.dashV.t -= dt;
+      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.15)), x0 = this.pos.x, z0 = this.pos.z;
+      for (let i = 0; i < steps; i++) { this.pos.x += dx / steps; this.pos.z += dz / steps; this.resolve(); }
       this.hSpeed = Math.hypot(this.pos.x - x0, this.pos.z - z0) / dt;
       this.syncBody();
       return;

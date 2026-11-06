@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 37: the Fighter's techniques and steadying breath (Mike 2026-11-06, Round B)
+- **Fighters** trade the shoulder-button zoom for two trained techniques with a sword: **Lunge** (LB, or Z) dashes forward into a hard thrust (4 s cooldown), **Sweep** (RB, or X) cuts all around you (6 s). On touch they get two technique buttons.
+- **Steadying breath** (hold LB + RB together, or V): stand still a moment and gain 4 temporary health that soaks hits first and fades after 30 s (45 s cooldown). The health line shows it as "+N".
+- Other professions keep LB / RB zoom as before. Keys are rebindable.
+- New `test/e2e-fighter.mjs` (11/11).
+
 ### v0.16 changelog, part 36: Candor teaches archery (Mike 2026-11-06, "Add to world. Have him teach Archery. Name him Candor.")
 - **Candor**, in Mike's own Painted Archer model, stands at a new **archery range** in the east meadow between the library and the skyrunner perch: a chalk shooting line and three straw butts on stands, 7, 10 and 13 m out.
 - Talk to him (**Talk to Candor (archery)**): **Teach me archery.**, **How do I aim?** (iron sights or, for a Ranger, the crosshair) or **Not now.** No crossbow? He lends one with ten bolts.

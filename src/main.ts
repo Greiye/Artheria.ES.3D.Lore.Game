@@ -77,6 +77,7 @@ import { FightMode } from './fight/mode';
 import { SkyRun } from './sky/mode';
 import { buildPerch, PERCH } from './sky/perch';
 import { RANGE } from './world/archery';
+import { FighterKit, TECH, BREATH, type Technique } from './fighter';
 import type { Fighter } from './fight/engine';
 import { pushupCardHtml } from './dojo/card';
 import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
@@ -1865,6 +1866,7 @@ const goblins = new Goblins(world.scene, {
     if (bl.blocked) { audio.swordHit(true); haptics.play('hit'); if (bl.dmg <= 0) { toast(`You turn ${by.v.display}'s blow.`, 1400); return; } dmg = bl.dmg; slow = 0; }
     if (imbued('witchfire')) dmg += 1;   // F1 witchfire's curse
     if (sturdy) dmg = Math.max(1, dmg - 1);   // B18: well fed
+    if (fighterKit.temp > 0) { dmg = fighterKit.absorb(dmg); if (dmg <= 0) { haptics.play('tap'); hurtFlash = 0.12; return; } }   // Mike 2026-11-06: the breath's temporary health goes first
     delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt'); gesture('hit');
     if (slow) slowT = Math.max(slowT, slow);
     if (delveHp <= 0) {
@@ -1973,7 +1975,7 @@ function updateDelve(dt: number) {
   if (frac <= 0.5 && state === 'play' && (breathT -= dt) <= 0) { audio.breath(); breathT = 1.2 + frac * 2.4; }
   delveHpEl.classList.remove('hidden');
   delveHpEl.classList.toggle('hit', hurtFlash > 0);
-  const t = `${descent ? `Floor ${descent.floor} · ` : ''}♥ ${delveHp}/${DELVE_HP}${slowT > 0 ? ' · slowed' : ''} · goblins ${goblins.alive.length}${descent?.books.length ? ` · ${descent.books.length} book${descent.books.length > 1 ? 's' : ''} carried` : ''}${descent?.scrolls?.length ? ` · ✦ ${descent.scrolls.map((id) => scrollById(id)?.name.replace(/^Scroll of (the )?/, '')).join(', ')}` : ''}`;
+  const t = `${descent ? `Floor ${descent.floor} · ` : ''}♥ ${delveHp}/${DELVE_HP}${fighterKit.temp > 0 ? ` +${fighterKit.temp}` : ''}${slowT > 0 ? ' · slowed' : ''} · goblins ${goblins.alive.length}${descent?.books.length ? ` · ${descent.books.length} book${descent.books.length > 1 ? 's' : ''} carried` : ''}${descent?.scrolls?.length ? ` · ✦ ${descent.scrolls.map((id) => scrollById(id)?.name.replace(/^Scroll of (the )?/, '')).join(', ')}` : ''}`;
   if (delveHpEl.textContent !== t) delveHpEl.textContent = t;
 }
 // Dev: a lineup of 12 rolled goblins on the green, frozen, with their name tags.
@@ -2240,6 +2242,63 @@ function finishLesson() {
     toast(`Candor: "All three in ${n} bolt${n === 1 ? '' : 's'}.${better && !first ? ' Your best yet.' : ''}${n === 3 ? ' Clean. I have nothing to teach you today.' : ''}"`, 4200);
     if (first) setTimeout(() => earn(15, 'your first archery lesson with Candor', 'archery-first'), 1200);
   }, 900);
+}
+// ---------- Mike 2026-11-06: the Fighter's techniques (src/fighter.ts) ----------
+const fighterKit = new FighterKit();
+const isFighter = () => character.profession === 'fighter';
+let techToldAt = 0;
+function technique(t: Technique) {
+  if (!isFighter() || state !== 'play' || player.piloting || player.dashing) return;
+  if (!fighterKit.use(t)) {
+    if (performance.now() - techToldAt > 1200) { techToldAt = performance.now(); toast(fighterKit.breathing ? 'Still drawing breath.' : `${TECH[t].name} ready in ${Math.ceil(fighterKit.cd[t])} s.`, 1200); }
+    return;
+  }
+  const yaw = player.thirdPerson ? player.bodyYaw : player.yaw, fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  const armed = sword.equipped || sword2.equipped, T = TECH[t];
+  const damage = Math.max(1, T.damage - (armed ? 0 : 1));
+  const land = () => {
+    const n = sword.slash?.({ from: player.pos.clone(), fwd, reach: T.reach, arc: T.arc, damage, heavy: true }) ?? 0;
+    if (n) { haptics.play('hit'); hitStop = 0.06; }
+    techLog.push({ t, n });
+  };
+  audio.swordSwish(true); haptics.play('tap');
+  if (t === 'lunge') { player.dash(fwd.x, fwd.z, TECH.lunge.dash, TECH.lunge.dashSec); setTimeout(land, TECH.lunge.dashSec * 1000); }
+  else land();
+  if (armed) (sword.equipped ? sword : sword2).swing();   // the cut you see
+  techHud();
+}
+const techLog: { t: Technique; n: number }[] = [];
+function breathe() {
+  if (!isFighter() || state !== 'play' || player.piloting) return;
+  if (!fighterKit.breathe()) { if (performance.now() - techToldAt > 1200) { techToldAt = performance.now(); toast(`Your breath steadies again in ${Math.ceil(fighterKit.cd.breath)} s.`, 1200); } return; }
+  audio.breath(); gesture('stretch');
+  toast('You plant your feet and draw a slow breath…', 1400);
+}
+function updateFighter(dt: number) {
+  if (state !== 'play') return;
+  if (fighterKit.breathing > 0) { player.analog.x = player.analog.y = 0; player.held.delete('forward'); player.held.delete('back'); player.held.delete('left'); player.held.delete('right'); }
+  if (fighterKit.update(dt)) { toast(`+${BREATH.temp} temporary health (${BREATH.lasts} s).`, 2000); haptics.play('pickup'); }
+  techHud();
+}
+/** The Fighter's three buttons on touch, with their cooldowns (hidden for other professions). */
+function techHud() {
+  const el = document.getElementById('techHud');
+  if (!el) return;
+  const on = isFighter() && state === 'play' && !player.piloting;
+  el.classList.toggle('hidden', !on);
+  if (!on) return;
+  for (const k of ['lunge', 'sweep', 'breath'] as const) {
+    const b = el.querySelector<HTMLElement>(`[data-tech="${k}"]`)!, cd = fighterKit.cd[k];
+    b.classList.toggle('cooling', cd > 0);
+    const label = cd > 0 ? `${Math.ceil(cd)}` : k === 'lunge' ? 'Lunge' : k === 'sweep' ? 'Sweep' : 'Breath';
+    if (b.textContent !== label) b.textContent = label;
+  }
+}
+{
+  const el = document.createElement('div'); el.id = 'techHud'; el.className = 'hidden';
+  el.innerHTML = '<button data-tech="lunge" aria-label="Lunge">Lunge</button><button data-tech="sweep" aria-label="Sweep">Sweep</button><button data-tech="breath" aria-label="Take a breath">Breath</button>';
+  el.addEventListener('pointerdown', (e) => { const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tech]')?.dataset.tech; if (!t) return; e.preventDefault(); e.stopPropagation(); if (t === 'breath') breathe(); else technique(t as Technique); });
+  document.getElementById('hud')?.appendChild(el);
 }
 function lenjuScript(): DialogueScript {
   const r = sky.record, flown = r.runs > 0;
@@ -3489,6 +3548,9 @@ const hooks: GameHooks = {
   deskOpen: () => (reader.isOpen ? readerDesk : lecternDesk).isWriting,
   bookPen: () => (reader.isOpen ? readerDesk : lecternDesk).pressPen(),
   piloting: () => player.piloting,
+  fighter: () => isFighter(),
+  technique: (t) => technique(t),
+  breathe: () => breathe(),
   canSwapShoulder: () => state === 'play' && player.piloting || state === 'play' && player.thirdPerson && rig.step === 1 && !crossbow.equipped,
   setMode,
 };
@@ -3576,6 +3638,11 @@ window.addEventListener('keydown', (e) => {
   if (state === 'pause' && e.code === 'Escape' && (!lockSupported || !wantLock())) { closePauseMenu(); return; }
   if (state !== 'play') return;
   if (actionFor(e.code, ['torch']) && !e.repeat) { toggleTorch(); return; }   // v0.04
+  if (isFighter() && !e.repeat) {   // Mike 2026-11-06: a Fighter's techniques and breath
+    if (actionFor(e.code, ['lunge'])) { technique('lunge'); return; }
+    if (actionFor(e.code, ['sweep'])) { technique('sweep'); return; }
+    if (actionFor(e.code, ['breath'])) { breathe(); return; }
+  }
   // v0.04: no L hotkey; in the world, lore is written at the campfire with Natalie (the title screen keeps its button).
   if (actionFor(e.code, ['inventory']) && !e.repeat) { openInventory(); return; }
   if (actionFor(e.code, ['journal']) && !e.repeat) { openCasebook(); return; }
@@ -3907,6 +3974,7 @@ function frame() {
     if (crossbow.equipped && !player.thirdPerson && !rig.inShot && !rig.switching) crossbow.applySway();   // B44
     updateSteadyRing();
     updateLesson();
+    updateFighter(dt);
     sword.update(dt); sword2.update(dt);
     touch?.update();
     coach.update(inputMode, player.pos, player.yaw, lookingAt !== null, !inDungeon);
@@ -4009,4 +4077,4 @@ setInterval(() => void checkForUpdate(), 10 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void checkForUpdate(); });
 
 // Debug/test hook (read-only use in automated checks; harmless in play).
-Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported } });
+Object.assign(window, { __gametool: { knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog } });
