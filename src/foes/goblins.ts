@@ -14,7 +14,7 @@ export const MAX_FOES = 6;
 const HURT = new THREE.Color('#FF3020');
 const SIGHT = 13, ALERT_RADIUS = 10, SEP = 0.55;
 
-interface FoeWorld {
+export interface FoeWorld {
   /** Can a goblin stand at (x, z)? */
   walkable(x: number, z: number): boolean;
   /** The player's feet, and whether they're aiming the crossbow. */
@@ -44,7 +44,7 @@ export type Role = 'none' | 'slinger' | 'guard' | 'dropper' | 'shaman' | 'captai
 const ROLE_TITLE: Record<Role, string> = { none: '', slinger: 'Slinger', guard: 'Pot-lid Guard', dropper: 'Shelf-lurker', shaman: 'Shaman', captain: 'Captain', keeper: 'Hoard-keeper', guardian: 'Guardian' };
 
 type State = 'idle' | 'hidden' | 'chase' | 'back' | 'flee' | 'dead';
-interface Foe {
+export interface Foe {
   v: Variant; st: GoblinStats; root: THREE.Group; anim: FigureAnim;
   hp: number; state: State; t: number; cd: number; windup: number; alerted: boolean;
   stolen: number; caught: number; traps: number; called: boolean; dodge: number; deadT: number; tag: THREE.Sprite; speedNow: number;
@@ -236,6 +236,9 @@ export class Goblins {
     }
     return out;
   }
+
+  /** B5: a Monk's duel won (the fight mode settles it): down it goes, loot and all. */
+  defeat(f: Foe) { if (f.state !== 'dead') { f.hp = 0; this.kill(f); } }
 
   private kill(f: Foe) {
     f.state = 'dead'; f.deadT = 0; f.tag.visible = false;

@@ -99,7 +99,7 @@ export const REBINDABLE: [Action, string][] = [
   ['walk', 'Walk (hold)'], ['sprint', 'Sprint (hold)'], ['activate', 'Use · talk · read'], ['pov', 'Camera view'], ['shoulder', 'Swap shoulder / weapon'],
   ['torch', 'Torch'], ['inventory', 'Bag'], ['journal', 'Casebook'], ['map', 'Map'],
   ['equipCrossbow', 'Crossbow'], ['equipHands', 'Hands'], ['equipSword', 'Sword'], ['reload', 'Reload'],
-  ['lunge', 'Fighter: Lunge · Mage: Magic missile'], ['sweep', 'Fighter: Sweep'], ['breath', 'Fighter: Take a breath'],
+  ['lunge', 'Fighter: Lunge · Mage: Magic missile · Monk: Lock on'], ['sweep', 'Fighter: Sweep'], ['breath', 'Fighter: Take a breath'],
 ];
 const BINDS_KEY = 'gametool.keys';
 try {

@@ -154,17 +154,22 @@ export class Fight {
   wins: [number, number] = [0, 0];
   time = ROUND_TIME;
   roundWinner: Fighter | null = null;
+  /** Rounds to win the match (2: Kavik's best of 3; 1: a Monk's duel with a goblin, B5). */
+  needed = 2;
+  /** The other side's name on the banners, and their full health (a goblin is smaller than Kavik). */
+  bName = 'Kavik';
+  bMax = MAX_HP;
   /** Things that happened this step, for sounds, haptics and animation. */
   events: HitEvent[] = [];
   onHit?: (e: HitEvent) => void;
 
   /** Into the screen, on the mat (a sidestep with up goes this way). */
   get depth(): V2 { return { x: -this.right.z, z: this.right.x }; }
-  get winner(): Fighter | null { return this.wins[0] >= 2 ? this.a : this.wins[1] >= 2 ? this.b : null; }
+  get winner(): Fighter | null { return this.wins[0] >= this.needed ? this.a : this.wins[1] >= this.needed ? this.b : null; }
   get banner(): string {
-    if (this.phase === 'intro') return this.phaseT < 1.0 ? `Round ${this.round}` : 'Fight!';
+    if (this.phase === 'intro') return this.phaseT < 1.0 ? (this.needed === 1 ? this.bName : `Round ${this.round}`) : 'Fight!';
     if (this.phase === 'roundEnd') return this.roundWinner ? (this.time <= 0 ? 'Time!' : 'Down!') : 'Draw';
-    if (this.phase === 'matchEnd') return this.winner === this.a ? 'You win!' : 'Kavik wins';
+    if (this.phase === 'matchEnd') return this.winner === this.a ? 'You win!' : `${this.bName} wins`;
     return '';
   }
   /** From one fighter toward the other, on the mat. */
@@ -203,7 +208,7 @@ export class Fight {
   }
 
   startRound() {
-    this.a.reset(-1.6, 1); this.b.reset(1.6, -1);
+    this.a.reset(-1.6, 1); this.b.reset(1.6, -1); this.b.hp = this.bMax;
     this.right = { x: 1, z: 0 };
     this.time = ROUND_TIME; this.roundWinner = null;
     this.setPhase('intro');

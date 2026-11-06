@@ -36,6 +36,8 @@ export class FightMode {
   onClose: () => void = () => {};
   onResult: (won: boolean, crowns: number, first: boolean) => void = () => {};
   onHit: (e: HitEvent) => void = () => {};
+  /** B5 (Mike 2026-11-06): a Monk's duel with a goblin, one round, nothing saved; null for a spar with Kavik. */
+  duel: { name: string; hp: number; level: Level } | null = null;
   /** Seconds the fight holds still after a hit lands (set by the game, for weight). */
   hitStop = 0;
   private acc = 0;
@@ -101,9 +103,11 @@ export class FightMode {
 
   get level(): Level { return this.record.beaten ? 'fair' : 'easy'; }
 
-  open() {
+  open(duel: FightMode['duel'] = null) {
     if (this.isOpen) return;
     this.isOpen = true;
+    this.duel = duel;
+    this.el.classList.toggle('duel', !!duel);
     this.el.classList.remove('hidden');
     document.body.classList.add('fighting');
     this.start();
@@ -120,11 +124,15 @@ export class FightMode {
   start() {
     this.fight = new Fight();
     this.fight.onHit = (e) => this.onHit(e);
+    const d = this.duel;
+    if (d) { this.fight.needed = 1; this.fight.bName = d.name; this.fight.bMax = d.hp; }
     this.fight.startRound();
-    this.ai = new KavikAI(this.level);
+    this.ai = new KavikAI(d ? d.level : this.level);
     this.result = null;
     this.el.querySelector('.fx-result')!.classList.add('hidden');
-    this.el.querySelector('.fx-level')!.textContent = this.level === 'fair' ? '(for real now)' : '(going easy)';
+    this.el.querySelectorAll<HTMLElement>('.fx-name')[1].firstChild!.textContent = (d ? d.name : 'Kavik') + ' ';
+    this.el.querySelector('.fx-level')!.textContent = d ? '' : this.level === 'fair' ? '(for real now)' : '(going easy)';
+    this.el.querySelector<HTMLElement>('#fxRematch')!.hidden = !!d;
     this.acc = 0;
     this.gp.prev = this.padButtons();   // the A press that opened the fight isn't a kick
   }
@@ -140,7 +148,7 @@ export class FightMode {
     const p = [...(navigator.getGamepads?.() ?? [])].find((g) => !!g && g.connected);
     if (!p) { this.gp.x = this.gp.y = 0; this.gp.up = this.gp.down = false; return; }
     if (this.result) {
-      if (hit(0)) this.start(); else if (hit(1) || hit(PAD_START)) this.close();
+      if (hit(0) && !this.duel) this.start(); else if (hit(1) || hit(PAD_START) || (hit(0) && this.duel)) this.close();
       return;
     }
     if (hit(PAD_START)) { this.close(); return; }
@@ -195,7 +203,19 @@ export class FightMode {
   }
 
   private finish() {
-    const won = this.fight.winner === this.fight.a, first = won && !this.record.beaten;
+    const won = this.fight.winner === this.fight.a;
+    if (this.duel) {   // a duel below: no record, no purse; the game settles it when you leave the fight
+      this.result = { won, crowns: 0, first: false };
+      const box = this.el.querySelector('.fx-result')!;
+      box.querySelector('.fx-r-title')!.textContent = won ? `${this.duel.name} is down` : `${this.duel.name} gets the better of you`;
+      box.querySelector('.fx-r-line')!.textContent = won ? 'Your hands are steady. On you go.' : 'You break away, bruised. It will cost you.';
+      box.querySelector<HTMLElement>('#fxLeave')!.textContent = 'Back to the descent';
+      box.classList.remove('hidden');
+      this.onResult(won, 0, false);
+      return;
+    }
+    this.el.querySelector<HTMLElement>('#fxLeave')!.textContent = 'Leave the mat';
+    const first = won && !this.record.beaten;
     const crowns = won ? (first ? 25 : 5) : 0;
     this.record = { beaten: this.record.beaten || won, wins: this.record.wins + (won ? 1 : 0), losses: this.record.losses + (won ? 0 : 1) };
     storeSet(KEY, JSON.stringify(this.record));
@@ -210,10 +230,10 @@ export class FightMode {
 
   private draw() {
     const f = this.fight, q = <T extends Element>(s: string) => this.el.querySelector<T & HTMLElement>(s)!;
-    const bar = (who: 'a' | 'b', x: Fighter) => { q<HTMLElement>(`.fx-hp[data-who="${who}"]`).style.width = x.hp + '%'; };
+    const bar = (who: 'a' | 'b', x: Fighter) => { q<HTMLElement>(`.fx-hp[data-who="${who}"]`).style.width = (who === 'b' ? (x.hp / f.bMax) * 100 : x.hp) + '%'; };
     bar('a', f.a); bar('b', f.b);
-    q('.fx-pips[data-who="a"]').textContent = '●'.repeat(f.wins[0]) + '○'.repeat(2 - f.wins[0]);
-    q('.fx-pips[data-who="b"]').textContent = '●'.repeat(f.wins[1]) + '○'.repeat(2 - f.wins[1]);
+    q('.fx-pips[data-who="a"]').textContent = '●'.repeat(f.wins[0]) + '○'.repeat(Math.max(0, f.needed - f.wins[0]));
+    q('.fx-pips[data-who="b"]').textContent = '●'.repeat(f.wins[1]) + '○'.repeat(Math.max(0, f.needed - f.wins[1]));
     q('.fx-clock').textContent = String(Math.ceil(f.time));
     const b = q('.fx-banner'); if (b.textContent !== f.banner) b.textContent = f.banner;
   }

@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 39: the Monk locks on and fights hand to hand (Mike 2026-11-06, Round B)
+- **Monks** lock on to the nearest goblin ahead in the descent with Z (LB on a pad, a Lock on button on touch), and the fight moves into **fight mode** right where you stand: the mat is laid between you, turned so you keep your side, and the camera comes in closer for corridors.
+- A duel is **one round**. The goblin's health bar is scaled to its toughness, and leaders, guardians and floors 10+ fight at Kavik's "fair" level. Win and it falls, loot and all. Lose, or leave the mat, and you break away for 3 health.
+- Kavik's spar on the dojo mat is unchanged (best of three).
+- New `test/e2e-monk.mjs` (12/12).
+
 ### v0.16 changelog, part 38: the Mage's magic missile, taught by Magister Greer (Mike 2026-11-06, Round B)
 - **Mages** can ask **Magister Greer** by the coach road for a spell. He teaches **magic missile** (kept on your profile), then has advice instead.
 - **Cast** with Z (LB on a pad, a Missile button on touch): a small bolt of pale light flies where you look, bends gently toward a goblin ahead, hurts it (2) and bursts on walls. It **lights the walls and floor as it flies**, which helps in the dark below. A short cooldown (1.2 s) between casts.
