@@ -54,7 +54,7 @@ export interface World {
   campfireFlame: THREE.Mesh;                                  // B8: flickers in main.ts
   bannerCloth: THREE.Mesh;                                    // B10: the page on the writing desk; its map is the stamped sketch
   doorOpen: boolean;
-  openDoor(): void;             // F3.4 `unlock:library_door`
+  openDoor(instant?: boolean): void; // F3.4 `unlock:library_door`; open from the start (Mike 2026-11-06)
   standees: Record<string, THREE.Object3D>;  // placeholder characters; .glb model slots replace them
   solids: THREE.Object3D[];     // F4.2: what a bolt can stick in (the ground is handled separately)
   update(t: number, camera: THREE.Camera): void;
@@ -528,10 +528,11 @@ export function buildWorld(): World {
     standees,
     solids,
     get doorOpen() { return doorOpen; },
-    openDoor() {
+    openDoor(instant = false) {
       if (doorOpen) return;
       doorOpen = true;
       colliders.splice(colliders.indexOf(doorCollider), 1);
+      if (instant) { doorAngle = THREE.MathUtils.degToRad(100); hinge.rotation.y = doorAngle; }
     },
     update(t: number, camera: THREE.Camera) {
       const targetAngle = doorOpen ? THREE.MathUtils.degToRad(100) : 0;

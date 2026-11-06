@@ -202,6 +202,7 @@ const loaderBar = document.querySelector<HTMLElement>('#loader i');
 const progress = (pct: number) => { if (loaderBar) loaderBar.style.width = pct + '%'; };
 progress(40);
 const world = buildWorld();
+world.openDoor(true); // Mike 2026-11-06: the Ruined Library is open from the start
 progress(80);
 renderer.shadowMap.enabled = settings.shadows;
 world.setShadows(settings.shadows);

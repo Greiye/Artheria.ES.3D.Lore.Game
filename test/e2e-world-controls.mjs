@@ -69,7 +69,8 @@ const door = await G(page, () => {
   return { h: box.max.y - box.min.y, z: d.getWorldPosition(new window.__gametool.Vector3()).z };
 });
 check('F2.3 door is 3.4 m (2x player)', Math.abs(door.h - 3.4) < 0.01, `${door.h.toFixed(2)} m`);
-// Cast from the spawn eyes toward the door (slightly off the lectern's line); the first solid hit must be the door.
+// Cast from the spawn eyes toward the doorway (slightly off the lectern's line); nothing solid may stand in front of it.
+// Mike 2026-11-06: the door now stands open from the start, so the ray may pass through the doorway or hit the open leaf.
 const sight = await G(page, () => {
   const g = window.__gametool, w = g.world;
   const a = new g.Vector3(1.2, 1.7, 8.5), b = w.libraryDoor.getWorldPosition(new g.Vector3()).add(new g.Vector3(0.4, 0.6, 0));
@@ -77,16 +78,20 @@ const sight = await G(page, () => {
   ray.camera = g.camera;   // sprites need a camera to raycast
   // Front-facing solids only: skips outline hulls and the sky dome (BackSide).
   const hits = ray.intersectObjects(w.scene.children, true).filter((h) => h.object.visible && !h.object.isSprite && h.object.material && h.object.material.side === 0 && h.object.material.visible !== false);
-  return hits[0]?.object.name || hits[0]?.object.type || 'none';
+  const h = hits[0];
+  return { name: h ? h.object.name || h.object.type : 'none', z: h ? h.point.z : -1e9, doorZ: b.z };
 });
-check('F2.3 library door visible from spawn (nothing solid in between)', sight === 'library_door', `first hit: ${sight}`);
+check('F2.3 library doorway visible from spawn (nothing solid in between)', sight.name === 'library_door' || sight.z < sight.doorZ + 0.3, JSON.stringify(sight));
 await page.screenshot({ path: path.join(shots, 'v03-spawn-sunset.png') });
 
-// Door is locked (F3.4 unlocks at 0.04): walking at it stops in front of it.
+// Mike 2026-11-06: the library is open from the start, so walking at the door goes through.
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, -15); p.yaw = 0; });
-await page.keyboard.down('KeyW'); await page.waitForTimeout(1500); await page.keyboard.up('KeyW');
+// Hold W until through the doorway (or 6 s): game time, not a fixed wall-clock walk, so slow frames don't fail it.
+await page.keyboard.down('KeyW');
+await page.waitForFunction((dz) => window.__gametool.player.pos.z < dz - 1, door.z, { timeout: 6000, polling: 100 }).catch(() => undefined);
+await page.keyboard.up('KeyW');
 const stopZ = await G(page, () => window.__gametool.player.pos.z);
-check('F2.3 locked door blocks the player', stopZ > door.z, `stopped at z ${stopZ.toFixed(2)}, door at ${door.z.toFixed(2)}`);
+check('F2.3 library door is open from the start (walk through)', stopZ < door.z - 1, `reached z ${stopZ.toFixed(2)}, door at ${door.z.toFixed(2)}`);
 
 // ---------- F2.4 POV toggle (rebuild R3: third-person follow is the default) ----------
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; p.pitch = 0; });
@@ -95,11 +100,18 @@ const tp = await G(page, () => { const g = window.__gametool; return { third: g.
 await page.keyboard.up('KeyW');
 await page.screenshot({ path: path.join(shots, 'v03-third-person.png') });
 check('F2.4 default view is the overhead camera (v0.05; body shown, camera behind and above, S1) while moving', tp.third && tp.body && tp.cam > 3 && tp.cam < 15, `camera ${tp.cam.toFixed(2)} m from eyes`);
-// Wall collision: back the player up against the library, looking away from it.
-await G(page, () => { const p = window.__gametool.player; p.pos.set(6, 0, -16.4); p.yaw = Math.PI; p.pitch = 0; });
-await page.waitForTimeout(300);
-const wallCam = await G(page, () => window.__gametool.camera.position.z);
-check('F2.4 third-person camera never goes through the library wall', wallCam > -16.8, `camera z ${wallCam.toFixed(2)}`);
+// Wall collision: back the player up against the library, looking away from it. B45 see-through (on by default)
+// opens walls instead of pulling the camera in, so turn it off for this check and restore it after.
+await G(page, () => { const g = window.__gametool, p = g.player; g.settings.seeThrough = false; p.pos.set(6, 0, -16.4); p.yaw = Math.PI; p.pitch = 0; });
+await page.waitForTimeout(1500);
+// The camera may clear a wall by passing over its top (the overhead view, v0.05); it must never sit inside one.
+const wallCam = await G(page, () => {
+  const g = window.__gametool, c = g.camera.position;
+  const inside = g.world.colliders.find((k) => !(k.top !== undefined && c.y > k.top + 0.3) && (k.kind === 'circle' ? Math.hypot(c.x - k.x, c.z - k.z) < k.r : c.x > k.minX && c.x < k.maxX && c.z > k.minZ && c.z < k.maxZ));
+  return { z: +c.z.toFixed(2), y: +c.y.toFixed(2), inside: !!inside };
+});
+await G(page, () => { window.__gametool.settings.seeThrough = true; });
+check('F2.4 third-person camera never sits inside the library wall', !wallCam.inside, JSON.stringify(wallCam));
 await G(page, () => { const p = window.__gametool.player; p.pos.set(0, 0, 8.5); p.yaw = 0; p.pitch = 0; });
 await page.keyboard.press('KeyF');
 await page.waitForFunction(() => { const g = window.__gametool; return g.camera.position.distanceTo(g.player.eyePos) < 0.01 && !g.rig.switching; }, null, { timeout: 8000 }).catch(() => undefined);   // S1: the camera glides into the eyes
