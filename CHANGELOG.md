@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 45: the Ruined Library looks its age, 6: ivy and plants (Mike 2026-11-06, Graphics thread: "Add 2d quad ivy and plants.")
+- **Cut-out quad ivy and plants**, painted in our own leaf, fern and grass textures and swaying in the wind. **Ivy curtains** hang down the inside walls. **Vines** dangle through every hole in the ceiling, with grass and ferns growing on the floor below where the sky comes in. **Tufts** sprout in the floor's cracks and at the walls' foot.
+- Outside, ferns and grass grow along the hall's walls, and more ivy hangs off the top of the front.
+- Three merged meshes inside (one per texture) and three outside.
+
 ### v0.16 changelog, part 44: the Ruined Library looks its age, 5: stone stairs down (Mike 2026-11-06, Graphics thread: "Trap doors are now stairs down.")
 - **The trapdoor is gone.** In its place a **stone stairwell** is cut into the library floor: twelve worn steps go down into the dark under a black arch, with a torch in a bracket halfway down. A low kerb with corner posts runs round three sides, and you go down from the side facing the door ("Go down the stairs"). You can't fall in.
 - The flagstones leave a gap for it, and the ground under the hall is sunk well below so you can see down the steps.
