@@ -4,7 +4,7 @@ A small 3D lore game set in Artheria. You arrive by stagecoach at a storybook to
 
 Private project, all rights reserved. Not open source. Third-party models are credited below.
 
-**Play:** <https://greiye.github.io/Artheria.ES.3D.Lore.Game/>. It runs on PC, phones and tablets with no install. On a phone, Share → Add to Home Screen gives a fullscreen icon.
+**Play:** <https://greiye.github.io/Artheria.ES.3D.Lore.Game/>. **About (promo and lore page):** <https://greiye.github.io/Artheria.ES.3D.Lore.Game/about/>, from `site/index.html`; also linked from Extras → About the game. It runs on PC, phones and tablets with no install. On a phone, Share → Add to Home Screen gives a fullscreen icon.
 
 ## What's in it
 
@@ -56,6 +56,7 @@ On touch screens, the left thumb is a joystick and the right thumb drags to look
 ## Build and deploy
 
 - `npm install`, then `npm run dev` for a dev server. `npm run build` checks lore and types and writes the single-file `dist/index.html`.
+- `site/index.html` is the promo page: plain HTML with no build step, copied to `dist/about/index.html` on build and served at `/about/` by `npm run dev`. Its Play buttons link to `../`.
 - Every push to `main` runs `.github/workflows/deploy.yml`, which builds and publishes **`dist/`** to GitHub Pages. The root `index.html` is only Vite's source entry.
 - `.github/workflows/smoke.yml` runs the boot, town and menu tests on every PR.
 - `.github/workflows/e2e-full.yml` runs every suite in `test/suites.json` across four parallel jobs: nightly, on demand (Actions → Full e2e → Run workflow), and on PRs labelled `full-e2e`.

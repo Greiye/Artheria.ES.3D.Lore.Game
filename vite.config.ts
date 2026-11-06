@@ -113,6 +113,31 @@ const pose = () => [
   shipDir('pose-wasm', `${MP_DIR}/wasm`, 'pose/wasm', /\.(js|wasm)$/, POSE_MIME),
 ];
 
+// The promo / lore page (site/index.html, a plain hand-written page with no build step) ships at dist/about/index.html,
+// so the live site has the game at ./ and its storybook pitch at ./about/. Served from site/ in dev.
+function aboutPage(): Plugin {
+  const FILE = 'site/index.html';
+  return {
+    name: 'about-page',
+    // Written after the bundle, not emitted into it: vite-plugin-singlefile rewrites every .html in the bundle.
+    writeBundle(opts) {
+      if (!fs.existsSync(FILE)) return;
+      const dir = `${opts.dir ?? 'dist'}/about`;
+      fs.mkdirSync(dir, { recursive: true });
+      fs.copyFileSync(FILE, `${dir}/index.html`);
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const u = (req.url ?? '').split('?')[0];
+        if (u === '/about') { res.statusCode = 301; res.setHeader('Location', '/about/'); return res.end(); }
+        if (u !== '/about/' && u !== '/about/index.html') return next();
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        fs.createReadStream(FILE).pipe(res);
+      });
+    },
+  };
+}
+
 // One version: src/version.ts (the corner label) and package.json must agree, so a round can't bump only one of them.
 const GAME_VERSION = /VERSION = '([\d.]+)'/.exec(fs.readFileSync('src/version.ts', 'utf8'))?.[1];
 const PKG_VERSION = JSON.parse(fs.readFileSync('package.json', 'utf8')).version as string;
@@ -122,7 +147,7 @@ if (!GAME_VERSION || !PKG_VERSION.startsWith(GAME_VERSION + '.')) {
 
 export default defineConfig({
   base: './',
-  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits(), ...pose()],
+  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits(), aboutPage(), ...pose()],
   server: { host: true }, // also reachable from a phone on the same Wi-Fi for testing
   build: { assetsInlineLimit: 100_000_000, chunkSizeWarningLimit: 2000 },
   // .glb slots that actually exist in public/models (so the game never requests a missing file).

@@ -1,0 +1,1083 @@
+<!doctype html>
+<!-- Tales of Artheria promo / lore page. Source of truth for the page Mike shares; ships at <site>/about/ beside the game.
+     Edit here, then copy to the project's site/tales-of-artheria.html (or the other way round) to keep them in step. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A storybook lore game set by the Ruined Library of Artheria. Read the chronicle, try the casebook, then play in your browser.">
+<link rel="icon" href="../icon-192.png">
+<title>Tales of Artheria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Spectral:ital,wght@0,400;0,600;1,400&family=Spectral+SC:wght@500;600&family=Caveat:wght@500;600&display=swap">
+<style>
+/* Layout: a storybook walk. A painted town at the Ruined Library (hero), Natalie's note and her open case, the town's workshops,
+   then the old arguments, the chart, the chronicle, the shelf, the colours of magic, the people, the look, and a blank page.
+   Light theme = the town by day. Dark theme = night, when every window and lantern is lit. Palette from docs/vision.md: navy, rust, leather, cream, moss. */
+:root{
+  --bg:#f3e8cf; --band:#e9dbb9; --fg:#1f2433; --muted:#5b5446; --line:#cdbb93;
+  --accent:#2c4a7a; --rust:#a8502a; --leather:#7a5233; --moss:#56722f; --gold:#c9962e;
+  --shade:#1c2a44; --shade-2:#25375a; --shade-fg:#f3e8cf; --shade-muted:#bcc2d2; --shade-line:#34476b;
+  --paper:#f7ecd0; --paper-2:#e8d5a8; --ink:#2b2620; --ink-muted:#665443; --blood:#8f2b23; --blood-2:#6e1f1a;
+  --f-display:"IM Fell English", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --f-sc:"IM Fell English SC", "IM Fell English", Georgia, serif;
+  --f-body:"Spectral", "Iowan Old Style", Georgia, serif;
+  --f-label:"Spectral SC", "Spectral", Georgia, serif;
+  --f-hand:"Caveat", "Segoe Print", "Bradley Hand", cursive;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10182a; --band:#16213a; --fg:#ece2c8; --muted:#a9adbb; --line:#2c3a58;
+  --accent:#9cc0ee; --rust:#e08a5a; --leather:#c79a6e; --moss:#9cbc6a; --gold:#e7bd5a;
+  --shade:#0a1020; --shade-2:#141e36; --shade-fg:#ece2c8; --shade-muted:#a9b0c2; --shade-line:#25324f;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10182a; --band:#16213a; --fg:#ece2c8; --muted:#a9adbb; --line:#2c3a58;
+  --accent:#9cc0ee; --rust:#e08a5a; --leather:#c79a6e; --moss:#9cbc6a; --gold:#e7bd5a;
+  --shade:#0a1020; --shade-2:#141e36; --shade-fg:#ece2c8; --shade-muted:#a9b0c2; --shade-line:#25324f;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:18px;line-height:1.6;margin:0;transition:background .5s,color .5s}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;line-height:1.1;text-wrap:balance}
+h2{font-size:clamp(32px,4.6vw,52px)}
+h3{font-size:24px}
+p{margin:0}
+.eyebrow{font-family:var(--f-label);font-weight:600;font-size:14px;letter-spacing:.12em;text-transform:lowercase;color:var(--rust)}
+.lead{color:var(--muted);max-width:60ch}
+button{font:inherit}
+
+/* HERO */
+.hero{position:relative;overflow:hidden;background:#1c2a44}
+#town{display:block;width:100%;height:clamp(480px,58vw,720px)}
+.hero-copy{position:absolute;inset:0;pointer-events:none}
+.hero-copy .wrap{padding-block:clamp(18px,3.6vw,44px)}
+@media (max-width:640px){#town{height:380px}.hero-copy{position:static;background:var(--hero-bg,#f3e8cf)}.hero-copy .wrap{padding-block:16px}.hero .panel{box-shadow:none;border:0;padding:4px 0;background:none;max-width:100%}.hero-caption{top:340px;bottom:auto;font-size:18px}}
+.panel{display:grid;gap:14px;justify-items:start;width:fit-content;max-width:min(100%,470px);padding:clamp(16px,2.4vw,26px);pointer-events:auto;
+  background:color-mix(in srgb,var(--hero-bg,#f3e8cf) 88%,transparent);color:var(--hero-ink,#1f2433);border:2.5px solid #1b1712;border-radius:4px;box-shadow:5px 6px 0 rgba(27,23,18,.45)}
+.panel .eyebrow{color:inherit;opacity:.8}
+.hero h1{font-size:clamp(46px,7.4vw,100px);letter-spacing:-.01em;line-height:.95}
+.hero h1 span{display:block;font-family:var(--f-sc);font-size:.32em;letter-spacing:.08em;margin-bottom:.15em}
+.hero .tag{max-width:34ch;font-size:clamp(17px,1.9vw,21px)}
+.hero-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.play{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-label);font-weight:600;font-size:17px;text-decoration:none;background:#a8502a;color:#fbf1d8;border:2px solid #1b1712;padding:7px 16px 8px;border-radius:3px;box-shadow:0 3px 0 #1b1712}
+.play:hover{filter:brightness(1.08)}
+.play:active{transform:translateY(2px);box-shadow:0 1px 0 #1b1712}
+.tod{display:inline-flex;border:2px solid #1b1712;border-radius:3px;overflow:hidden}
+.tod button{background:transparent;border:0;color:inherit;font-family:var(--f-label);font-weight:500;font-size:15px;padding:6px 11px;cursor:pointer}
+.tod button+button{border-left:1.5px solid #1b1712}
+.tod button[aria-pressed="true"]{background:#1f2433;color:#f3e8cf}
+.hero-caption{position:absolute;right:max(16px, env(safe-area-inset-right, 0px));bottom:14px;font-family:var(--f-hand);font-size:21px;line-height:1.15;color:#fbf1d8;text-shadow:0 1px 2px #1b1712,0 0 8px rgba(27,23,18,.6);max-width:min(60%,420px);text-align:right}
+.facts{background:var(--shade);color:var(--shade-fg);border-top:3px solid #1b1712}
+.facts .wrap{display:flex;flex-wrap:wrap;gap:8px 30px;padding-block:14px;font-family:var(--f-label);font-weight:500;font-size:16px;color:var(--shade-muted)}
+.facts b{color:var(--shade-fg);font-weight:600}
+
+section{padding-block:clamp(64px,9vw,112px)}
+section.band{background:var(--band)}
+section.shade{background:var(--shade);color:var(--shade-fg)}
+section.shade .lead{color:var(--shade-muted)}
+section.shade .eyebrow{color:var(--gold)}
+.head{display:grid;gap:14px;margin-bottom:40px;max-width:68ch}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,5vw,72px);align-items:start}
+@media (max-width:860px){.split{grid-template-columns:minmax(0,1fr)}}
+
+/* FIELD NOTE */
+.note{position:relative;background:var(--paper);color:var(--ink);padding:clamp(24px,4vw,40px) clamp(22px,4vw,40px) 36px;transform:rotate(-1.2deg);box-shadow:0 2px 0 var(--paper-2),0 18px 40px rgba(0,0,0,.28);font-family:var(--f-hand);font-size:clamp(22px,2.4vw,26px);line-height:1.32}
+.note::before{content:"";position:absolute;top:-12px;left:46%;width:84px;height:26px;background:rgba(200,170,110,.6);transform:rotate(3deg)}
+.note .meta{font-family:var(--f-label);font-weight:600;font-size:14px;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:14px}
+.note p+p{margin-top:12px}
+.note strong{font-weight:600;font-size:1.12em;color:#5e1d16}
+.note em{color:#4a3d30}
+.note .sig{margin-top:18px;text-align:right;color:#6a4560}
+.telling{margin-top:22px;font-size:16px;color:var(--muted);max-width:52ch}
+.case-intro h3{font-size:30px;margin-bottom:10px}
+.case-intro p{color:var(--muted)}
+.case-intro p+p{margin-top:12px}
+.friends{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.friends span{font-family:var(--f-label);font-weight:600;font-size:15px;border:1.5px solid var(--fg);padding:2px 10px;border-radius:999px}
+.friends span.found{background:var(--moss);color:#fbf1d8;border-color:var(--moss)}
+
+/* CASEBOOK */
+.casebook{margin-top:56px;background:var(--paper);color:var(--ink);border:2.5px solid #1b1712;border-radius:4px;box-shadow:7px 8px 0 rgba(27,23,18,.35);display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+@media (max-width:900px){.casebook{grid-template-columns:minmax(0,1fr)}}
+.cb-col{padding:clamp(20px,3.4vw,34px);min-width:0}
+.cb-col+.cb-col{border-left:1.5px dashed #b99c6c}
+@media (max-width:900px){.cb-col+.cb-col{border-left:0;border-top:1.5px dashed #b99c6c}}
+.cb-title{font-family:var(--f-sc);font-size:22px;color:#483934;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline;margin-bottom:14px}
+.cb-title small{font-family:var(--f-label);font-size:14px;color:var(--ink-muted)}
+.clues{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr));gap:10px}
+.clue{text-align:left;cursor:pointer;background:#fbf3dc;color:var(--ink);border:1.5px solid #b99c6c;border-radius:3px;padding:10px 12px;display:grid;gap:4px;font-size:15px;line-height:1.4}
+.clue b{font-family:var(--f-label);font-weight:600;font-size:15px}
+.clue:hover{border-color:#1b1712}
+.clue[aria-pressed="true"]{background:#1f2433;color:#f3e8cf;border-color:#1b1712}
+.clue[aria-pressed="true"] b::before{content:"✓ ";color:#e7bd5a}
+.clue-detail{margin-top:14px;font-size:16px;min-height:5.2em;border-left:3px solid #a8502a;padding:4px 0 4px 12px}
+.clue-detail .nat{display:block;margin-top:6px;font-family:var(--f-hand);font-size:21px;color:#6a4560}
+.theory h4{margin:0 0 6px;font-family:var(--f-label);font-weight:600;font-size:15px;letter-spacing:.06em;color:var(--ink-muted)}
+.theory .grp{margin-bottom:16px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{cursor:pointer;font-family:var(--f-body);font-size:15px;background:transparent;color:var(--ink);border:1.5px solid #b99c6c;border-radius:999px;padding:3px 12px}
+.chip.sup{border-color:#56722f;box-shadow:inset 0 0 0 1px #56722f}
+.chip.sup::after{content:" •";color:#56722f}
+.chip[aria-pressed="true"]{background:#a8502a;border-color:#1b1712;color:#fbf1d8}
+.chip[aria-pressed="true"].sup::after{color:#fbf1d8}
+.hintline{font-family:var(--f-hand);font-size:22px;color:#6a4560;margin:4px 0 14px;min-height:1.3em}
+.btn{font-family:var(--f-label);font-weight:600;font-size:16px;background:#1f2433;color:#f3e8cf;border:2px solid #1b1712;border-radius:3px;padding:8px 16px;cursor:pointer;box-shadow:0 3px 0 #1b1712}
+.btn:hover{filter:brightness(1.15)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #1b1712}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.ghost{background:transparent;color:var(--ink)}
+.outcome{margin-top:18px;background:#fbf3dc;border:1.5px solid #1b1712;border-radius:3px;padding:16px 18px;font-size:16px}
+.outcome .who{font-family:var(--f-sc);font-size:22px;color:#56722f}
+.outcome .nat{font-family:var(--f-hand);font-size:22px;color:#6a4560;margin-top:10px;display:block}
+.cb-legend{margin-top:10px;font-size:14px;color:var(--ink-muted)}
+
+/* TOWN */
+.stations{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+@media (max-width:980px){.stations{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:700px){.stations{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:420px){.stations{grid-template-columns:minmax(0,1fr)}}
+.st{position:relative;background:var(--paper);color:var(--ink);border:2px solid #1b1712;border-radius:3px;padding:44px 16px 16px;display:flex;flex-direction:column;gap:6px}
+.st::before{content:"";position:absolute;left:-2px;right:-2px;top:-2px;height:30px;background:var(--roof,#a8502a);border:2px solid #1b1712;border-radius:3px 3px 0 0;clip-path:polygon(0 100%,8% 0,92% 0,100% 100%)}
+.st .k{font-family:var(--f-label);font-weight:600;font-size:13px;letter-spacing:.06em;color:var(--ink-muted)}
+.st h3{font-size:22px;color:#2b2620}
+.st p{font-size:15px;line-height:1.45;color:#4a4034}
+
+/* SOURCES DISAGREE */
+.dispute{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:clamp(20px,4vw,48px)}
+@media (max-width:860px){.dispute{grid-template-columns:minmax(0,1fr)}}
+.qlist{list-style:none;margin:0;padding:0;display:grid;gap:4px;align-content:start}
+@media (max-width:860px){.qlist{display:flex;overflow-x:auto;gap:8px;padding-bottom:8px}.qlist li{flex:0 0 auto}}
+.qlist button{width:100%;text-align:left;background:transparent;color:var(--shade-muted);border:0;border-left:3px solid var(--shade-line);padding:8px 14px;cursor:pointer;font-family:var(--f-body);font-size:16px;line-height:1.35}
+@media (max-width:860px){.qlist button{border-left:0;border-bottom:3px solid var(--shade-line);white-space:nowrap}}
+.qlist button:hover{color:var(--shade-fg)}
+.qlist button[aria-pressed="true"]{color:var(--shade-fg);border-color:var(--gold);background:var(--shade-2)}
+.qlist .picked{font-family:var(--f-label);font-size:13px;color:var(--gold);margin-left:6px}
+.ledger h3{font-size:clamp(26px,3vw,36px);margin-bottom:6px}
+.ledger .topic{font-family:var(--f-label);font-weight:500;font-size:14px;color:var(--shade-muted);letter-spacing:.06em;margin-bottom:22px}
+.tellers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:16px}
+.teller{background:var(--paper);color:var(--ink);padding:18px 18px 16px;display:flex;flex-direction:column;gap:10px;border-radius:2px}
+.teller:nth-child(odd){transform:rotate(-.6deg)}.teller:nth-child(even){transform:rotate(.7deg)}
+.teller .who{font-family:var(--f-sc);font-size:19px;color:var(--blood)}
+.teller q{quotes:none;font-size:17px;line-height:1.5;flex:1}
+.teller button{align-self:flex-start;font-family:var(--f-label);font-weight:600;font-size:14px;background:transparent;color:var(--ink);border:2px solid var(--ink);border-radius:3px;padding:2px 10px;cursor:pointer}
+.teller button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.teller.chosen{box-shadow:0 0 0 3px var(--gold)}
+.margin{margin-top:26px;font-family:var(--f-hand);font-size:24px;color:var(--shade-muted);max-width:52ch}
+
+/* MAP */
+.mapwrap{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:clamp(20px,4vw,48px);align-items:start}
+@media (max-width:900px){.mapwrap{grid-template-columns:minmax(0,1fr)}}
+.map{position:relative;border:2.5px solid #1b1712;border-radius:4px;background:#2f5f86;box-shadow:6px 7px 0 var(--line);overflow:hidden}
+.map canvas{display:block;width:100%;aspect-ratio:8/5;max-width:100%}
+.map .pin{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-label);font-weight:600;font-size:clamp(11px,1.3vw,14px);line-height:1.1;background:#f7ecd0;color:#1f2433;border:1.5px solid #1b1712;border-radius:2px;padding:2px 7px 3px;cursor:pointer;white-space:nowrap;box-shadow:2px 2px 0 rgba(27,23,18,.5)}
+.map .pin[aria-pressed="true"]{background:#a8502a;color:#fbf1d8}
+.map .legend{position:absolute;left:10px;bottom:6px;font-family:var(--f-hand);font-size:19px;color:#fbf1d8;text-shadow:0 1px 2px #1b1712}
+.region h3{font-size:clamp(30px,3.4vw,42px)}
+.region .epithet{font-family:var(--f-sc);color:var(--rust);font-size:19px;margin:4px 0 14px}
+.region p{color:var(--muted)}
+.region .dis{margin-top:16px;padding:12px 14px;background:var(--band);border-left:4px solid var(--rust);font-size:16px}
+.region .dis b{font-family:var(--f-label);font-weight:600;font-size:14px;letter-spacing:.06em;display:block;color:var(--rust)}
+.region .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.region .tags span{font-family:var(--f-label);font-weight:500;font-size:14px;border:1px solid var(--line);border-radius:999px;padding:1px 10px;color:var(--muted)}
+
+/* CHRONICLE */
+.ages{list-style:none;margin:0;padding:0;display:grid}
+.ages li{display:grid;grid-template-columns:minmax(0,180px) 28px minmax(0,1fr);gap:18px;padding-bottom:34px;position:relative}
+.ages li::after{content:"";position:absolute;left:calc(min(180px,30%) + 18px + 13px);top:24px;bottom:0;width:2px;background:var(--line)}
+.ages li:last-child::after{display:none}
+.ages .when{font-family:var(--f-label);font-weight:600;font-size:15px;color:var(--muted);text-align:right;padding-top:2px;letter-spacing:.04em}
+.ages .dot{width:26px;height:26px;border-radius:50%;background:var(--c,var(--moss));border:2.5px solid var(--fg);margin-top:3px;position:relative;z-index:1}
+.ages h3{font-size:26px;margin-bottom:4px}
+.ages p{color:var(--muted);max-width:62ch}
+.ages li.now .dot{background:var(--gold);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--gold) 30%,transparent)}}
+@media (max-width:640px){.ages li{grid-template-columns:28px minmax(0,1fr);gap:14px}.ages .when{grid-column:2;text-align:left;padding:0;order:-1}.ages .dot{grid-row:1/span 2;grid-column:1}.ages li::after{left:13px}}
+
+/* SHELF */
+.shelf{width:fit-content;max-width:100%;margin:0 auto;padding:0 14px;background:#3d2a1d;border:10px solid #6a4931;border-bottom-width:18px;outline:2.5px solid #1b1712;box-shadow:inset 0 14px 24px rgba(0,0,0,.5)}
+.row{display:flex;align-items:flex-end;gap:3px;min-height:230px;padding-top:24px;overflow-x:auto}
+.spine{flex:0 0 auto;border:1.5px solid #1b1712;border-bottom:0;padding:0;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--f-sc);font-size:15px;letter-spacing:.04em;color:#f7ecd0;background:var(--blood);box-shadow:inset -4px 0 0 rgba(0,0,0,.25),inset 3px 0 0 rgba(255,255,255,.08);transition:transform .2s;border-radius:2px 2px 0 0}
+.spine::before,.spine::after{content:"";position:absolute;left:0;right:0;height:4px;background:#d6b25e}
+.spine::before{top:12px}.spine::after{bottom:12px}
+.spine:hover{transform:rotate(180deg) translateY(10px)}
+.spine[aria-pressed="true"]{transform:rotate(180deg) translateY(18px);background:var(--blood-2)}
+.spine.grey{background:#7e7775;color:#2e2c2a;font-size:12px}
+.spine.grey::before,.spine.grey::after{background:#5c5654}
+.spine.lean{transform:rotate(172deg);margin:0 10px}
+.spine.lean:hover{transform:rotate(172deg) translateY(10px)}
+.reader{margin-top:28px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);background:var(--paper);color:var(--ink);border:2.5px solid #1b1712;box-shadow:0 18px 44px rgba(0,0,0,.3),inset 0 0 0 3px #764228;min-height:300px}
+@media (max-width:760px){.reader{grid-template-columns:minmax(0,1fr)}}
+.reader .pg{padding:clamp(22px,4vw,40px);min-width:0}
+.reader .pg+.pg{border-left:1px solid #c59d78}
+@media (max-width:760px){.reader .pg+.pg{border-left:0;border-top:1px dashed #c59d78}}
+.reader h3{color:#483934;font-size:clamp(26px,3vw,34px)}
+.reader .sub{font-style:italic;color:var(--ink-muted);margin:6px 0 16px;font-size:16px}
+.reader p{font-size:17px;line-height:1.6}
+.reader p+p{margin-top:12px}
+.reader ul{margin:10px 0 0;padding-left:20px;font-size:16px}
+.reader blockquote{margin:14px 0 0;padding-left:14px;border-left:3px solid #c59d78;font-style:italic;font-size:16px}
+.reader .dis{margin-top:16px;font-size:15px;background:rgba(168,80,42,.12);padding:10px 12px}
+.reader .dis b{font-family:var(--f-label);font-weight:600;font-size:13px;letter-spacing:.06em;display:block;color:#764228}
+.reader .crumble{font-family:var(--f-hand);font-size:28px;color:#655246;line-height:1.3}
+
+/* MAGIC */
+.colours{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.colours{grid-template-columns:repeat(5,minmax(60px,1fr));overflow-x:auto;padding-bottom:6px}}
+.flame{background:transparent;border:0;padding:0;cursor:pointer;display:grid;justify-items:center;gap:8px;color:var(--shade-muted)}
+.flame canvas{width:100%;max-width:120px;aspect-ratio:3/4;display:block}
+.flame span{font-family:var(--f-label);font-weight:600;font-size:15px;text-align:center}
+.flame[aria-pressed="true"] span{color:var(--shade-fg)}
+.flame[aria-pressed="true"] canvas{filter:drop-shadow(0 0 16px var(--g))}
+.spell{margin-top:34px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:760px){.spell{grid-template-columns:minmax(0,1fr)}}
+.spell h3{font-size:30px}
+.spell .src{font-family:var(--f-label);font-weight:600;font-size:15px;color:var(--gold);margin-bottom:6px}
+.spell p{color:var(--shade-muted)}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;background:var(--shade-line);border-radius:3px;overflow:hidden}
+.stats div{background:var(--shade-2);padding:16px}
+.stats b{display:block;font-family:var(--f-display);font-weight:400;font-size:38px;line-height:1;color:var(--shade-fg)}
+.stats span{font-family:var(--f-label);font-weight:500;font-size:14px;color:var(--shade-muted)}
+
+/* PEOPLE */
+.people{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px 22px}
+@media (max-width:900px){.people{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.people{grid-template-columns:minmax(0,1fr)}}
+.person{display:flex;flex-direction:column;gap:8px}
+.person canvas{width:100%;aspect-ratio:4/3;display:block;max-width:100%;border:2.5px solid #1b1712;border-radius:4px}
+.person .role{font-family:var(--f-label);font-weight:600;font-size:14px;letter-spacing:.04em;color:var(--rust);margin-top:6px}
+.person h3{font-size:26px}
+.person p{color:var(--muted);font-size:16px}
+.person ul{margin:0;padding:0;list-style:none;font-size:15px;color:var(--muted);display:grid;gap:3px}
+.person ul b{font-family:var(--f-label);font-weight:600;color:var(--fg);margin-right:6px}
+
+/* LOOK */
+.pitch{font-family:var(--f-display);font-size:clamp(28px,4vw,46px);line-height:1.15;max-width:28ch;text-wrap:balance}
+.pitch em{color:var(--rust)}
+.layers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:40px}
+@media (max-width:820px){.layers{grid-template-columns:minmax(0,1fr)}}
+.layer canvas{width:100%;aspect-ratio:16/10;display:block;max-width:100%;border:2.5px solid #1b1712;border-radius:4px}
+.layer h3{margin:14px 0 6px;font-size:24px}
+.layer p{color:var(--muted);font-size:16px}
+.cams{margin-top:36px;display:flex;flex-wrap:wrap;gap:8px 26px;font-family:var(--f-label);font-weight:500;font-size:16px;color:var(--muted);border-top:1.5px dashed var(--line);padding-top:14px}
+.cams b{color:var(--fg);font-weight:600}
+
+/* WRITE */
+.write-head{font-family:var(--f-display);font-size:clamp(30px,4vw,48px);line-height:1.12;margin-bottom:26px;max-width:18ch}
+.how{display:grid;gap:14px;color:var(--shade-muted);font-size:17px}
+.how b{color:var(--shade-fg);font-weight:600}
+.kbd{font-family:var(--f-label);font-weight:600;font-size:14px;border:1px solid var(--shade-line);border-bottom-width:3px;border-radius:3px;padding:0 6px;color:var(--shade-fg);background:var(--shade-2);white-space:nowrap}
+.prompt{background:var(--paper);color:var(--ink);padding:clamp(22px,4vw,34px);border:2.5px solid #1b1712;border-radius:4px;box-shadow:8px 8px 0 #000}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button{font-family:var(--f-label);font-weight:600;font-size:14px;background:transparent;border:1.5px solid #b99c6c;border-radius:999px;color:var(--ink);padding:3px 12px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.prompt .die{font-family:var(--f-label);font-weight:600;font-size:14px;color:var(--ink-muted);letter-spacing:.04em}
+.prompt q{display:block;quotes:none;font-family:var(--f-display);font-size:clamp(24px,2.8vw,32px);line-height:1.25;margin:10px 0 22px;min-height:2.6em}
+.dice{display:grid;gap:8px;margin:12px 0 22px}
+.dice div{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:baseline}
+.dice span{font-family:var(--f-label);font-weight:600;font-size:14px;color:var(--ink-muted)}
+.dice b{font-family:var(--f-display);font-weight:400;font-size:clamp(22px,2.4vw,28px);line-height:1.2}
+.cta{margin-top:30px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;color:var(--shade-muted);font-size:16px}
+
+footer{background:var(--shade);color:var(--shade-muted);border-top:1px solid var(--shade-line)}
+footer .wrap{padding-block:56px 40px;display:grid;gap:26px}
+footer blockquote{margin:0;font-family:var(--f-display);font-size:clamp(24px,3vw,34px);line-height:1.25;color:var(--shade-fg);max-width:34ch}
+footer blockquote cite{display:block;font-family:var(--f-label);font-style:normal;font-weight:500;font-size:15px;color:var(--shade-muted);margin-top:12px}
+footer .small{font-family:var(--f-label);font-weight:500;font-size:14px;display:flex;flex-wrap:wrap;gap:8px 24px}
+footer a{color:var(--gold)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+</head>
+<body>
+<header class="hero" id="top">
+  <canvas id="town" role="img" aria-label="A painted storybook town beside the Ruined Library: timber houses with red roofs, bunting over a cobbled plaza and fountain, a windmill on the hill, the library's spire, and a stagecoach on the road in."></canvas>
+  <div class="hero-copy">
+    <div class="wrap">
+      <div class="panel">
+        <div class="eyebrow">a lore game for friends &middot; build 0.13, playable now</div>
+        <h1><span>Tales of</span>Artheria</h1>
+        <p class="tag">Ride the stagecoach into a storybook town beside a burned library. Read the lore your friends wrote, make your own, and find out where Natalie's party went.</p>
+        <div class="hero-row">
+          <a class="play" href="../">Play in your browser &rarr;</a>
+          <div class="tod" role="group" aria-label="Time of day">
+            <button type="button" data-tod="day" aria-pressed="false">Day</button>
+            <button type="button" data-tod="sunset" aria-pressed="false">Sunset</button>
+            <button type="button" data-tod="night" aria-pressed="false">Night</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-caption" id="heroCaption"></div>
+</header>
+<div class="facts">
+  <div class="wrap">
+    <span><b>9</b> buildings, one tool each</span>
+    <span><b>12</b> library shelves</span>
+    <span><b>7</b> clues, <b>3</b> missing friends</span>
+    <span><b>7</b> continents</span>
+    <span>PC, phone or controller &middot; <b>no install</b></span>
+  </div>
+</div>
+
+<main>
+  <!-- FIELD NOTE + THE CASE -->
+  <section id="case">
+    <div class="wrap">
+      <div class="split">
+        <div>
+          <div class="head">
+            <div class="eyebrow">pinned to the library door</div>
+            <h2>Four went in at noon. One came out.</h2>
+          </div>
+          <article class="note" aria-label="Natalie's field note">
+            <div class="meta">Field note &middot; the Ruined Library, at the door &middot; dusk</div>
+            <p>The orcs burned this place long ago, and it still hasn't finished burning. You can smell it in the stone.</p>
+            <p>Four of us went in at noon. <strong>I came out alone.</strong> The others are somewhere between the shelves, and I am out here writing, because writing is the only thing my hands will do without shaking.</p>
+            <p>What I know: one goblin. <em>Small. Quick.</em> It doesn't fight like a soldier. It fights like a child who found a knife and made up a game. It bit through the Archer's crossbow string.</p>
+            <p>What I don't know: why it stays. Goblins don't keep anything. This one keeps <strong>the red books</strong>.</p>
+            <p>If you are reading this, you are about to go in. <em>Stay low.</em> Leave the red ones be until it looks away.</p>
+            <p class="sig">I will finish this note when I find them. &mdash; N. B.</p>
+          </article>
+          <p class="telling">Sit by the campfire and Natalie tells it to you herself. The bold words swell, the whispers go small, and the fire flares on the hard parts.</p>
+        </div>
+        <div class="case-intro">
+          <div class="head" style="margin-bottom:22px">
+            <div class="eyebrow">the quest</div>
+            <h2>Where did Natalie's party go?</h2>
+          </div>
+          <p>Natalie hands you the Archer's crossbow and ten bolts, and the library door unlocks. Around the town, the camp and the stacks, her friends left things behind. Find at least three, open your casebook with <b>J</b>, and write down what you think happened.</p>
+          <p>Your theory decides where you look. Natalie follows your lead, whether the evidence backs it or it's a leap.</p>
+          <div class="friends" id="friends" aria-label="The missing party">
+            <span data-f="the Archer">the Archer</span><span data-f="the Mage">the Mage</span><span data-f="the Swordsman">the Swordsman</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="casebook" id="casebook">
+        <div class="cb-col">
+          <div class="cb-title">Clues found <small id="clueCount">0 of 7 &middot; three to start a theory</small></div>
+          <div class="clues" id="clues" role="group" aria-label="Clues"></div>
+          <div class="clue-detail" id="clueDetail" aria-live="polite">Pick up a clue to read it. Natalie has something to say about each one.</div>
+        </div>
+        <div class="cb-col theory">
+          <div class="cb-title">Your theory</div>
+          <div class="grp"><h4>Who</h4><div class="chips" data-g="who"></div></div>
+          <div class="grp"><h4>Where</h4><div class="chips" data-g="where"></div></div>
+          <div class="grp"><h4>Why</h4><div class="chips" data-g="why"></div></div>
+          <p class="hintline" id="hint">Look around. They can't have vanished without leaving something.</p>
+          <div class="hero-row"><button class="btn" type="button" id="follow" disabled>Follow the lead</button><button class="btn ghost" type="button" id="resetCase">Start over</button></div>
+          <div class="outcome" id="outcome" hidden aria-live="polite"></div>
+          <p class="cb-legend">A dot on a choice means a clue you hold supports it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE TOWN -->
+  <section class="band" id="town-tools">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">the town</div>
+        <h2>Every building is a place to make something</h2>
+        <p class="lead">You wake in the inn, or on a bedroll by the fire. Nine buildings sit round a cobbled plaza with a fountain, by a river with a stone bridge, a windmill and the library spire. Townsfolk walk, spar, haggle and chat. Walk up to a building and its workshop opens beside you.</p>
+      </div>
+      <div class="stations">
+        <div class="st" style="--roof:#8f2b23"><div class="k">read</div><h3>The Ruined Library</h3><p>Red books at the door, twelve shelves inside. Pin notes to pages. A trapdoor leads down to the dungeon.</p></div>
+        <div class="st" style="--roof:#2c4a7a"><div class="k">write</div><h3>Scriptorium</h3><p>Write lore at the desk, sketch on the paper, then submit it for the shelves.</p></div>
+        <div class="st" style="--roof:#a8502a"><div class="k">forge</div><h3>Smithy</h3><p>Design a weapon on the anvil with the constraint dice. Sharpen, oil and mend gear at the grindstone.</p></div>
+        <div class="st" style="--roof:#7a5233"><div class="k">become</div><h3>Tailor &amp; Barber-Surgeon</h3><p>Who you are, your body, your hair and clothes, and your scars: a name, a motivation and a secret if you want them.</p></div>
+        <div class="st" style="--roof:#56722f"><div class="k">chart</div><h3>Cartographer</h3><p>The living map of the town and the land around it. Press M anywhere.</p></div>
+        <div class="st" style="--roof:#6a4560"><div class="k">train</div><h3>Dojo</h3><p>Real drills: horse stance, push-ups, plank. Turn on the camera and it counts your push-ups on your device. Or spar with Kavik.</p></div>
+        <div class="st" style="--roof:#c9962e"><div class="k">show</div><h3>Gallery</h3><p>Friends' art on the walls, and a cinema screen where a small band plays along to the reels.</p></div>
+        <div class="st" style="--roof:#3d6a7a"><div class="k">trade</div><h3>General Store</h3><p>Instruments, bolts and sundries. Magister Greer, the curio pedlar, trades in legends.</p></div>
+        <div class="st" style="--roof:#8a3a2a"><div class="k">rest</div><h3>The Inn</h3><p>Where you wake. Sleep to move the hour on from day to sunset to night.</p></div>
+        <div class="st" style="--roof:#b8683a"><div class="k">gather</div><h3>The campfire</h3><p>Play one part in a seven-piece band, hear Natalie tell a tale, tell one yourself, or cook from the recipe book.</p></div>
+        <div class="st" style="--roof:#4a3d30"><div class="k">delve</div><h3>The dungeon</h3><p>A seeded crawl under the library. Every goblin is rolled and named, and the rare ones earn titles.</p></div>
+        <div class="st" style="--roof:#9a6a2a"><div class="k">listen</div><h3>The Spanish caravan</h3><p>Three travellers who only speak Spanish. You get picture hints and a phrasebook you fill in yourself.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOURCES DISAGREE -->
+  <section class="shade" id="disagree">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">sources disagree</div>
+        <h2>Every teller is a little bit wrong</h2>
+        <p class="lead">Artheria's history is written by its people, and they don't agree. Gods, demons, goblins, even the name of the land each have two or three versions, and the game keeps all of them. Pick a question and decide who you believe.</p>
+      </div>
+      <div class="dispute">
+        <ul class="qlist" id="qlist" aria-label="Disputed questions"></ul>
+        <div class="ledger" aria-live="polite">
+          <h3 id="qTitle"></h3>
+          <div class="topic" id="qTopic"></div>
+          <div class="tellers" id="tellers"></div>
+        </div>
+      </div>
+      <p class="margin">&ldquo;Where my sources disagree, I let them. Choosing one teller over another is a job for whoever comes after me.&rdquo; &mdash; Natalie</p>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section id="world">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">the world</div>
+        <h2>Seven lands, each keeping its own wildness</h2>
+        <p class="lead">The town is a small corner of a big world, from the always-frozen Winterlands to swamps no one returns from. Choose a land on Natalie's chart.</p>
+      </div>
+      <div class="mapwrap">
+        <div class="map" id="map">
+          <canvas id="mapCanvas" role="img" aria-label="Painted chart of Artheria's seven continents"></canvas>
+          <span class="legend">Natalie's chart. Not to scale; sailors would argue.</span>
+        </div>
+        <div class="region" id="region" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHRONICLE -->
+  <section class="band" id="chronicle">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">the chronicle</div>
+        <h2>How the world got this way</h2>
+        <p class="lead">The order below is the one the old books mostly agree on. Mostly.</p>
+      </div>
+      <ol class="ages">
+        <li style="--c:#e3c35a"><div class="when">Before memory</div><span class="dot" aria-hidden="true"></span><div><h3>The gods in the golden bath</h3><p>White-winged spirits bathe in golden flame, ringed by swirls of gold and marble. They tend the few thinking creatures, tire of watching them repeat their mistakes, and start coming down in pairs to play with mortals like toys.</p></div></li>
+        <li style="--c:#5aa6eb"><div class="when">The First</div><span class="dot" aria-hidden="true"></span><div><h3>Ein walks home</h3><p>One god says it is wrong. The others strip Ein of his rings and throw him down. He crosses storms and wars, shows his six-winged form on the tallest peak and flies home for years. Then he chooses to come back, breaks the Gods' Bath, hides his rings and dies a mortal among friends. One by one the other gods fall after him.</p></div></li>
+        <li style="--c:#a1c14b"><div class="when">The outcasts</div><span class="dot" aria-hidden="true"></span><div><h3>Elves bear round-eared children</h3><p>Short-lived and unable to use magic, the first humans are cast out. With the halflings they build a society of stone, find what they take for this world's own magic, and found the <b>Library of the Wise</b>.</p></div></li>
+        <li style="--c:#d28858"><div class="when">The burning</div><span class="dot" aria-hidden="true"></span><div><h3>The orcs come back</h3><p>Cast out of human society in their turn, the orcs return in great numbers and great anger. They burn the Library of the Wise. It has been the <b>Ruined Library</b> ever since, and it has never quite stopped smouldering.</p></div></li>
+        <li style="--c:#8a3a7a"><div class="when">The Era of Ice</div><span class="dot" aria-hidden="true"></span><div><h3>The promise that shattered the world</h3><p>Losing the war, a wizard called the Scholar summons <b>the Patron</b>, a shape-shifting thing that speaks in feelings. Its invisible fire warms human homes through the cold. The sky goes grey, demons overrun the orcs, and the price curses the Scholar's bloodline for generations. Two portals remain: <b>Noctavel</b> and <b>Emberkin</b>.</p></div></li>
+        <li class="now"><div class="when">Now &middot; dusk</div><span class="dot" aria-hidden="true"></span><div><h3>A stagecoach pulls into town</h3><p>A small town has grown up beside the ruin. Natalie Bourbon, collecting everything for her book, sits by the library door with the Archer's crossbow; her party is lost inside. A shard of the Noctavel Portal still sits on the scorched altar in the back hall. The fire never reached it. You step down from the coach.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- SHELF -->
+  <section id="shelf">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">the red books</div>
+        <h2>Twelve shelves. Not every book survived.</h2>
+        <p class="lead">Red books are lore that friends wrote and the library kept. Grey ones are what the fire, the damp and the bookworms left. Pull one out.</p>
+      </div>
+      <div class="shelf"><div class="row" id="row" role="group" aria-label="Books on the shelf"></div></div>
+      <article class="reader" id="reader" aria-live="polite"></article>
+    </div>
+  </section>
+
+  <!-- MAGIC -->
+  <section class="shade" id="magic">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">the colours of magic</div>
+        <h2>Magic shows you where it came from</h2>
+        <p class="lead">Every spell burns the colour of its source. Raw, unshaped magic glows blue; everything else carries the mark of whoever it was drawn from. Choose a flame.</p>
+      </div>
+      <div class="colours" id="colours" role="group" aria-label="Sources of magic"></div>
+      <div class="spell">
+        <div aria-live="polite">
+          <div class="src" id="spSrc"></div>
+          <h3 id="spName"></h3>
+          <p id="spText" style="margin-top:8px"></p>
+        </div>
+        <div class="stats">
+          <div><b>1 in 10</b><span>people in the world can cast at all</span></div>
+          <div><b>Mana burn</b><span>what happens to anyone who pushes past their limit</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PEOPLE -->
+  <section id="people">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">who you'll meet</div>
+        <h2>A bard, a thief, a fighter, a wizard, a god and a giant</h2>
+      </div>
+      <div class="people">
+        <article class="person">
+          <canvas data-bust="natalie" role="img" aria-label="Painted portrait of Natalie Bourbon: brown hair, mauve coat, a journal under her arm"></canvas>
+          <div class="role">explorer, cartographer, historian</div>
+          <h3>Natalie Bourbon</h3>
+          <p>A human bard and the compiler of <i>Tales of Artheria</i>. She writes everything down, rounds numbers up, and believes tavern hearsay a little more than she should.</p>
+          <ul>
+            <li><b>Wants</b>to finish the book, and find the three friends she lost</li>
+            <li><b>Carries</b>a field journal, charcoal, the Archer's crossbow</li>
+            <li><b>Fears</b>the day a story she wrote is all that's left of someone</li>
+          </ul>
+        </article>
+        <article class="person">
+          <canvas data-bust="goblin" role="img" aria-label="Painted portrait of a grinning green goblin clutching a red book"></canvas>
+          <div class="role">somewhere between the shelves</div>
+          <h3>The goblin</h3>
+          <p>One of the Biomancer of Nier's soldier strain, bred to win by numbers: grown in five years, gone in twenty-five. It sees well but not low, and it hoards the red books. Down in the dungeon, every goblin is rolled from trait tables and gets a name.</p>
+        </article>
+        <article class="person">
+          <canvas data-bust="kavik" role="img" aria-label="Painted portrait of Kavik: purple skin, curved horns, a topknot and a wrap top"></canvas>
+          <div class="role">by the dojo door</div>
+          <h3>Kavik</h3>
+          <p>Purple skin, horns, a wrap top and hakama. He stands beside the dojo watching the pupils spar. Challenge him and the camera swings side-on for a best-of-three bout. He goes easy until you win once, then fights fair.</p>
+        </article>
+        <article class="person">
+          <canvas data-bust="greer" role="img" aria-label="Painted portrait of Magister Greer: a tall bent wizard's hat with a red feather, spectacles and a grey beard"></canvas>
+          <div class="role">the curio pedlar</div>
+          <h3>Magister Greer</h3>
+          <p>&ldquo;Wizard, collector of curios, and only occasionally a rooster.&rdquo; Show him what you carry and he'll tell you what it's worth in words, like the shard of the Noctavel Portal or the Archer's crossbow. Words are cheap. His prices are not.</p>
+        </article>
+        <article class="person">
+          <canvas data-bust="deer" role="img" aria-label="Painted portrait of a white deer at the treeline at sunset"></canvas>
+          <div class="role">spirit of Straphan Forest</div>
+          <h3>The Fauna God</h3>
+          <p>The woods around the town belong to it. Its spirit walks Straphan Forest as a white deer, and beasts and giants are its creatures. Travellers who keep still at sunset sometimes see it at the treeline. Nobody has seen it come closer.</p>
+        </article>
+        <article class="person">
+          <canvas data-bust="stagecoach" role="img" aria-label="Painted portrait of a huge bald man in a coat stitched from seven flags"></canvas>
+          <div class="role">ruler of the low-magic frontier</div>
+          <h3>The Stagecoach</h3>
+          <p>A tan, bald giant of a man. They say he never walks; the ground moves out of his way. His coat is stitched from seven stolen flags, and every larder he passes is empty, which may explain the ration sack by the camp.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE LOOK -->
+  <section class="band" id="look">
+    <div class="wrap">
+      <div class="head" style="max-width:none">
+        <div class="eyebrow">the look</div>
+        <p class="pitch">A <em>storybook</em> you can walk around in: painted ground, red roofs, ink lines, and a sky laid down in soft bands.</p>
+      </div>
+      <div class="layers">
+        <div class="layer">
+          <canvas id="lyFaces" role="img" aria-label="Six drawn face expressions on one head"></canvas>
+          <h3>Drawn faces</h3>
+          <p>Characters have realistic proportions and low-poly heads with the face drawn on. Six expressions, plus blinking and talking, swap like painted face textures. They take torch, campfire and lantern light, and dim with the hour.</p>
+        </div>
+        <div class="layer">
+          <canvas id="lyGround" role="img" aria-label="Painted meadow with brush strokes, chunky bushes and flower clumps"></canvas>
+          <h3>Painted ground</h3>
+          <p>The meadow carries soft brush strokes at two crossing scales. Bushes are a few fat lumps, flowers come in big cream, gold and pink clumps, and every tree is a crossed card, like a stage set.</p>
+        </div>
+        <div class="layer">
+          <canvas id="lyDusk" role="img" aria-label="A timber house at dusk with warm windows and a lantern under a banded sky"></canvas>
+          <h3>Ink and lamplight</h3>
+          <p>A thin ink line runs round every character, building and prop. The sky is painted in flat bands. At sunset all 26 lit windows start to glow and the lanterns come up along the paths.</p>
+        </div>
+      </div>
+      <div class="cams"><span><b>Overhead</b> follow camera by default, leaning toward where you walk</span><span><b>Shoulder</b> view, either side</span><span><b>First person</b> for the crossbow, with a steadying breath instead of a crosshair</span></div>
+    </div>
+  </section>
+
+  <!-- WRITE -->
+  <section class="shade" id="write">
+    <div class="wrap split">
+      <div>
+        <p class="write-head">Write in the book so the next traveller hears you.</p>
+        <div class="how">
+          <p><b>Anyone can add to the world:</b> a story, a character, a weapon, a song, a recipe or a painting. Unfinished fragments are shelved on purpose.</p>
+          <p>Write lore at the scriptorium or from <b>Extras &rarr; Write lore</b>. Make a character at the tailor's and a weapon at the anvil; both come with constraint dice when you're stuck. Your work stays on your device until you choose <b>Submit</b>, and it's credited exactly as you sign it.</p>
+          <p>Up to three profiles per device, each with its own hero, save, bag and writing. Export one and take it to another machine.</p>
+        </div>
+        <div class="cta"><a class="play" href="../">Play Tales of Artheria &rarr;</a><span>On a phone, Share &rarr; Add to Home Screen for a fullscreen icon.</span></div>
+      </div>
+      <div class="prompt">
+        <div class="tabs" role="group" aria-label="Prompt type">
+          <button type="button" data-k="dice" aria-pressed="true">Constraint dice</button>
+          <button type="button" data-k="lore" aria-pressed="false">Lore</button>
+          <button type="button" data-k="character" aria-pressed="false">Character</button>
+          <button type="button" data-k="song_food_art" aria-pressed="false">Song &middot; food &middot; art</button>
+        </div>
+        <div id="diceBox">
+          <div class="die">three dice: a word, a mood, a rule</div>
+          <div class="dice" aria-live="polite">
+            <div><span>word</span><b id="dWord">a key with no lock</b></div>
+            <div><span>mood</span><b id="dMood">homesick</b></div>
+            <div><span>rule</span><b id="dRule">it has to make Natalie laugh</b></div>
+          </div>
+        </div>
+        <div id="promptBox" hidden>
+          <div class="die" id="die">Rolled a 3 on a d6</div>
+          <q id="promptText" aria-live="polite"></q>
+        </div>
+        <button class="btn" style="background:#8f2b23" type="button" id="rollBtn">Roll again</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <blockquote>&ldquo;It is not where we're from or where we're going, but how we get there, and the help we get along the way. Be the First. For you may not be the last.&rdquo;<cite>Church of the First</cite></blockquote>
+    <div class="small"><span>Tales of Artheria &middot; build 0.13 &middot; <a href="../">play it</a></span><span>A private project by Mike Go. All rights reserved.</span><span>Contributors keep the rights to their own work.</span><span>Witch and sword models by Quaternius (CC0); trees from 99.Miles' Low Poly Forest Tree Pack (CC BY 4.0).</span></div>
+  </div>
+</footer>
+
+<script>
+(() => {
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const root = document.documentElement;
+const darkMQ = matchMedia('(prefers-color-scheme: dark)');
+const isNight = () => root.dataset.theme ? root.dataset.theme === 'dark' : darkMQ.matches;
+const INK = '#1b1712';
+
+/* ---------- utilities ---------- */
+function hash(x, y, s = 0) { let n = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); n ^= n >>> 16; return (n >>> 0) / 4294967295; }
+function vnoise(x, y, s) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi; const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const R = (i, s) => hash(i, s, 777);
+function onVisible(el, start, stop) { if (!('IntersectionObserver' in window)) { start(); return; } new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? start() : stop())).observe(el); }
+function fitCanvas(c, maxDpr = 2) { const r = c.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, maxDpr); c.width = Math.max(1, Math.round(r.width * d)); c.height = Math.max(1, Math.round(r.height * d)); return { w: c.width, h: c.height, d }; }
+// time-of-day tint over a day colour
+let TOD = 'sunset';
+const TINT = { day: c => c, sunset: c => mix(c, [240, 150, 90], .2), night: c => mix(mul(c, .38), [20, 34, 70], .3) };
+const col = (h, a = 1, tod = TOD) => rgb(TINT[tod](hex(h)), a);
+function ink(g, w) { g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = w; g.stroke(); }
+function path(g, pts) { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.closePath(); }
+function blob(g, x, y, rx, ry, seed, n = 9) { g.beginPath(); for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, k = .82 + R(i, seed) * .3; const px = x + Math.cos(a) * rx * k, py = y + Math.sin(a) * ry * k; i ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); }
+
+/* ---------- HERO: the town by the Ruined Library ---------- */
+const VW = 1600, VH = 760, HZ = 470;
+const SKY = {
+  day: ['#6fa3d6', '#8db8e0', '#aecbe6', '#cfdeea', '#ece9d6', '#f6ecd0'],
+  sunset: ['#4f5f97', '#7a77a8', '#b88aa0', '#e59d7c', '#f3bd82', '#f8dca4'],
+  night: ['#0b1530', '#11203f', '#182b4f', '#203860', '#2a4568', '#33506e']
+};
+const cv = document.getElementById('town'), cx = cv.getContext('2d');
+const off = document.createElement('canvas'), og = off.getContext('2d');
+let H = {};
+function heroXform(w, h) { const s = Math.max(w / VW, h / VH); let ox = w / 2 - 960 * s; ox = Math.min(0, Math.max(w - VW * s, ox)); const oy = h - VH * s; return { s, ox, oy }; }
+function drawTown(g, tod) {
+  const night = tod === 'night', glow = tod === 'day' ? 0 : tod === 'sunset' ? .55 : 1, c = (h, a) => col(h, a, tod);
+  const sky = SKY[tod]; const lw = 2.6;
+  // banded sky: flat bands with soft, wavy edges near the horizon
+  const bandY = [0, 120, 215, 300, 370, 425, HZ + 40];
+  for (let i = 0; i < 6; i++) { g.fillStyle = sky[i]; g.beginPath(); g.moveTo(0, bandY[i] - (i ? 8 : 0));
+    for (let x = 0; x <= VW; x += 40) g.lineTo(x, bandY[i] + Math.sin(x / 130 + i * 1.7) * (i * 2.2) - (i ? 8 : 0)); g.lineTo(VW, VH); g.lineTo(0, VH); g.fill(); }
+  // sun or moon, glow kept smooth
+  const sun = tod === 'day' ? [1380, 140, 38] : tod === 'sunset' ? [470, 420, 58] : [1330, 110, 30];
+  const gr = g.createRadialGradient(sun[0], sun[1], 0, sun[0], sun[1], sun[2] * 6);
+  gr.addColorStop(0, night ? 'rgba(220,235,255,.35)' : tod === 'sunset' ? 'rgba(255,214,150,.75)' : 'rgba(255,250,220,.6)'); gr.addColorStop(1, 'rgba(255,240,200,0)');
+  g.fillStyle = gr; g.fillRect(sun[0] - sun[2] * 6, sun[1] - sun[2] * 6, sun[2] * 12, sun[2] * 12);
+  g.beginPath(); g.arc(sun[0], sun[1], sun[2], 0, 7); g.fillStyle = night ? '#e7eef4' : tod === 'sunset' ? '#fff0c4' : '#fffbe8'; g.fill();
+  if (night) { g.beginPath(); g.arc(sun[0] + 12, sun[1] - 6, sun[2] * .85, 0, 7); g.fillStyle = sky[1]; g.fill();
+    for (let i = 0; i < 140; i++) { g.fillStyle = `rgba(230,240,255,${.35 + R(i, 3) * .6})`; const r = R(i, 4) > .9 ? 2.2 : 1.2; g.fillRect(R(i, 1) * VW, R(i, 2) * 380, r, r); } }
+  // flat clouds (day and sunset)
+  if (!night) [[300, 110, 1], [820, 70, .8], [1150, 200, .6]].forEach(([x, y, k]) => { g.fillStyle = tod === 'sunset' ? 'rgba(255,214,190,.75)' : 'rgba(255,255,255,.8)';
+    g.beginPath(); g.ellipse(x, y, 120 * k, 16 * k, 0, 0, 7); g.ellipse(x + 50 * k, y - 14 * k, 60 * k, 18 * k, 0, 0, 7); g.ellipse(x - 50 * k, y - 8 * k, 50 * k, 14 * k, 0, 0, 7); g.fill(); });
+  // far hills, with tiny card trees and the windmill
+  const hill = (base, amp, f, ph) => { g.beginPath(); g.moveTo(0, VH); for (let x = 0; x <= VW; x += 20) g.lineTo(x, base - Math.sin(x / f + ph) * amp - Math.sin(x / (f * .37) + ph * 2) * amp * .3); g.lineTo(VW, VH); g.fill(); };
+  g.fillStyle = c('#9fb3c4'); hill(440, 26, 210, 1);
+  g.fillStyle = c('#7f9e72'); hill(462, 18, 160, 3);
+  for (let i = 0; i < 46; i++) { const x = R(i, 10) * VW; const y = 462 - Math.sin(x / 160 + 3) * 18 - Math.sin(x / 59 + 6) * 5.4 - 2; const h = 16 + R(i, 11) * 14;
+    g.fillStyle = c(R(i, 12) > .5 ? '#5f7f4a' : '#4f6e40'); path(g, [x, y - h, x + h * .32, y, x - h * .32, y]); g.fill(); }
+  // windmill tower on the hill (blades drawn in the animation pass)
+  const WM = [610, 448]; H.wm = WM;
+  g.fillStyle = c('#e9dcc0'); path(g, [WM[0] - 18, WM[1] + 4, WM[0] + 18, WM[1] + 4, WM[0] + 10, WM[1] - 70, WM[0] - 10, WM[1] - 70]); g.fill(); ink(g, lw * .8);
+  g.fillStyle = c('#8f3a24'); path(g, [WM[0] - 14, WM[1] - 68, WM[0] + 14, WM[1] - 68, WM[0], WM[1] - 92]); g.fill(); ink(g, lw * .8);
+  // meadow
+  g.fillStyle = c('#7fae45'); g.beginPath(); g.moveTo(0, VH); for (let x = 0; x <= VW; x += 20) g.lineTo(x, HZ + 14 - Math.sin(x / 300) * 10); g.lineTo(VW, VH); g.fill();
+  // painted brush strokes at two crossing scales
+  for (let i = 0; i < 520; i++) { const x = R(i, 20) * VW, y = HZ + 10 + Math.pow(R(i, 21), .8) * (VH - HZ); const big = i % 3 === 0; const light = R(i, 22) > .5;
+    g.fillStyle = light ? c('#b6d063', .22) : c('#4f7e33', .2); g.beginPath(); g.ellipse(x, y, (big ? 70 : 28) + R(i, 23) * 40, (big ? 10 : 5) + R(i, 24) * 4, (big ? -.08 : .14) + (R(i, 25) - .5) * .2, 0, 7); g.fill(); }
+  // river with a stone bridge, lower left
+  g.fillStyle = c('#5b93b8'); g.beginPath(); g.moveTo(-10, 610); g.bezierCurveTo(200, 560, 300, 600, 470, 540); g.bezierCurveTo(560, 510, 640, 520, 700, 500); g.lineTo(700, 512); g.bezierCurveTo(640, 534, 580, 530, 480, 566); g.bezierCurveTo(320, 625, 210, 600, -10, 660); g.closePath(); g.fill(); ink(g, lw * .8);
+  for (let i = 0; i < 14; i++) { const t = i / 14, x = 40 + t * 600, y = 620 - t * 108 + 10; g.strokeStyle = c('#cfe6f2', .7); g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 18, y - 3); g.stroke(); }
+  // the road in, from the bottom left to the plaza, over the bridge
+  g.fillStyle = c('#c9a66e'); g.beginPath(); g.moveTo(120, VH + 10); g.bezierCurveTo(260, 650, 380, 600, 560, 575); g.bezierCurveTo(700, 560, 820, 566, 900, 580); g.lineTo(920, 605); g.bezierCurveTo(800, 600, 660, 602, 560, 620); g.bezierCurveTo(420, 650, 330, 700, 300, VH + 10); g.fill();
+  g.fillStyle = c('#a9b0b6'); path(g, [350, 588, 430, 568, 440, 600, 360, 624]); g.fill(); ink(g, lw);
+  g.fillStyle = c('#5b93b8'); g.beginPath(); g.ellipse(395, 610, 22, 10, -.25, Math.PI, 0); g.fill();
+  // plaza and fountain
+  g.fillStyle = c('#cdbf9f'); g.beginPath(); g.ellipse(1010, 598, 260, 46, 0, 0, 7); g.fill(); ink(g, lw * .8);
+  for (let i = 0; i < 120; i++) { const a = R(i, 30) * 7, r = Math.sqrt(R(i, 31)); g.fillStyle = c(R(i, 32) > .5 ? '#b3a383' : '#e0d4b8'); g.beginPath(); g.ellipse(1010 + Math.cos(a) * 240 * r, 598 + Math.sin(a) * 40 * r, 7, 3.2, 0, 0, 7); g.fill(); }
+  // houses: plaster, timber frame, jettied upper floor, red roofs, chimneys, flower boxes
+  H.windows = []; H.chimneys = [];
+  const house = (x, base, w, h, roof, jetty, seed) => {
+    const top = base - h, mid = base - h * .5, jw = jetty ? 8 : 0;
+    g.fillStyle = c('#efe4cc'); g.fillRect(x, mid, w, h * .5); g.strokeStyle = INK; g.lineWidth = lw; g.strokeRect(x, mid, w, h * .5);
+    g.fillStyle = c('#f4ead6'); g.fillRect(x - jw, top, w + jw * 2, h * .5); g.strokeRect(x - jw, top, w + jw * 2, h * .5);
+    g.strokeStyle = c('#6e4a2e'); g.lineWidth = 5; g.beginPath();
+    for (const yy of [top + 3, mid, mid + 3]) { g.moveTo(x - jw, yy); g.lineTo(x + w + jw, yy); }
+    for (let k = 0; k <= 3; k++) { const xx = x - jw + (w + jw * 2) * k / 3; g.moveTo(xx, top); g.lineTo(xx, mid); }
+    g.moveTo(x - jw, mid); g.lineTo(x + w / 3 - jw, top); g.moveTo(x + w + jw, mid); g.lineTo(x + w * 2 / 3 + jw, top); g.stroke();
+    const chx = x + w * (.25 + R(seed, 1) * .45); g.fillStyle = c('#9a5a3c'); g.fillRect(chx, top - h * .62, 16, h * .4); g.strokeStyle = INK; g.lineWidth = lw; g.strokeRect(chx, top - h * .62, 16, h * .4); H.chimneys.push([chx + 8, top - h * .62]);
+    g.fillStyle = c(roof); path(g, [x - jw - 16, top + 2, x + w + jw + 16, top + 2, x + w / 2, top - h * .55]); g.fill(); ink(g, lw);
+    g.fillStyle = c('#000000', .14); path(g, [x + w / 2, top - h * .55, x + w + jw + 16, top + 2, x + w / 2 + 6, top + 2]); g.fill();
+    g.strokeStyle = c('#000000', .18); g.lineWidth = 2; for (let k = 1; k < 4; k++) { const yy = top + 2 - h * .55 * k / 4; g.beginPath(); g.moveTo(x + w / 2 - (x + w / 2 - (x - jw - 16)) * (1 - k / 4), yy); g.lineTo(x + w / 2 + (x + w + jw + 16 - x - w / 2) * (1 - k / 4), yy); g.stroke(); }
+    const wins = [[x + w * .2, top + h * .14], [x + w * .62, top + h * .14], [x + w * .14, mid + h * .1]];
+    wins.forEach(([wx, wy]) => { g.fillStyle = night || glow > .5 ? c('#2a2a3a') : c('#3a4a66'); g.fillRect(wx, wy, w * .2, h * .17); g.strokeStyle = INK; g.lineWidth = lw * .8; g.strokeRect(wx, wy, w * .2, h * .17);
+      g.beginPath(); g.moveTo(wx + w * .1, wy); g.lineTo(wx + w * .1, wy + h * .17); g.stroke(); H.windows.push([wx, wy, w * .2, h * .17]); });
+    const dx = x + w * .58, dw = w * .26, dh = h * .36; g.fillStyle = c('#6e4a2e'); g.beginPath(); g.moveTo(dx, base); g.lineTo(dx, base - dh + dw / 2); g.arc(dx + dw / 2, base - dh + dw / 2, dw / 2, Math.PI, 0); g.lineTo(dx + dw, base); g.closePath(); g.fill(); ink(g, lw * .8);
+    g.fillStyle = c('#7a5233'); g.fillRect(x + w * .1, mid + h * .27, w * .3, 7); g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(x + w * .1, mid + h * .27, w * .3, 7);
+    for (let k = 0; k < 5; k++) { g.fillStyle = c(['#e8c94a', '#e98aa0', '#f4ead6'][k % 3]); g.beginPath(); g.arc(x + w * .12 + k * w * .065, mid + h * .26, 4.2, 0, 7); g.fill(); }
+  };
+  const cardTree = (x, base, h, seed) => { g.fillStyle = c('#6e4a2e'); g.fillRect(x - 5, base - h * .4, 10, h * .4); g.strokeStyle = INK; g.lineWidth = lw * .8; g.strokeRect(x - 5, base - h * .4, 10, h * .4);
+    const tones = ['#3f6a33', '#5a8a3a', '#7fae45']; for (let k = 0; k < 3; k++) { const yy = base - h * (.38 + k * .2), r = h * (.34 - k * .07);
+      g.fillStyle = c(tones[k]); blob(g, x + (R(k, seed) - .5) * 10, yy, r, r * .8, seed + k, 7); g.fill(); ink(g, lw * .8); } };
+  [[740, 540, 150, 1], [1555, 560, 180, 2], [1180, 520, 130, 3], [690, 548, 110, 4]].forEach(t => cardTree(...t));
+  // the Ruined Library: scorched hall, broken crenellations, tall spire, arched door with lanterns
+  const L = { x0: 1200, x1: 1500, top: 360, base: 585 };
+  g.fillStyle = c('#a59a8a'); g.fillRect(L.x0, L.top, L.x1 - L.x0, L.base - L.top);
+  g.strokeStyle = c('#000000', .14); g.lineWidth = 2; for (let y = L.top + 18; y < L.base; y += 18) { g.beginPath(); g.moveTo(L.x0, y); g.lineTo(L.x1, y); g.stroke(); for (let x = L.x0 + ((y / 18) % 2) * 22; x < L.x1; x += 44) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 18); g.stroke(); } }
+  const sg = g.createLinearGradient(0, L.top, 0, L.top + 110); sg.addColorStop(0, 'rgba(30,22,16,.7)'); sg.addColorStop(1, 'rgba(30,22,16,0)'); g.fillStyle = sg; g.fillRect(L.x0, L.top, L.x1 - L.x0, 110);
+  g.strokeStyle = INK; g.lineWidth = lw; g.strokeRect(L.x0, L.top, L.x1 - L.x0, L.base - L.top);
+  for (let x = L.x0, k = 0; x < L.x1; x += 30, k++) { if (k === 5 || k === 6) continue; const hh = k === 4 ? 10 : 22; g.fillStyle = c('#958a7a'); g.fillRect(x, L.top - hh, 18, hh); g.strokeRect(x, L.top - hh, 18, hh); }
+  const SP = [1440, 60]; g.fillStyle = c('#998e7e'); g.fillRect(SP[0], L.top - 150, SP[1], 160); g.strokeRect(SP[0], L.top - 150, SP[1], 160);
+  g.fillStyle = c('#3d4a66'); path(g, [SP[0] - 8, L.top - 148, SP[0] + SP[1] + 8, L.top - 148, SP[0] + SP[1] / 2, L.top - 300]); g.fill(); ink(g, lw);
+  g.fillStyle = c('#000000', .18); path(g, [SP[0] + SP[1] / 2, L.top - 300, SP[0] + SP[1] + 8, L.top - 148, SP[0] + SP[1] / 2 + 4, L.top - 148]); g.fill();
+  H.libWins = [[SP[0] + 22, L.top - 120, 16, 34]];
+  [[L.x0 + 34, L.top + 50], [L.x0 + 104, L.top + 50], [L.x0 + 196, L.top + 50]].forEach(([wx, wy]) => H.libWins.push([wx, wy, 26, 56]));
+  H.libWins.forEach(([wx, wy, ww, wh]) => { g.fillStyle = c('#2a2622'); g.beginPath(); g.moveTo(wx, wy + wh); g.lineTo(wx, wy + ww / 2); g.arc(wx + ww / 2, wy + ww / 2, ww / 2, Math.PI, 0); g.lineTo(wx + ww, wy + wh); g.closePath(); g.fill(); ink(g, lw * .8); });
+  for (let i = 0; i < 26; i++) { g.fillStyle = c(i % 2 ? '#4f7e33' : '#6f9a3a'); g.beginPath(); g.arc(L.x0 + 6 + R(i, 40) * 70, L.base - 10 - R(i, 41) * 120, 7 + R(i, 42) * 6, 0, 7); g.fill(); }
+  const D = [1350, 70, 130]; g.fillStyle = c('#5e3d24'); g.beginPath(); g.moveTo(D[0] - D[1] / 2, L.base); g.lineTo(D[0] - D[1] / 2, L.base - D[2] + D[1] / 2); g.arc(D[0], L.base - D[2] + D[1] / 2, D[1] / 2, Math.PI, 0); g.lineTo(D[0] + D[1] / 2, L.base); g.closePath(); g.fill(); ink(g, lw);
+  g.strokeStyle = c('#3a2616'); g.lineWidth = 2; for (let k = -2; k <= 2; k++) { g.beginPath(); g.moveTo(D[0] + k * 12, L.base); g.lineTo(D[0] + k * 12, L.base - D[2] + 20); g.stroke(); }
+  H.lanterns = [[D[0] - 52, L.base - 92], [D[0] + 52, L.base - 92], [900, 548], [1150, 556], [560, 560]];
+  [[900, 590], [1150, 596], [560, 600]].forEach(([x, y]) => { g.fillStyle = c('#2b2620'); g.fillRect(x - 3, y - 46, 6, 46); g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(x - 3, y - 46, 6, 46); });
+  H.lanterns.forEach(([x, y]) => { g.fillStyle = c('#3a2e22'); g.fillRect(x - 7, y - 8, 14, 16); g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(x - 7, y - 8, 14, 16); });
+  house(790, 572, 120, 150, '#a8502a', false, 1); house(940, 566, 112, 176, '#8f3a24', true, 2); house(1072, 574, 104, 136, '#b8683a', false, 3);
+  const bunt = (x0, y0, x1, y1, sag, n) => { g.strokeStyle = INK; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 + sag, x1, y1); g.stroke();
+    for (let k = 1; k < n; k++) { const t = k / n, x = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * (x0 + x1) / 2 + t * t * x1, y = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * ((y0 + y1) / 2 + sag) + t * t * y1;
+      g.fillStyle = c(['#a8502a', '#f4ead6', '#2c4a7a', '#e2b33e'][k % 4]); path(g, [x - 7, y, x + 7, y, x, y + 16]); g.fill(); g.lineWidth = 1.2; g.stroke(); } };
+  bunt(900, 546, 1150, 552, 36, 14); bunt(560, 558, 790, 500, 30, 11);
+  g.fillStyle = c('#b3aa98'); g.beginPath(); g.ellipse(1010, 612, 62, 16, 0, 0, 7); g.fill(); ink(g, lw); g.fillStyle = c('#7fb3d6'); g.beginPath(); g.ellipse(1010, 609, 50, 10, 0, 0, 7); g.fill();
+  g.fillStyle = c('#b3aa98'); g.fillRect(1004, 576, 12, 34); g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(1004, 576, 12, 34); g.beginPath(); g.ellipse(1010, 576, 20, 6, 0, 0, 7); g.fillStyle = c('#c4bba9'); g.fill(); ink(g, 2);
+  H.fountain = [1010, 572];
+  const bush = (x, y, r, seed) => { [[-r * .6, 0, 1], [r * .5, -r * .05, .9], [0, -r * .45, .85]].forEach(([dx, dy, k], j) => { g.fillStyle = c(j === 2 ? '#7fae45' : '#4f7e33'); blob(g, x + dx, y + dy, r * k, r * .78 * k, seed + j, 8); g.fill(); ink(g, lw * .8); g.fillStyle = c('#a6cc5a', .7); g.beginPath(); g.ellipse(x + dx - r * .15, y + dy - r * .3 * k, r * .35 * k, r * .16 * k, -.3, 0, 7); g.fill(); }); };
+  const flowers = (x, y, seed) => { const fc = ['#f4ead6', '#e8c94a', '#e98aa0'][Math.floor(R(seed, 1) * 3)]; g.fillStyle = c('#4f7e33'); g.beginPath(); g.ellipse(x, y + 6, 26, 9, 0, 0, 7); g.fill();
+    for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(x - 14 + k * 14, y - 2 + (k % 2) * 4, 8, 0, 7); g.fillStyle = c(fc); g.fill(); ink(g, 2); g.beginPath(); g.arc(x - 14 + k * 14, y - 2 + (k % 2) * 4, 2.6, 0, 7); g.fillStyle = c('#c9962e'); g.fill(); } };
+  bush(1225, 590, 28, 50); bush(1520, 596, 34, 51); bush(780, 585, 24, 52); bush(1180, 600, 18, 53);
+  [[1270, 640], [860, 650], [640, 690], [1440, 680], [1080, 700], [230, 700], [500, 660]].forEach(([x, y], i) => flowers(x, y, i + 60));
+  const sc = [430, 640]; g.fillStyle = c('#2b2a2a'); [[-48, 22], [40, 22]].forEach(([dx, dy]) => { g.beginPath(); g.arc(sc[0] + dx, sc[1] + dy, 20, 0, 7); g.fillStyle = c('#2b2a2a'); g.fill(); ink(g, lw); g.strokeStyle = c('#a58a5a'); g.lineWidth = 2; for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4; g.beginPath(); g.moveTo(sc[0] + dx - Math.cos(a) * 16, sc[1] + dy - Math.sin(a) * 16); g.lineTo(sc[0] + dx + Math.cos(a) * 16, sc[1] + dy + Math.sin(a) * 16); g.stroke(); } });
+  g.fillStyle = c('#2c4a7a'); path(g, [sc[0] - 70, sc[1] + 10, sc[0] + 62, sc[1] + 10, sc[0] + 70, sc[1] - 40, sc[0] - 78, sc[1] - 40]); g.fill(); ink(g, lw);
+  g.fillStyle = c('#7a5233'); g.fillRect(sc[0] - 84, sc[1] - 56, 162, 16); g.strokeStyle = INK; g.lineWidth = lw; g.strokeRect(sc[0] - 84, sc[1] - 56, 162, 16);
+  g.fillStyle = c('#f4ead6'); g.fillRect(sc[0] - 30, sc[1] - 32, 34, 26); g.strokeRect(sc[0] - 30, sc[1] - 32, 34, 26);
+  g.fillStyle = c('#c9962e'); g.fillRect(sc[0] - 60, sc[1] - 6, 116, 5);
+  H.lanterns.push([sc[0] + 74, sc[1] - 44]);
+  const nx = 1268, ny = 584; g.fillStyle = c('#3a2a20'); g.fillRect(nx - 7, ny - 20, 5, 20); g.fillRect(nx + 2, ny - 20, 5, 20);
+  g.fillStyle = c('#8a5c7a'); path(g, [nx - 12, ny - 16, nx + 12, ny - 16, nx + 9, ny - 52, nx - 9, ny - 52]); g.fill(); ink(g, 2);
+  g.fillStyle = c('#e8b48a'); g.beginPath(); g.arc(nx, ny - 61, 9, 0, 7); g.fill(); ink(g, 2); g.fillStyle = c('#5a3a2a'); g.beginPath(); g.arc(nx, ny - 64, 9.5, Math.PI * 1.05, Math.PI * 1.95); g.fill(); g.fillRect(nx - 9, ny - 64, 4, 14);
+  g.fillStyle = c('#f4ead6'); g.fillRect(nx + 7, ny - 44, 9, 12); g.strokeStyle = INK; g.lineWidth = 1.5; g.strokeRect(nx + 7, ny - 44, 9, 12);
+  bush(70, 735, 70, 70); bush(1560, 740, 80, 71);
+  H.tod = tod;
+}
+function heroFrame(t) {
+  const { w } = H; if (!w) return; const tod = H.tod, glow = tod === 'day' ? 0 : tod === 'sunset' ? .55 : 1;
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalCompositeOperation = 'source-over'; cx.drawImage(off, 0, 0);
+  const { s, ox, oy } = H.x; cx.setTransform(s, 0, 0, s, ox, oy);
+  const [wx, wy] = H.wm, a0 = reduce ? .4 : t / 2600; cx.save(); cx.translate(wx, wy - 62);
+  for (let k = 0; k < 4; k++) { cx.rotate(Math.PI / 2); cx.fillStyle = col('#f4ead6', 1, tod); cx.save(); cx.rotate(a0); path(cx, [2, -3, 54, -9, 54, 5, 2, 3]); cx.fill(); ink(cx, 1.8); cx.restore(); }
+  cx.beginPath(); cx.arc(0, 0, 4, 0, 7); cx.fillStyle = INK; cx.fill(); cx.restore();
+  if (!reduce) H.chimneys.forEach(([x, y], i) => { for (let k = 0; k < 4; k++) { const p = ((t / 2200 + k / 4 + i * .3) % 1); cx.fillStyle = tod === 'night' ? `rgba(160,170,190,${.25 * (1 - p)})` : `rgba(240,236,228,${.55 * (1 - p)})`;
+    cx.beginPath(); cx.arc(x + Math.sin(p * 5 + i) * 8 + p * 26, y - p * 80, 6 + p * 12, 0, 7); cx.fill(); } });
+  if (glow) { const flick = i => reduce ? 1 : .85 + .15 * Math.sin(t / 260 + i * 2.1) * Math.sin(t / 170 + i);
+    [...H.windows, ...H.libWins].forEach(([x, y, ww, wh], i) => { const lib = i >= H.windows.length; const f = flick(i);
+      cx.fillStyle = lib ? `rgba(230,110,50,${(.55 + .35 * f) * glow})` : `rgba(255,196,110,${(.75 + .2 * f) * glow})`; cx.fillRect(x + 2, y + 2, ww - 4, wh - 4);
+      const gr = cx.createRadialGradient(x + ww / 2, y + wh / 2, 0, x + ww / 2, y + wh / 2, 60); gr.addColorStop(0, `rgba(255,190,100,${.28 * glow * f})`); gr.addColorStop(1, 'rgba(255,190,100,0)'); cx.fillStyle = gr; cx.fillRect(x - 60, y - 60, ww + 120, wh + 120); });
+    H.lanterns.forEach(([x, y], i) => { const f = flick(i + 40); const gr = cx.createRadialGradient(x, y, 0, x, y, 70); gr.addColorStop(0, `rgba(255,200,110,${.6 * glow * f})`); gr.addColorStop(1, 'rgba(255,200,110,0)');
+      cx.fillStyle = gr; cx.fillRect(x - 70, y - 70, 140, 140); cx.fillStyle = `rgba(255,224,150,${.6 + .4 * glow})`; cx.fillRect(x - 4, y - 5, 8, 10); }); }
+  if (!reduce) for (let k = 0; k < 8; k++) { const p = (t / 900 + k / 8) % 1, side = k % 2 ? 1 : -1; cx.fillStyle = `rgba(220,240,255,${.8 * (1 - p)})`;
+    cx.beginPath(); cx.arc(H.fountain[0] + side * p * 34, H.fountain[1] - Math.sin(p * Math.PI) * 22 + p * 30, 2.2, 0, 7); cx.fill(); }
+  for (let i = 0; i < 40; i++) { const x = (R(i, 90) * VW + (reduce ? 0 : Math.sin(t / 1800 + i) * 14)), y = HZ - 40 + R(i, 91) * 300 + (reduce ? 0 : Math.cos(t / 1400 + i * 2) * 10);
+    const a = .35 + .4 * Math.sin(t / 600 + i * 3); cx.fillStyle = tod === 'night' ? `rgba(200,255,170,${a})` : `rgba(255,246,200,${a * .7})`; cx.beginPath(); cx.arc(x, y, tod === 'night' ? 2.4 : 1.8, 0, 7); cx.fill(); }
+}
+function buildHero() { const { w, h } = fitCanvas(cv, 1.5); off.width = w; off.height = h; H.w = w; H.h = h; H.x = heroXform(w, h);
+  og.setTransform(H.x.s, 0, 0, H.x.s, H.x.ox, H.x.oy); drawTown(og, TOD); heroFrame(performance.now()); }
+let heroOn = false, raf = 0; function loop(t) { heroFrame(t); if (heroOn && !reduce) raf = requestAnimationFrame(loop); }
+onVisible(cv, () => { if (!heroOn) { heroOn = true; raf = requestAnimationFrame(loop); } }, () => { heroOn = false; cancelAnimationFrame(raf); });
+
+/* ---------- time of day ---------- */
+const CAPS = { day: 'Midday on the plaza. The coach road runs in over the bridge.', sunset: 'Sunset. The lanterns come up along the paths, and the windows start to glow.', night: 'Night. Every window is lit, and the library is still smouldering.' };
+const HERO_BG = { day: ['#f3e8cf', '#1f2433'], sunset: ['#f3e8cf', '#1f2433'], night: ['#10182a', '#ece2c8'] };
+const todBtns = document.querySelectorAll('.tod button');
+function applyTod() { todBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.tod === TOD)); document.getElementById('heroCaption').textContent = CAPS[TOD];
+  root.style.setProperty('--hero-bg', HERO_BG[TOD][0]); root.style.setProperty('--hero-ink', HERO_BG[TOD][1]); }
+todBtns.forEach(b => b.onclick = () => { const want = b.dataset.tod; TOD = want; const dark = want === 'night'; if (dark !== isNight()) root.dataset.theme = dark ? 'dark' : 'light'; else { applyTod(); buildHero(); paintAll(); } });
+function syncFromTheme() { const n = isNight(); if (n) TOD = 'night'; else if (TOD === 'night') TOD = 'sunset'; applyTod(); buildHero(); buildMap(); paintAll(); }
+let rt; const rebuild = () => { clearTimeout(rt); rt = setTimeout(syncFromTheme, 30); };
+new MutationObserver(rebuild).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+darkMQ.addEventListener && darkMQ.addEventListener('change', rebuild);
+let lastW = innerWidth; addEventListener('resize', () => { if (Math.abs(innerWidth - lastW) > 30) { lastW = innerWidth; buildHero(); paintAll(); } });
+
+/* ---------- THE CASE: Where did Natalie's party go? ---------- */
+const CASE = {
+  clues: [
+    { id: 'string', name: 'Bitten crossbow string', text: 'A crossbow string, cut clean through. Not by a blade: the ends are chewed. Small teeth.', supports: ['who:goblin', 'where:library'], natalie: "That's from the Archer's crossbow. It bit through it while he was aiming. I watched it happen." },
+    { id: 'lantern', name: 'Dropped lantern', text: 'A hooded lantern on its side by the coach, oil still in it. Whoever dropped it left in a hurry, toward the road.', supports: ['where:road', 'who:own'], natalie: "The Mage's lantern. She never puts it down. Never." },
+    { id: 'tracks', name: 'Bootprints into the trees', text: 'A line of bootprints, long strides, running. They leave the path and go into the forest. One pair only.', supports: ['where:forest', 'who:own'], natalie: 'Running, not walking. Running from something, or after it?' },
+    { id: 'page', name: 'Torn red-book page', text: 'A page torn from one of the red books, folded small, with a tooth-hole through the corner. Someone kept it.', supports: ['why:books', 'who:goblin', 'where:library'], natalie: "It keeps the red books. I wrote that down and didn't believe it. Now look." },
+    { id: 'tally', name: 'Scratched tally', text: 'Scratches on a buttress of the library at knee height: four lines, and a fifth crossed out. A score, or a count.', supports: ['why:game', 'who:goblin'], natalie: "Four of us went in. Who's the fifth? You?" },
+    { id: 'ash', name: 'Ring of blue ash', text: 'A ring of cold blue ash near the altar, though nothing here has burned blue. The shard hums louder when you stand in it.', supports: ['who:unseen', 'why:fear', 'where:library'], natalie: "Blue fire doesn't belong to goblins. I don't like this one." },
+    { id: 'ration', name: 'Emptied ration sack', text: "Our party's ration sack, licked clean, left by the camp. Something big passed by here and took every crumb.", supports: ['who:stagecoach', 'why:hunger', 'where:road'], natalie: 'Every larder he passes is empty. If the Stagecoach came through here, we were lucky to only lose bread.' }
+  ],
+  tags: { who: { goblin: 'The goblin', stagecoach: 'The Stagecoach', own: 'They left on their own', unseen: 'Something not human' }, where: { library: 'Deep in the library', forest: 'Out in the forest', road: 'Down the road' }, why: { books: 'The red books', game: 'A game', hunger: 'Hunger', fear: 'Fear' } },
+  leads: { library: { friend: 'the Archer', find: 'Behind a fallen shelf in the back hall: the Archer, asleep on a nest of red-book covers, a broken bolt in his fist. Alive.' },
+    forest: { friend: 'the Mage', find: 'Under an old oak, a rope ladder and a hidden perch: the Mage, keeping watch on the library with no lantern. Alive, and cross with herself.' },
+    road: { friend: 'the Swordsman', find: 'In the ditch by the coach road, half under his own shield: the Swordsman, bruised and starving, but alive.' } },
+  whyLine: { goblin: "It was the goblin all along, you said. %FRIEND% won't say otherwise.", stagecoach: 'Something big came down the road, you said. %FRIEND% only remembers the ground shaking.', own: 'They split up on their own, you said. %FRIEND% looks ashamed, which is answer enough.', unseen: "Something not human, you said. %FRIEND% won't talk about the blue light." },
+  ending: 'Field note, finished. %FRIEND% is found. %WHO_LINE% The others are still out there, and I have a new page to write.',
+  nat: { supported: "That's what the evidence says. Let's go.", leap: "It's a leap. I'll follow you anyway.", found: 'You found them. You actually found them.', hintNone: "Look around. They can't have vanished without leaving something.", hintMore: 'We need more. Three things at least, before I believe any story.', hintReady: "That's enough to think with. Write what you think happened." }
+};
+const got = new Set(), theory = { who: null, where: null, why: null }; const found = new Set();
+const cluesEl = document.getElementById('clues'), detail = document.getElementById('clueDetail'), hint = document.getElementById('hint'), followBtn = document.getElementById('follow'), outcome = document.getElementById('outcome');
+const supported = () => { const s = new Set(); got.forEach(id => CASE.clues.find(c => c.id === id).supports.forEach(t => s.add(t))); return s; };
+function renderCase() { const sup = supported();
+  cluesEl.querySelectorAll('.clue').forEach(b => b.setAttribute('aria-pressed', got.has(b.dataset.id)));
+  document.getElementById('clueCount').textContent = `${got.size} of 7 · three to start a theory`;
+  document.querySelectorAll('.theory .chips').forEach(box => box.querySelectorAll('.chip').forEach(ch => { const tag = box.dataset.g + ':' + ch.dataset.v; ch.classList.toggle('sup', sup.has(tag)); ch.setAttribute('aria-pressed', theory[box.dataset.g] === ch.dataset.v); }));
+  hint.textContent = got.size === 0 ? CASE.nat.hintNone : got.size < 3 ? CASE.nat.hintMore : CASE.nat.hintReady;
+  followBtn.disabled = !(got.size >= 3 && theory.who && theory.where && theory.why);
+  document.querySelectorAll('#friends span').forEach(s => s.classList.toggle('found', found.has(s.dataset.f))); }
+CASE.clues.forEach(cl => { const b = document.createElement('button'); b.type = 'button'; b.className = 'clue'; b.dataset.id = cl.id; const n = document.createElement('b'); n.textContent = cl.name; b.append(n);
+  b.onclick = () => { got.has(cl.id) ? got.delete(cl.id) : got.add(cl.id); detail.textContent = cl.text; const s = document.createElement('span'); s.className = 'nat'; s.textContent = '“' + cl.natalie + '”'; detail.append(s); outcome.hidden = true; renderCase(); };
+  cluesEl.append(b); });
+document.querySelectorAll('.theory .chips').forEach(box => Object.entries(CASE.tags[box.dataset.g]).forEach(([v, label]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.v = v; b.textContent = label;
+  b.onclick = () => { theory[box.dataset.g] = theory[box.dataset.g] === v ? null : v; outcome.hidden = true; renderCase(); }; box.append(b); }));
+followBtn.onclick = () => { const sup = supported(); const backed = ['who', 'where', 'why'].every(g => sup.has(g + ':' + theory[g])); const lead = CASE.leads[theory.where]; found.add(lead.friend);
+  const F = lead.friend[0].toUpperCase() + lead.friend.slice(1); outcome.innerHTML = ''; const n1 = document.createElement('span'); n1.className = 'nat'; n1.textContent = '“' + (backed ? CASE.nat.supported : CASE.nat.leap) + '”';
+  const w = document.createElement('div'); w.className = 'who'; w.textContent = F + ', found'; const p = document.createElement('p'); p.textContent = lead.find; p.style.marginTop = '6px';
+  const n2 = document.createElement('span'); n2.className = 'nat'; n2.textContent = '“' + CASE.nat.found + '” ' + CASE.ending.replace('%FRIEND%', F).replace('%WHO_LINE%', CASE.whyLine[theory.who].replace('%FRIEND%', F));
+  outcome.append(n1, w, p, n2); outcome.hidden = false; renderCase(); };
+document.getElementById('resetCase').onclick = () => { got.clear(); found.clear(); theory.who = theory.where = theory.why = null; outcome.hidden = true; detail.textContent = 'Pick up a clue to read it. Natalie has something to say about each one.'; renderCase(); };
+renderCase();
+
+/* ---------- SOURCES DISAGREE ---------- */
+const DIS = [
+  { q: "What colour is Ein's flame?", topic: 'The Church of the First', t: [['Church scripture', 'Gold. The last of his flame was stowed in a brazier when he chose to die a mortal.'], ['Friar Birel Lialdon', "Blue. Ein gave Birel part of his blue flame at Lyalondeshe. It survives any wind, and however small it shrinks, its core stays constant."]] },
+  { q: 'Was Ein a hero or a betrayer?', topic: 'The fall of the gods', t: [['The Church of the First', 'Ein freed the gods from their own cruelty, then came back down because mortals seemed more godlike than his kin.'], ['The House of Basalt', 'Eyan poisoned them. It may be the same event, told from the other side.']] },
+  { q: 'Where did goblins come from?', topic: 'Farm Beasts: The Goblin Plague', t: [['The red book', "The Biomancer of Nier made them: a soldier strain bred to win by numbers. Nobody has checked the book's arithmetic."], ['Human folk', 'They are failed orc births.'], ['Quimzy the Orc', 'They are orcs who were cast out.']] },
+  { q: 'Was the Scholar Pendragon?', topic: 'The Promise that Shattered the World', t: [['Scroll of Infernling Origin', "Only of Pendragon's line."], ['Talar the Human', 'Simply: Pendragon.']] },
+  { q: 'How many portals opened?', topic: 'The Patron', t: [['Scroll of Infernling Origin', 'Only two remain: Noctavel and Emberkin.'], ['Common folk, and Natalie', 'Portals opened everywhere.']] },
+  { q: 'What was the grey sky?', topic: 'The Era of Ice', t: [["The Scholar's own words", 'Spirits from the world before this one.'], ['The Church of the First', 'Lesser demons.']] },
+  { q: 'Where does necromancy come from?', topic: 'Yellow Blood', t: [['Scroll and Church alike', 'From the Patron.'], ['Sailors', 'From Central Emeris, where the dead still walk.'], ["Beihorn Duskrest's journal", 'At least one elf practised it at home, and lost three fingers for it.']] },
+  { q: 'What is this land called?', topic: 'Tales of Artheria: A Foreword', t: [["Sailors' maps, and Natalie", 'The Hymlie Principality, after a prince who never found the Golden Chalice and so never became king.'], ['Talar and the sages of Ranlean', 'Its elder name is Caerne.']] },
+  { q: 'Do dragons breathe ice?', topic: 'Scales of the Shore', t: [['Scholars of Amethyst Peak', 'Dragons "may breathe ice".'], ['The coastal books', 'Certainly: a salt spray that freezes on contact, or steam that scalds out to sixty feet. The scholars have never read them.']] },
+  { q: 'Who found the first magic?', topic: 'The Ruined Library', t: [['Halfling legends', 'Humans and halflings, together. They found lightning and kept it in jars.'], ['Ancient elven scripture', 'The outcasts were still beating copper. Anything clever in those years was halfling work.']] }
+];
+let picks = {}; try { picks = JSON.parse(localStorage.getItem('artheria-picks') || '{}'); } catch (e) { picks = {}; }
+const qlist = document.getElementById('qlist'), tellers = document.getElementById('tellers'); let qi = 0;
+function renderQs() { qlist.innerHTML = ''; DIS.forEach((d, i) => { const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button'; b.textContent = d.q; b.setAttribute('aria-pressed', i === qi);
+  if (picks[i] != null) { const s = document.createElement('span'); s.className = 'picked'; s.textContent = '✓ picked'; b.append(s); } b.onclick = () => { qi = i; renderQs(); renderTellers(); }; li.append(b); qlist.append(li); }); }
+function renderTellers() { const d = DIS[qi]; document.getElementById('qTitle').textContent = d.q; document.getElementById('qTopic').textContent = 'from ' + d.topic; tellers.innerHTML = '';
+  d.t.forEach(([who, say], j) => { const c = document.createElement('div'); c.className = 'teller' + (picks[qi] === j ? ' chosen' : ''); const w = document.createElement('div'); w.className = 'who'; w.textContent = who; const q = document.createElement('q'); q.textContent = say;
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', picks[qi] === j); b.textContent = picks[qi] === j ? 'You believe this' : 'Believe this teller';
+    b.onclick = () => { if (picks[qi] === j) delete picks[qi]; else picks[qi] = j; try { localStorage.setItem('artheria-picks', JSON.stringify(picks)); } catch (e) {} renderQs(); renderTellers(); }; c.append(w, q, b); tellers.append(c); }); }
+renderQs(); renderTellers();
+
+/* ---------- MAP (painted) ---------- */
+const REG = {
+  silverpeak: { name: 'Silverpeak', ep: 'The Winterlands', txt: 'Always frozen. Giant woolly beasts roam the snow, and sailors name it for a mountain so tall it cuts through the fog.', tags: ['tundra', 'woolly beasts', 'the fog-cutting peak'], pin: [.24, .1] },
+  hymlie: { name: 'The Hymlie Principality', ep: 'Taiga and desert', txt: 'The richest source of magic in the world, and home to more books than anywhere else, which is why Natalie lives here. A prince ruled it for eons but never became king: a king must first sip from the Golden Chalice, and he never found it.', tags: ['Natalie writes from here', 'Ranlean', 'Lyalondeshe'], dis: ['sources disagree', 'Talar the Human and the sages of Ranlean insist the elder name is Caerne.'], pin: [.42, .47] },
+  starhaven: { name: 'Starhaven', ep: 'Behind the caustic fog', txt: 'Irradiated swamps behind a caustic fog. Sailors see millions of lights through it, like a sky full of stars. No one goes in or out.', tags: ['swamp', 'the lights', 'no way in'], pin: [.83, .14] },
+  sylvena: { name: 'Sylvena', ep: 'Grassy flatlands', txt: 'A colony was lost here. All it left behind were writings about beasts and strange humanoids.', tags: ['plains', 'the lost colony'], pin: [.18, .75] },
+  nemeris: { name: 'Northern Emeris', ep: 'Deciduous forest', txt: 'An autumn-coloured forest kept in line by giant golems of metal.', tags: ['forest', 'metal golems'], pin: [.77, .43] },
+  cemeris: { name: 'Central Emeris', ep: 'Rain forest', txt: 'Home to dead things that still walk. A colony lasted a decade here, then gave up. Sailors say necromancy itself comes from these trees.', tags: ['jungle', 'the walking dead'], pin: [.79, .63] },
+  semeris: { name: 'Southern Emeris', ep: 'Beyond our tools', txt: 'People whose tools far outstrip ours, speaking a language that is hard to learn.', tags: ['machines', 'a hard tongue'], pin: [.71, .86] }
+};
+const BLOBS = [['silverpeak', .22, .16, .13], ['silverpeak', .33, .11, .09], ['silverpeak', .13, .22, .07], ['hymlie', .42, .47, .14], ['hymlie', .32, .55, .1], ['hymlie', .51, .38, .08], ['hymlie', .49, .6, .08],
+  ['starhaven', .81, .19, .085], ['starhaven', .89, .25, .055], ['sylvena', .16, .75, .1], ['sylvena', .25, .85, .075],
+  ['emeris', .74, .43, .07], ['emeris', .78, .54, .075], ['emeris', .76, .66, .08], ['emeris', .7, .78, .075], ['emeris', .75, .9, .06]];
+const mc = document.getElementById('mapCanvas'), mx = mc.getContext('2d'); const MW = 480, MH = 300; mc.width = MW; mc.height = MH;
+let regionMap = null, sel = 'hymlie', mapBase = null;
+function computeRegions() { regionMap = new Array(MW * MH);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const u = x / MW, v = y / MH; let best = -9, who = null;
+    BLOBS.forEach(([k, bx, by, r]) => { const dx = (u - bx) * 1.6, dy = v - by; const f = 1 - Math.sqrt(dx * dx + dy * dy) / (r * 1.6); if (f > best) { best = f; who = k; } });
+    best += (vnoise(x / 22, y / 22, 70) - .5) * .7 + (vnoise(x / 9, y / 9, 71) - .5) * .22;
+    if (who === 'emeris') who = v < .53 ? 'nemeris' : v < .75 ? 'cemeris' : 'semeris';
+    regionMap[y * MW + x] = best > 0 ? who : best > -.1 ? 'shallow' : 'sea'; } }
+const at = (x, y) => regionMap[Math.min(MH - 1, Math.max(0, y)) * MW + Math.min(MW - 1, Math.max(0, x))];
+function buildMap() { if (!regionMap) computeRegions(); const night = isNight(); const img = new ImageData(MW, MH), d = img.data;
+  const C = { sea: '#3a6f98', shallow: '#6aa3c2', silverpeak: '#eef1ee', hymlie: '#5d8a3e', hymlieD: '#d9b46a', starhaven: '#6b7a44', sylvena: '#a6c95e', nemeris: '#c98a3e', cemeris: '#356b34', semeris: '#9a9aa6' };
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const r = regionMap[y * MW + x]; let c; const brush = (vnoise(x / 26, y / 6, 72) - .5) * .14 + (vnoise(x / 8, y / 20, 73) - .5) * .06;
+    if (r === 'sea' || r === 'shallow') { c = mul(hex(C[r]), 1 + brush); if (r === 'sea' && vnoise(x / 6, y / 2.5, 74) > .8) c = mix(c, [190, 220, 235], .35); }
+    else { let base = C[r]; if (r === 'hymlie' && y / MH > .53 + (vnoise(x / 15, 0, 75) - .5) * .08) base = C.hymlieD; if (r === 'silverpeak' && vnoise(x / 10, y / 10, 76) > .62) base = '#c3d0d6';
+      if (r === 'nemeris' && vnoise(x / 5, y / 5, 77) > .55) base = '#7f9a3e'; c = mul(hex(base), 1 + brush); if (r === 'starhaven' && vnoise(x / 4, y / 4, 79) > .55) c = mix(c, [205, 214, 170], .4);
+      let coast = 0; for (let k = 1; k <= 3 && !coast; k++) if ([[k, 0], [-k, 0], [0, k], [0, -k]].some(([a, b]) => { const rr = at(x + a, y + b); return rr === 'sea' || rr === 'shallow'; })) coast = k;
+      if (coast === 1 || coast === 2) c = coast === 1 ? hex(INK) : [236, 222, 176];
+      else if ([[1, 0], [0, 1]].some(([a, b]) => { const rr = at(x + a, y + b); return rr !== r && rr !== 'sea' && rr !== 'shallow'; })) c = mul(c, .7);
+      if (sel && r !== sel && coast !== 1) c = mix(c, night ? [20, 30, 50] : [70, 90, 110], .38);
+      if (r === sel && coast !== 1 && [[2, 0], [-2, 0], [0, 2], [0, -2]].some(([a, b]) => at(x + a, y + b) !== sel)) c = [255, 240, 196]; }
+    if (night) c = mix(mul(c, .55), [14, 30, 60], .25); const i = (y * MW + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255; }
+  mx.putImageData(img, 0, 0);
+  mx.fillStyle = '#f7f7f2'; path(mx, [MW * .26 - 16, MH * .17, MW * .26 + 16, MH * .17, MW * .26, MH * .05]); mx.fill(); ink(mx, 1.6); mx.fillStyle = '#b9c6cc'; path(mx, [MW * .26, MH * .05, MW * .26 + 16, MH * .17, MW * .26 + 3, MH * .17]); mx.fill();
+  mx.strokeStyle = night ? '#9fb6c8' : '#e8f1f4'; mx.lineWidth = 2; mx.beginPath(); for (let k = 0; k < 4; k++) { mx.moveTo(MW * .6 + k * 9 + 4, MH * .3); mx.arc(MW * .6 + k * 9, MH * .3, 4, 0, Math.PI, true); } mx.stroke();
+  mapBase = mx.getImageData(0, 0, MW, MH); }
+function renderRegion() { const r = REG[sel], el = document.getElementById('region'); el.innerHTML = '';
+  const h = document.createElement('h3'); h.textContent = r.name; const e = document.createElement('div'); e.className = 'epithet'; e.textContent = r.ep; const p = document.createElement('p'); p.textContent = r.txt; el.append(h, e, p);
+  if (r.dis) { const dd = document.createElement('div'); dd.className = 'dis'; const b = document.createElement('b'); b.textContent = r.dis[0]; dd.append(b, r.dis[1]); el.append(dd); }
+  const tg = document.createElement('div'); tg.className = 'tags'; r.tags.forEach(t => { const s = document.createElement('span'); s.textContent = t; tg.append(s); }); el.append(tg); }
+const mapEl = document.getElementById('map');
+Object.entries(REG).forEach(([k, r]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pin'; b.textContent = r.name.replace('The ', ''); b.style.left = r.pin[0] * 100 + '%'; b.style.top = r.pin[1] * 100 + '%';
+  b.dataset.k = k; b.setAttribute('aria-pressed', k === sel); b.onclick = () => { sel = k; mapEl.querySelectorAll('.pin').forEach(p => p.setAttribute('aria-pressed', p.dataset.k === sel)); buildMap(); renderRegion(); }; mapEl.append(b); });
+mc.addEventListener('click', e => { const rc = mc.getBoundingClientRect(); const x = Math.floor((e.clientX - rc.left) / rc.width * MW), y = Math.floor((e.clientY - rc.top) / rc.height * MH); const r = at(x, y); if (REG[r]) mapEl.querySelector(`.pin[data-k="${r}"]`).click(); });
+buildMap(); renderRegion();
+let mapOn = false, mapT = 0; const lights = []; for (let y = 0; y < MH; y += 2) for (let x = 0; x < MW; x += 2) if (regionMap[y * MW + x] === 'starhaven' && hash(x, y, 80) > .93) lights.push([x, y]);
+function mapLoop(t) { if (!mapOn) return; if (t - mapT > 160) { mapT = t; mx.putImageData(mapBase, 0, 0); lights.forEach(([x, y], i) => { if (hash(i, Math.floor(t / 500), 81) > .5) { mx.fillStyle = hash(i, 2, 82) > .5 ? '#fff6b0' : '#b8fff0'; mx.beginPath(); mx.arc(x, y, 1.3, 0, 7); mx.fill(); } }); } requestAnimationFrame(mapLoop); }
+if (!reduce) onVisible(mc, () => { if (!mapOn) { mapOn = true; requestAnimationFrame(mapLoop); } }, () => { mapOn = false; });
+
+/* ---------- SHELF ---------- */
+const BOOKS = [
+  { k: 'scales', t: 'Scales of the Shore', h: 190, w: 40, sub: 'A small picture book: an informational on the Blue Water Dragon.', p1: ['Deep in the oceans of the world lives the Blue Water Dragon, a fearsome creature blamed for many lost merchant ships, mostly on carelessly planned routes. They live along the shores, though some have been found thirty miles inland.', 'Not to be confused with Sea Dragons: Blue Water Dragons have wings. Coastal folk call the greatest of them Bakunawa.'], list: ['Immune to poison; cannot be held by magic', 'Sense their surroundings without sight, out to sixty feet', 'Can quench any magical flame we know of', 'Create, destroy or command water at will'], dis: 'The scholars of Amethyst Peak write only that dragons "may breathe ice". The coastal books are certain. The scholars have never read them.' },
+  { grey: true, h: 150, w: 26 },
+  { k: 'goblin', t: 'Farm Beasts', h: 176, w: 34, sub: 'The Goblin Plague.', p1: ['Goblins are the remnants of the Biomancer of Nier, who reshaped the races around his kingdom to forge one of his own. Goblins were his soldier strain, made to wear an enemy down through sheer numbers.', 'They reach adulthood in five years and live about twenty-five, so whatever they learn is poorly passed down. Not strong, enduring or clever, but nimble, and creative with whatever they pick up as a weapon.'], quote: 'Ethical biomancers estimate that goblins will die out within eight generations.', dis: 'Human folk say goblins are failed orc births. Quimzy the Orc says they are orcs who were cast out.' },
+  { k: 'east', t: 'Eastern Affairs', h: 204, w: 38, sub: 'War of the East (or lack thereof). The Infernling/Orc War.', p1: ['The Kingdom of Lostia has fought for centuries, at one time or another against every society around it. For all its ferocity and its enduring metal war machines, it has neither won nor lost a single war, because of endless infighting. Its deserts are full of abandoned machinery.', 'In small raiding groups, the Lostian orcs are frighteningly efficient.'], quote: 'Stick to the coast and you should be fine. The orcs take great care never to tangle with the water serpents that plague their shores.' },
+  { grey: true, h: 168, w: 30, lean: true },
+  { k: 'yellow', t: 'Yellow Blood', h: 184, w: 32, sub: 'Necromancy. A journal by Beihorn Duskrest, an elf who dabbled in dark revival magic.', p1: ['The journal records a practice that begins with small animals, testing how damaged a creature could be before the spell failed. Later chapters keep the work secret from friends and family. Then the blunders.'], quote: 'Entry 26. One of them bit me. I fine-tuned the spell to make them smarter. I guess the part of the brain for hunger came back too. Bit off three of my left-hand fingers.', after: 'Tucked inside the back cover: a scrap of scroll, a lesser spell to animate the dead for twenty seconds.' },
+  { k: 'birel', t: 'Friar Birel Lialdon', h: 212, w: 42, sub: 'Life of an Elven Follower.', p1: ['An autobiography of one follower of the Church of the First, on pilgrimage west along the trail of the demigod Ein: past the signal fires that kept the western cities safe, past the southern waters where Ein fought his fallen brothers and sisters, until the city of Lyalondeshe, where he finally grows tired of travel.', 'Some say Ein himself visited Birel there and gave him part of his blue flame, set in a giant brazier at the centre of the basilica Birel founded.'], quote: 'However small the great flame shrinks, its core stays constant.' },
+  { grey: true, h: 140, w: 28 }, { grey: true, h: 172, w: 34 },
+  { k: 'church', t: 'The Church of the First', h: 196, w: 36, sub: 'Scripture, as the Church tells it.', p1: ['A pantheon of white-winged gods bathed in golden flame grew bored of their children and began to play with mortals like toys. One god, Ein, said this was wrong. They dragged him down, took his rings, and dared him to find his way home alone.', "He did, on six wings that molted and broke. Then he came back down, broke the Gods' Bath, seeded the clouds with thorns, and died a mortal among his friends."], quote: 'Be the First. For you may not be the last.' },
+  { grey: true, h: 158, w: 24 }, { grey: true, h: 186, w: 30 }, { grey: true, h: 150, w: 26, lean: true }, { grey: true, h: 176, w: 36 }
+];
+const GREY = ['The pages crumble to dust at your touch.', 'Water damage has bled the ink into a grey blur.', 'Bookworms have hollowed out every page.', 'The ink has faded; only blank margins remain.', 'The spine snaps; loose pages scatter.', 'Mold has fused the pages into one block.', 'The edges are charred, as if orc fire had licked them before the shelf went quiet.', 'Smoke has yellowed every page; the library burned, and this one remembers it.'];
+const row = document.getElementById('row'), reader = document.getElementById('reader'); let gi = 0;
+function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+function renderBook(b) { reader.innerHTML = ''; const p1 = el('div', 'pg'), p2 = el('div', 'pg');
+  if (b.grey) { p1.append(el('div', 'sub', 'A grey book, no title left on the spine.'), el('p', 'crumble', GREY[gi % GREY.length])); gi++;
+    p2.append(el('p', null, 'Not every book survived the burning. Grey books roll on a table of ways they fell apart, so no two shelves crumble the same.'), el('p', null, 'Try a red one.')); reader.append(p1, p2); return; }
+  p1.append(el('h3', null, b.t), el('div', 'sub', b.sub)); b.p1.forEach(t => p1.append(el('p', null, t)));
+  if (b.list) { const ul = el('ul'); b.list.forEach(t => ul.append(el('li', null, t))); p2.append(ul); }
+  if (b.quote) p2.append(el('blockquote', null, b.quote)); if (b.after) p2.append(el('p', null, b.after));
+  if (b.dis) { const dd = el('div', 'dis'); dd.append(el('b', null, 'sources disagree'), b.dis); p2.append(dd); }
+  p2.append(el('p', 'sub', 'Red book · written by Mike')); reader.append(p1, p2); }
+BOOKS.forEach((b, i) => { const s = el('button', 'spine' + (b.grey ? ' grey' : '') + (b.lean ? ' lean' : ''), b.grey ? '· · ·' : b.t); s.type = 'button'; s.style.height = b.h + 'px'; s.style.width = Math.round(b.w * 1.25) + 'px';
+  s.setAttribute('aria-label', b.grey ? 'A grey book' : b.t); s.setAttribute('aria-pressed', i === 0);
+  s.onclick = () => { row.querySelectorAll('.spine').forEach(x => x.setAttribute('aria-pressed', x === s)); renderBook(b); }; row.append(s); });
+renderBook(BOOKS[0]);
+
+/* ---------- COLOURS OF MAGIC ---------- */
+const MAG = [
+  { k: 'raw', nm: 'Raw', c: ['#5ad8ea', '#2f8fa6', '#e6fbff'], src: 'unshaped magic · blue', name: 'Raw magic', txt: 'Magic that nothing has shaped yet. It glows blue. Magic is still largely unknown, even to those who study it.' },
+  { k: 'god', nm: 'Divine', c: ['#ffe58a', '#d6a23e', '#fffbe6'], src: 'drawn from a god · white or yellow', name: 'Divine magic', txt: "Drawn from a god, it shines white or yellow. The Church of the First keeps Ein's flame burning in a brazier, and argues about its colour." },
+  { k: 'demon', nm: 'Demonic', c: ['#ef6a3a', '#9a2a1a', '#ffd2a0'], src: "a demon's power · red or orange", name: 'Demonic magic', txt: "A demon's power burns red or orange. The Patron's invisible fire warmed human homes through the Era of Ice, and the price is still being paid." },
+  { k: 'necro', nm: 'Necromantic', c: ['#9a5ac0', '#2a1430', '#e2c6f2'], src: 'a necromantic god · purple or black', name: 'Necromantic magic', txt: 'Purple or black. Beihorn Duskrest raised the dead in secret until one of them bit off three of his fingers.' },
+  { k: 'nature', nm: 'Old nature', c: ['#86c45a', '#6a4931', '#e2f5c6'], src: 'an older nature god · green, brown or blue', name: 'Old nature magic', txt: 'The magic of the older nature gods runs green, brown or blue, like the Fauna God who walks Straphan Forest as a white deer.' }
+];
+const colours = document.getElementById('colours'); let mk = 'raw'; const flames = [];
+function drawFlame(c, m, t) { const g = c.getContext('2d'), w = c.width, h = c.height; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); g.setTransform(w / 120, 0, 0, h / 160, 0, 0);
+  g.fillStyle = '#4a3d30'; path(g, [30, 120, 90, 120, 80, 146, 40, 146]); g.fill(); ink(g, 2.4); g.fillStyle = '#6a5640'; g.fillRect(24, 114, 72, 8); g.strokeStyle = INK; g.lineWidth = 2.4; g.strokeRect(24, 114, 72, 8);
+  const lay = (k, colr) => { g.fillStyle = colr; g.beginPath(); const sw = reduce ? 0 : Math.sin(t / 300 + k * 4) * 4; g.moveTo(60 - 30 * k, 114); g.bezierCurveTo(60 - 34 * k, 80, 60 - 10 * k + sw, 64, 60 + sw * 1.5, 20 + (1 - k) * 40);
+    g.bezierCurveTo(60 + 12 * k + sw, 60, 60 + 36 * k, 80, 60 + 30 * k, 114); g.closePath(); g.fill(); };
+  lay(1, m.c[1]); ink(g, 2.4); lay(.72, m.c[0]); lay(.38, m.c[2]); }
+MAG.forEach(m => { const b = el('button', 'flame'); b.type = 'button'; b.dataset.k = m.k; b.style.setProperty('--g', m.c[0]); const c = document.createElement('canvas'); c.width = 120; c.height = 160; b.append(c, el('span', null, m.nm));
+  b.setAttribute('aria-label', m.name); b.onclick = () => { mk = m.k; renderSpell(); }; colours.append(b); flames.push([c, m]); });
+function renderSpell() { const m = MAG.find(x => x.k === mk); document.getElementById('spSrc').textContent = m.src; document.getElementById('spName').textContent = m.name; document.getElementById('spText').textContent = m.txt;
+  colours.querySelectorAll('.flame').forEach(p => p.setAttribute('aria-pressed', p.dataset.k === mk)); }
+renderSpell(); flames.forEach(([c, m]) => drawFlame(c, m, 0));
+let flOn = false; function flLoop(t) { if (!flOn) return; flames.forEach(([c, m]) => drawFlame(c, m, t)); setTimeout(() => requestAnimationFrame(flLoop), 60); }
+if (!reduce) onVisible(colours, () => { if (!flOn) { flOn = true; requestAnimationFrame(flLoop); } }, () => { flOn = false; });
+
+/* ---------- PORTRAITS (painted busts, ink lines, drawn faces) ---------- */
+const FACE = { neutral: 0, happy: 1, sad: 2, angry: 3, surprised: 4, talk: 5 };
+function face(g, x, y, s, kind = 'neutral', eye = INK) { g.save(); g.translate(x, y); g.scale(s, s); g.strokeStyle = INK; g.lineCap = 'round'; g.lineWidth = 2.4;
+  const eyeY = -4; [-1, 1].forEach(side => { const ex = side * 13; g.fillStyle = eye;
+    if (kind === 'happy') { g.beginPath(); g.arc(ex, eyeY + 2, 5, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+    else if (kind === 'surprised') { g.beginPath(); g.ellipse(ex, eyeY, 4, 6, 0, 0, 7); g.fill(); }
+    else { g.beginPath(); g.ellipse(ex, eyeY, 3.6, kind === 'angry' ? 3 : 4.8, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(ex + 1.2, eyeY - 1.6, 1.2, 0, 7); g.fill(); }
+    g.beginPath(); const by = eyeY - 10; if (kind === 'angry') { g.moveTo(ex - side * 6, by - 3); g.lineTo(ex + side * 5, by + 2); } else if (kind === 'sad') { g.moveTo(ex - side * 6, by + 2); g.lineTo(ex + side * 5, by - 2); } else { g.moveTo(ex - 5, by); g.quadraticCurveTo(ex, by - 3, ex + 5, by); } g.stroke(); });
+  g.beginPath(); const my = 14; if (kind === 'happy') { g.arc(0, my - 3, 7, .15 * Math.PI, .85 * Math.PI); } else if (kind === 'sad') { g.arc(0, my + 5, 6, 1.15 * Math.PI, 1.85 * Math.PI); } else if (kind === 'surprised' || kind === 'talk') { g.ellipse(0, my, 4, kind === 'talk' ? 3.5 : 5, 0, 0, 7); g.fillStyle = '#5a2a2a'; g.fill(); } else if (kind === 'angry') { g.moveTo(-6, my + 1); g.lineTo(6, my - 1); } else { g.moveTo(-5, my); g.lineTo(5, my); }
+  g.stroke(); g.restore(); }
+function head(g, x, y, r, skin, jaw = 1) { g.fillStyle = skin; g.beginPath(); g.moveTo(x - r, y - r * .2); g.lineTo(x - r * .92, y - r * .8); g.lineTo(x - r * .45, y - r * 1.12); g.lineTo(x + r * .45, y - r * 1.12); g.lineTo(x + r * .92, y - r * .8); g.lineTo(x + r, y - r * .2);
+  g.lineTo(x + r * .8 * jaw, y + r * .55); g.lineTo(x + r * .3, y + r * .95); g.lineTo(x - r * .3, y + r * .95); g.lineTo(x - r * .8 * jaw, y + r * .55); g.closePath(); g.fill(); ink(g, 3.2);
+  g.fillStyle = 'rgba(0,0,0,.1)'; g.beginPath(); g.moveTo(x + r * .35, y - r * 1.1); g.lineTo(x + r * .92, y - r * .8); g.lineTo(x + r, y - r * .2); g.lineTo(x + r * .8 * jaw, y + r * .55); g.lineTo(x + r * .3, y + r * .95); g.lineTo(x + r * .55, y); g.closePath(); g.fill(); }
+function shoulders(g, cxp, top, w, fill) { g.fillStyle = fill; g.beginPath(); g.moveTo(cxp - w, 300); g.bezierCurveTo(cxp - w, top + 20, cxp - w * .5, top, cxp, top); g.bezierCurveTo(cxp + w * .5, top, cxp + w, top + 20, cxp + w, 300); g.closePath(); g.fill(); ink(g, 3.2); }
+function bgBands(g, cols, W = 400, Hh = 300) { cols.forEach((cc, i) => { g.fillStyle = cc; g.fillRect(0, i * Hh / cols.length - (i ? 4 : 0), W, Hh / cols.length + 8); }); }
+const BUSTS = {
+  natalie(g) { bgBands(g, ['#b9a6c0', '#c8b5c6', '#d9c7c8', '#e6d6c4']);
+    g.fillStyle = '#5a3a2a'; g.beginPath(); g.moveTo(140, 230); g.quadraticCurveTo(120, 120, 200, 72); g.quadraticCurveTo(280, 120, 260, 230); g.closePath(); g.fill(); ink(g, 3.2);
+    shoulders(g, 200, 200, 120, '#8a5c7a'); g.fillStyle = '#f4ead6'; path(g, [172, 204, 228, 204, 200, 248]); g.fill(); ink(g, 3);
+    g.fillStyle = '#e8b48a'; g.fillRect(186, 172, 28, 32); head(g, 200, 140, 52, '#e8b48a', .9); g.fillStyle = '#5a3a2a'; g.beginPath(); g.moveTo(146, 118); g.quadraticCurveTo(200, 60, 254, 118); g.lineTo(254, 100); g.quadraticCurveTo(200, 46, 146, 100); g.closePath(); g.fill(); ink(g, 3);
+    face(g, 200, 150, 1.25, 'happy'); g.fillStyle = '#f4ead6'; path(g, [262, 226, 318, 214, 328, 292, 270, 302]); g.fill(); ink(g, 3); g.strokeStyle = '#7a5233'; g.lineWidth = 4; g.beginPath(); g.moveTo(146, 214); g.lineTo(246, 300); g.stroke(); },
+  goblin(g) { bgBands(g, ['#3d2a1d', '#4a3424', '#57402c', '#644c35']); shoulders(g, 200, 218, 96, '#5a3f2a');
+    g.fillStyle = '#7da23c'; [-1, 1].forEach(sd => { path(g, [200 + sd * 40, 120, 200 + sd * 150, 80, 200 + sd * 52, 160]); g.fill(); ink(g, 3.2); });
+    head(g, 200, 150, 58, '#7da23c', 1.05); face(g, 200, 152, 1.3, 'happy', '#2a2410'); g.fillStyle = '#f4ead6'; [-8, 0, 8].forEach(dx => { path(g, [200 + dx - 3, 168, 200 + dx + 3, 168, 200 + dx, 176]); g.fill(); });
+    g.fillStyle = '#8f2b23'; path(g, [140, 230, 262, 222, 268, 300, 146, 300]); g.fill(); ink(g, 3.2); g.fillStyle = '#d6b25e'; g.fillRect(146, 246, 118, 6); g.fillRect(148, 282, 118, 6);
+    g.fillStyle = '#7da23c'; [[150, 250], [250, 246]].forEach(([x, y]) => { g.beginPath(); g.ellipse(x, y, 16, 12, 0, 0, 7); g.fill(); ink(g, 3); }); },
+  kavik(g) { bgBands(g, ['#d8c8a8', '#e2d2b2', '#eadcbc', '#f0e4c8']); shoulders(g, 200, 204, 118, '#f4ead6'); g.strokeStyle = INK; g.lineWidth = 3; g.beginPath(); g.moveTo(150, 210); g.lineTo(220, 300); g.moveTo(250, 210); g.lineTo(185, 280); g.stroke();
+    g.fillStyle = '#2c2a3a'; g.fillRect(110, 280, 180, 20); g.fillStyle = '#8a63b0'; g.fillRect(186, 172, 28, 34); head(g, 200, 142, 54, '#8a63b0', 1.1);
+    g.fillStyle = '#efe4cc'; [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(200 + sd * 30, 96); g.quadraticCurveTo(200 + sd * 80, 70, 200 + sd * 66, 30); g.quadraticCurveTo(200 + sd * 60, 70, 200 + sd * 18, 90); g.closePath(); g.fill(); ink(g, 3); });
+    g.fillStyle = '#1f1d2a'; g.beginPath(); g.moveTo(150, 112); g.quadraticCurveTo(200, 70, 250, 112); g.lineTo(240, 96); g.quadraticCurveTo(200, 70, 160, 96); g.closePath(); g.fill(); ink(g, 3); g.beginPath(); g.arc(200, 74, 14, 0, 7); g.fill(); ink(g, 3);
+    face(g, 200, 150, 1.2, 'neutral', '#1a1626'); },
+  greer(g) { bgBands(g, ['#2c4a7a', '#34528a', '#3d5c96', '#4a67a0']); for (let i = 0; i < 14; i++) { g.fillStyle = 'rgba(255,240,190,.8)'; g.beginPath(); g.arc(R(i, 120) * 400, R(i, 121) * 200, 2, 0, 7); g.fill(); }
+    shoulders(g, 200, 214, 116, '#6a4560'); head(g, 200, 160, 48, '#e8c4a0', .95);
+    g.fillStyle = '#d8d8d0'; g.beginPath(); g.moveTo(160, 172); g.quadraticCurveTo(200, 290, 240, 172); g.quadraticCurveTo(200, 200, 160, 172); g.fill(); ink(g, 3);
+    g.fillStyle = '#2b3a66'; g.beginPath(); g.moveTo(130, 126); g.lineTo(270, 126); g.lineTo(226, 112); g.quadraticCurveTo(230, 40, 290, 20); g.quadraticCurveTo(200, 30, 176, 112); g.closePath(); g.fill(); ink(g, 3.2);
+    g.fillStyle = '#c9962e'; g.fillRect(170, 106, 60, 8); g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(222, 108); g.quadraticCurveTo(250, 60, 262, 84); g.quadraticCurveTo(246, 92, 226, 110); g.fill(); ink(g, 2.4);
+    face(g, 200, 160, 1.05, 'talk'); g.strokeStyle = INK; g.lineWidth = 2.4; [-13, 13].forEach(dx => { g.beginPath(); g.arc(200 + dx * 1.05, 155, 8, 0, 7); g.stroke(); }); },
+  deer(g) { bgBands(g, ['#e59d7c', '#efb07e', '#f3c486', '#f6d89c']); g.fillStyle = '#fff3d0'; g.beginPath(); g.arc(320, 200, 40, 0, 7); g.fill();
+    g.fillStyle = '#3f6a33'; g.fillRect(0, 230, 400, 70); for (let i = 0; i < 7; i++) { g.fillStyle = i % 2 ? '#4f7e33' : '#3f6a33'; blob(g, 20 + i * 62, 230, 40, 50, 130 + i, 8); g.fill(); ink(g, 2.6); }
+    g.fillStyle = '#f7f3ea'; g.beginPath(); g.moveTo(170, 300); g.lineTo(178, 200); g.quadraticCurveTo(200, 180, 222, 200); g.lineTo(232, 300); g.fill(); ink(g, 3.2);
+    g.beginPath(); g.moveTo(170, 160); g.quadraticCurveTo(200, 120, 232, 160); g.quadraticCurveTo(236, 196, 210, 226); g.quadraticCurveTo(200, 232, 190, 226); g.quadraticCurveTo(164, 196, 170, 160); g.fill(); ink(g, 3.2);
+    [-1, 1].forEach(sd => { g.fillStyle = '#f7f3ea'; path(g, [200 + sd * 24, 150, 200 + sd * 58, 136, 200 + sd * 30, 168]); g.fill(); ink(g, 3);
+      g.beginPath(); g.moveTo(200 + sd * 14, 136); g.lineTo(200 + sd * 30, 80); g.lineTo(200 + sd * 52, 56); g.moveTo(200 + sd * 26, 96); g.lineTo(200 + sd * 50, 90); g.moveTo(200 + sd * 30, 80); g.lineTo(200 + sd * 22, 50);
+      g.strokeStyle = INK; g.lineWidth = 7; g.stroke(); g.strokeStyle = '#e8dcc0'; g.lineWidth = 3.4; g.stroke(); });
+    g.fillStyle = INK; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(200 + sd * 16, 172, 4, 5, 0, 0, 7); g.fill(); }); g.beginPath(); g.ellipse(200, 222, 7, 5, 0, 0, 7); g.fill(); },
+  stagecoach(g) { bgBands(g, ['#6a5a44', '#75644c', '#806e54', '#8b785c']); const fl = ['#8f2b23', '#d6b25e', '#2f5a8a', '#4f6f2c', '#efe4cc', '#6a3a6a', '#d28858'];
+    g.save(); g.beginPath(); g.moveTo(30, 300); g.bezierCurveTo(30, 200, 90, 186, 200, 186); g.bezierCurveTo(310, 186, 370, 200, 370, 300); g.closePath(); g.clip(); fl.forEach((f, i) => { g.fillStyle = f; g.fillRect(30 + i * 49, 180, 50, 130); }); g.restore();
+    g.beginPath(); g.moveTo(30, 300); g.bezierCurveTo(30, 200, 90, 186, 200, 186); g.bezierCurveTo(310, 186, 370, 200, 370, 300); ink(g, 3.2); g.strokeStyle = INK; g.lineWidth = 2; for (let i = 1; i < 7; i++) { g.beginPath(); g.moveTo(30 + i * 49, 190); g.lineTo(30 + i * 49, 300); g.stroke(); }
+    g.fillStyle = '#c89a6a'; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(200 + sd * 66, 136, 10, 16, 0, 0, 7); g.fill(); ink(g, 3); });
+    head(g, 200, 128, 66, '#c89a6a', 1.15); g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.ellipse(176, 84, 20, 9, -.4, 0, 7); g.fill(); face(g, 200, 138, 1.35, 'angry'); }
+};
+function paintBusts() { document.querySelectorAll('canvas[data-bust]').forEach(c => { const { w, h } = fitCanvas(c); const g = c.getContext('2d'); g.setTransform(w / 400, 0, 0, h / 300, 0, 0); BUSTS[c.dataset.bust](g); }); }
+
+/* ---------- THE LOOK ---------- */
+function TOD_LOCK(t, fn) { const prev = TOD; TOD = t; try { fn(); } finally { TOD = prev; } }
+function paintLook() { const night = isNight(); const tod = night ? 'night' : 'sunset';
+  { const c = document.getElementById('lyFaces'); const { w, h } = fitCanvas(c); const g = c.getContext('2d'); g.setTransform(w / 480, 0, 0, h / 300, 0, 0);
+    bgBands(g, night ? ['#141e36', '#18243f', '#1c2a48', '#203052'] : ['#e9dbb9', '#eee0c0', '#f2e6c8', '#f6ecd2'], 480, 300);
+    Object.keys(FACE).forEach((k, i) => { const x = 80 + (i % 3) * 160, y = 86 + Math.floor(i / 3) * 140; head(g, x, y + 10, 46, '#e8b48a', .9); g.fillStyle = '#5a3a2a'; g.beginPath(); g.moveTo(x - 44, y - 20); g.quadraticCurveTo(x, y - 70, x + 44, y - 20); g.lineTo(x + 44, y - 34); g.quadraticCurveTo(x, y - 84, x - 44, y - 34); g.closePath(); g.fill(); ink(g, 3);
+      face(g, x, y + 14, 1.05, k); g.fillStyle = night ? '#ece2c8' : '#1f2433'; g.font = '600 16px "Spectral SC", Georgia, serif'; g.textAlign = 'center'; g.fillText(k, x, y + 72); }); }
+  { const c = document.getElementById('lyGround'); const { w, h } = fitCanvas(c); const g = c.getContext('2d'); g.setTransform(w / 480, 0, 0, h / 300, 0, 0); TOD_LOCK(night ? 'night' : 'day', () => {
+    g.fillStyle = col('#aecbe6'); g.fillRect(0, 0, 480, 100); g.fillStyle = col('#cfdeea'); g.fillRect(0, 62, 480, 40); g.fillStyle = col('#7fae45'); g.fillRect(0, 96, 480, 210);
+    for (let i = 0; i < 160; i++) { const big = i % 3 === 0; g.fillStyle = R(i, 140) > .5 ? col('#b6d063', .3) : col('#4f7e33', .26); g.beginPath(); g.ellipse(R(i, 141) * 480, 100 + R(i, 142) * 200, big ? 60 : 24, big ? 9 : 5, big ? -.08 : .18, 0, 7); g.fill(); }
+    g.fillStyle = col('#6e4a2e'); g.fillRect(392, 40, 12, 80); g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(392, 40, 12, 80);
+    [['#3f6a33', 60, 60], ['#5a8a3a', 40, 48], ['#7fae45', 22, 34]].forEach(([cc, y, r], k) => { g.fillStyle = col(cc); blob(g, 398, y, r, r * .8, 150 + k, 7); g.fill(); ink(g, 3); });
+    [[-30, 0, 1], [26, -2, .9], [0, -24, .85]].forEach(([dx, dy, k], j) => { g.fillStyle = col(j === 2 ? '#7fae45' : '#4f7e33'); blob(g, 150 + dx, 190 + dy, 50 * k, 38 * k, 160 + j, 8); g.fill(); ink(g, 3); });
+    [[300, 230, '#e98aa0'], [80, 250, '#e8c94a'], [250, 170, '#f4ead6']].forEach(([x, y, fc]) => { for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(x - 18 + k * 18, y + (k % 2) * 6, 11, 0, 7); g.fillStyle = col(fc); g.fill(); ink(g, 2.6); g.beginPath(); g.arc(x - 18 + k * 18, y + (k % 2) * 6, 3.4, 0, 7); g.fillStyle = col('#c9962e'); g.fill(); } }); }); }
+  { const c = document.getElementById('lyDusk'); const { w, h } = fitCanvas(c); const g = c.getContext('2d'); g.setTransform(w / 480, 0, 0, h / 300, 0, 0); const sky = SKY[tod];
+    sky.forEach((cc, i) => { g.fillStyle = cc; g.beginPath(); g.moveTo(0, i * 40 - 4); for (let x = 0; x <= 480; x += 30) g.lineTo(x, i * 40 + Math.sin(x / 70 + i) * i * 1.5); g.lineTo(480, 300); g.lineTo(0, 300); g.fill(); });
+    TOD_LOCK(tod, () => { g.fillStyle = col('#7fae45'); g.fillRect(0, 230, 480, 70);
+      g.fillStyle = col('#efe4cc'); g.fillRect(120, 140, 170, 92); g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(120, 140, 170, 92); g.strokeStyle = col('#6e4a2e'); g.lineWidth = 6; g.beginPath(); g.moveTo(120, 186); g.lineTo(290, 186); g.moveTo(205, 140); g.lineTo(205, 232); g.stroke();
+      g.fillStyle = col('#a8502a'); path(g, [104, 142, 306, 142, 205, 70]); g.fill(); ink(g, 3);
+      [[140, 150], [228, 150], [140, 196]].forEach(([x, y]) => { g.fillStyle = 'rgba(255,196,110,.95)'; g.fillRect(x, y, 40, 30); g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(x, y, 40, 30);
+        const gr = g.createRadialGradient(x + 20, y + 15, 0, x + 20, y + 15, 70); gr.addColorStop(0, 'rgba(255,190,100,.35)'); gr.addColorStop(1, 'rgba(255,190,100,0)'); g.fillStyle = gr; g.fillRect(x - 60, y - 60, 160, 150); });
+      g.fillStyle = col('#2b2620'); g.fillRect(372, 150, 7, 84); g.strokeStyle = INK; g.lineWidth = 2; g.strokeRect(372, 150, 7, 84); const gr = g.createRadialGradient(375, 146, 0, 375, 146, 80); gr.addColorStop(0, 'rgba(255,200,110,.6)'); gr.addColorStop(1, 'rgba(255,200,110,0)');
+      g.fillStyle = gr; g.fillRect(295, 66, 160, 160); g.fillStyle = '#ffe096'; g.fillRect(368, 138, 15, 16); g.strokeStyle = INK; g.strokeRect(368, 138, 15, 16); }); } }
+function paintAll() { paintBusts(); paintLook(); }
+
+/* ---------- PROMPTS + CONSTRAINT DICE ---------- */
+const PROMPTS = {
+  lore: ['A book your character would hide from everyone else.', 'The last page of a book whose first pages are missing.', 'Something the library knows that no one alive does.', 'A rule of this world, written by someone who broke it.', 'A letter that was never sent, shelved as if it were a book.', 'The same small event, told the way two friends remember it differently.'],
+  character: ['Who were they before they had a name?', 'What do they carry that they refuse to use?', 'What are they saving (money, courage, an apology) and for whom?', 'What would the goblin say about them?', "Which book in this library is theirs, and why is it shelved under someone else's name?", 'What do they do on the one day nobody is watching?'],
+  song_food_art: ['Song: the tune hummed on the walk to the library, not inside it.', "Song: a lullaby for something that isn't a child.", "Food: what Natalie's party ate the night before they went in.", 'Food: a meal from home, made with only what a forest offers.', 'Art: the sunset as seen by someone who has never left the library.', "Art: a portrait of a friend's character, drawn from their book alone."]
+};
+const DICE = { word: ['a lie', 'the weather', 'someone who is not human', 'a broken promise', 'salt', 'a key with no lock', 'a borrowed name', 'smoke', 'a debt', 'the wrong door', 'a song nobody finishes', 'bones', 'a map with a hole in it', 'rain on a book', 'a coin from nowhere', 'a scar', 'the Ruined Library', 'goblins', 'the Noctavel shard', 'Silverpeak'],
+  mood: ['hopeful', 'guilty', 'furious', 'homesick', 'giddy', 'suspicious', 'grieving', 'proud', 'tired', 'reckless', 'tender', 'haunted'],
+  rule: ['made from something that was once alive', 'only two colours', 'named after a mistake', "told by someone who wasn't there", "no one says the word 'magic'", 'it must fit in a pocket', 'it ends where it began', 'the hero is wrong about one thing', 'it was a gift', "it's older than the library", 'something is missing', 'it has to make Natalie laugh'] };
+let kind = 'dice', lastRoll = -1; const pick = a => a[Math.floor(Math.random() * a.length)];
+function roll() { if (kind === 'dice') { document.getElementById('dWord').textContent = pick(DICE.word); document.getElementById('dMood').textContent = pick(DICE.mood); document.getElementById('dRule').textContent = pick(DICE.rule); return; }
+  let i; do { i = Math.floor(Math.random() * 6); } while (i === lastRoll); lastRoll = i; document.getElementById('promptText').textContent = PROMPTS[kind][i]; document.getElementById('die').textContent = `Rolled a ${i + 1} on a d6`; }
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { kind = b.dataset.k; document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.getElementById('diceBox').hidden = kind !== 'dice'; document.getElementById('promptBox').hidden = kind === 'dice'; roll(); });
+document.getElementById('rollBtn').onclick = roll;
+document.getElementById('promptText').textContent = PROMPTS.lore[2];
+
+/* ---------- boot ---------- */
+TOD = isNight() ? 'night' : 'sunset'; applyTod(); buildHero(); paintAll();
+document.fonts && document.fonts.ready.then(() => paintLook());
+})();
+</script>
+
+</body>
+</html>
