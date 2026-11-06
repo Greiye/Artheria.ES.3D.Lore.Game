@@ -24,6 +24,9 @@ export const controls = {
     equipSword: ['Digit3'],                 // v0.08 the practice sword
     reload: ['KeyR'],                       // F4.3 active reload
     torch: ['KeyT'],                        // v0.04 torch
+    lunge: ['KeyZ'],                        // Mike 2026-11-06: Fighter techniques (LB / RB on a pad)
+    sweep: ['KeyX'],
+    breath: ['KeyV'],                       // Fighter: take a breath (LB + RB held on a pad)
     close: ['Tab'],                         // close book / back
     pause: ['Escape'],
     pagePrev: ['KeyA', 'ArrowLeft'],        // F3.3 (book open only)
@@ -96,6 +99,7 @@ export const REBINDABLE: [Action, string][] = [
   ['walk', 'Walk (hold)'], ['sprint', 'Sprint (hold)'], ['activate', 'Use · talk · read'], ['pov', 'Camera view'], ['shoulder', 'Swap shoulder / weapon'],
   ['torch', 'Torch'], ['inventory', 'Bag'], ['journal', 'Casebook'], ['map', 'Map'],
   ['equipCrossbow', 'Crossbow'], ['equipHands', 'Hands'], ['equipSword', 'Sword'], ['reload', 'Reload'],
+  ['lunge', 'Fighter: Lunge'], ['sweep', 'Fighter: Sweep'], ['breath', 'Fighter: Take a breath'],
 ];
 const BINDS_KEY = 'gametool.keys';
 try {

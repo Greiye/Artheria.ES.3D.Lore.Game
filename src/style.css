@@ -582,3 +582,9 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 .survivor canvas { width: 160px; height: 160px; border: 6px solid #7A5634; box-shadow: 0 3px 10px rgba(0,0,0,.5); transform: rotate(-1.5deg); }
 .survivor:nth-child(2n) canvas { transform: rotate(1.8deg); }
 #lastWords textarea { width: 100%; box-sizing: border-box; }
+
+/* Mike 2026-11-06: a Fighter's technique buttons (tap on touch; on keyboard Z / X / V, on a pad LB / RB / both held). */
+#techHud { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 8px; pointer-events: auto; }
+#techHud button { min-width: 56px; min-height: 44px; padding: 0 10px; border-radius: 22px; border: 2px solid var(--rune); background: rgba(30,36,32,.78); color: var(--parchment); font: 600 13px var(--ui); }
+#techHud button.cooling { opacity: .55; border-color: rgba(200,190,160,.4); }
+body[data-input=mouse] #techHud, body[data-input=pad] #techHud { pointer-events: none; }

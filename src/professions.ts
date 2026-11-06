@@ -8,7 +8,7 @@
 export type Profession = 'fighter' | 'ranger' | 'mage' | 'monk';
 export interface ProfessionInfo { id: Profession; label: string; icon: string; blurb: string; soon?: boolean }
 export const PROFESSIONS: ProfessionInfo[] = [
-  { id: 'fighter', label: 'Fighter', icon: '⚔', blurb: 'Trained techniques on the shoulder buttons (LB / RB), and a steadying breath that gives temporary health.', soon: true },
+  { id: 'fighter', label: 'Fighter', icon: '⚔', blurb: 'Trained techniques on the shoulder buttons (LB / RB), and a steadying breath that gives temporary health.' },
   { id: 'ranger', label: 'Ranger', icon: '➶', blurb: 'A true crosshair: far better aim with the crossbow. Everyone else aims down the iron sights.' },
   { id: 'mage', label: 'Mage', icon: '✦', blurb: 'Magister Greer will teach you magic missile, a bolt of light that lights the way as it flies.', soon: true },
   { id: 'monk', label: 'Monk', icon: '☯', blurb: 'Locks on to a foe and meets them hand to hand, in fight mode.', soon: true },
