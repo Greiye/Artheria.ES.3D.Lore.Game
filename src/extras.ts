@@ -59,6 +59,7 @@ export class Extras {
       else if (b.dataset.act === 'write') this.onWrite();
       else if (b.dataset.act === 'whatsnew') this.onWhatsNew();
       else if (b.dataset.act === 'wiki') this.onWiki();
+      else if (b.dataset.act === 'about') window.open('about/', '_blank', 'noopener'); // the promo page (site/index.html)
       else if (b.dataset.act === 'pfExport') this.exportPortfolio();
       else if (b.dataset.act === 'pfCard') void this.savePostcard(Number(b.dataset.i));
       else if (b.dataset.act === 'pfSend') this.sendPiece(Number(b.dataset.i));
@@ -118,6 +119,7 @@ export class Extras {
         <button class="secondary" id="profilesBtn" data-tab="profiles">Profiles</button>
         <button class="secondary" data-tab="inspirations">Inspirations</button>
         <button class="secondary" data-tab="evolution">Evolution of the game</button>
+        <button class="secondary" id="aboutBtn" data-act="about">About the game</button>
         ${back}</div>`;
     } else if (tab === 'profiles') {
       this.el.innerHTML = `<div class="card narrow extras-card"><div class="eyebrow">Extras</div><h1>Profiles</h1>
