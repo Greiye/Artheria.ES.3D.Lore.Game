@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 53: B57 morphology 1 of 5, the character spec (Mike 2026-11-06, option 1: procedural placeholders, every slot, LOD at 20 m)
+- A character can now be written down as a small spec: five body sliders (height, build, limb length, head size, face shape; 0.5 is average), a skin colour, and one part per slot. The 11 slots are hair, brows, eyes, nose, mouth, beard, top, bottom, shoes, hat and accessory, each with numbered placeholder ids and a colour.
+- Any spec from a save, a friend or a file is checked: bad values are clamped or replaced with the defaults, and the check lists what was wrong.
+- A seeded random spec makes a plausible person from a number (the same number always gives the same person). Most people come out near average; some are bald, some wear hats.
+- Nothing in the game looks different yet. Next: the parts (placeholders, cached), then the body that wears them, then the townsfolk.
+- New test: e2e-morph-spec.
+
 ### v0.16 changelog, part 52: Round D4, falls, drop-outs and rejoining (Mike 2026-11-06, round D defaults)
 - On a shared floor, a goblin goes for whoever is nearest, you or a friend. Its blow on a friend lands on the friend's screen and can be blocked there as usual. Shots, thefts and hexes still only go for the leader.
 - When a friend falls, the room hears it: "Ben fell on floor 4 of the descent." Their goblins pass to whoever is left.
