@@ -44,6 +44,7 @@ export type Role = 'none' | 'slinger' | 'guard' | 'dropper' | 'shaman' | 'captai
 const ROLE_TITLE: Record<Role, string> = { none: '', slinger: 'Slinger', guard: 'Pot-lid Guard', dropper: 'Shelf-lurker', shaman: 'Shaman', captain: 'Captain', keeper: 'Hoard-keeper', guardian: 'Guardian' };
 
 type State = 'idle' | 'hidden' | 'chase' | 'back' | 'flee' | 'dead';
+const STATES: State[] = ['idle', 'hidden', 'chase', 'back', 'flee', 'dead'];
 export interface Foe {
   v: Variant; st: GoblinStats; root: THREE.Group; anim: FigureAnim;
   hp: number; state: State; t: number; cd: number; windup: number; alerted: boolean;
@@ -58,6 +59,8 @@ export interface Foe {
   chillT: number;
   /** F2: a fallen hero's gear it picked up (item id), and the extra hurt it does with it. */
   gear: string | null; gearDmg: number;
+  /** Round D3: where the floor's leader has it (a follower only), its hp as last agreed, and seconds a hit claim is in flight. */
+  net?: { x: number; z: number; yaw: number; speed: number }; netHp?: number; claimT?: number;
 }
 interface Shot { mesh: THREE.Mesh; vel: THREE.Vector3; dmg: number; by: Foe; bomb: boolean; fuse: number; landed: boolean }
 interface Snare { mesh: THREE.Mesh; die: string; by: Foe }
@@ -101,6 +104,67 @@ export class Goblins {
   private tmp = new THREE.Vector3();
   /** Mike 2026-11-05: the floor you're on (0: not a descent) and what it sets: the band of tricks, extra health and damage. */
   floor = 0; band = 0; hpMul = 1; dmgBonus = 0;
+  /** Round D3: a friend on this floor leads (runs the goblins); here they only follow the leader's snapshots. */
+  puppet = false;
+  /** Round D3 (leader): every goblin as [x, z, yaw, hp, state, speed], in spawn order. */
+  snapshot(): number[] {
+    const r = (n: number, k = 100) => Math.round(n * k) / k;
+    const out: number[] = [];
+    for (const f of this.list) out.push(r(f.root.position.x), r(f.root.position.z), r(f.root.rotation.y), r(f.hp), STATES.indexOf(f.state), r(f.speedNow, 10));
+    return out;
+  }
+  /** Round D3 (follower): take the leader's snapshot. False if it doesn't fit this floor's goblins. */
+  applySnapshot(a: unknown): boolean {
+    if (!Array.isArray(a) || a.length !== this.list.length * 6 || !a.every((n) => typeof n === 'number' && Number.isFinite(n))) return false;
+    this.list.forEach((f, i) => {
+      const [x, z, yaw, hp, si, speed] = (a as number[]).slice(i * 6, i * 6 + 6);
+      if (f.state === 'dead') return;
+      f.net = { x, z, yaw, speed: Math.max(0, Math.min(20, speed)) };
+      const st = STATES[si | 0] ?? 'idle';
+      if (st === 'dead') { f.hp = 0; f.netHp = 0; this.kill(f); return; }
+      const was = f.hp;
+      // Hits landed here but not yet claimed stay landed; a claim still on its way isn't healed back by an older snapshot.
+      const unclaimed = f.netHp !== undefined ? Math.max(0, f.netHp - f.hp) : 0;
+      const agreed = (f.claimT ?? 0) > 0 && f.netHp !== undefined ? Math.min(f.netHp, hp) : hp;
+      f.netHp = agreed; f.hp = agreed - unclaimed;
+      f.state = st; f.alerted = st !== 'idle' && st !== 'hidden';
+      if (f.hp !== was) drawTag(f);
+    });
+    return true;
+  }
+  /** Round D3 (follower): hits landed here since the last snapshot, as [index, damage] pairs for the leader. */
+  claims(): number[][] {
+    const out: number[][] = [];
+    this.list.forEach((f, i) => {
+      if (f.netHp === undefined) { f.netHp = f.hp; return; }   // first look: what it has now is agreed
+      const agreed = f.netHp;
+      if (f.hp < agreed - 1e-3) { out.push([i, Math.round((agreed - f.hp) * 100) / 100]); f.netHp = f.hp; f.claimT = 1; }
+    });
+    return out;
+  }
+  /** Round D3 (leader): a friend's hit claim. */
+  claim(i: number, dmg: number) {
+    const f = this.list[i | 0];
+    if (!f || !(dmg > 0)) return;
+    this.wound(f, Math.min(50, dmg));
+  }
+  /** Round D3 (follower): glide to where the leader has it and walk the same speed. */
+  private follow(f: Foe, dt: number) {
+    const P = this.w.player, p = f.root.position;
+    f.claimT = Math.max(0, (f.claimT ?? 0) - dt);
+    const n = f.net;
+    if (n) {
+      const k = 1 - Math.exp(-12 * dt);
+      if (Math.hypot(n.x - p.x, n.z - p.z) > 6) { p.x = n.x; p.z = n.z; }
+      else { p.x += (n.x - p.x) * k; p.z += (n.z - p.z) * k; }
+      let dy = n.yaw - f.root.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      f.root.rotation.y += dy * k;
+    }
+    f.speedNow = n?.speed ?? 0;
+    f.anim.update(dt, { speed: f.speedNow, pose: f.state === 'hidden' ? 'kneel' : null });
+    const d = Math.hypot(P.x - p.x, P.z - p.z);
+    f.tag.visible = (f.state !== 'hidden' || this.reveal) && d < (this.reveal ? 16 : 11);
+  }
   /** F1 the seeing flame: nothing hides (lurkers show, mimics can't slip your aim). */
   reveal = false;
   /** F1 quick feet's curse: thieves always go for your books. */
@@ -305,6 +369,7 @@ export class Goblins {
         if (f.deadT > 4) { f.root.visible = false; }
         continue;
       }
+      if (this.puppet) { this.follow(f, dt); continue; }
       const p = f.root.position, dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz);
       const sees = d < SIGHT && this.los(p, P);
       const b = f.st.behaviour;
