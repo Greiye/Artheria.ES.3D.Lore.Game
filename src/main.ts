@@ -1455,7 +1455,7 @@ function startDescent(from = 1) {
   // Mike 2026-11-05: through the trapdoor and down the stairs (src/cinematic/descend.ts); the floor is built under black.
   const yaw = player.yaw, fx = -Math.sin(yaw), fz = -Math.cos(yaw), p = player.pos;
   const opening = { pos: new THREE.Vector3(p.x - fx * 1.6 + fz * 0.7, p.y + 2.3, p.z - fz * 1.6 - fx * 0.7), look: new THREE.Vector3(p.x + fx * 1.2, p.y, p.z + fz * 1.2), fov: 52 };
-  playDescent('enter', 0, from, opening, () => enterDungeon((Math.random() * 2 ** 31) | 0, from), () => {
+  playDescent('enter', 0, from, opening, () => enterDungeon(sharedSeed(from), from), () => {
     companion.say('Thirty floors, they say. Bring me what you find. Bring yourself back too.', { force: true });
     // F2: the patrons' scroll before the first step.
     const opts = hasGift(record.delivered, 'scroll') ? offerScrolls([], ownsSlot) : [];
@@ -1536,7 +1536,7 @@ function goDown(skipScrolls = false) {
   playDescent('down', from, next, undefined, () => {
     descent!.floor = next; descent!.rested = false;
     clearFloor();
-    return enterDungeon((Math.random() * 2 ** 31) | 0, next, true);
+    return enterDungeon(sharedSeed(next), next, true);
   }, () => undefined);
 }
 /** Take the current floor's walls and goblins away (between floors). */
@@ -2503,6 +2503,7 @@ function syncRemotes(room: Room | null) {
       r = new Remote(m.id, m.name, world.scene); remotes.set(m.id, r);
       const sw = sword.held.clone(), bk = heldBook.model.clone(); sw.visible = bk.visible = false;
       r.hold({ sword: sw, torch: torch.cloneHeld(), book: bk });
+      if (descent && partyRun) room.send('run', partyRun, m.id);   // Round D2: a newcomer gets the run's floor and seed
       room.send('pet', myPet(), m.id);                       // tell a newcomer about your pet,
       if (room.isHost) room.send('time', world.time, m.id);  // and the host sets their sky to the room's
     }
@@ -2555,8 +2556,25 @@ function emote(i: number) {
   if (e.gesture) gesture(e.gesture);
 }
 friends.emote = emote;
+// Round D2: a room shares its descent. One seed per floor; whoever goes down sends it, and the rest read it.
+let partyRun: { seed: number; floor: number } | null = null;
+function sharedSeed(floor: number): number {
+  const room = friends.room;
+  if (!room) return (Math.random() * 2 ** 31) | 0;
+  const seed = partyRun?.floor === floor ? partyRun.seed : (Math.random() * 2 ** 31) | 0;
+  partyRun = { seed, floor };
+  room.send('run', partyRun);
+  return seed;
+}
 friends.onRoom = (room) => {
+  if (!room) partyRun = null;
   if (room) {
+    room.on('run', (d, m) => {
+      const r = d as { seed?: unknown; floor?: unknown } | null;
+      if (!r || !Number.isFinite(r.seed) || !Number.isFinite(r.floor)) return;
+      partyRun = { seed: Number(r.seed) | 0, floor: Number(r.floor) | 0 };
+      if (!inDungeon) toast(`${m.name} is on floor ${partyRun.floor} of the descent. Go down the stairs to join.`, 4200);
+    });
     room.lookOf = () => myLook;
     room.onState = (from, d) => remotes.get(from)?.apply(d);
     room.on('emote', (d, m) => {

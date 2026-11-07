@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 50: Round D2, a room shares its descent (Mike 2026-11-07, round D defaults)
+- In a room, the descent has one seed per floor. When someone goes down, everyone in the room gets that floor's seed. Friends who are not down yet get a line: "Ben is on floor 1 of the descent. Go down the stairs to join."
+- A friend who joins a room that is already down gets the current floor and seed at once.
+- Not yet: friends do not follow you down automatically, and goblins are not shared yet (Round D3). Barrels are not seeded yet.
+
 ### v0.16 changelog, part 49: Round D1, friends below are not drawn here (Mike 2026-11-06, round D defaults)
 - A friend who is down the descent, or up top when you are below, is no longer drawn on your screen. Their figure and walk stop there.
 - The room button shows where they are instead: "💬 Room CODE · 2/4 · Ben below, floor 4". Floor 1 onward is named; another cellar says just "below"; up top says "up top".
