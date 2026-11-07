@@ -6,7 +6,7 @@
 // The rig is the one FigureAnim drives (userData.rig), so assembled people walk, sit and wave like everyone else.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BONES, RIG, HEAD, rigged, blobShadow, type BoneName, type FigureRig } from '../world/figure';
+import { BONES, RIG, HEAD, rigged, blobShadow, figureMaterial, type BoneName, type FigureRig } from '../world/figure';
 import { SLOTS, type CharacterSpec, type Slot } from './spec';
 import { partCache, type PartCache } from './parts';
 
@@ -94,26 +94,32 @@ export function assemble(spec: CharacterSpec, cache: PartCache = partCache): THR
   for (const b of ['armN', 'armP'] as const) bones[b].scale.x = bones[b].scale.z = 1 / W ** 0.5;   // arms grow less than the trunk
   for (const name of BONES) rest[name] = bones[name].position.clone();
   // The shared base body in this character's skin.
-  const body = new THREE.SkinnedMesh(baseBody(), cache.material(spec.skin));
+  const body = new THREE.SkinnedMesh(baseBody(), skinMaterial(spec.skin));
   body.name = 'figure-body';
   body.morphTargetInfluences = [lerp(RANGE.faceShape, m.faceShape)];
   body.add(bones.root);
   body.bind(new THREE.Skeleton(BONES.map((n) => bones[n]), BONES.map(() => new THREE.Matrix4())), new THREE.Matrix4());
   body.frustumCulled = false;
   root.add(body);
-  // The parts: shared geometry and material, one small mesh each, riding their bones.
+  // The outfit (B57 PR 4, phone perf): the cached parts, merged per look into two skinned meshes on the same skeleton,
+  // clothes and face details, in one shared vertex-colour material. Four draw calls a person (body, clothes, details,
+  // shadow), like buildFigure's, instead of one per part; people dressed alike share the merged geometry too.
+  const outfit = outfitFor(spec, cache);
   const detail: THREE.Object3D[] = [];
-  for (const slot of SLOTS) {
-    const p = spec.parts[slot];
-    for (const piece of cache.pieces(slot, p.id)) {
-      const mesh = new THREE.Mesh(piece.geometry, cache.material(p.color));
-      mesh.name = `part:${slot}:${p.id}`;
-      mesh.raycast = () => {};
-      bones[piece.bone].add(mesh);
-      if (DETAIL.includes(slot)) detail.push(mesh);
-    }
+  for (const [g, name] of [[outfit.clothes, 'figure-clothes'], [outfit.detail, 'figure-details']] as const) {
+    if (!g) continue;
+    const mesh = new THREE.SkinnedMesh(g, outfitMaterial());
+    mesh.name = name;
+    mesh.bind(body.skeleton, new THREE.Matrix4());
+    mesh.frustumCulled = false;
+    mesh.raycast = () => {};
+    root.add(mesh);
+    if (name === 'figure-details') detail.push(mesh);
   }
-  root.add(blobShadow(0.3 * U));
+  root.userData.outfitKey = outfit.key;
+  const shadow = new THREE.Mesh(shadowGeometry(), shadowMaterial());
+  shadow.name = 'blob-shadow'; shadow.position.y = 0.015; shadow.scale.setScalar(0.3 * U); shadow.raycast = () => {};
+  root.add(shadow);
   root.userData.rig = { bones, rest, mesh: body } satisfies FigureRig;
   root.userData.height = height;
   root.userData.spec = spec;
@@ -121,6 +127,42 @@ export function assemble(spec: CharacterSpec, cache: PartCache = partCache): THR
   root.userData.lodNear = true;
   return root;
 }
+
+// Merged outfits, by look (skin aside): built on first wear, freed when the last wearer is disposed.
+interface Outfit { key: string; clothes: THREE.BufferGeometry | null; detail: THREE.BufferGeometry | null; users: number }
+const outfits = new Map<string, Outfit>();
+const outfitKey = (s: CharacterSpec) => SLOTS.map((k) => `${s.parts[k].id}${s.parts[k].color}`).join('|');
+function outfitFor(spec: CharacterSpec, cache: PartCache): Outfit {
+  const key = outfitKey(spec);
+  let o = outfits.get(key);
+  if (!o) {
+    const clothes: THREE.BufferGeometry[] = [], detail: THREE.BufferGeometry[] = [], col = new THREE.Color();
+    for (const slot of SLOTS) {
+      const p = spec.parts[slot];
+      col.set(p.color);   // (three converts the sRGB hex to linear)
+      for (const piece of cache.pieces(slot, p.id)) {
+        const g = piece.geometry.clone(), n = g.attributes.position.count, c = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) { c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b; }
+        g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
+        (DETAIL.includes(slot) ? detail : clothes).push(rigged(g, BONES.indexOf(piece.bone)));
+      }
+    }
+    const merge = (gs: THREE.BufferGeometry[]) => { if (!gs.length) return null; const m = mergeGeometries(gs)!; for (const g of gs) g.dispose(); m.computeBoundingSphere(); return m; };
+    o = { key, clothes: merge(clothes), detail: merge(detail), users: 0 };
+    outfits.set(key, o);
+  }
+  o.users++;
+  return o;
+}
+let outfitMat: THREE.MeshLambertMaterial | null = null, shadowGeo: THREE.BufferGeometry | null = null, shadowMat: THREE.Material | null = null;
+// The game's character lighting (cel bands from the sun, the hour's tint, nearby lamps), as every other figure has.
+function outfitMaterial() { return outfitMat ??= Object.assign(figureMaterial({ vertexColors: true, flatShading: true }), { name: 'outfit' }); }
+const skinMats = new Map<string, THREE.MeshLambertMaterial>();
+function skinMaterial(c: string) { let m = skinMats.get(c); if (!m) { m = figureMaterial({ color: c, flatShading: true }); m.name = 'skin:' + c; skinMats.set(c, m); } return m; }
+function shadowGeometry() { return shadowGeo ??= (blobShadow(1).geometry as THREE.BufferGeometry); }
+function shadowMaterial() { return shadowMat ??= (blobShadow(1).material as THREE.Material); }
+/** For tests: how many merged outfits are alive. */
+export const outfitCount = () => outfits.size;
 
 /** Hide the small details past LOD_DIST from `eye` (and show them again nearer). Cheap: call it every frame. */
 export function updateLod(char: THREE.Object3D, eye: THREE.Vector3): boolean {
@@ -133,13 +175,13 @@ export function updateLod(char: THREE.Object3D, eye: THREE.Vector3): boolean {
 }
 const tmp = new THREE.Vector3();
 
-/** Take a character out of the scene and free what is only its own (the skeleton). Shared parts stay cached. */
+/** Take a character out of the scene and free what is only its own (the skeleton), and its merged outfit when nobody
+ *  else wears it. Shared parts stay cached. */
 export function disposeCharacter(char: THREE.Object3D) {
   char.removeFromParent();
   (char.userData.rig as FigureRig | undefined)?.mesh.skeleton.dispose();
-  char.traverse((o) => {   // its own blob shadow (the texture is shared)
-    const sh = o as THREE.Mesh;
-    if (sh.isMesh && sh.name === 'blob-shadow') { sh.geometry.dispose(); (sh.material as THREE.Material).dispose(); }
-  });
+  const o = outfits.get(char.userData.outfitKey as string);
+  if (o && --o.users <= 0) { o.clothes?.dispose(); o.detail?.dispose(); outfits.delete(o.key); }
+  char.userData.outfitKey = null;
   char.userData.detail = [];
 }

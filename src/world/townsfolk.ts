@@ -4,6 +4,11 @@ import { GREEN, TOWN_LOTS, FOUNTAIN, CINEMA_SPOT, type TownId } from './town';
 import type { Pose } from '../anim/procedural';
 import { rollTownsfolk } from '../traits/townsfolk';
 import { seedOf } from '../traits/roll';
+import { specFromRoll } from '../morph/spec';
+import { assemble, updateLod } from '../morph/assemble';
+
+/** B57 PR 4: townsfolk are assembled from specs (src/morph); `?oldfolk` keeps the hand-built figures to compare. */
+const OLD_FOLK = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldfolk');
 
 // v0.06 T1: placeholder townsfolk (role names only, never in the lore: placeholder-names.md). Walkers go from door
 // to door round a loop on the green that clears the well, the lamp posts and the lots; two pupils spar and one
@@ -49,8 +54,8 @@ export class Townsfolk {
     // Trait rolls: a new crowd every time the game loads (height, build, skin, hair, clothes, pace, habit).
     const run = (Math.random() * 2 ** 31) | 0;
     const add = (name: string, role: FolkRole, pos: THREE.Vector3, yaw: number) => {
-      const r = rollTownsfolk(seedOf(run, n));
-      const root = buildFigure(r.look, r.height);
+      const seed = seedOf(run, n), r = rollTownsfolk(seed);
+      const root = OLD_FOLK ? buildFigure(r.look, r.height) : assemble(specFromRoll(seed, r.look, r.height));
       root.position.copy(pos); root.rotation.y = yaw; root.name = 'folk:' + name;
       const f: Folk = { id: 'folk:' + n++, name, role, root, speed: 0, talking: false, pose: null, active: true };
       root.userData.folk = f;
@@ -58,6 +63,7 @@ export class Townsfolk {
       this.folk.push(f);
       this.brains.set(f, { route: [], i: 0, wait: 1 + (n % 4), at: null, talkT: (n % 3) * 1.1, face: null, turn: yaw, speed: r.speed, linger: r.wait, idlePose: r.idlePose });
       root.userData.traits = r.v;
+      root.userData.look ??= r.look;   // the rolled look, for anything that reads it (assembled folk have no face sheet)
       return f;
     };
     const face = (a: THREE.Vector3, b: THREE.Vector3) => Math.atan2(b.x - a.x, b.z - a.z);
@@ -115,6 +121,7 @@ export class Townsfolk {
       if (camera) {
         this.sphere.center.copy(f.root.position).setY(0.9);
         f.root.visible = this.sphere.center.distanceTo(camera.position) < 70 && this.frustum.intersectsSphere(this.sphere);
+        if (f.root.visible && f.root.userData.outfitKey) updateLod(f.root, camera.position);   // B57: face details past 20 m
       }
       const b = this.brains.get(f)!;
       if (f.role === 'walker') this.walk(f, b, dt);
