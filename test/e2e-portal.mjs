@@ -29,7 +29,8 @@ const facePortal = () => G(() => {
 });
 
 await page.waitForTimeout(1500);
-await facePortal(); await page.waitForTimeout(600);
+await facePortal();
+await page.waitForFunction(() => window.__gametool.lookingAtVerb, null, { timeout: 8000, polling: 200 }).catch(() => {});   // a busy machine draws few frames
 const s0 = await G(() => { const g = window.__gametool; return { inScene: !!g.world.scene.getObjectByName('portal'), verb: g.lookingAtVerb, open: g.firstDay.sideGamesOpen }; });
 check('The portal stands by the Cartographer\'s and waits for the first day', s0.inScene && (s0.open ? s0.verb === 'Step through the portal' : /after your first day/.test(s0.verb ?? '')), JSON.stringify(s0));
 await page.screenshot({ path: 'test/screenshots/portal-town.png' });
