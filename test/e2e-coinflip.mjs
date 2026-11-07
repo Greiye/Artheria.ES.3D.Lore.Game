@@ -25,12 +25,12 @@ await page.waitForTimeout(1500);
 const G = (fn, a) => page.evaluate(fn, a);
 fs.mkdirSync('test/screenshots', { recursive: true });
 await G(() => { const g = window.__gametool, t = g.COIN_AT.group, ry = t.rotation.y; g.player.pos.set(t.position.x + Math.sin(ry) * 1.8, t.position.y, t.position.z + Math.cos(ry) * 1.8); g.player.yaw = g.player.bodyYaw = ry; g.player.pitch = -0.2; });
-await page.waitForTimeout(600);
+await page.waitForFunction(() => window.__gametool.lookingAtVerb, null, { timeout: 8000, polling: 200 }).catch(() => {});   // a busy machine draws few frames
 const s0 = await G(() => { const g = window.__gametool; return { inScene: !!g.world.scene.getObjectByName('coin-table'), verb: g.lookingAtVerb, open: g.firstDay.sideGamesOpen }; });
 check("Tam's table stands by the Inn and waits for the first day", s0.inScene && (s0.open ? s0.verb === "Flip a coin at Tam's table" : /after your first day/.test(s0.verb ?? '')), JSON.stringify(s0));
 await page.screenshot({ path: 'test/screenshots/coinflip-table.png' });
 await G(() => { const g = window.__gametool; g.firstDay.skip(); const n = g.inventory.count('crown'); if (n) g.inventory.take('crown', n); g.inventory.give('crown', 12); g.coinTable.spinMs = 150; });
-await page.waitForTimeout(300);
+await page.waitForFunction(() => window.__gametool.lookingAtVerb === "Flip a coin at Tam's table", null, { timeout: 8000, polling: 200 }).catch(() => {});
 await page.keyboard.press('KeyE');
 await page.waitForFunction(() => window.__gametool.coinTable.isOpen, null, { timeout: 5000 }).catch(() => {});
 const s1 = await G(() => { const t = window.__gametool.coinTable, el = t.el; return { open: t.isOpen, odds: el.querySelector('.coin-odds')?.textContent, off: [...el.querySelectorAll('[data-act="stake"]')].filter((b) => b.disabled).map((b) => b.dataset.n) }; });
