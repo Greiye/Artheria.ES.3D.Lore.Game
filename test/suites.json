@@ -114,6 +114,7 @@
     "e2e-morph-spec",
     "e2e-morph-parts",
     "e2e-morph-body",
-    "e2e-morph-perf"
+    "e2e-morph-perf",
+    "e2e-portal"
   ]
 }

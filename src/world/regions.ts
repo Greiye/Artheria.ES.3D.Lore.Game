@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { pixelTexture, rng, type TexName } from '../tex/pixel';
 import type { Collider } from './index';
 
-export type RegionId = 'town' | 'beach' | 'ranlean' | 'edge' | 'amethyst';
+export type RegionId = 'town' | 'beach' | 'ranlean' | 'edge' | 'amethyst' | 'modern';
 export type Side = 'north' | 'south' | 'east' | 'west';
 
 export interface RegionSpot { hit: THREE.Mesh; verb: string; kind: 'back' | 'gate' | 'look'; line?: string }
@@ -29,6 +29,12 @@ export interface Region {
   /** The back edge (local): walking past it takes you home. */
   back: (x: number, z: number) => boolean;
   fogFar?: number;
+  /** B56: a map reached another way (the portal) comes home to this spot instead of a side's exit; set by main. */
+  home?: { at: [number, number]; yaw: number };
+  /** What the arrival toast says leads back (default: the waystone). */
+  backHint?: string;
+  /** Indoors: the follow camera stays under this height (local). */
+  ceiling?: number;
 }
 
 /** Where each side's exit sits in the town, the way in after a trip, and the yaw facing back into town. */
@@ -60,7 +66,22 @@ export const REGIONS: Record<Region['id'], Region> = {
     origin: new THREE.Vector3(-700, 0, 0), rect: [-7.5, 22, -12, 12], arrive: new THREE.Vector3(18, 0, 0), arriveYaw: Math.PI / 2,
     back: (x) => x > 20.8, fogFar: 100,
   },
+  // B56 (Mike 2026-11-06): through the portal by the Cartographer's, a flat in the modern world where Mike's friends
+  // are. One room; the only way back is the portal on the wall.
+  modern: {
+    id: 'modern', name: 'The Modern World', line: "Through the portal, to a flat in another world. Josh, Jason, Liv and Rev are home.", side: 'north',
+    origin: new THREE.Vector3(0, 0, -600), rect: [-5.8, 5.8, -4.8, 4.8], arrive: new THREE.Vector3(-4.6, 0, 0), arriveYaw: -Math.PI / 2,
+    back: () => false, fogFar: 60, backHint: 'The portal on the wall leads back to Aralon.', ceiling: 2.5,
+  },
 };
+
+/** B56: Mike's friends in the modern flat (local spots; looks are placeholders until they say how they want to look). */
+export const MODERN_FRIENDS: { id: string; name: string; at: [number, number]; yaw: number; pose?: 'sit'; seed: number; hello: string }[] = [
+  { id: 'josh', name: 'Josh', at: [2.3, 0.15], yaw: Math.PI / 2, pose: 'sit', seed: 5601, hello: "Hey, you came through! Grab a seat. We're halfway through something and nobody remembers what." },
+  { id: 'jason', name: 'Jason', at: [-2.6, -3.6], yaw: -2.4, seed: 5602, hello: "Oh, hey. Kettle's on. Mike said someone from Aralon might turn up." },
+  { id: 'liv', name: 'Liv', at: [0.9, 3.5], yaw: -0.4, seed: 5603, hello: "Hi! Mind the cables. Welcome to the boring world: no goblins, just rent." },
+  { id: 'rev', name: 'Rev', at: [3.7, 3.3], yaw: -2.0, seed: 5604, hello: "Look who it is. The portal only hums when someone's coming. You made it." },
+];
 
 const lam = (color: string, map?: THREE.Texture) => new THREE.MeshLambertMaterial({ color, map: map ?? null });
 function tiled(name: TexName, rx: number, ry: number): THREE.Texture {
@@ -147,7 +168,10 @@ export class Regions {
     });
     this.groups.set(id, g); this.colliders.set(id, cols); this.spots.set(id, spots);
   }
+  private swirl: THREE.Texture | null = null;
+  /** @internal */ setSwirl(t: THREE.Texture) { this.swirl = t; }
   update(t: number) {
+    if (this.swirl && this.current === 'modern') this.swirl.rotation = -t * 0.8;
     if (this.current !== 'beach' || !this.sea) return;
     const p = this.sea.geometry.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, Math.sin(x * 0.35 + t * 1.3) * 0.08 + Math.cos(y * 0.5 - t * 0.9) * 0.1); }
@@ -282,4 +306,121 @@ const BUILD: Record<Region['id'], (this: Regions, g: THREE.Group, r: Region, spo
     const sign = signpost('Amethyst Peak'); sign.position.set(10, 0, -2.6); sign.rotation.y = Math.PI / 2; g.add(sign);
     waystone(g, spots, 19.5, -2.6, Math.PI / 2);
   },
+  modern(g, _r, spots) {
+    // A plain modern flat, 12 x 10 m: laminate floor, painted walls, a window on the city, a sofa facing the TV, a
+    // kitchen run, a desk, a bookcase. Indoors, so the pieces glow a little (no lamps to light them) and nothing
+    // casts a shadow from the sun through the roof.
+    const glow = (c: string, map?: THREE.Texture) => new THREE.MeshLambertMaterial({ color: c, map: map ?? null, emissive: c, emissiveIntensity: map ? 0.25 : 0.4 });
+    const flat = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, ry = 0) => { const m = box(g, w, h, d, mat, x, y, z, ry); m.castShadow = false; return m; };
+    const H = 2.8;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 10).rotateX(-Math.PI / 2), glow('#B88E62', tiled('wood', 8, 7)));
+    floor.receiveShadow = true; g.add(floor);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(12, 10).rotateX(Math.PI / 2), glow('#F2EFE8')); ceil.position.y = H; g.add(ceil);
+    const wall = glow('#E4DED2'), skirting = glow('#F6F4EE');
+    flat(12.4, H, 0.2, wall, 0, H / 2, -5.1); flat(12.4, H, 0.2, wall, 0, H / 2, 5.1);
+    flat(0.2, H, 10.4, wall, -6.1, H / 2, 0); flat(0.2, H, 10.4, wall, 6.1, H / 2, 0);
+    for (const z of [-4.98, 4.98]) flat(12, 0.1, 0.04, skirting, 0, 0.05, z);
+    for (const x of [-5.98, 5.98]) flat(0.04, 0.1, 10, skirting, x, 0.05, 0);
+    // Ceiling lights: flat panels.
+    for (const [x, z] of [[-2.8, -1.5], [2.8, -1.5], [-2.8, 2.5], [2.8, 2.5]]) flat(1.0, 0.04, 0.6, new THREE.MeshBasicMaterial({ color: '#FFF8E8' }), x, H - 0.03, z);
+    // The window on the city (north wall, east half).
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.5), new THREE.MeshBasicMaterial({ map: skyline() })); win.position.set(2.6, 1.6, -4.99); g.add(win);
+    const frame = glow('#F6F4EE');
+    flat(3.8, 0.08, 0.1, frame, 2.6, 2.38, -4.95); flat(3.8, 0.12, 0.2, frame, 2.6, 0.82, -4.92);
+    for (const x of [0.75, 2.6, 4.45]) flat(0.08, 1.56, 0.1, frame, x, 1.6, -4.95);
+    spots.push({ hit: hitbox(g, 2.6, 0.6, -4.5, 3.6, 1.8, 0.8), verb: 'Look out of the window', kind: 'look', line: 'Streetlights, wet roads, a bus going by with nobody on it. Somewhere a car alarm. No dragons in sight.' });
+    // Rug, sofa (facing the TV on the east wall), coffee table.
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.6).rotateX(-Math.PI / 2), glow('#4E5E78')); rug.position.set(3.5, 0.01, 0.3); g.add(rug);
+    const sofa = glow('#6A7A6A'), sofaDark = glow('#566456');
+    flat(0.95, 0.45, 2.4, sofa, 2.3, 0.225, 0.3).name = 'solid';
+    flat(0.25, 0.85, 2.4, sofaDark, 1.72, 0.425, 0.3);
+    for (const z of [-0.95, 1.55]) flat(0.95, 0.62, 0.22, sofaDark, 2.3, 0.31, z);
+    for (const z of [-0.3, 0.9]) flat(0.6, 0.12, 1.05, glow('#7C8C7A'), 2.35, 0.5, z);
+    const wood = glow('#8A6440', pixelTexture('wood'));
+    flat(1.0, 0.06, 0.6, wood, 3.7, 0.42, 0.3);
+    for (const [dx, dz] of [[-0.42, -0.24], [0.42, -0.24], [-0.42, 0.24], [0.42, 0.24]]) flat(0.05, 0.4, 0.05, wood, 3.7 + dx, 0.2, 0.3 + dz);
+    flat(0.12, 0.1, 0.08, glow('#D84A3A'), 3.5, 0.5, 0.2); flat(0.18, 0.02, 0.12, glow('#2A2A2A'), 3.9, 0.46, 0.4);   // a mug, a remote
+    // TV on a low unit, showing a title screen.
+    flat(0.45, 0.5, 2.0, glow('#3A3430'), 5.75, 0.25, 0.3).name = 'solid';
+    flat(0.06, 0.9, 1.6, glow('#18181A'), 5.9, 1.2, 0.3);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.82), new THREE.MeshBasicMaterial({ map: tvScreen() })); screen.position.set(5.86, 1.2, 0.3); screen.rotation.y = -Math.PI / 2; g.add(screen);
+    spots.push({ hit: hitbox(g, 5.6, 0.6, 0.3, 0.8, 1.4, 1.8), verb: 'Look at the TV', kind: 'look', line: "It's paused on a title screen: ARTHERIA. Someone has been playing your world." });
+    // Kitchen run along the north wall, west half: fridge, counter, a kettle.
+    flat(0.8, 1.9, 0.7, glow('#E8ECEE'), -5.4, 0.95, -4.55).name = 'solid';
+    flat(0.02, 0.4, 0.04, glow('#9AA0A4'), -5.05, 1.2, -4.18);
+    flat(3.6, 0.9, 0.65, glow('#F0ECE4'), -3.0, 0.45, -4.6).name = 'solid';
+    flat(3.6, 0.05, 0.7, glow('#4A4A50'), -3.0, 0.92, -4.6);
+    flat(3.6, 0.7, 0.35, glow('#F0ECE4'), -3.0, 1.85, -4.8);
+    const kettle = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.22, 10), glow('#C8CCD0')); kettle.position.set(-2.3, 1.06, -4.6); g.add(kettle);
+    flat(0.5, 0.04, 0.35, glow('#B8BCC0'), -3.6, 0.95, -4.6);   // the sink
+    spots.push({ hit: hitbox(g, -5.4, 0, -4.2, 0.9, 1.9, 0.8), verb: 'Open the fridge', kind: 'look', line: 'Milk, a lot of hot sauce, half a lasagne with a note on it: DO NOT. You close it again.' });
+    // Desk and chair on the south wall, a laptop with lines of code on it.
+    flat(1.6, 0.05, 0.7, wood, 0.0, 0.75, 4.5); for (const dx of [-0.75, 0.75]) flat(0.05, 0.73, 0.65, wood, dx, 0.37, 4.5);
+    g.add(Object.assign(hitbox(g, 0, 0, 4.5, 1.6, 0.8, 0.7), { name: 'solid' }));
+    flat(0.5, 0.02, 0.35, glow('#2E3034'), 0.1, 0.79, 4.45);
+    const lid = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.32), new THREE.MeshBasicMaterial({ map: laptopScreen() })); lid.position.set(0.1, 0.95, 4.62); lid.rotation.set(0.25, Math.PI, 0); g.add(lid);
+    flat(0.5, 0.06, 0.5, glow('#2A2C30'), 0.0, 0.48, 3.85); flat(0.5, 0.5, 0.06, glow('#2A2C30'), 0.0, 0.78, 3.62);
+    flat(0.06, 0.45, 0.06, glow('#5A5C60'), 0.0, 0.23, 3.85);
+    spots.push({ hit: hitbox(g, 0.1, 0.7, 4.4, 1.0, 0.6, 0.6), verb: 'Look at the laptop', kind: 'look', line: 'A text editor full of something called main.ts. Four thousand lines. Somebody is building a world in here.' });
+    // Bookcase, a plant, a floor lamp.
+    flat(1.6, 2.0, 0.35, wood, 4.6, 1.0, 4.75).name = 'solid';
+    const R = rng(5656), spines = ['#9A3B2A', '#2F4E5E', '#C49A5A', '#4E6B3A', '#6B2F4E', '#D8CFBE', '#3B3F6B'];
+    for (let shelf = 0; shelf < 4; shelf++) for (let x = 3.9; x < 5.25;) { const w = 0.05 + R() * 0.05, h = 0.22 + R() * 0.12; flat(w, h, 0.22, glow(spines[Math.floor(R() * spines.length)]), x, 0.12 + shelf * 0.48 + h / 2, 4.56); x += w + 0.01; }
+    spots.push({ hit: hitbox(g, 4.6, 0, 4.4, 1.6, 2, 0.7), verb: 'Look at the bookcase', kind: 'look', line: 'Paperbacks, board game boxes, a dice tray. On the top shelf, a battered red notebook that looks a lot like yours.' });
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.4, 10), glow('#C8784A')); pot.position.set(5.5, 0.2, -4.4); pot.name = 'solid'; g.add(pot);
+    for (let i = 0; i < 5; i++) { const l = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.8, 5), glow('#4E8A4A')); l.position.set(5.5 + (R() - 0.5) * 0.2, 0.75, -4.4 + (R() - 0.5) * 0.2); l.rotation.set((R() - 0.5) * 0.7, 0, (R() - 0.5) * 0.7); g.add(l); }
+    flat(0.05, 1.6, 0.05, glow('#2A2A2A'), 0.9, 0.8, -0.9); const shade = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.3, 12, 1, true), new THREE.MeshBasicMaterial({ color: '#FFE8B8', side: THREE.DoubleSide })); shade.position.set(0.9, 1.65, -0.9); g.add(shade);
+    // The front door (south wall, west): locked.
+    flat(0.95, 2.1, 0.08, glow('#5A6A7A'), -3.6, 1.05, 4.96); flat(0.04, 0.04, 0.12, glow('#C8C0A8'), -3.25, 1.0, 4.9);
+    spots.push({ hit: hitbox(g, -3.6, 0, 4.6, 1.2, 2.1, 0.6), verb: 'Try the front door', kind: 'look', line: 'Locked, with a chain on. Through the peephole: a corridor, a fire door, a green EXIT sign. Better not.' });
+    // The portal home on the west wall: a stone ring with the swirl in it.
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.12, 8, 24), lam('#8C8478', pixelTexture('mossStone'))); ring.position.set(-5.9, 1.15, 0); ring.rotation.y = Math.PI / 2; g.add(ring);
+    const sw = swirlTexture(); this.setSwirl(sw);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.95, 24), new THREE.MeshBasicMaterial({ map: sw, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    disc.position.set(-5.88, 1.15, 0); disc.rotation.y = Math.PI / 2; disc.name = 'portal-swirl'; g.add(disc);
+    spots.push({ hit: hitbox(g, -5.5, 0, 0, 0.8, 2.3, 2.0), verb: 'Step back through the portal', kind: 'back' });
+  },
 };
+
+/** B56: the portal's swirl, a purple spiral (rotate the texture to spin it). */
+export function swirlTexture(): THREE.Texture {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d')!, grd = x.createRadialGradient(64, 64, 4, 64, 64, 64);
+  grd.addColorStop(0, '#FFFFFF'); grd.addColorStop(0.25, '#C89AF0'); grd.addColorStop(0.7, '#6A2AA8'); grd.addColorStop(1, 'rgba(40,10,70,0)');
+  x.fillStyle = grd; x.fillRect(0, 0, 128, 128);
+  x.strokeStyle = 'rgba(255,240,255,0.55)'; x.lineWidth = 3;
+  for (let arm = 0; arm < 3; arm++) { x.beginPath(); for (let i = 0; i < 60; i++) { const a = arm * 2.094 + i * 0.12, r = i * 1.0; x.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); } x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.center.set(0.5, 0.5);
+  return t;
+}
+function canvasTex(w: number, h: number, draw: (x: CanvasRenderingContext2D) => void): THREE.Texture {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d')!);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+/** Dusk over a city: towers with lit windows. */
+function skyline(): THREE.Texture {
+  return canvasTex(256, 108, (x) => {
+    const grd = x.createLinearGradient(0, 0, 0, 108); grd.addColorStop(0, '#2A3A6A'); grd.addColorStop(0.6, '#C87A6A'); grd.addColorStop(1, '#F0B87A');
+    x.fillStyle = grd; x.fillRect(0, 0, 256, 108);
+    const R = rng(808);
+    for (let i = 0, px = 0; px < 256; i++) {
+      const w = 14 + R() * 22, h = 30 + R() * 60; x.fillStyle = i % 2 ? '#1E2238' : '#262A44'; x.fillRect(px, 108 - h, w, h);
+      x.fillStyle = '#F8D88A'; for (let wy = 108 - h + 5; wy < 104; wy += 7) for (let wx = px + 3; wx < px + w - 3; wx += 5) if (R() < 0.35) x.fillRect(wx, wy, 2, 3);
+      px += w + 1;
+    }
+  });
+}
+function tvScreen(): THREE.Texture {
+  return canvasTex(256, 140, (x) => {
+    const grd = x.createLinearGradient(0, 0, 0, 140); grd.addColorStop(0, '#3A5A8A'); grd.addColorStop(1, '#8AB86A'); x.fillStyle = grd; x.fillRect(0, 0, 256, 140);
+    x.fillStyle = '#F4E6C0'; x.textAlign = 'center'; x.font = 'bold 34px Georgia, serif'; x.fillText('ARTHERIA', 128, 62);
+    x.font = '14px Georgia, serif'; x.fillText('Press any button', 128, 100);
+  });
+}
+function laptopScreen(): THREE.Texture {
+  return canvasTex(128, 84, (x) => {
+    x.fillStyle = '#1E2228'; x.fillRect(0, 0, 128, 84);
+    const R = rng(77), cols = ['#C8A0F0', '#8AC8F0', '#F0C88A', '#9AD08A', '#C8CCD0'];
+    for (let y = 6; y < 80; y += 6) { let px = 6 + Math.floor(R() * 3) * 6; while (px < 110 && R() < 0.8) { const w = 6 + R() * 20; x.fillStyle = cols[Math.floor(R() * cols.length)]; x.fillRect(px, y, w, 3); px += w + 4; } }
+  });
+}

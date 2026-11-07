@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 57: B56, a portal to the modern world (Mike 2026-11-06; friends named with their OK)
+- A stone ring with a purple swirl stands by the Cartographer's. After your first day (like the side games), step through it.
+- On the other side is one modern flat: a sofa facing a TV paused on an ARTHERIA title screen, a kitchen run, a desk with a laptop, a bookcase, a window on a city at dusk, and a locked front door. Each has something to look at.
+- Josh, Jason, Liv and Rev are there to talk to. Their looks are placeholders (assembled people) until they say how they want to look; portraits can go in as josh.png, jason.png, liv.png and rev.png.
+- The portal on the flat's wall brings you back in front of the ring. The map marks the portal.
+- New test: e2e-portal.
+
 ### v0.16 changelog, part 56: B57 morphology 4 of 5, townsfolk are assembled people (Mike 2026-11-06, option 1; LOD at 20 m)
 - Every townsperson is now built from a spec. Their rolled traits (height, build, skin, hair and its colour, clothes colours, skirt, cap or hood, bald) become the spec, so each looks like before but on the new body.
 - Each person's parts are merged into two meshes (clothes, small details) with one shared material, so a person costs about 4 draw calls. People with the same outfit share one merged mesh, and it is freed when the last of them goes.
