@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 54: B57 morphology 2 of 5, shared parts (Mike 2026-11-06, option 1)
+- Every slot and id in the catalog now has a low-poly placeholder part on the shared skeleton. That's 50 parts, among them 8 hairstyles, beards, 6 tops (vest, coat, robe…), skirts and trousers, boots, sandals, 4 hats (cap, wide brim, pointed, hood), a scarf, a belt pouch, a pendant and a pack.
+- The game builds each part once and shares it with everyone who wears it, with one material per colour. Fifty random people come to 50 parts and 25 materials in all.
+- Still nothing new on screen. The body that wears these comes in part 3.
+- New test: e2e-morph-parts.
+
 ### v0.16 changelog, part 53: B57 morphology 1 of 5, the character spec (Mike 2026-11-06, option 1: procedural placeholders, every slot, LOD at 20 m)
 - A character can now be written down as a small spec: five body sliders (height, build, limb length, head size, face shape; 0.5 is average), a skin colour, and one part per slot. The 11 slots are hair, brows, eyes, nose, mouth, beard, top, bottom, shoes, hat and accessory, each with numbered placeholder ids and a colour.
 - Any spec from a save, a friend or a file is checked: bad values are clamped or replaced with the defaults, and the check lists what was wrong.
