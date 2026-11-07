@@ -178,7 +178,7 @@ export const RIG: Record<BoneName, [BoneName | null, [number, number, number]]> 
   thighN: ['hips', [-0.09, 0.9, 0]], shinN: ['thighN', [-0.095, 0.49, 0]], thighP: ['hips', [0.09, 0.9, 0]], shinP: ['thighP', [0.095, 0.49, 0]],
 };
 /** The head in metres for a 1.75 m figure: centre height and skull size. */
-const HEAD = { y: 1.625, w: 0.165, h: 0.215, d: 0.195 };
+export const HEAD = { y: 1.625, w: 0.165, h: 0.215, d: 0.195 };
 export interface FigureRig { bones: Record<BoneName, THREE.Bone>; rest: Record<BoneName, THREE.Vector3>; mesh: THREE.SkinnedMesh }
 /** Named attach points that ride the bones (trait props, later .glb props). Positions in metres for a 1.75 m figure. */
 const SOCKETS: Record<string, [BoneName, number, number, number]> = {
