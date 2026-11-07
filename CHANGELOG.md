@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 52: Round D4, falls, drop-outs and rejoining (Mike 2026-11-06, round D defaults)
+- On a shared floor, a goblin goes for whoever is nearest, you or a friend. Its blow on a friend lands on the friend's screen and can be blocked there as usual. Shots, thefts and hexes still only go for the leader.
+- When a friend falls, the room hears it: "Ben fell on floor 4 of the descent." Their goblins pass to whoever is left.
+- When a friend on your floor drops out of the room: "Ben dropped out. The goblins are yours to hold."
+- Rejoin: if your friends are deeper than floor 1, the descent sheet offers "Join your friends on floor N", on the same floor and seed.
+- The shared-descent test now also checks goblin targets and a blow on a friend.
+
 ### v0.16 changelog, part 51: Round D3, friends on one floor share its goblins (Mike 2026-11-06, round D defaults)
 - With two or more friends on the same floor, one of them leads (the same pick on every screen). The leader's game runs the goblins and sends where they are 8 times a second. Everyone else's goblins follow, walking and turning to match.
 - A cut, bolt or spell that lands on a friend's screen is sent to the leader and counts there. Hits still in flight aren't healed back by an older update.

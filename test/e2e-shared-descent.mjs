@@ -85,9 +85,22 @@ const k = await G(L, () => window.__gametool.goblins.list.findIndex((f) => f.sta
 const before = await G(L, (i) => window.__gametool.goblins.list[i]?.hp, k);
 await F.bringToFront();
 await G(F, (i) => { const g = window.__gametool.goblins; g.wound(g.list[i], 1); }, k);
-await L.waitForFunction(([i, h]) => window.__gametool.goblins.list[i]?.hp <= h - 1 + 1e-6, [k, before], { timeout: 6000 }).catch(() => {});
+await L.waitForFunction(([i, h]) => window.__gametool.goblins.list[i]?.hp <= h - 1 + 1e-6, [k, before], { timeout: 6000, polling: 200 }).catch(() => {});
 const after = await G(L, (i) => window.__gametool.goblins.list[i]?.hp, k);
 check('D3: the follower\'s hit counts on the leader\'s goblin', k >= 0 && Math.abs(before - 1 - after) < 1e-6, JSON.stringify({ k, before, after }));
+
+// D4: the leader's goblins go for whoever is nearest, and a blow on the friend lands on the friend's screen.
+const fId = lowest === ids[0] ? ids[1] : ids[0];
+await front(F, 800);   // fresh state from the friend first, then the leader's frames pick its goblins' targets
+await L.bringToFront();
+await L.waitForFunction(() => window.__gametool.goblins.friends.length === 1, null, { timeout: 6000 }).catch(() => {});
+const targets = await G(L, () => window.__gametool.goblins.friends.map((f) => f.id));
+check('D4: the leader\'s goblins can go for the friend too', targets.length === 1 && targets[0] === fId, JSON.stringify(targets));
+const hp0 = await G(F, () => window.__gametool.delveHp);
+await G(L, ([i, id]) => window.__gametool.friends.room.send('ouch', [i, 2], id), [k, fId]);
+await F.waitForFunction((h) => window.__gametool.delveHp < h, hp0, { timeout: 6000, polling: 200 }).catch(() => {});
+const hp1 = await G(F, () => window.__gametool.delveHp);
+check('D4: a goblin\'s blow on the friend hurts them on their screen', hp1 < hp0, `${hp0} -> ${hp1}`);
 
 // Hand-off: the leader climbs out; the follower's game runs its own goblins again.
 await G(L, () => window.__gametool.exitDungeon());
