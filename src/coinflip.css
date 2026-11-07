@@ -1,0 +1,19 @@
+/* B55: Tam's coin table. */
+.coin-card { align-items: stretch; text-align: center; }
+.coin-odds { font-size: 13px; padding: 6px 10px; border: 1px dashed rgba(120, 80, 30, .55); border-radius: 6px; color: inherit; font-weight: 600; }
+.coin { flex: 0 0 84px; width: 84px; height: 84px; min-height: 84px; margin: 4px auto; position: relative; transform-style: preserve-3d; perspective: 400px; }
+.coin .coin-face { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; font-size: 40px; backface-visibility: hidden;
+  background: radial-gradient(circle at 35% 30%, #FFF1C8, #E2B567 55%, #A8742E); color: #6A4418; box-shadow: inset 0 0 0 4px #B88440, 0 4px 10px rgba(0,0,0,.4); }
+.coin .coin-t { transform: rotateY(180deg); }
+.coin.show-heads { transform: rotateY(0deg); }
+.coin.show-tails { transform: rotateY(180deg); }
+.coin.spin-heads { animation: coinHeads 1.25s cubic-bezier(.2,.7,.3,1) forwards; }
+.coin.spin-tails { animation: coinTails 1.25s cubic-bezier(.2,.7,.3,1) forwards; }
+@keyframes coinHeads { 0% { transform: translateY(0) rotateY(0); } 45% { transform: translateY(-40px) rotateY(1080deg); } 100% { transform: translateY(0) rotateY(1800deg); } }
+@keyframes coinTails { 0% { transform: translateY(0) rotateY(0); } 45% { transform: translateY(-40px) rotateY(1080deg); } 100% { transform: translateY(0) rotateY(1980deg); } }
+@media (prefers-reduced-motion: reduce) { .coin.spin-heads, .coin.spin-tails { animation-duration: .01s; } }
+.coin-line { min-height: 2.6em; margin: 0; }
+.coin-stakes, .coin-calls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.coin-card .coin-stakes button { width: auto; flex: 1 1 0; min-width: 56px; }
+.coin-stakes button.on { outline: 2px solid #E2B567; }
+.coin-card .coin-calls button { width: auto; flex: 1 1 0; }
