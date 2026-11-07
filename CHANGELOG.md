@@ -13,6 +13,13 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - Each stop has a "Wagon" signpost.
 - New test: e2e-wagon.
 
+### v0.16 changelog, part 60: B51, the tutorial descent and the stairs timer (Mike 2026-11-06, defaults)
+- Your first descent is the tutorial. Natalie keeps watch: if you're knocked flat, she hauls you back up, with no fall, no tally line and no lost bag. There's no timer on it.
+- After that, each floor gives you 8 minutes to reach a staircase, either the stairs down in the deepest room or the way back up. The timer shows at the top of the screen and only counts while you play (not in menus or on the stair ride).
+- A warning comes at one minute left (the timer turns amber) and again at 15 seconds (red, pulsing). At zero the dark takes you: the same fall as a knock-out, with the same losses, and a line on the tally reading "slain by The dark".
+- Heroes who have already been down skip the tutorial.
+- New test: e2e-stairs-timer.
+
 ### v0.16 changelog, part 59: B52 + B53, two quest groups in the casebook (Mike 2026-11-06, defaults)
 - "Everyone in Aralon": meet all 16 people you can talk to (Natalie, the Curio Pedlar, Kavik, Candor, Lenju, Taitai, the three caravan folk, the shopkeeper, the smith, Tam, and Josh, Jason, Liv and Rev through the portal). Each counts the first time you start talking.
 - "Every station": use each of 14 stations once (campfire, cooking, mirror, anvil, sketchbook, grindstone, dojo, practice table, the Cartographer's map, cinema, Candor's lesson, skyrunner perch, the descent and the knight frame). Each counts when you open it.
