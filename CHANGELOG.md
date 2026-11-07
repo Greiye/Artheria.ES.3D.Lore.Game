@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 61: B54, the wagon (Mike 2026-11-06, defaults)
+- A wagon waits on the coach road in Aralon, and another at each far map: Aralon Edge, the beach, Ranlean and the Amethyst. Talk to the wagoner, pick a stop, and you ride there.
+- In multiplayer, friends standing within 10 m of the same wagon stop ride along with you.
+- Each stop has a "Wagon" signpost.
+- New test: e2e-wagon.
+
 ### v0.16 changelog, part 60: B51, the tutorial descent and the stairs timer (Mike 2026-11-06, defaults)
 - Your first descent is the tutorial. Natalie keeps watch: if you're knocked flat, she hauls you back up, with no fall, no tally line and no lost bag. There's no timer on it.
 - After that, each floor gives you 8 minutes to reach a staircase, either the stairs down in the deepest room or the way back up. The timer shows at the top of the screen and only counts while you play (not in menus or on the stair ride).

@@ -14,7 +14,7 @@ import type { Collider } from './index';
 export type RegionId = 'town' | 'beach' | 'ranlean' | 'edge' | 'amethyst' | 'modern';
 export type Side = 'north' | 'south' | 'east' | 'west';
 
-export interface RegionSpot { hit: THREE.Mesh; verb: string; kind: 'back' | 'gate' | 'look'; line?: string }
+export interface RegionSpot { hit: THREE.Mesh; verb: string; kind: 'back' | 'gate' | 'look' | 'wagon'; line?: string }
 export interface Region {
   id: Exclude<RegionId, 'town'>;
   name: string;
@@ -74,6 +74,32 @@ export const REGIONS: Record<Region['id'], Region> = {
     back: () => false, fogFar: 60, backHint: 'The portal on the wall leads back to Aralon.', ceiling: 2.5,
   },
 };
+
+/** B54 (Mike 2026-11-06): a wagon stop in town and on each far map reached by road (local spot and yaw). The wagon
+ *  runs between them; friends standing at the stop ride along. */
+export const WAGON_STOPS: Partial<Record<RegionId, { at: [number, number]; yaw: number }>> = {
+  town: { at: [-38, 2.6], yaw: Math.PI / 2 },
+  edge: { at: [-5.5, -12.5], yaw: Math.PI / 2 },
+  beach: { at: [-6, -15], yaw: Math.PI / 2 },
+  ranlean: { at: [-16, -6], yaw: 0 },
+  amethyst: { at: [16, -6], yaw: 0 },
+};
+/** A covered wagon, about 3.4 m long along its local x, wheels on the ground. */
+export function buildWagon(): THREE.Group {
+  const g = new THREE.Group(); g.name = 'wagon';
+  const wood = lam('#7A5634', pixelTexture('wood')), dark = lam('#4A3222'), canvas = lam('#E8DCC0');
+  const bed = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.25, 1.4), wood); bed.position.y = 0.85; bed.castShadow = true; g.add(bed);
+  for (const z of [-0.68, 0.68]) { const side = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.4, 0.08), wood); side.position.set(0, 1.15, z); side.castShadow = true; g.add(side); }
+  const cover = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 2.4, 10, 1, true, 0, Math.PI), canvas);
+  cover.rotation.z = Math.PI / 2; cover.rotation.y = Math.PI / 2; cover.rotation.set(0, 0, Math.PI / 2); cover.position.y = 1.3; cover.castShadow = true;
+  (cover.material as THREE.MeshLambertMaterial).side = THREE.DoubleSide; g.add(cover);
+  for (const [x, r] of [[-0.95, 0.5], [0.95, 0.42]] as const) for (const z of [-0.78, 0.78]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.1, 12), dark); w.rotation.x = Math.PI / 2; w.position.set(x, r, z); w.castShadow = true; g.add(w);
+  }
+  for (const z of [-0.45, 0.45]) { const shaft = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.07, 0.07), wood); shaft.position.set(2.2, 0.75, z); g.add(shaft); }
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 1.3), wood); seat.position.set(1.25, 1.35, 0); g.add(seat);
+  return g;
+}
 
 /** B56: Mike's friends in the modern flat (local spots; looks are placeholders until they say how they want to look). */
 export const MODERN_FRIENDS: { id: string; name: string; at: [number, number]; yaw: number; pose?: 'sit'; seed: number; hello: string }[] = [
@@ -153,6 +179,13 @@ export class Regions {
     this.scene.add(g);
     const R = rng(id.length * 977 + id.charCodeAt(0));
     BUILD[id].call(this, g, r, spots, R);
+    const ws = WAGON_STOPS[id];   // B54
+    if (ws) {
+      const w = buildWagon(); w.position.set(ws.at[0], 0, ws.at[1]); w.rotation.y = ws.yaw; g.add(w);
+      const solid = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1, 1.4), hidden); solid.position.y = 0.5; solid.name = 'solid'; w.add(solid);
+      const post = signpost('Wagon'); post.position.set(ws.at[0] + Math.sin(ws.yaw) * 1.6, 0, ws.at[1] + Math.cos(ws.yaw) * 1.6); post.rotation.y = ws.yaw; g.add(post);
+      spots.push({ hit: hitbox(g, ws.at[0] + Math.sin(ws.yaw) * 1.1, 0, ws.at[1] + Math.cos(ws.yaw) * 1.1, 2.2, 2.0, 2.2), verb: 'Ride the wagon', kind: 'wagon' });
+    }
     // A fence of colliders round the walkable rectangle (world space).
     const [x0, x1, z0, z1] = r.rect, o = r.origin, t = 1;
     cols.push({ kind: 'box', minX: o.x + x0 - t, maxX: o.x + x0, minZ: o.z + z0 - t, maxZ: o.z + z1 + t });

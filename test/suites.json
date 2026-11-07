@@ -118,6 +118,7 @@
     "e2e-portal",
     "e2e-coinflip",
     "e2e-quest-groups",
-    "e2e-stairs-timer"
+    "e2e-stairs-timer",
+    "e2e-wagon"
   ]
 }
