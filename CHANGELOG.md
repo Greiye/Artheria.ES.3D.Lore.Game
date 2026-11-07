@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 59: B52 + B53, two quest groups in the casebook (Mike 2026-11-06, defaults)
+- "Everyone in Aralon": meet all 16 people you can talk to (Natalie, the Curio Pedlar, Kavik, Candor, Lenju, Taitai, the three caravan folk, the shopkeeper, the smith, Tam, and Josh, Jason, Liv and Rev through the portal). Each counts the first time you start talking.
+- "Every station": use each of 14 stations once (campfire, cooking, mirror, anvil, sketchbook, grindstone, dojo, practice table, the Cartographer's map, cinema, Candor's lesson, skyrunner perch, the descent and the knight frame). Each counts when you open it.
+- The casebook lists both with a count, ticks what's done and says where to find the rest. A short note shows each new one. Finishing a group pays 10 crowns, once.
+- New test: e2e-quest-groups.
+
 ### v0.16 changelog, part 58: B55, a coin-flip wager at Tam's table (Mike 2026-11-06, "Do it!")
 - A small round table with a stack of crowns stands in the street outside the Inn. After your first day, sit down at it.
 - Pick a stake (1, 5, 10 or 20 crowns, never more than you carry), call heads or tails, and the coin spins. A right call pays your stake back doubled; a wrong one and Tam keeps it.

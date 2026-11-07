@@ -39,7 +39,7 @@ export const STATIONS: { id: string; name: string }[] = [
   { id: 'descent', name: 'The descent' },
   { id: 'knight', name: 'The knight frame' },
 ];
-export const GROUP_PURSE = 15;
+export const GROUP_PURSE = 10;
 export type GroupKind = 'npc' | 'station';
 
 export class QuestGroups {

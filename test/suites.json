@@ -116,6 +116,7 @@
     "e2e-morph-body",
     "e2e-morph-perf",
     "e2e-portal",
-    "e2e-coinflip"
+    "e2e-coinflip",
+    "e2e-quest-groups"
   ]
 }

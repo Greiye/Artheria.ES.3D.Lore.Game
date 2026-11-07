@@ -51,10 +51,10 @@ const fin = await G(() => {
   g.groups.mark('npc', 'natalie'); g.groups.mark('npc', 'nobody');
   return { paid: mid - before, again: g.inventory.count('crown') - mid, n: g.groups.count('npc'), saved: JSON.parse(localStorage.getItem('gametool.groups')).npcs.length };
 });
-check('Meeting all 16 pays 15 crowns once; repeats and unknown ids do nothing', fin.paid === 15 && fin.again === 0 && fin.n.join() === '16,16' && fin.saved === 16, JSON.stringify(fin));
-await page.reload();
+check('Meeting all 16 pays 10 crowns once; repeats and unknown ids do nothing', fin.paid === 10 && fin.again === 0 && fin.n.join() === '16,16' && fin.saved === 16, JSON.stringify(fin));
+await page.goto('file://' + file, { timeout: 180000 });   // a fresh load (reload() can drop the last storage writes in headless Chromium)
 await page.waitForFunction(() => window.__gametool, null, { timeout: 180000 });
-const kept = await G(() => { const g = window.__gametool.groups; return { npc: g.count('npc'), st: g.count('station') }; });
+const kept = await G(() => { const g = window.__gametool.groups; return { npc: g.count('npc'), st: g.count('station')}; });
 check('Progress is kept across a reload', kept.npc.join() === '16,16' && kept.st.join() === '1,14', JSON.stringify(kept));
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
