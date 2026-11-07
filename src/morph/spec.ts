@@ -113,3 +113,28 @@ export function randomCharacterSpec(seed: number): CharacterSpec {
 /** A stable key for a spec (cache and compare). */
 export const specKey = (s: CharacterSpec): string =>
   [s.v, ...MORPHS.map((k) => s.morphs[k].toFixed(3)), s.skin, ...SLOTS.map((k) => `${s.parts[k].id}${s.parts[k].color}`)].join('|');
+
+/** B57 PR 4: a townsperson's spec from their trait roll, so the crowd keeps its rolled heights, builds and colours:
+ *  the seed picks the parts, the roll sets height, build, skin, hair, clothes and boots; a rolled skirt is a skirt,
+ *  bald is bald, a cap or a hood is that hat. */
+export function specFromRoll(seed: number, look: { skin: string; hair: string; primary: string; secondary: string; accent?: string; boots: string; hairStyle?: string; skirt?: boolean; build?: number; legs?: string }, height: number): CharacterSpec {
+  const s = randomCharacterSpec(seed), hex = (c: string | undefined) => (c && HEX.test(c) ? c.toUpperCase() : null);
+  const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+  s.morphs.height = clamp01((height - 1.55) / 0.4);
+  if (look.build) s.morphs.build = clamp01((look.build - 0.86) / (1.18 - 0.86));
+  s.skin = hex(look.skin) ?? s.skin;
+  const hair = hex(look.hair);
+  if (hair) for (const k of ['hair', 'brows', 'beard'] as const) s.parts[k].color = hair;
+  s.parts.top.color = hex(look.primary) ?? s.parts.top.color;
+  s.parts.bottom.color = hex(look.legs) ?? hex(look.secondary) ?? s.parts.bottom.color;
+  s.parts.shoes.color = hex(look.boots) ?? s.parts.shoes.color;
+  if (hex(look.accent)) s.parts.accessory.color = hex(look.accent)!;
+  if (look.skirt) s.parts.bottom.id = '03';
+  if (look.hairStyle === 'bald') s.parts.hair.id = '';
+  if (look.hairStyle === 'cap') { s.parts.hat.id = '01'; s.parts.hat.color = s.parts.top.color; }
+  if (look.hairStyle === 'hood') { s.parts.hat.id = '04'; s.parts.hat.color = hex(look.secondary) ?? s.parts.top.color; }
+  if (look.hairStyle === 'long' || look.hairStyle === 'flowing') s.parts.hair.id = look.hairStyle === 'long' ? '02' : '05';
+  if (look.hairStyle === 'spiky') s.parts.hair.id = '03';
+  if (look.hairStyle === 'topknot') s.parts.hair.id = '04';
+  return s;
+}

@@ -54,14 +54,19 @@ check('Face shape is the morph target (-1 narrow … +1 broad)', face[0] === -1 
 
 const share = await G(() => {
   const m = window.__gametool.morph, c = new m.PartCache();
-  const a = m.assemble(m.randomCharacterSpec(5), c), b = m.assemble(m.randomCharacterSpec(5), c);
-  const geos = (x) => { const g = []; x.traverse((o) => { if (o.isMesh && o.name.startsWith('part:')) g.push(o.geometry); }); return g; };
-  const ga = geos(a), gb = geos(b);
-  const r = { n: ga.length, same: ga.length > 0 && ga.every((g, i) => g === gb[i]), mat: a.userData.rig.mesh.material === b.userData.rig.mesh.material, stats: c.stats };
+  const a = m.assemble(m.randomCharacterSpec(5), c), b = m.assemble(m.randomCharacterSpec(5), c), d = m.assemble(m.randomCharacterSpec(6), c);
+  const meshes = (x) => { const g = []; x.traverse((o) => { if (o.isMesh) g.push(o); }); return g; };
+  const ma = meshes(a), mb = meshes(b), md = meshes(d);
+  const outfits = m.outfitCount();
+  const r = { calls: ma.length, same: ma.every((o, i) => o.geometry === mb[i].geometry && o.material === mb[i].material), other: ma.find((o) => o.name === 'figure-clothes').geometry !== md.find((o) => o.name === 'figure-clothes').geometry, outfits };
+  for (const x of [a, b, d]) m.disposeCharacter(x);
+  r.after = m.outfitCount() - (outfits - 2);
   c.dispose();
   return r;
 });
-check('Two people in the same clothes share every geometry and material', share.same && share.mat, JSON.stringify(share));
+check('Four draw calls a person: body, clothes, face details, shadow', share.calls === 4, JSON.stringify(share));
+check('People dressed alike share every geometry and material; others get their own outfit', share.same && share.other, JSON.stringify(share));
+check('An outfit is freed when its last wearer goes', share.after === 0, JSON.stringify(share));
 
 const anim = await G(() => {
   const g = window.__gametool, m = g.morph, c = m.assemble(m.randomCharacterSpec(9)), fa = new g.figureKit.FigureAnim(c.userData.rig);

@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 56: B57 morphology 4 of 5, townsfolk are assembled people (Mike 2026-11-06, option 1; LOD at 20 m)
+- Every townsperson is now built from a spec. Their rolled traits (height, build, skin, hair and its colour, clothes colours, skirt, cap or hood, bald) become the spec, so each looks like before but on the new body.
+- Each person's parts are merged into two meshes (clothes, small details) with one shared material, so a person costs about 4 draw calls. People with the same outfit share one merged mesh, and it is freed when the last of them goes.
+- Face details still drop out past 20 m.
+- `?oldfolk` brings back the old hand-built figures for comparison.
+- Checked on an iPhone 13 screen: 50 assembled people cost about 2 draw calls and 600 triangles each and run no slower than 50 old figures. New test: e2e-morph-perf.
+
 ### v0.16 changelog, part 55: B57 morphology 3 of 5, a person from a spec (Mike 2026-11-06, option 1; LOD at 20 m)
 - A spec now becomes a person. Everyone shares one low-poly base body on the same skeleton as every figure and wears the shared parts on its bones.
 - The sliders work: height runs 1.55 m to 1.95 m, longer legs lift the hips, build widens the trunk and what's worn on it, the head can be bigger or smaller, and face shape (narrow to broad) is a morph on the head. Feet stay on the ground at every setting.
