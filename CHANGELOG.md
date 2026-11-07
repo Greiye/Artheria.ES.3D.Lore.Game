@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 49: Round D1, friends below are not drawn here (Mike 2026-11-06, round D defaults)
+- A friend who is down the descent, or up top when you are below, is no longer drawn on your screen. Their figure and walk stop there.
+- The room button shows where they are instead: "💬 Room CODE · 2/4 · Ben below, floor 4". Floor 1 onward is named; another cellar says just "below"; up top says "up top".
+- Their pet is hidden along with them. Go down or come up and the room button follows.
+- Each player's state now carries their place (one more number on the wire; old clients read as up top).
+
 ### v0.16 changelog, part 48: the Ruined Library looks its age, 9: a little magic (Mike 2026-11-06, Graphics thread: "But also occasional magic. This is good too, 10% of the time.")
 - The hall is still mostly rubble and goblin mess. The magic is rare and quiet.
 - **Three fallen blocks still carry a glowing rune**, pale blue, slowly breathing in and out.

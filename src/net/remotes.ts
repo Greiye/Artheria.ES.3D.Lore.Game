@@ -18,13 +18,14 @@ const FAR = 45;        // metres: further than this a player is just their name 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
-/** One frame of what you're doing, packed small: [x, y, z, yaw, scaleY, speed, flags, pose, swing, combo, lookYaw, lookPitch, lean]. */
+/** One frame of what you're doing, packed small: [x, y, z, yaw, scaleY, speed, flags, pose, swing, combo, lookYaw, lookPitch, lean, place].
+ *  place: 0 up top, n > 0 the descent's floor n, -1 another cellar. Players in another place are hidden (Round D1). */
 export type Wire = number[];
-export function packState(body: THREE.Object3D, i: AnimInput, torch = false): Wire {
+export function packState(body: THREE.Object3D, i: AnimInput, torch = false, place = 0): Wire {
   const f = (i.airborne ? 1 : 0) | (i.aiming ? 2 : 0) | (i.sword ? 4 : 0) | (i.talking ? 8 : 0) | (torch ? 16 : 0);
   const r = (n: number, k = 100) => Math.round(n * k) / k;
   return [r(body.position.x), r(body.position.y), r(body.position.z), r(body.rotation.y, 1000), r(body.scale.y), r(i.speed), f,
-    i.pose ? POSES.indexOf(i.pose) : -1, i.swing == null ? -1 : r(i.swing), i.combo ?? 0, r(i.look?.yaw ?? 0), r(i.look?.pitch ?? 0), r(i.lean ?? 0)];
+    i.pose ? POSES.indexOf(i.pose) : -1, i.swing == null ? -1 : r(i.swing), i.combo ?? 0, r(i.look?.yaw ?? 0), r(i.look?.pitch ?? 0), r(i.lean ?? 0), place | 0];
 }
 
 export class Remote {
@@ -40,6 +41,7 @@ export class Remote {
   private tagY = 2.1;
   readonly bubble = new Bubble();
   torch = false;
+  place = 0;   // where they are (see Wire): not the same place as you, they're hidden
   private props: Props | null = null;
   lookRaw: unknown = undefined;
   constructor(readonly id: string, public name: string, private scene: THREE.Scene) {
@@ -99,12 +101,13 @@ export class Remote {
       look: { yaw: Math.max(-1.7, Math.min(1.7, num(w[10]))), pitch: Math.max(-1, Math.min(1, num(w[11]))) }, lean: Math.max(-1, Math.min(1, num(w[12]))),
     };
     this.torch = !!(f & 16);
+    this.place = Math.max(-1, Math.min(99, num(w[13]) | 0));
     this.root.scale.y = Math.min(1.2, Math.max(0.4, num(w[4], 1)));
     if (!this.seen) { this.root.position.copy(this.target); this.root.rotation.y = this.yaw; }   // first sight: no slide in from the origin
     this.seen = true; this.quiet = 0;
   }
 
-  update(dt: number, eye?: THREE.Vector3) {
+  update(dt: number, eye?: THREE.Vector3, here = 0) {
     this.quiet += dt;
     this.bubble.update(dt);
     if (this.props) {
@@ -113,12 +116,13 @@ export class Remote {
       this.props.torch.visible = this.torch && !i.pose;
       this.props.book.visible = i.pose === 'read';
     }
-    const show = !this.away && !!this.figure;
+    const apart = this.place !== here;   // another place: not drawn; the room button says where they are
+    const show = !this.away && !!this.figure && !apart;
     if (this.root.visible !== show) this.root.visible = show;
     if (!show) return;
     // Phone polish: past FAR only the name tag shows where they are (the figure isn't drawn or animated).
     const far = !!eye && this.root.position.distanceTo(eye) > FAR;
-    if (this.figure && this.figure.visible === far) this.figure.visible = !far;
+    if (this.figure) this.figure.visible = !far;
     this.tag.scale.set(far ? 2.4 : 1.2, far ? 0.6 : 0.3, 1);
     // Smooth toward the last state: fast enough to keep up at a run, slow enough to hide the 12 Hz steps.
     const k = 1 - Math.exp(-14 * dt);
@@ -129,6 +133,11 @@ export class Remote {
   }
 
   remove() { this.scene.remove(this.root); disposeTag(this.tag); }   // (figure parts may share cached geometry: left to GC)
+}
+
+/** The room button's word for where someone is, when it isn't where you are. */
+export function placeLabel(place: number): string {
+  return place > 0 ? `below, floor ${place}` : place < 0 ? 'below' : 'up top';
 }
 
 function nameTag(name: string): THREE.Sprite {
