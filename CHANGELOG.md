@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 51: Round D3, friends on one floor share its goblins (Mike 2026-11-06, round D defaults)
+- With two or more friends on the same floor, one of them leads (the same pick on every screen). The leader's game runs the goblins and sends where they are 8 times a second. Everyone else's goblins follow, walking and turning to match.
+- A cut, bolt or spell that lands on a friend's screen is sent to the leader and counts there. Hits still in flight aren't healed back by an older update.
+- If the leader climbs out, falls or drops out, the next friend takes the goblins over where they stand.
+- Not yet: goblins only go after the leader. Friends can fight them but aren't attacked (falls and drop-outs are Round D4). Goblin looks can differ between screens.
+- New test: e2e-shared-descent (shared seed, one leader, snapshots, a follower's hit, hand-off).
+
 ### v0.16 changelog, part 50: Round D2, a room shares its descent (Mike 2026-11-07, round D defaults)
 - In a room, the descent has one seed per floor. When someone goes down, everyone in the room gets that floor's seed. Friends who are not down yet get a line: "Ben is on floor 1 of the descent. Go down the stairs to join."
 - A friend who joins a room that is already down gets the current floor and seed at once.
