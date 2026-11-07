@@ -114,7 +114,7 @@ import { KnightFrame, type Strike } from './mech/frame';
 import { pixelTexture } from './tex/pixel';
 import { CoinTable } from './coinflip';   // B55
 import { QuestGroups, GROUP_PURSE } from './quest/groups';   // B52/B53
-import { Regions, REGIONS, TOWN_EXITS, MODERN_FRIENDS, signpost, signBoard, swirlTexture, type RegionId, type Side } from './world/regions';
+import { Regions, REGIONS, TOWN_EXITS, MODERN_FRIENDS, WAGON_STOPS, buildWagon, signpost, signBoard, swirlTexture, type RegionId, type Side } from './world/regions';
 import { LoadScreen } from './ui/loadscreen';
 import { FLOORS, band, BAND_NOTE, budgetFor, hpMul, dmgBonus, countFor, maxFoesFor, newDescent, loadRecord, saveRecord, addFallen, addSurvivor, isCamp, fluxFor, FLUX_NOTE, GUARDIAN_NAMES, carryOff, gearNear, GIFTS, hasGift, KITS, type Descent, type Flux, type LostGear } from './delve/descent';
 import { InnWalls, LastWords, buildInnBoards } from './delve/walls';
@@ -2694,6 +2694,13 @@ friends.onRoom = (room) => {
       if (!f || f.state === 'dead' || !(dmg > 0)) return;
       goblinWorld.hurt(Math.min(30, dmg), f, f.st.slowOnHit, f.root.position);
     });
+    room.on('ride', (d, m) => {   // B54: a friend set off by wagon; if you're at the same stop, you ride along
+      const r = d as { to?: unknown; from?: unknown } | null, to = r?.to as RegionId, from = r?.from as RegionId;
+      if (!r || !(to === 'town' || to in REGIONS) || from !== regions.current || !WAGON_STOPS[to] || state !== 'play' || inDungeon || travelling) return;
+      const s = wagonStop(from); if (!s || player.pos.distanceTo(s.at) > 10) return;
+      toast(`${m.name} calls you aboard. You ride along to ${placeName(to)}.`, 3600);
+      travel(to, false, true);
+    });
     room.on('fell', (d, m) => { if (Number.isFinite(d)) toast(`${m.name} fell on floor ${d} of the descent.`, 4200); });
     room.on('run', (d, m) => {
       const r = d as { seed?: unknown; floor?: unknown } | null;
@@ -3095,6 +3102,7 @@ function toast(msg: string, ms = 3000) {
 const givenOnce = new Set<string>();
 dialogue.onAction = (a) => {
   const [verb, id, n] = a.split(':');
+  if (verb === 'ride' && (id === 'town' || id in REGIONS)) { afterDialogue = () => { void resumePlay(); rideWagon(id as RegionId); }; return; }   // B54
   if (verb === 'give') {
     if (givenOnce.has(a)) return;
     givenOnce.add(a);
@@ -3419,6 +3427,7 @@ function addRegionSpots(id: RegionId) {
   if (id === 'modern') addFriends();
   for (const sp of regions.spots.get(id) ?? []) interactables.push({ obj: sp.hit, verb: () => sp.verb, when: () => regions.current === id && !travelling, act: () => {
     if (sp.kind === 'back') { travel('town'); return; }
+    if (sp.kind === 'wagon') { openWagon(); return; }   // B54
     if (sp.kind === 'gate') haptics.play('tap');
     toast(sp.line ?? '', 5200);
   } });
@@ -3510,17 +3519,63 @@ function placeIn(to: RegionId, from: RegionId) {
   try { localStorage.setItem(REGION_KEY, to); } catch { /* private mode */ }
 }
 /** Walk out to `to` (or home): the load screen covers the move, then lifts. */
-function travel(to: RegionId, instant = false) {
+function travel(to: RegionId, instant = false, byWagon = false) {
   if (travelling || inDungeon || to === regions.current) return;
   const from = regions.current;
-  if (instant) { placeIn(to, from); return; }
+  if (instant) { placeIn(to, from); if (byWagon) atWagon(to); return; }
   travelling = true;
   const r = to === 'town' ? null : REGIONS[to];
   player.speedMul = 0;
-  loadScreen.show(r ? r.name : 'Aralon', r ? r.line : 'Back down the road, home to the glade.', () => placeIn(to, from), () => {
+  const line = byWagon ? `By wagon from ${placeName(from)}: wheels, ruts, a mule that hums. ${r ? r.line : 'Home to Aralon.'}` : r ? r.line : 'Back down the road, home to the glade.';
+  loadScreen.show(r ? r.name : 'Aralon', line, () => { placeIn(to, from); if (byWagon) atWagon(to); }, () => {
     travelling = false; player.speedMul = 1;
-    if (r) toast(`${r.name}. ${r.backHint ?? 'The waystone by the path leads back to Aralon.'}`, 4200);
+    if (byWagon) toast(`${placeName(to)}. The wagon waits here to take you back.`, 4200);
+    else if (r) toast(`${r.name}. ${r.backHint ?? 'The waystone by the path leads back to Aralon.'}`, 4200);
   });
+}
+// ---------- B54 (Mike 2026-11-06): the wagon between Aralon and the far maps; friends at the stop ride along ----------
+const placeName = (id: RegionId) => (id === 'town' ? 'Aralon' : REGIONS[id].name);
+/** The wagon stop in world space (the spot beside the wagon where you climb on). */
+function wagonStop(id: RegionId): { at: THREE.Vector3; yaw: number } | null {
+  const ws = WAGON_STOPS[id]; if (!ws) return null;
+  const o = id === 'town' ? new THREE.Vector3() : REGIONS[id].origin;
+  const x = o.x + ws.at[0] + Math.sin(ws.yaw) * 1.8, z = o.z + ws.at[1] + Math.cos(ws.yaw) * 1.8;
+  return { at: new THREE.Vector3(x, id === 'town' ? world.heightAt(x, z) : o.y, z), yaw: ws.yaw };
+}
+function atWagon(id: RegionId) {
+  const s = wagonStop(id); if (!s) return;
+  player.spawn(s.at, s.yaw + Math.PI);
+  if (companion.prefs.follow) natalieRoot().position.copy(s.at).add(new THREE.Vector3(1.2, 0, 1.2));
+  for (const p of pets) if (p.following) p.placeNear(s.at);
+}
+const TOWN_WAGON = (() => {
+  const ws = WAGON_STOPS.town!, w = buildWagon();
+  w.position.set(ws.at[0], world.heightAt(ws.at[0], ws.at[1]), ws.at[1]); w.rotation.y = ws.yaw; world.scene.add(w);
+  const c = Math.cos(ws.yaw), sn = Math.sin(ws.yaw), hx = Math.abs(c) * 1.4 + Math.abs(sn) * 0.7, hz = Math.abs(sn) * 1.4 + Math.abs(c) * 0.7;
+  world.colliders.push({ kind: 'box', minX: ws.at[0] - hx, maxX: ws.at[0] + hx, minZ: ws.at[1] - hz, maxZ: ws.at[1] + hz });
+  const post = signpost('Wagon'); post.position.set(ws.at[0] + sn * 1.6, world.heightAt(ws.at[0], ws.at[1]), ws.at[1] + c * 1.6); post.rotation.y = ws.yaw; world.scene.add(post);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2, 2.2), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.set(ws.at[0] + sn * 1.1, 1, ws.at[1] + c * 1.1); hit.name = 'wagon-hit'; world.scene.add(hit);
+  return { group: w, hit };
+})();
+interactables.push({ obj: TOWN_WAGON.hit, verb: () => 'Ride the wagon', when: () => regions.current === 'town' && !inDungeon && !travelling, act: () => openWagon() });
+function wagonScript(): DialogueScript {
+  const here = regions.current, dests = (Object.keys(WAGON_STOPS) as RegionId[]).filter((id) => id !== here);
+  const n = friends.room ? [...remotes.values()].filter((r) => !r.away).length : 0;
+  const nodes: DialogueScript['nodes'] = {
+    hi: { text: `"Where to? I go to ${dests.map(placeName).join(', ')}."${n ? ' Anyone with you at the stop rides along.' : ''}`, choices: [
+      ...dests.map((id) => ({ text: placeName(id), next: 'go_' + id })),
+      { text: 'Not now.', next: 'bye' },
+    ] },
+    bye: { text: '"Suit yourself. I\'ll be here."', end: true },
+  };
+  for (const id of dests) nodes['go_' + id] = { text: `"${placeName(id)} it is. Hold on to something."`, actions: ['ride:' + id], end: true };
+  return { speaker: 'The wagoner', portrait: 'wagoner', start: 'hi', nodes };
+}
+function openWagon() { const s = wagonStop(regions.current); talkTo('wagoner', s ? s.at : player.pos.clone(), wagonScript()); }
+function rideWagon(to: RegionId) {
+  friends.room?.send('ride', { to, from: regions.current });   // friends at this stop come along
+  travel(to, false, true);
 }
 function exitCheck() {
   if (state !== 'play' || inDungeon || travelling) return;
@@ -4401,4 +4456,4 @@ const goblinSigns = buildGoblinSigns(library.group, world.colliders, ruinFloor);
 const goblinLife = buildGoblinLife(library.group, world.colliders, ruinFloor);
 const quadPlants = buildQuadPlants(library.group, world.scene, ruinFloor, libraryHoles());
 const magic = buildRareMagic(library.group, ruinFloor, libraryHoles(), floating.stones);   // Mike 2026-11-06: "occasional magic", rare and quiet
-Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, groups, STAIRS_TIME, get stairsLeft() { return descent?.stairsLeft; }, set stairsLeft(n: number | undefined) { if (descent) descent.stairsLeft = n; }, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
+Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, groups, TOWN_WAGON, openWagon, rideWagon, wagonStop, STAIRS_TIME, get stairsLeft() { return descent?.stairsLeft; }, set stairsLeft(n: number | undefined) { if (descent) descent.stairsLeft = n; }, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
