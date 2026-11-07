@@ -45,6 +45,7 @@ export const SHELL_HTML = `
     <div id="toast" class="hidden"></div>
     <div id="quick" class="hidden"></div>
     <div id="delveHp" class="hidden sr-only" aria-live="polite"></div>
+    <div id="stairsTimer" class="hidden" role="timer" aria-live="off"></div>
     <div id="hurtEdge" aria-hidden="true"></div>
     <div id="ammo" class="hidden"><span id="ammoText"></span><div id="reloadBar" class="hidden"><i class="zone"></i><i class="fill"></i></div></div>
     <div id="autosaved" aria-live="polite">✒ Saved</div>

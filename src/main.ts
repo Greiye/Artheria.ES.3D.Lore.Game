@@ -1495,12 +1495,14 @@ interactables.push({ obj: COIN_AT.hit, verb: () => sideGate("Flip a coin at Tam'
 function startDescent(from = 1) {
   groups.mark('station', 'descent');   // B52/B53
   descent = newDescent(from);
+  // B51: the very first run is the tutorial: you always come back from it, and there's no timer.
+  if (!record.tutorialDone && record.runs === 0 && tutorialOn()) descent.tutorial = true;
   record.runs++; saveRecord(record);
   // Mike 2026-11-05: through the trapdoor and down the stairs (src/cinematic/descend.ts); the floor is built under black.
   const yaw = player.yaw, fx = -Math.sin(yaw), fz = -Math.cos(yaw), p = player.pos;
   const opening = { pos: new THREE.Vector3(p.x - fx * 1.6 + fz * 0.7, p.y + 2.3, p.z - fz * 1.6 - fx * 0.7), look: new THREE.Vector3(p.x + fx * 1.2, p.y, p.z + fz * 1.2), fov: 52 };
   playDescent('enter', 0, from, opening, () => enterDungeon(sharedSeed(from), from), () => {
-    companion.say('Thirty floors, they say. Bring me what you find. Bring yourself back too.', { force: true });
+    companion.say(descent?.tutorial ? "Your first time down. I'll keep watch: whatever happens, you come back up from this one. After today, each floor gives you eight minutes to reach the stairs." : 'Thirty floors, they say. Bring me what you find. Bring yourself back too.', { force: true });
     // F2: the patrons' scroll before the first step.
     const opts = hasGift(record.delivered, 'scroll') ? offerScrolls([], ownsSlot) : [];
     if (opts.length) {
@@ -1592,6 +1594,7 @@ function clearFloor() {
 /** `floor` > 0: a floor of the descent (stairs down, harder goblins); 0: the old walk-about dungeon. `between`: already below. */
 function enterDungeon(seed: number, floor = 0, between = false): Layout {
   const L = dungeon.build(seed, { down: floor > 0 && floor < FLOORS, hoard: floor === FLOORS, camp: isCamp(floor) });
+  if (descent && floor) { descent.stairsLeft = descent.tutorial ? undefined : STAIRS_TIME; stairsWarned = 0; }   // B51
   if (descent && floor && descent.flux === undefined) descent.flux = fluxFor(floor, record.guardians);
   dungeon.group.visible = true;
   world.colliders.push(...dungeon.colliders);
@@ -1750,6 +1753,7 @@ function pruneDelves() { const ks = Object.keys(delves); for (const k of ks.slic
 function exitDungeon(fell = false) {
   if (!inDungeon) return;
   const run_ = descent;
+  if (run_?.tutorial && !record.tutorialDone) { record.tutorialDone = true; saveRecord(record); setTimeout(() => toast('That was your first descent. From now on each floor gives you 8 minutes to reach a staircase, down or back up. Run out and the dark takes you.', 7000), 2600); }   // B51
   if (!fell) descent = null;
   goblins.floor = goblins.band = 0; goblins.hpMul = 1; goblins.dmgBonus = 0; goblins.maxFoes = MAX_FOES;
   applyFlux('none');
@@ -1913,6 +1917,7 @@ const goblinWorld: FoeWorld = {
     delveHp = Math.max(0, delveHp - dmg); hurtFlash = 0.35; haptics.play('hurt'); gesture('hit');
     if (slow) slowT = Math.max(slowT, slow);
     if (delveHp <= 0) {
+      if (descent?.tutorial) { tutorialSaved(`${by.v.display} knocks you flat.`); return; }   // B51
       if (descent) { heroFalls(by.v.display); return; }
       exitDungeon();
       toast(`${by.v.display} knocks you flat. Natalie hauls you back up the stairs.`, 4500);
@@ -2005,17 +2010,43 @@ function spawnGoblins(keepHp = false) {
 /** F2: which goblin carries which fallen hero's piece, this floor. */
 const carried = new Map<object, LostGear>();
 const delveHpEl = document.getElementById('delveHp')!;
+// ---------- B51 (Mike 2026-11-06): after the tutorial run, each floor gives you 8 minutes to reach a staircase ----------
+// Down in the deepest room, or back up where you came in. It counts only while you play (not in menus or the stair
+// ride); warnings at a minute and at 15 seconds; at zero the dark takes you, the same fall as a knock-out.
+const STAIRS_TIME = 8 * 60;
+const stairsEl = document.getElementById('stairsTimer')!;
+let stairsWarned = 0;
+function tutorialOn() { try { return !navigator.webdriver || localStorage.getItem('gametool.tutorialtest') === 'on'; } catch { return !navigator.webdriver; } }
+function tutorialSaved(what: string) {
+  exitDungeon();
+  toast(`${what} Natalie hauls you back up the stairs: on your first descent, she doesn't let you fall.`, 5200);
+  companion.say("Up you get. That's what it's like down there. Next time I can't pull you out.", { force: true });
+}
+function stairsTick(dt: number) {
+  const d = descent;
+  if (!d || d.stairsLeft === undefined) { stairsEl.classList.add('hidden'); return; }
+  if (state === 'play' && !descendCine.active && delveHp > 0) d.stairsLeft = Math.max(0, d.stairsLeft - dt);
+  const left = d.stairsLeft, m = Math.floor(Math.ceil(left) / 60), sec = Math.ceil(left) % 60;
+  const t = `⏳ ${m}:${String(sec).padStart(2, '0')} to the stairs`;
+  stairsEl.classList.remove('hidden');
+  stairsEl.classList.toggle('warn', left <= 60 && left > 15); stairsEl.classList.toggle('urgent', left <= 15);
+  if (stairsEl.textContent !== t) stairsEl.textContent = t;
+  if (left <= 60 && stairsWarned < 1) { stairsWarned = 1; toast('A minute left on this floor. Find the stairs, down or back up.', 3600); haptics.play('hurt'); }
+  if (left <= 15 && stairsWarned < 2) { stairsWarned = 2; toast('Fifteen seconds. The torches are guttering.', 2600); haptics.play('hurt'); }
+  if (left <= 0) { stairsEl.classList.add('hidden'); delveHp = 0; heroFalls('The dark'); }
+}
 // UX pass (Mike 2026-10-31): your health shows on you, not as a counter. Below half, the edges of your sight redden
 // and you breathe hard; below 40% you limp. The old line stays for screen readers (and tests), off screen.
 let breathT = 0;
 function updateDelve(dt: number) {
-  if (!inDungeon) { delveHpEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); if (wear.level) wear.set(0); return; }
+  if (!inDungeon) { delveHpEl.classList.add('hidden'); stairsEl.classList.add('hidden'); document.body.style.setProperty('--hurt', '0'); if (wear.level) wear.set(0); return; }
   if (state === 'play' && !descendCine.active) { if (hitStop > 0) hitStop -= dt; else goblins.update(dt); }   // v0.08: a beat's pause on a sword hit
   const frac = Math.min(1, delveHp / DELVE_HP);
   wear.set(1 - frac);
   slowT = Math.max(0, slowT - dt); player.speedMul = (slowT > 0 ? 0.55 : 1) * (frac <= 0.4 ? 0.75 : 1) * (isBlocking() ? 0.6 : 1) * (fluxNow === 'flooded' ? 0.72 : 1) * (imbued('swift') ? 1.12 : 1);
   goblins.reveal = imbued('seeing') && (hands.held.left === 'torch' || hands.held.right === 'torch');
   fluxTick(dt);
+  stairsTick(dt);   // B51
   hurtFlash = Math.max(0, hurtFlash - dt);
   document.body.style.setProperty('--hurt', (Math.max(0, 1 - frac * 1.6) * 0.85 + hurtFlash * 1.4).toFixed(2));
   if (frac <= 0.5 && state === 'play' && (breathT -= dt) <= 0) { audio.breath(); breathT = 1.2 + frac * 2.4; }
@@ -4370,4 +4401,4 @@ const goblinSigns = buildGoblinSigns(library.group, world.colliders, ruinFloor);
 const goblinLife = buildGoblinLife(library.group, world.colliders, ruinFloor);
 const quadPlants = buildQuadPlants(library.group, world.scene, ruinFloor, libraryHoles());
 const magic = buildRareMagic(library.group, ruinFloor, libraryHoles(), floating.stones);   // Mike 2026-11-06: "occasional magic", rare and quiet
-Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, groups, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
+Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, groups, STAIRS_TIME, get stairsLeft() { return descent?.stairsLeft; }, set stairsLeft(n: number | undefined) { if (descent) descent.stairsLeft = n; }, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
