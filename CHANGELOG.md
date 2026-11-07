@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 55: B57 morphology 3 of 5, a person from a spec (Mike 2026-11-06, option 1; LOD at 20 m)
+- A spec now becomes a person. Everyone shares one low-poly base body on the same skeleton as every figure and wears the shared parts on its bones.
+- The sliders work: height runs 1.55 m to 1.95 m, longer legs lift the hips, build widens the trunk and what's worn on it, the head can be bigger or smaller, and face shape (narrow to broad) is a morph on the head. Feet stay on the ground at every setting.
+- They walk, sit and wave with the same animation as everyone else.
+- Past 20 m the small face details (brows, eyes, nose, mouth, beard, accessory) stop being drawn.
+- Removing one person frees only their own skeleton and shadow. The shared parts stay for everyone else.
+- Townsfolk don't use this yet; that's part 4. New test: e2e-morph-body.
+
 ### v0.16 changelog, part 54: B57 morphology 2 of 5, shared parts (Mike 2026-11-06, option 1)
 - Every slot and id in the catalog now has a low-poly placeholder part on the shared skeleton. That's 50 parts, among them 8 hairstyles, beards, 6 tops (vest, coat, robe…), skirts and trousers, boots, sandals, 4 hats (cap, wide brim, pointed, hood), a scarf, a belt pouch, a pendant and a pack.
 - The game builds each part once and shares it with everyone who wears it, with one material per colour. Fifty random people come to 50 parts and 25 materials in all.
