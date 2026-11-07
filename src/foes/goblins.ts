@@ -38,6 +38,8 @@ export interface FoeWorld {
   douse?(): void;
   /** A shaman's hex: the dark closes in, or your legs go heavy. */
   hex?(kind: 'dark' | 'slow', by: Foe): void;
+  /** Round D4 (leader): a goblin's blow landed on a friend on this floor. */
+  hurtFriend?(id: string, dmg: number, by: Foe): void;
 }
 /** Mike 2026-11-05: what a goblin does on the deeper floors, beyond its rolled behaviour (see src/delve/descent.ts). */
 export type Role = 'none' | 'slinger' | 'guard' | 'dropper' | 'shaman' | 'captain' | 'keeper' | 'guardian';
@@ -106,6 +108,14 @@ export class Goblins {
   floor = 0; band = 0; hpMul = 1; dmgBonus = 0;
   /** Round D3: a friend on this floor leads (runs the goblins); here they only follow the leader's snapshots. */
   puppet = false;
+  /** Round D4 (leader): friends on this floor. A goblin goes for whoever is nearest, you or them. */
+  friends: { id: string; pos: THREE.Vector3 }[] = [];
+  private target(f: Foe, P: THREE.Vector3): { pos: THREE.Vector3; id: string | null } {
+    const p = f.root.position;
+    let best: { pos: THREE.Vector3; id: string | null } = { pos: P, id: null }, bd = Math.hypot(P.x - p.x, P.z - p.z);
+    for (const o of this.friends) { const d = Math.hypot(o.pos.x - p.x, o.pos.z - p.z); if (d < bd - 0.5) { best = o; bd = d; } }
+    return best;
+  }
   /** Round D3 (leader): every goblin as [x, z, yaw, hp, state, speed], in spawn order. */
   snapshot(): number[] {
     const r = (n: number, k = 100) => Math.round(n * k) / k;
@@ -370,8 +380,10 @@ export class Goblins {
         continue;
       }
       if (this.puppet) { this.follow(f, dt); continue; }
-      const p = f.root.position, dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz);
-      const sees = d < SIGHT && this.los(p, P);
+      // Round D4: whoever is nearest. Shots, thefts and hexes stay for you (they land on your screen only).
+      const tg = this.target(f, P), T = tg.pos, mine = tg.id === null;
+      const p = f.root.position, dx = T.x - p.x, dz = T.z - p.z, d = Math.hypot(dx, dz);
+      const sees = d < SIGHT && this.los(p, T);
       const b = f.st.behaviour;
       f.cd = Math.max(0, f.cd - dt); f.t += dt; f.dodge = Math.max(0, f.dodge - dt); f.chillT = Math.max(0, f.chillT - dt);
       if (!f.alerted) {
@@ -383,7 +395,7 @@ export class Goblins {
         f.spell = 5.5;
         let mended = 0;
         for (const o of this.alive) if (o !== f && o.hp < o.st.hp && o.root.position.distanceTo(p) < 7) { o.hp = Math.min(o.st.hp, o.hp + 2); drawTag(o); mended++; }
-        if (sees && d < 12) { const k = (f.t | 0) % 2 ? 'dark' : 'slow'; this.w.hex?.(k, f); this.w.say(k === 'dark' ? `${f.v.display} hisses, and the dark closes in.` : `${f.v.display} points at you. Your legs go heavy.`); }
+        if (mine && sees && d < 12) { const k = (f.t | 0) % 2 ? 'dark' : 'slow'; this.w.hex?.(k, f); this.w.say(k === 'dark' ? `${f.v.display} hisses, and the dark closes in.` : `${f.v.display} points at you. Your legs go heavy.`); }
         else if (mended) this.w.say(`${f.v.display} chants, and the goblins' wounds close.`);
       }
       if (this.band >= 2 && f.alerted && f.state === 'back' && d > 4 && b0(f) !== 'coward') f.hp = Math.min(f.st.hp * 0.6, f.hp + dt * 0.5);
@@ -411,7 +423,7 @@ export class Goblins {
         } else {
           f.state = 'chase';
           const want = f.role === 'shaman' ? 6 : ranged ? (b === 'archer' ? 10 : f.st.range * 0.7) : f.st.reach * 0.8;
-          if (b === 'thief' && d < 1.1 && f.stolen === 0 && !f.book) {
+          if (b === 'thief' && mine && d < 1.1 && f.stolen === 0 && !f.book) {
             const book = this.band >= 3 || this.booksFirst ? this.w.stealBook?.(f) ?? null : null;
             if (book) { f.book = book; this.w.say(`${f.v.display} snatches “${book}” and runs! Get it back.`); }
             else {
@@ -436,14 +448,18 @@ export class Goblins {
           if (f.windup > 0) {
             f.windup -= dt; pose = 'punch'; mx = mz = 0;
             if (f.windup <= 0 && d < f.st.reach + 0.6) {
-              this.w.hurt(damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus + f.gearDmg, f, f.st.slowOnHit, f.root.position);
-              if (this.band >= 3 && Math.random() < 0.18) this.w.douse?.();
+              const dmg = damageRoll(f.st.damage) + this.leaderBonus(f) + this.dmgBonus + f.gearDmg;
+              if (!mine) this.w.hurtFriend?.(tg.id!, dmg, f);
+              else {
+                this.w.hurt(dmg, f, f.st.slowOnHit, f.root.position);
+                if (this.band >= 3 && Math.random() < 0.18) this.w.douse?.();
+              }
               if (f.role === 'captain' && !f.combo) { f.combo = true; f.windup = 0.28; }   // a second blow straight after
               else f.combo = false;
               if (b === 'skirmisher') { f.state = 'back'; f.t = 0; }
             }
-          } else if (f.cd <= 0 && (sees || this.peeks(f, P))) {
-            if (ranged && d < f.st.range && b !== 'thief') { this.fire(f, d); f.cd = f.st.cooldown; }
+          } else if (f.cd <= 0 && (sees || this.peeks(f, T))) {
+            if (ranged && d < f.st.range && b !== 'thief') { if (mine) { this.fire(f, d); f.cd = f.st.cooldown; } }
             else if (!ranged && d < f.st.reach + 0.3) { f.windup = 0.35; f.cd = f.st.cooldown; }
           }
         }
@@ -462,7 +478,7 @@ export class Goblins {
       f.root.rotation.y += dy * Math.min(1, dt * 10);
       f.lean.update(dt, leanWant);
       f.anim.update(dt, { speed: f.speedNow, pose, aiming: aim, lean: f.lean.side });
-      f.tag.visible = (f.state !== 'hidden' || this.reveal) && d < (this.reveal ? 16 : 11);
+      f.tag.visible = (f.state !== 'hidden' || this.reveal) && Math.hypot(P.x - p.x, P.z - p.z) < (this.reveal ? 16 : 11);   // how near you are, not its target
     }
     this.updateShots(dt);
     // Snares: step in one and it bites and holds you a moment.

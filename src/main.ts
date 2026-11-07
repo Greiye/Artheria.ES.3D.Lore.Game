@@ -1641,6 +1641,7 @@ function newHero(note: string) {
 }
 function heroFalls(by: string) {
   const d = descent!, name = heroName();
+  friends.room?.send('fell', d.floor);   // Round D4: the room hears; your place goes back up top, so your goblins pass on
   const taken = carryOff([...inventory.counts.keys()].filter((id) => inventory.count(id) > 0), d.floor, name);
   record.lostGear = [...record.lostGear, ...taken].slice(-12); saveRecord(record);
   exitDungeon(true);
@@ -1812,7 +1813,7 @@ function openDescend() {
   el.innerHTML = `<div class="card-in"><div class="credit">Under the Ruined Library</div><h3>Go down for the books?</h3>
     <p>The library is in flux: the witch in the ruins keeps it moving, and every floor is new each time you go down. They say it goes ${FLOORS} floors deep, with a dragon's hoard at the bottom. Each floor is harder. Climb out on any floor's stairs to hand Natalie the books you carry. <b>Die down there and this hero is gone</b>, with the bag, the crowns and the books on them.</p>
     <p class="fine">Deepest so far: floor ${record.deepest || '-'} · books handed in: ${record.delivered} · heroes lost: ${Math.max(0, record.heroes - 1)}</p>
-    <div class="forge-actions"><button class="primary" data-act="go">Descend to floor 1</button>${record.ropes.map((f) => `<button class="primary" data-act="rope" data-floor="${f}">Natalie's rope to floor ${f}</button>`).join('')}<button class="secondary" data-act="quick">Quick Dungeon (practice, nobody dies)</button></div>
+    <div class="forge-actions"><button class="primary" data-act="go">Descend to floor 1</button>${friends.room && partyRun && partyRun.floor > 1 ? `<button class="primary" data-act="rope" data-floor="${partyRun.floor}">Join your friends on floor ${partyRun.floor}</button>` : ''}${record.ropes.map((f) => `<button class="primary" data-act="rope" data-floor="${f}">Natalie's rope to floor ${f}</button>`).join('')}<button class="secondary" data-act="quick">Quick Dungeon (practice, nobody dies)</button></div>
     ${hasGift(record.delivered, 'kit') && record.kitFor !== record.heroes ? `<p class="fine">The patrons' kit, one per hero:</p><div class="forge-actions">${KITS.map((k) => `<button class="secondary" data-act="kit" data-kit="${k.id}">${k.name}</button>`).join('')}</div>` : ''}
     ${record.delivered ? `<p class="fine">Patrons' gifts: ${GIFTS.map((g) => record.delivered >= g.at ? `<b>${g.name}</b>` : `${g.name} at ${g.at} books`).join(' · ')}</p>` : ''}
     <div class="forge-actions"><button class="secondary" data-act="close">Not yet</button></div></div>`;
@@ -1906,6 +1907,8 @@ const goblinWorld: FoeWorld = {
     setTimeout(() => { if (inDungeon) { fog.far = far; fog.near = near; } }, 4000);
   },
 };
+// Round D4 (leader): a goblin's blow on a friend goes to their screen, which takes it as its own goblin's blow.
+goblinWorld.hurtFriend = (id, dmg, by) => friends.room?.send('ouch', [goblins.list.indexOf(by), dmg], id);
 const goblins = new Goblins(world.scene, goblinWorld);
 for (const s of [sword, sword2]) {
   s.foes = () => goblins.alive.map((f) => f.root.position);
@@ -2493,7 +2496,9 @@ function openFriends(code?: string) { if (state !== 'play' && state !== 'pause')
 // Multiplayer 2: the other players in the room, as rigged figures in the puppet loop (ids 'net:<peer>').
 const remotes = new Map<string, Remote>();
 function syncRemotes(room: Room | null) {
-  for (const [id, r] of remotes) if (!room?.members.has(id)) { r.remove(); remotes.delete(id); puppets.delete('net:' + id); setRemotePet(id, null); }
+  for (const [id, r] of remotes) if (!room?.members.has(id)) {
+    if (room && inDungeon && !r.away && r.place === placeNow()) toast(`${r.name} dropped out. The goblins are yours to hold.`, 3600);   // Round D4
+    r.remove(); remotes.delete(id); puppets.delete('net:' + id); setRemotePet(id, null); }
   if (netGuests !== (room?.members.size ?? 0)) { netGuests = room?.members.size ?? 0; applyQuality(); }   // phone polish: fewer crowd sprites per guest on Low
   syncRoomBtn(room);
   if (!room) return;
@@ -2572,6 +2577,9 @@ function syncFoes(dt: number) {
   foeLead = floorLeader();
   const follow = !!room && !!foeLead && foeLead !== room.self.id;
   if (goblins.puppet !== follow) { goblins.puppet = follow; if (!follow) for (const f of goblins.list) f.net = undefined; }
+  // Round D4: the leader's goblins go for the nearest of everyone on the floor.
+  const here = placeNow();
+  goblins.friends = room && foeLead && !follow ? [...remotes.values()].filter((r) => !r.away && r.place === here).map((r) => ({ id: r.id, pos: r.root.position })) : [];
   if (!room || !foeLead || (foeClock += dt) < 1 / FOE_HZ) return;
   foeClock = 0;
   if (!follow) room.send('foes', { seed: dungeon.layout?.seed ?? 0, f: goblins.snapshot() });
@@ -2599,6 +2607,13 @@ friends.onRoom = (room) => {
       if (goblins.puppet || !inDungeon || !Array.isArray(d) || remotes.get(m.id)?.place !== placeNow()) return;
       for (const c of d.slice(0, 32)) if (Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1])) goblins.claim(c[0], c[1]);
     });
+    room.on('ouch', (d, m) => {
+      if (!goblins.puppet || m.id !== foeLead || !inDungeon || !Array.isArray(d)) return;
+      const f = goblins.list[Number(d[0]) | 0], dmg = Number(d[1]);
+      if (!f || f.state === 'dead' || !(dmg > 0)) return;
+      goblinWorld.hurt(Math.min(30, dmg), f, f.st.slowOnHit, f.root.position);
+    });
+    room.on('fell', (d, m) => { if (Number.isFinite(d)) toast(`${m.name} fell on floor ${d} of the descent.`, 4200); });
     room.on('run', (d, m) => {
       const r = d as { seed?: unknown; floor?: unknown } | null;
       if (!r || !Number.isFinite(r.seed) || !Number.isFinite(r.floor)) return;

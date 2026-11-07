@@ -78,9 +78,9 @@ export class Room {
   }
   /** Tell the room your look changed (the forge, the tailor). */
   sayHello() { if (!this.closed) this.t.send('hello', this.hello()); }
-  /** Room messages beyond hello/state (emote, time, pet, run, foes, hit): sent to all, or one; heard only from members. */
-  send(kind: 'emote' | 'time' | 'pet' | 'run' | 'foes' | 'hit', data: unknown, to?: string) { if (!this.closed && this.members.size) this.t.send(kind, data, to); }
-  on(kind: 'emote' | 'time' | 'pet' | 'run' | 'foes' | 'hit', fn: (data: unknown, from: Member) => void) {
+  /** Room messages beyond hello/state (emote, time, pet, run, foes, hit, ouch, fell): sent to all, or one; heard only from members. */
+  send(kind: 'emote' | 'time' | 'pet' | 'run' | 'foes' | 'hit' | 'ouch' | 'fell', data: unknown, to?: string) { if (!this.closed && this.members.size) this.t.send(kind, data, to); }
+  on(kind: 'emote' | 'time' | 'pet' | 'run' | 'foes' | 'hit' | 'ouch' | 'fell', fn: (data: unknown, from: Member) => void) {
     this.t.on(kind, (d, from) => { const m = this.members.get(from); if (m && !this.closed) fn(d, m); });
   }
   sendState(w: unknown) { if (!this.closed && this.members.size) this.t.send('state', w); }
