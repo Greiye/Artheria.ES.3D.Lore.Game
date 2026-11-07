@@ -137,7 +137,7 @@ import { topPanel, padMove, padNudge, padPress, padBack, type PadDir } from './i
 import { storeSet } from './store';
 import { FriendsPanel } from './net/panel';
 import { cleanCode, cleanName, MAX_PLAYERS, type Room } from './net/room';
-import { Remote, packState, SEND_HZ } from './net/remotes';
+import { Remote, packState, placeLabel, SEND_HZ } from './net/remotes';
 import { packLook } from './net/look';
 import { EMOTES, emoteAt, Bubble } from './net/emotes';
 import './ui/parchment.css';   // UI 1: parchment panels, loaded last so it skins every panel
@@ -830,7 +830,7 @@ function animate(dt: number) {
   Thrower.fly(dt, world.solids, (x, z) => player.terrain(x, z), rockTargets);
   // B38: characters are skinned, so three can't frustum-cull them. Off-screen ones, or ones past the fog, aren't
   // drawn and skip their animation (CPU on phones). Their meshes are hidden, never the root (others own that).
-  for (const r of remotes.values()) r.update(dt, camera.position);   // other players: smooth toward their last state (multiplayer 2)
+  for (const r of remotes.values()) r.update(dt, camera.position, placeNow());   // other players: smooth toward their last state (multiplayer 2)
   netSend(dt, mine);
   camera.updateMatrixWorld();
   cullFrustum.setFromProjectionMatrix(cullPV.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -846,7 +846,7 @@ function animate(dt: number) {
       if (!show) { charsCulled++; continue; }
     }
     const remote = id.startsWith('net:') ? remotes.get(id.slice(4)) : undefined;
-    const input = id === 'player' ? (player.body.visible ? mine : null) : remote ? (remote.away || remote.far ? null : remote.input)
+    const input = id === 'player' ? (player.body.visible ? mine : null) : remote ? (remote.away || remote.far || remote.place !== placeNow() ? null : remote.input)
       : fighting && id === 'kavik' ? fightInput(fightMode.fight.b) : npcInput(id, p.root);
     if (!input) continue;
     if (id !== 'player' && !remote && p.fig && state === 'play' && !input.talking && !input.pose) {   // B34: hello as you come near (npcPos: npcInput's)
@@ -2518,8 +2518,15 @@ roomBtn.addEventListener('click', (e) => { e.stopPropagation(); openFriends(); }
 roomBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
 function syncRoomBtn(room: Room | null) {
   roomBtn.classList.toggle('hidden', !room);
-  if (room) roomBtn.textContent = `💬 Room ${room.code} · ${room.count}/${MAX_PLAYERS}`;
+  if (!room) return;
+  // Round D1: players in another place are not drawn; the button says where they are instead.
+  const here = placeNow();
+  const apart = [...remotes.values()].filter((r) => !r.away && r.place !== here).map((r) => `${r.name} ${placeLabel(r.place)}`);
+  const text = `💬 Room ${room.code} · ${room.count}/${MAX_PLAYERS}${apart.length ? ` · ${apart.join(', ')}` : ''}`;
+  if (roomBtn.textContent !== text) roomBtn.textContent = text;
 }
+/** Where you are, as the room sees it: 0 up top, the descent's floor, or -1 in another cellar. */
+function placeNow(): number { return inDungeon ? (descent?.floor ?? -1) : 0; }
 // Multiplayer 3: emotes (preset only), pets that come along, one sky for the room, and the host's Remove.
 const myBubble = new Bubble();
 player.body.add(myBubble.sprite); myBubble.sprite.position.y = controls.eyeHeight + 0.9;
@@ -2570,16 +2577,17 @@ netHello = () => friends.room?.sayHello();
 let netClock = 0;
 function netSend(dt: number, mine: AnimInput) {
   const room = friends.room;
+  syncRoomBtn(room);   // Round D1: the room button follows who is below as you go down and up
   myBubble.update(dt);
   for (const [peer, p] of remotePets) {
     const r = remotes.get(peer);
     if (!r) continue;
     p.update(dt, r.root.position, r.root.rotation.y, false);
-    p.root.visible = !r.away;
+    p.root.visible = !r.away && r.place === placeNow();
   }
   if (!room || !inWorld || (netClock += dt) < 1 / SEND_HZ) return;
   netClock = 0;
-  room.sendState(packState(player.body, mine, torch.lit));
+  room.sendState(packState(player.body, mine, torch.lit, placeNow()));
   if (world.time !== netTime) { netTime = world.time; room.send('time', netTime); }   // you slept: the room's sky moves on with you
   const pet = JSON.stringify(myPet());
   if (pet !== netPet) { netPet = pet; room.send('pet', myPet()); }
