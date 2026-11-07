@@ -117,6 +117,7 @@
     "e2e-morph-perf",
     "e2e-portal",
     "e2e-coinflip",
-    "e2e-quest-groups"
+    "e2e-quest-groups",
+    "e2e-stairs-timer"
   ]
 }

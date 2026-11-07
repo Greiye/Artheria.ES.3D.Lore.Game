@@ -44,12 +44,18 @@ export interface Descent {
   flux?: Flux; rested?: boolean;
   /** F1: the witch's scrolls taken this run (ids). */
   scrolls?: string[];
+  /** B51: the first run is the tutorial (you always come back from it, no timer). */
+  tutorial?: boolean;
+  /** B51: seconds left on this floor to reach a staircase (down, or back up); unset on the tutorial. */
+  stairsLeft?: number;
 }
 export interface Record_ { deepest: number; delivered: number; heroes: number; runs: number; guardians: number[]; ropes: number[];
   /** F2: a fallen hero's gear, carried off by goblins on the floor they fell (won back by beating the carrier). */
   lostGear: LostGear[];
   /** F2: the patrons' gifts already announced (thresholds), and the hero who last took the patrons' kit. */
-  gifts: number[]; kitFor: number }
+  gifts: number[]; kitFor: number;
+  /** B51: the tutorial run is done (set after it ends, alive either way). */
+  tutorialDone?: boolean }
 export interface LostGear { item: string; floor: number; owner: string }
 export interface Fallen { name: string; floor: number; books: number; by: string; at: string; words: string }
 export interface Survivor { name: string; at: string; art: string | null; kavik?: boolean; line?: string }
