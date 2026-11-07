@@ -111,7 +111,8 @@ import { ShopPanel, CROWN } from './shop';
 import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
 import { KnightFrame, type Strike } from './mech/frame';
-import { Regions, REGIONS, TOWN_EXITS, signpost, type RegionId, type Side } from './world/regions';
+import { pixelTexture } from './tex/pixel';
+import { Regions, REGIONS, TOWN_EXITS, MODERN_FRIENDS, signpost, swirlTexture, type RegionId, type Side } from './world/regions';
 import { LoadScreen } from './ui/loadscreen';
 import { FLOORS, band, BAND_NOTE, budgetFor, hpMul, dmgBonus, countFor, maxFoesFor, newDescent, loadRecord, saveRecord, addFallen, addSurvivor, isCamp, fluxFor, FLUX_NOTE, GUARDIAN_NAMES, carryOff, gearNear, GIFTS, hasGift, KITS, type Descent, type Flux, type LostGear } from './delve/descent';
 import { InnWalls, LastWords, buildInnBoards } from './delve/walls';
@@ -771,6 +772,7 @@ function npcInput(id: string, root: THREE.Object3D): AnimInput | null {
   const look = d < 6 && Math.abs(rel) < 1.7 ? { yaw: rel, pitch: -Math.atan2(player.eyePos.y - 1.5, d) * 0.5 } : null;
   const folk = root.userData.folk as import('./world/townsfolk').Folk | undefined;
   if (folk) return folk.active ? { speed: folk.speed, talking: folk.talking, pose: folk.pose, look: folk.speed > 0.3 || folk.pose ? null : look } : null;
+  if (root.userData.friend) return { speed: 0, talking: state === 'dialogue' && dialogueWith === id, pose: root.userData.pose, look: root.userData.pose ? null : look };   // B56
   return { speed: id === 'natalie' ? companion.speed : 0, talking: ((id === 'natalie' || id === 'pedlar' || id === 'lenju' || id === 'taitai' || id === 'kavik' || id === 'candor') && state === 'dialogue' && dialogueWith === id) || (id === 'natalie' && campfire.isOpen), look: id === 'natalie' && companion.speed > 0.3 ? null : look };
 }
 function clipState(i: AnimInput): AnimState {
@@ -878,6 +880,7 @@ function animate(dt: number) {
   gateCheck();
   exitCheck();   // Mike 2026-11-05: the four ways out
   regions.update(bannerT);
+  if (regions.current === 'town') PORTAL.swirl.rotation = -bannerT * 0.8;   // B56
   // The library's interior (shelves, books, furniture: ~18 draw calls) only draws once the camera is near its door.
   library.group.visible = !inDungeon && camera.position.z < -4;
   dungeon.update(bannerT);
@@ -1430,7 +1433,7 @@ const trapHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.6), new THREE.M
 trapHit.position.set(STAIRS.x, 0.3, STAIRS.top - 0.4); trapHit.scale.set(1.2, 1, 1); world.scene.add(trapHit);
 let inDungeon = false, savedFog: { color: THREE.Color; near: number; far: number; bg: THREE.Color } | null = null;
 // The follow camera stays under the dungeon ceiling, and (v0.06 W2) under the library's and gallery's while the player is inside.
-rig.ceiling = (x, z) => { if (inDungeon) return 2.9; const r = roofOver(player.pos.x, player.pos.z); return r && roofOver(x, z, 1) === r ? r.y - 0.3 : Infinity; };
+rig.ceiling = (x, z) => { if (inDungeon) return 2.9; const rc = regions.region?.ceiling; if (rc) return regions.region!.origin.y + rc; const r = roofOver(player.pos.x, player.pos.z); return r && roofOver(x, z, 1) === r ? r.y - 0.3 : Infinity; };
 const delves = (() => { try { return JSON.parse(localStorage.getItem('gametool.delves') ?? '{}') as Record<string, { theme: string; chest?: boolean; nest?: boolean; quick?: 'won' | 'lost'; at: string; rooms?: number[]; deep?: boolean }>; } catch { return {}; } })();
 const saveDelves = () => { storeSet('gametool.delves', JSON.stringify(delves)); };
 // ---------- Mike 2026-11-05: the descent (src/delve/descent.ts). Floors 1-30, a new layout each time; permadeath ----------
@@ -2043,6 +2046,7 @@ function mapSights(): Sight[] {
     { x: GRIND.x, z: GRIND.z, icon: '◎', label: 'Grindstone', note: 'Sharpen your blade.' },
     { x: reelScreen.position.x, z: reelScreen.position.z, icon: '▶', label: 'Cinema', note: 'Watch reels on the town screen.' },
     { x: killStatue.group.position.x, z: killStatue.group.position.z, icon: '♛', label: 'Record statue', note: 'The most goblins beaten in one delve.' },
+    { x: PORTAL.at.x, z: PORTAL.at.z, icon: '◍', label: 'Portal', note: "Through to the modern world: a flat where Josh, Jason, Liv and Rev are.", ...(firstDay.sideGamesOpen ? {} : { locked: true }) },   // B56
   ];
 }
 function openMap() { if (state !== 'play' && state !== 'pause') return; enterForge(); livingMap.open(); }
@@ -3333,11 +3337,67 @@ const regionSpotsAdded = new Set<string>();
 function addRegionSpots(id: RegionId) {
   if (id === 'town' || regionSpotsAdded.has(id)) return;
   regionSpotsAdded.add(id);
+  if (id === 'modern') addFriends();
   for (const sp of regions.spots.get(id) ?? []) interactables.push({ obj: sp.hit, verb: () => sp.verb, when: () => regions.current === id && !travelling, act: () => {
     if (sp.kind === 'back') { travel('town'); return; }
     if (sp.kind === 'gate') haptics.play('tap');
     toast(sp.line ?? '', 5200);
   } });
+}
+// ---------- B56 (Mike 2026-11-06): a portal to the modern world, where Mike's friends are ----------
+// Beside the Cartographer's: a standing stone ring with a purple swirl. Through it (after the first day, like the side
+// games) is one modern flat (src/world/regions.ts 'modern') with Josh, Jason, Liv and Rev; the portal there brings you
+// back here. The friends are B57 assembled people; their looks are placeholders until they say how they want to look.
+const PORTAL = (() => {
+  const door = world.town.doors.cartographer, at = outFrom(door, 3.2, 3.5), ry = door.rotation.y;
+  const g = new THREE.Group(); g.name = 'portal'; g.position.set(at.x, world.heightAt(at.x, at.z), at.z); g.rotation.y = ry;
+  const stone = new THREE.MeshLambertMaterial({ color: '#8C8478', map: pixelTexture('mossStone') });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.14, 8, 24), stone); ring.position.y = 1.2; ring.castShadow = true; g.add(ring);
+  for (const x of [-0.75, 0.75]) { const foot = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.45), stone); foot.position.set(x, 0.15, 0); foot.castShadow = true; g.add(foot); }
+  const swirl = swirlTexture();
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.95, 24), new THREE.MeshBasicMaterial({ map: swirl, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  disc.position.y = 1.2; disc.name = 'portal-swirl'; g.add(disc);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 1.0), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 1.2; hit.name = 'portal-hit'; g.add(hit);
+  world.scene.add(g);
+  world.colliders.push({ kind: 'box', minX: at.x - 0.5, maxX: at.x + 0.5, minZ: at.z - 0.5, maxZ: at.z + 0.5 });
+  REGIONS.modern.home = { at: [at.x + Math.sin(ry) * 1.6, at.z + Math.cos(ry) * 1.6], yaw: ry + Math.PI };
+  return { group: g, hit, swirl, at };
+})();
+interactables.push({ obj: PORTAL.hit, verb: () => sideGate('Step through the portal'), when: () => !inDungeon && regions.current === 'town' && !travelling, act: () => sideGo(() => travel('modern')) });
+const modernFriends: { id: string; name: string; root: THREE.Object3D; hit: THREE.Mesh }[] = [];
+function friendSpec(seed: number, i: number) {
+  const s = randomCharacterSpec(seed);
+  const TOPS = ['#3A5A7A', '#7A3A3A', '#3A6A4A', '#5A4A7A'], LEGS = ['#2E3E5E', '#3A3A3E', '#4A5A7A', '#2A2A2E'];
+  s.parts.top.color = TOPS[i % 4]; s.parts.bottom = { id: '01', color: LEGS[i % 4] }; s.parts.shoes.color = i % 2 ? '#E8E8E8' : '#2A2A2A';
+  s.parts.hat = { id: '', color: s.parts.hat.color };   // indoors
+  return s;
+}
+function addFriends() {
+  const g = regions.groups.get('modern'); if (!g) return;
+  MODERN_FRIENDS.forEach((f, i) => {
+    const root = assemble(friendSpec(f.seed, i));
+    root.position.set(f.at[0], f.pose === 'sit' ? 0.02 : 0, f.at[1]); root.rotation.y = f.yaw;
+    root.name = 'friend-' + f.id; root.userData.friend = f.id; root.userData.pose = f.pose;
+    g.add(root);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.9, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.set(f.at[0], 0.95, f.at[1]); g.add(hit);
+    const id = 'modern:' + f.id;
+    puppets.set(id, figureOf(root));
+    interactables.push({ obj: hit, verb: () => `Talk to ${f.name}`, when: () => regions.current === 'modern' && !travelling, act: () => talkTo(id, hit.getWorldPosition(new THREE.Vector3()), friendScript(f)) });
+    modernFriends.push({ id: f.id, name: f.name, root, hit });
+  });
+}
+function friendScript(f: (typeof MODERN_FRIENDS)[number]): DialogueScript {
+  return { speaker: f.name, portrait: f.id, start: 'hi', nodes: {
+    hi: { text: f.hello, choices: [
+      { text: 'What is this place?', next: 'place' },
+      { text: 'How do I get back?', next: 'back' },
+      { text: 'See you around.', next: 'bye' },
+    ] },
+    place: { text: "Our world. Phones, buses, bills. Mike writes Aralon down and we read it. Now it reads us back, apparently.", next: 'hi' },
+    back: { text: 'The ring on the wall. Step into the swirl and you are back by the Cartographer\'s.', next: 'hi' },
+    bye: { text: 'Come back any time. The portal remembers you.', end: true },
+  } };
 }
 let travelling = false;
 const REGION_KEY = 'gametool.region';
@@ -3352,9 +3412,9 @@ function placeIn(to: RegionId, from: RegionId) {
     player.bounds = rig.bounds = companion.bounds = world.bounds;
     world.sky.setCentre(new THREE.Vector3());
     world.setTime(world.time);   // puts the town's fog back
-    const side = from === 'town' ? 'north' : REGIONS[from].side, e = TOWN_EXITS[side];
-    const at = new THREE.Vector3(e.inside[0], 0, e.inside[1]);
-    player.spawn(at, e.yaw);
+    const side = from === 'town' ? 'north' : REGIONS[from].side, e = TOWN_EXITS[side], home = from === 'town' ? undefined : REGIONS[from].home;
+    const at = home ? new THREE.Vector3(home.at[0], world.heightAt(home.at[0], home.at[1]), home.at[1]) : new THREE.Vector3(e.inside[0], 0, e.inside[1]);
+    player.spawn(at, home ? home.yaw : e.yaw);
     if (companion.prefs.follow) natalieRoot().position.copy(at).add(new THREE.Vector3(1.2, 0, 1.2));
     for (const p of pets) if (p.following) p.placeNear(at);
   } else {
@@ -3380,7 +3440,7 @@ function travel(to: RegionId, instant = false) {
   player.speedMul = 0;
   loadScreen.show(r ? r.name : 'Aralon', r ? r.line : 'Back down the road, home to the glade.', () => placeIn(to, from), () => {
     travelling = false; player.speedMul = 1;
-    if (r) toast(`${r.name}. The waystone by the path leads back to Aralon.`, 4200);
+    if (r) toast(`${r.name}. ${r.backHint ?? 'The waystone by the path leads back to Aralon.'}`, 4200);
   });
 }
 function exitCheck() {
@@ -4261,4 +4321,4 @@ const goblinSigns = buildGoblinSigns(library.group, world.colliders, ruinFloor);
 const goblinLife = buildGoblinLife(library.group, world.colliders, ruinFloor);
 const quadPlants = buildQuadPlants(library.group, world.scene, ruinFloor, libraryHoles());
 const magic = buildRareMagic(library.group, ruinFloor, libraryHoles(), floating.stones);   // Mike 2026-11-06: "occasional magic", rare and quiet
-Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
+Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
