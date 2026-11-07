@@ -115,6 +115,7 @@
     "e2e-morph-parts",
     "e2e-morph-body",
     "e2e-morph-perf",
-    "e2e-portal"
+    "e2e-portal",
+    "e2e-coinflip"
   ]
 }

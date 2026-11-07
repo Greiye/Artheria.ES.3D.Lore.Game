@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 58: B55, a coin-flip wager at Tam's table (Mike 2026-11-06, "Do it!")
+- A small round table with a stack of crowns stands in the street outside the Inn. After your first day, sit down at it.
+- Pick a stake (1, 5, 10 or 20 crowns, never more than you carry), call heads or tails, and the coin spins. A right call pays your stake back doubled; a wrong one and Tam keeps it.
+- The odds are on the table and on the sign: a fair coin, 1 in 2, pays 1:1. Your flips, wins and the net are kept. The map marks the table.
+- Tam is a placeholder name. Dice high/low and a card cut stay as later options.
+- New test: e2e-coinflip.
+
 ### v0.16 changelog, part 57: B56, a portal to the modern world (Mike 2026-11-06; friends named with their OK)
 - A stone ring with a purple swirl stands by the Cartographer's. After your first day (like the side games), step through it.
 - On the other side is one modern flat: a sofa facing a TV paused on an ARTHERIA title screen, a kitchen run, a desk with a laptop, a bookcase, a window on a city at dusk, and a locked front door. Each has something to look at.
