@@ -113,6 +113,7 @@ import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town
 import { KnightFrame, type Strike } from './mech/frame';
 import { pixelTexture } from './tex/pixel';
 import { CoinTable } from './coinflip';   // B55
+import { QuestGroups, GROUP_PURSE } from './quest/groups';   // B52/B53
 import { Regions, REGIONS, TOWN_EXITS, MODERN_FRIENDS, signpost, signBoard, swirlTexture, type RegionId, type Side } from './world/regions';
 import { LoadScreen } from './ui/loadscreen';
 import { FLOORS, band, BAND_NOTE, budgetFor, hpMul, dmgBonus, countFor, maxFoesFor, newDescent, loadRecord, saveRecord, addFallen, addSurvivor, isCamp, fluxFor, FLUX_NOTE, GUARDIAN_NAMES, carryOff, gearNear, GIFTS, hasGift, KITS, type Descent, type Flux, type LostGear } from './delve/descent';
@@ -238,6 +239,7 @@ setOutlines(settings.inkLines);
 const player = new Player(settings, world.colliders, world.bounds);
 // Mike 2026-11-05: the four far maps (src/world/regions.ts) have their own ground.
 const regions = new Regions(world.scene);
+const groups = new QuestGroups();   // B52/B53 quest groups (casebook)
 const groundY = (x: number, z: number) => (inDungeon ? 0 : regions.floor(x, z) ?? world.heightAt(x, z));
 player.terrain = groundY;   // v0.04 hills (the dungeon floor is flat)
 player.spawn(world.spawn.pos, world.spawn.yaw);
@@ -1004,6 +1006,7 @@ function natalieSawCreation() {
   }, TRANSMOGRIFY);
 }
 function openCharacterForge() {
+  groups.mark('station', 'mirror');   // B52/B53
   enterForge();
   // v0.06 S3: at the tailor, turn to face the street so the camera (in front of you) is never inside the building;
   // at the camp mirror, stand in front of the glass.
@@ -1061,6 +1064,7 @@ function forgePreviewRect() {
 // v0.04: the weapon forge opens at the camp anvil or at the town smithy, wherever you asked for it.
 const anvilSpot = world.stations.anvil.position.clone();
 function openWeaponForge(at: THREE.Vector3 = world.stations.anvil.position) {
+  groups.mark('station', 'anvil');   // B52/B53
   anvilSpot.copy(at);
   forgePreview.reset();   // v0.06 S4: it stays still; drag (a mouse or a finger) or the right stick turns it
   enterForge();
@@ -1113,6 +1117,7 @@ const sketchPad = station(new SketchPad(
   () => leaveForge(), forgeAuthor));
 stampBanner(world.bannerCloth, (() => { try { return sketchById(localStorage.getItem('gametool.banner') ?? '') ?? DEFAULT_SKETCH; } catch { return DEFAULT_SKETCH; } })());
 function openSketchbook(frame: 'banner' | 'body' = 'banner') {
+  groups.mark('station', 'sketchbook');   // B52/B53
   enterForge();
   if (frame === 'banner') {
     // v0.06 S5: the writing desk at camp. Stand at it with the quill; the camera takes in the desk and you.
@@ -1288,6 +1293,7 @@ let natalieWas: { x: number; z: number; ry: number } | null = null;
 // v0.05 §4.1: the bedroll is part of the camp. It unlocks once you've sat by the fire, and locks again when you leave camp.
 let satAtFire = false;
 function openCampfire() {
+  groups.mark('station', 'campfire');   // B52/B53
   satAtFire = true;
   autoSave();   // UX pass: sitting at the fire saves
   enterForge();
@@ -1304,7 +1310,7 @@ const cook = station(new CookPanel(() => { if (state === 'forge') campfire.el.cl
 cook.author = () => forgeAuthor();
 cook.onLearn = (r) => earn(3, `${r.name} recipe`, 'recipe:' + r.id);
 cook.onEat = (b) => { haptics.play('pickup'); toast(`🍽 ${BUFFS[b].name}: ${BUFFS[b].text}`, 3600); };
-campfire.onCook = () => { campfire.el.classList.add('hidden'); cook.open(); };
+campfire.onCook = () => { campfire.el.classList.add('hidden'); groups.mark('station', 'cooking'); cook.open(); };
 const recipeBook = station(new RecipeBook(cook, () => leaveForge()));
 function openRecipeBook() { if (state !== 'play' && state !== 'pause') return; enterForge(); recipeBook.open(); }
 let sturdy = false;   // B18: a "well fed" delve
@@ -1318,7 +1324,11 @@ const firstDay = new FirstDay(world.scene, {
 function firstDayOn() {
   try { return !navigator.webdriver || localStorage.getItem('gametool.firstdaytest') === 'on'; } catch { return !navigator.webdriver; }
 }
-casebook.extra = () => firstDay.casebookHtml();
+casebook.extra = () => firstDay.casebookHtml() + groups.html();   // B52/B53: the quest groups under the first day
+groups.onStep = (kind, name, n, total, finished) => {
+  if (finished) { earn(GROUP_PURSE, kind === 'npc' ? 'for meeting everyone in Aralon' : 'for using every station', 'group:' + kind); return; }
+  toast(kind === 'npc' ? `Met ${name}: ${n} of ${total} people (casebook).` : `${name}: ${n} of ${total} stations used (casebook).`, 2600);
+};
 // Lore-first item 4: the side games (dojo, spar, sky run, trapdoor) wait until a new friend's first day is done, so the
 // first thing they meet is the lore. The prompt still shows, so they know it's there for later.
 function sideGate(verb: string) { return firstDay.sideGamesOpen ? verb : `${verb} (after your first day)`; }
@@ -1476,12 +1486,14 @@ const COIN_AT = (() => {
   return { group: g, hit, at };
 })();
 function openCoinTable() {
+  groups.mark('npc', 'tam');
   enterForge();
   coinTable.open(() => inventory.count(CROWN), (d) => { if (d > 0) inventory.give(CROWN, d); else if (d < 0) inventory.take(CROWN, -d); }, () => leaveForge());
 }
 interactables.push({ obj: COIN_AT.hit, verb: () => sideGate("Flip a coin at Tam's table"), when: () => !inDungeon, act: () => sideGo(openCoinTable) });
 /** Start a run at floor 1 (from the trapdoor). */
 function startDescent(from = 1) {
+  groups.mark('station', 'descent');   // B52/B53
   descent = newDescent(from);
   record.runs++; saveRecord(record);
   // Mike 2026-11-05: through the trapdoor and down the stairs (src/cinematic/descend.ts); the floor is built under black.
@@ -2076,7 +2088,7 @@ function mapSights(): Sight[] {
     { x: PORTAL.at.x, z: PORTAL.at.z, icon: '◍', label: 'Portal', note: "Through to the modern world: a flat where Josh, Jason, Liv and Rev are.", ...(firstDay.sideGamesOpen ? {} : { locked: true }) },   // B56
   ];
 }
-function openMap() { if (state !== 'play' && state !== 'pause') return; enterForge(); livingMap.open(); }
+function openMap() { if (state !== 'play' && state !== 'pause') return; groups.mark('station', 'map'); enterForge(); livingMap.open(); }
 let mapClock = 0;
 // ---------- Phase F: B14 dojo (your character demonstrates; you follow the beginner-safe version) ----------
 const dojoBoard = buildDojo(world.scene, world.colliders);
@@ -2095,6 +2107,7 @@ const dojo = station(new DojoPanel((d) => {
 }, () => { if (dojoView !== null) { player.thirdPerson = dojoView; dojoView = null; } leaveForge(); }, forgeAuthor));
 function openDojo() {
   if (state !== 'play' && state !== 'pause') return;
+  groups.mark('station', 'dojo');   // B52/B53
   enterForge();
   if (dojoView === null) { dojoView = player.thirdPerson; player.thirdPerson = true; }
   rig.setShot({ pos: new THREE.Vector3(DOJO.x - 1.7, 1.6, DOJO.z + 3.2), look: new THREE.Vector3(DOJO.x - 2, 1, DOJO.z), fov: 44 });
@@ -2199,6 +2212,7 @@ world.colliders.push({ kind: 'box', minX: PERCH.x - 1.75, maxX: PERCH.x + 1.75, 
 interactables.push({ obj: perch.hit, verb: () => sideGate(sky.record.wins ? `Fly a sky run (${sky.record.wins} won)` : 'Fly a sky run'), act: () => sideGo(() => openSky()), when: () => !inDungeon });
 function openSky(seed?: number) {
   if (state !== 'play') return;
+  groups.mark('station', 'skyrunner');   // B52/B53
   enterForge();
   sky.open(seed);
 }
@@ -2248,6 +2262,7 @@ function candorScript(): DialogueScript {
   } };
 }
 function startLesson() {
+  groups.mark('station', 'archery');   // B52/B53
   const seen = new Set<object>([...crossbow.bolts, ...crossbow2.bolts]);
   lesson = { hit: world.archery.map(() => false), seen, shots: 0 };
   toast('Candor: "Three butts. Crossbow in hand, raise it (right mouse / LT), steady, loose. One bolt in each."', 5000);
@@ -2516,6 +2531,7 @@ function openCaravan(id: string) {
   if (state !== 'play') return;
   const f = caravanFolk.find((c) => c.id === id);
   if (!f) return;
+  groups.mark('npc', id);   // B52
   enterForge();
   if (caravanView === null) { caravanView = player.thirdPerson; player.thirdPerson = true; }
   caravan.open(f.talk);
@@ -2696,6 +2712,7 @@ const skillTable = buildSkillTable(world.scene, world.colliders, world.heightAt)
 const skills = station(new SkillsPanel((s) => earn(s.reward, `${s.name} card`, 'skill:' + s.id), () => leaveForge()));
 function openSkills() {
   if (state !== 'play') return;
+  groups.mark('station', 'skills');   // B52/B53
   enterForge();
   const { x, z } = SKILL_TABLE;
   player.spawn(new THREE.Vector3(x - 1.1, 0, z), Math.PI / 2);
@@ -2717,6 +2734,7 @@ const GRIND = grindstonePos(TOWN_LOTS.find((l) => l.id === 'smithy')!);
 const grind = buildGrindstone(world.scene, world.colliders, GRIND, world.heightAt(GRIND.x, GRIND.z));
 function openGear() {
   if (state !== 'play') return;
+  groups.mark('station', 'grindstone');   // B52/B53
   enterForge();
   const f = new THREE.Vector3(Math.sin(GRIND.ry), 0, Math.cos(GRIND.ry)), r = new THREE.Vector3(Math.cos(GRIND.ry), 0, -Math.sin(GRIND.ry));
   const at = new THREE.Vector3(GRIND.x, 0, GRIND.z).addScaledVector(f, 0.9).addScaledVector(r, 0.3);
@@ -2861,6 +2879,7 @@ interactables.push(
 // v0.04 town: one building per tool. E at a door opens it; the shopkeeper trades at the counter.
 const shop = station(new ShopPanel(inventory, () => leaveForge()));
 function openShop() {
+  groups.mark('npc', 'shopkeeper');   // B52
   enterForge();
   const k = world.town.shopkeeper.position, top = new THREE.Vector3(k.x, 1.3, k.z);
   const ry = world.town.shopkeeper.rotation.y, c = Math.cos(ry), sn = Math.sin(ry);
@@ -2913,7 +2932,7 @@ const rockPiles: THREE.Object3D[] = [];
     interactables.push({ obj: hit, verb: () => 'Gather rocks', act: () => { inventory.give('rock', 5); haptics.play('pickup'); gesture('pickup'); toast('Five good throwing stones.', 1600); }, when: () => !inDungeon });
   });
 }
-interactables.push({ obj: smithCounter, verb: () => 'Buy arms from the smith', act: () => { enterForge(); smithShop.open(); }, when: () => !inDungeon });
+interactables.push({ obj: smithCounter, verb: () => 'Buy arms from the smith', act: () => { groups.mark('npc', 'smith'); enterForge(); smithShop.open(); }, when: () => !inDungeon });
 /** A point `ahead` metres out of a town door, on the ground. */
 const outOfDoor = (id: TownId, ahead: number) => { const d = world.town.doors[id]; return new THREE.Vector3(d.position.x + Math.sin(d.rotation.y) * ahead, 0, d.position.z + Math.cos(d.rotation.y) * ahead); };
 const townAct: Record<TownId, () => void> = {
@@ -2937,7 +2956,7 @@ interactables.push({ obj: world.town.shopkeeperHit, verb: () => 'Trade with the 
 // (assets/cinema/) on a screen in a gap of the town ring.
 const { reelScreen, projectionistHit } = buildCinemaSpot(world);
 const cinema = station(new CinemaPanel(reelScreen, () => leaveForge()));
-function openCinema() { enterForge(); cinema.open(); }
+function openCinema() { groups.mark('station', 'cinema'); enterForge(); cinema.open(); }
 // v0.06 T3: the reels' sound comes from the screen; the fire's music from the fire.
 cinema.onVideo = (v) => { const p = reelScreen.position; audio.attachMedia(v, 'cinema', p.x, p.y, p.z, 24); };
 let fireOut: AudioNode | null = null;
@@ -3084,6 +3103,7 @@ dialogue.onEnd = () => {
 };
 function talkTo(who: string, at: THREE.Vector3, script: DialogueScript) {
   dialogueWith = who;
+  groups.mark('npc', who.replace(/^modern:/, ''));   // B52
   gesture('wave');   // B34: say hello
   setState('dialogue');   // F3.3: frees the pointer, freezes movement
   rig.setShot(rig.twoShot(at, 1.55));
@@ -3093,6 +3113,7 @@ function talkTo(who: string, at: THREE.Vector3, script: DialogueScript) {
 // B50: the first talk opens with a short cinematic (not on Low power or with reduced motion: straight to the box).
 const firstMeet = new FirstMeeting((s) => rig.setShot(s));
 function talkToNatalie() {
+  groups.mark('npc', 'natalie');   // B52
   if (quest.stage === 'none' && !metNatalie() && !firstMeet.active && settings.preset !== 'lowpower' && !reducedMotion.matches) {
     const n = natalieRoot();
     dialogueWith = 'natalie';
@@ -3673,6 +3694,7 @@ interactables.push({
 });
 let viewBeforeFrame: View | null = null;
 function enterFrame() {
+  groups.mark('station', 'knight');   // B52/B53
   if (crossbow.equipped) equip(false);
   handDown.left = handDown.right = false; syncAim();
   if (torch.lit) toggleTorch();
@@ -4348,4 +4370,4 @@ const goblinSigns = buildGoblinSigns(library.group, world.colliders, ruinFloor);
 const goblinLife = buildGoblinLife(library.group, world.colliders, ruinFloor);
 const quadPlants = buildQuadPlants(library.group, world.scene, ruinFloor, libraryHoles());
 const magic = buildRareMagic(library.group, ruinFloor, libraryHoles(), floating.stones);   // Mike 2026-11-06: "occasional magic", rare and quiet
-Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
+Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, groups, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
