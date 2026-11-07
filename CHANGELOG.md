@@ -7,6 +7,15 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 48: the Ruined Library looks its age, 9: a little magic (Mike 2026-11-06, Graphics thread: "But also occasional magic. This is good too, 10% of the time.")
+- The hall is still mostly rubble and goblin mess. The magic is rare and quiet.
+- **Three fallen blocks still carry a glowing rune**, pale blue, slowly breathing in and out.
+- **A rune circle on the floor**, a third of it scuffed away by goblin feet.
+- **A book on a stand turns its own pages**, one every few seconds, with a soft glow over it.
+- **Motes of light drift down** through two of the holes in the roof.
+- Outside, **a faint blue hum hangs under one of the floating stones**.
+- None of it adds a light: every glow is drawn without lighting, so it costs next to nothing on a phone.
+
 ### v0.16 changelog, part 47: the Ruined Library looks its age, 8: floating stone (Mike 2026-11-06, Graphics thread: "Exterior has floating broken stone structures to really emphasize the magic of the place.")
 - **Broken pieces of the old library hang in the air** round it: a length of wall, an arch, a short flight of stairs and two columns, each sitting on an upturned crag of rock with grass on top and loose stones dangling underneath.
 - They drift. Each one bobs and turns slowly on its own rhythm, and the undersides catch a faint cool light.
