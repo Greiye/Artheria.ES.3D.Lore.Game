@@ -14,10 +14,25 @@ import { storeSet } from '../store';
 // phrasebook, where you write down what you think it means (the game never tells you).
 export const CARAVAN = { x: -20, z: 1.8 };
 const KEY = 'gametool.spanish';
-interface Phrase { es: string; who: string; note: string }
+interface Phrase { es: string; who: string; note: string; romaji?: string }
+
+/** B23: what makes a talk panel one language: the Spanish caravan, the Japanese tea house, the Tagalog market. */
+export interface LangPack {
+  lang: 'es' | 'ja' | 'tl';
+  key: string;          // localStorage key for steps, done and phrases
+  panelId: string;      // the panel element's id
+  voice: string;        // speech synthesis language
+  eyebrow: string; placeholder: string; listen: string; bye: string;
+  stranger: string; strangerRomaji?: string;   // {name} when the hero has none
+  puzzled: { es: string; cue: string; gesture: string; romaji?: string }[];
+  /** Japanese has no spaces between words: match typed words anywhere. */
+  unspaced?: boolean;
+  bookTitle: string;    // the phrasebook section
+  where: string;        // where to find them, for an empty phrasebook
+}
 interface SpanishState { step: Record<string, number>; done: string[]; phrases: Phrase[]; write: boolean }
 
-interface CaravanFolk { id: string; talk: Talk; root: THREE.Group; hit: THREE.Mesh; stand: THREE.Vector3 }
+export interface CaravanFolk { id: string; talk: Talk; root: THREE.Group; hit: THREE.Mesh; stand: THREE.Vector3 }
 
 export function buildCaravan(scene: THREE.Scene, colliders: Collider[], heightAt: (x: number, z: number) => number): CaravanFolk[] {
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -59,55 +74,71 @@ export function buildCaravan(scene: THREE.Scene, colliders: Collider[], heightAt
   );
   // The three people, standing toward the road, each with an invisible box to look at and press E on.
   const spots: Record<string, [number, number, number]> = { cook: [cx + 0.75, cz - 0.15, -1.2], weaver: [wx, wz - 0.7, Math.PI], muleteer: [mx - 0.4, mz - 1.0, Math.PI * 0.85] };
-  return TALKS.map((talk, i) => {
-    const [px, pz, yaw] = spots[talk.id], r = rollTownsfolk(9100 + i * 37);
+  return buildFolk(scene, colliders, heightAt, TALKS, spots, 9100, 'caravan');
+}
+
+/** The people of a talk spot: a figure each at spots[id] = [x, z, yaw], an invisible box to press E on, and where
+ *  you stand to talk. Names are prefix:id (the puppet and the hit box). */
+export function buildFolk(scene: THREE.Scene, colliders: Collider[], heightAt: (x: number, z: number) => number, talks: Talk[], spots: Record<string, [number, number, number]>, seed: number, prefix: string): CaravanFolk[] {
+  return talks.map((talk, i) => {
+    const [px, pz, yaw] = spots[talk.id], r = rollTownsfolk(seed + i * 37);
     const root = buildFigure({ ...r.look, ...talk.look }, r.height);
-    root.position.set(px, heightAt(px, pz), pz); root.rotation.y = yaw; root.name = 'caravan:' + talk.id;
-    root.userData.folk = { id: 'caravan:' + talk.id, name: talk.role, role: 'chat', root, speed: 0, talking: false, pose: null, active: true };
+    root.position.set(px, heightAt(px, pz), pz); root.rotation.y = yaw; root.name = prefix + ':' + talk.id;
+    root.userData.folk = { id: prefix + ':' + talk.id, name: talk.role, role: 'chat', root, speed: 0, talking: false, pose: null, active: true };
     scene.add(root);
     colliders.push({ kind: 'circle', x: px, z: pz, r: 0.3 });
     const hit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.9, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.set(px, root.position.y + 0.95, pz); hit.name = 'caravan-hit:' + talk.id; scene.add(hit);
+    hit.position.set(px, root.position.y + 0.95, pz); hit.name = prefix + '-hit:' + talk.id; scene.add(hit);
     const stand = new THREE.Vector3(px + Math.sin(yaw) * 1.6, 0, pz + Math.cos(yaw) * 1.6);
     return { id: talk.id, talk, root, hit, stand };
   });
 }
 
 /** Lower case, no accents, no ¡¿!?.,; so "¡Sí, claro!" and "si claro" match. */
-export const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[¡¿!?.,;:"'()]/g, ' ').replace(/\s+/g, ' ').trim();
-function accepts(line: Line, typed: string): boolean {
+export const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[¡¿!?.,;:"'()。、！？「」・〜~-]/g, ' ').replace(/\s+/g, ' ').trim();
+function accepts(line: Line, typed: string, unspaced = false): boolean {
+  if (unspaced) {   // B23: Japanese, in kana, kanji or romaji: a known word anywhere in the reply
+    const t = norm(typed).replace(/\s/g, '');
+    if (t.length < 1 || (t.length < 2 && !/[^\x00-\x7f]/.test(t))) return false;
+    if ((line.wrongTyped ?? []).some((w) => t.includes(norm(w).replace(/\s/g, '')))) return false;
+    return line.typed.some((w) => t.includes(norm(w).replace(/\s/g, '')));
+  }
   const t = ` ${norm(typed)} `;
   if (t.trim().length < 2) return false;
   if ((line.wrongTyped ?? []).some((w) => t.includes(` ${norm(w)} `))) return false;
   return line.typed.some((w) => t.includes(` ${norm(w)} `));
 }
-const PUZZLED = [
+const PUZZLED: LangPack['puzzled'] = [
   { es: '¿Cómo?', cue: '🤷', gesture: 'tilts their head and waits.' },
   { es: 'No te entiendo.', cue: '😕', gesture: 'frowns kindly and shrugs.' },
   { es: '¿Perdón? Otra vez, por favor.', cue: '👂', gesture: 'cups a hand to their ear.' },
 ];
+export const ES_PACK: LangPack = {
+  lang: 'es', key: KEY, panelId: 'caravan', voice: 'es-ES', eyebrow: 'Caravan · solo en español', placeholder: 'Escribe en español…',
+  listen: '🔊 Otra vez', bye: 'Adiós', stranger: 'Viajero', puzzled: PUZZLED, bookTitle: 'Spanish · the caravan', where: 'The caravan camps by the coach road, west of the glade.',
+};
 
 export class CaravanPanel {
   readonly el: HTMLDivElement;
   st: SpanishState;
   talk: Talk | null = null;
   /** The last wrong reply, shown as the NPC's puzzled answer (in Spanish). */
-  private puzzled: typeof PUZZLED[number] | null = null;
+  private puzzled: LangPack['puzzled'][number] | null = null;
   private struck = new Set<number>();
   private lastSaid = '';
   /** Speaks a Spanish line aloud (es-ES), when the browser can. */
   speak: (es: string) => void = (es) => {
     try {
       if (navigator.webdriver || !('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(es); u.lang = 'es-ES'; u.rate = 0.85;
+      const u = new SpeechSynthesisUtterance(es); u.lang = this.pack.voice; u.rate = 0.85;
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     } catch { /* no voice */ }
   };
 
-  constructor(private onTalk: (t: Talk | null) => void, private onDone: (t: Talk) => void, private onClose: () => void, private heroName: () => string) {
+  constructor(private onTalk: (t: Talk | null) => void, private onDone: (t: Talk) => void, private onClose: () => void, private heroName: () => string, readonly pack: LangPack = ES_PACK) {
     this.st = this.load();
     this.el = document.createElement('div');
-    this.el.id = 'caravan';
+    this.el.id = pack.panelId;
     this.el.className = 'forge hidden';
     document.body.appendChild(this.el);
     this.el.addEventListener('click', (e) => this.click(e));
@@ -115,11 +146,11 @@ export class CaravanPanel {
   }
   private load(): SpanishState {
     try {
-      const v = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+      const v = JSON.parse(localStorage.getItem(this.pack.key) ?? '{}');
       return { step: v.step && typeof v.step === 'object' ? v.step : {}, done: Array.isArray(v.done) ? v.done : [], phrases: Array.isArray(v.phrases) ? v.phrases : [], write: !!v.write };
     } catch { return { step: {}, done: [], phrases: [], write: false }; }
   }
-  save() { storeSet(KEY, JSON.stringify(this.st)); }
+  save() { storeSet(this.pack.key, JSON.stringify(this.st)); }
   get isOpen() { return !this.el.classList.contains('hidden'); }
   get talking() { return this.isOpen && !!this.talk; }
 
@@ -132,27 +163,29 @@ export class CaravanPanel {
   close() { if (!this.isOpen) return; try { speechSynthesis?.cancel(); } catch { /* none */ } this.el.classList.add('hidden'); this.talk = null; this.onTalk(null); this.onClose(); }
 
   get line(): Line | null { return this.talk ? this.talk.lines[this.st.step[this.talk.id] ?? 0] ?? null : null; }
-  private fill(s: string) { return s.replace('{name}', this.heroName() || 'Viajero'); }
+  private fill(s: string, latin = false) { return s.replace('{name}', this.heroName() || (latin ? this.pack.strangerRomaji ?? this.pack.stranger : this.pack.stranger)); }
   private say() { const l = this.line; if (l) { this.lastSaid = this.fill(l.es); this.speak(this.lastSaid); } }
 
-  addPhrase(es: string, who: string) {
+  addPhrase(es: string, who: string, romaji?: string) {
     if (!es || this.st.phrases.some((p) => p.es === es)) return;
-    this.st.phrases.push({ es, who, note: '' });
+    this.st.phrases.push(romaji ? { es, who, note: '', romaji } : { es, who, note: '' });
   }
   /** Answer the current line with option i (or a typed reply). Returns true when it was understood. */
   answer(i: number | string): boolean {
     const t = this.talk, l = this.line;
     if (!t || !l) return false;
-    const ok = typeof i === 'number' ? !!l.answers[i]?.ok : accepts(l, i);
+    const ok = typeof i === 'number' ? !!l.answers[i]?.ok : accepts(l, i, this.pack.unspaced);
     if (!ok) {
       if (typeof i === 'number') this.struck.add(i);
-      this.puzzled = PUZZLED[(this.struck.size + (typeof i === 'string' ? 1 : 0)) % PUZZLED.length];
+      const pz = this.pack.puzzled;
+      this.puzzled = pz[(this.struck.size + (typeof i === 'string' ? 1 : 0)) % pz.length];
       this.speak(this.puzzled.es);
       this.render();
       return false;
     }
-    this.addPhrase(this.fill(l.es), t.role);
-    this.addPhrase(typeof i === 'number' ? this.fill(l.answers[i].es) : i.trim().slice(0, 80), 'you');
+    this.addPhrase(this.fill(l.es), t.role, l.romaji && this.fill(l.romaji, true));
+    const a = typeof i === 'number' ? l.answers[i] : null;
+    this.addPhrase(a ? this.fill(a.es) : (i as string).trim().slice(0, 80), 'you', a?.romaji && this.fill(a.romaji, true));
     this.puzzled = null; this.struck.clear();
     const next = (this.st.step[t.id] ?? 0) + 1;
     this.st.step[t.id] = next;
@@ -182,23 +215,25 @@ export class CaravanPanel {
     const t = this.talk;
     if (!t) return;
     const l = this.line, finished = !l;
-    const shown = this.puzzled ?? (l ? { es: this.fill(l.es), cue: l.cue, gesture: l.gesture } : { ...t.farewell, es: this.fill(t.farewell.es) });
+    const P = this.pack, lg = P.lang;
+    const shown = this.puzzled ?? (l ? { es: this.fill(l.es), cue: l.cue, gesture: l.gesture, romaji: l.romaji && this.fill(l.romaji, true) } : { ...t.farewell, es: this.fill(t.farewell.es), romaji: t.farewell.romaji && this.fill(t.farewell.romaji, true) });
+    const rom = (r?: string) => r ? `<span class="es-romaji" lang="${lg}-Latn">${escapeHtml(r)}</span>` : '';
     const choices = !l ? '' : this.st.write
-      ? `<form class="es-write"><input id="esType" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="80" placeholder="Escribe en español…" lang="es"><button class="primary" type="submit">✓</button></form>`
-      : `<div class="es-answers">${l.answers.map((a, i) => `<button class="secondary${this.struck.has(i) ? ' struck' : ''}" data-ans="${i}"${this.struck.has(i) ? ' disabled' : ''} lang="es">${escapeHtml(this.fill(a.es))}</button>`).join('')}</div>`;
+      ? `<form class="es-write"><input id="esType" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="80" placeholder="${escapeHtml(P.placeholder)}" lang="${lg}"><button class="primary" type="submit">✓</button></form>`
+      : `<div class="es-answers">${l.answers.map((a, i) => `<button class="secondary${this.struck.has(i) ? ' struck' : ''}" data-ans="${i}"${this.struck.has(i) ? ' disabled' : ''} lang="${lg}">${escapeHtml(this.fill(a.es))}${rom(a.romaji && this.fill(a.romaji, true))}</button>`).join('')}</div>`;
     this.el.innerHTML = `
-      <div class="forge-panel caravan-panel">
-        <div class="eyebrow">Caravan · solo en español</div>
-        <h2 lang="es">${escapeHtml(t.role)}</h2>
+      <div class="forge-panel caravan-panel" data-lang="${lg}">
+        <div class="eyebrow" lang="${lg}">${escapeHtml(P.eyebrow)}</div>
+        <h2 lang="${lg}">${escapeHtml(t.role)}${rom(t.roleRomaji)}</h2>
         <div class="es-cue" aria-hidden="true">${shown.cue}</div>
-        <blockquote class="es-line" lang="es">${escapeHtml(shown.es)}</blockquote>
+        <blockquote class="es-line" lang="${lg}">${escapeHtml(shown.es)}</blockquote>${shown.romaji ? `<p class="es-romaji" lang="${lg}-Latn">${escapeHtml(shown.romaji)}</p>` : ''}
         <p class="es-gesture"><i>${escapeHtml(t.pronoun)} ${escapeHtml(shown.gesture)}</i></p>
         ${finished ? `<p class="fine">Every line you got through is in your phrasebook (Journal → Phrasebook).</p>
           <div class="forge-actions"><button class="secondary" id="esAgain">Talk again</button></div>` : choices}
         <div class="forge-actions es-tools">
-          <button class="secondary" id="esListen" title="Hear it again">🔊 Otra vez</button>
+          <button class="secondary" id="esListen" title="Hear it again" lang="${lg}">${escapeHtml(P.listen)}</button>
           ${finished ? '' : `<button class="secondary" id="esMode">${this.st.write ? 'Pick a reply' : 'Write my reply'}</button>`}
-          <button class="secondary" id="esClose">Adiós</button>
+          <button class="secondary" id="esClose" lang="${lg}">${escapeHtml(P.bye)}</button>
         </div>
       </div>`;
   }
@@ -207,7 +242,10 @@ export class CaravanPanel {
 /** The Journal's phrasebook: every Spanish line you got through, with your own guess at its meaning. */
 export class Phrasebook {
   readonly el: HTMLDivElement;
-  constructor(private panel: CaravanPanel, private onClose: () => void) {
+  private panels: CaravanPanel[];
+  /** B23: one phrasebook for every language you've heard; each panel keeps its own phrases. */
+  constructor(panel: CaravanPanel | CaravanPanel[], private onClose: () => void) {
+    this.panels = Array.isArray(panel) ? panel : [panel];
     this.el = document.createElement('div');
     this.el.id = 'phrasebook';
     this.el.className = 'forge hidden';
@@ -215,23 +253,24 @@ export class Phrasebook {
     this.el.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#pbClose')) this.close(); });
     this.el.addEventListener('change', (e) => {
       const inp = e.target as HTMLInputElement;
-      const p = this.panel.st.phrases[Number(inp.dataset.i)];
-      if (p) { p.note = inp.value.trim().slice(0, 120); this.panel.save(); }
+      const panel = this.panels[Number(inp.dataset.p ?? 0)], p = panel?.st.phrases[Number(inp.dataset.i)];
+      if (panel && p) { p.note = inp.value.trim().slice(0, 120); panel.save(); }
     });
   }
   get isOpen() { return !this.el.classList.contains('hidden'); }
   open() { this.render(); this.el.classList.remove('hidden'); }
   close() { if (!this.isOpen) return; this.el.classList.add('hidden'); this.onClose(); }
   render() {
-    const ps = this.panel.st.phrases;
+    const heard = this.panels.map((panel, pi) => ({ panel, pi })).filter((x) => x.panel.st.phrases.length);
+    const list = ({ panel, pi }: { panel: CaravanPanel; pi: number }) => `<ol class="pb-list" data-lang="${panel.pack.lang}">${panel.st.phrases.map((p, i) => `<li><span class="pb-es" lang="${panel.pack.lang}">${escapeHtml(p.es)}</span>${p.romaji ? `<span class="pb-romaji" lang="${panel.pack.lang}-Latn">${escapeHtml(p.romaji)}</span>` : ''}<span class="fine">${p.who === 'you' ? 'you said' : `<span lang="${panel.pack.lang}">${escapeHtml(p.who)}</span>`}</span>
+          <input type="text" data-p="${pi}" data-i="${i}" maxlength="120" value="${escapeHtml(p.note)}" placeholder="What I think it means" aria-label="What I think it means"></li>`).join('')}</ol>`;
     this.el.innerHTML = `
       <div class="forge-panel phrasebook-panel">
         <div class="eyebrow">Journal · Phrasebook</div>
         <h2>Phrasebook</h2>
-        <p class="fine">Lines from the caravan, in the words they were said. Write what you think each one means; nobody will tell you.</p>
-        ${ps.length ? `<ol class="pb-list">${ps.map((p, i) => `<li><span class="pb-es" lang="es">${escapeHtml(p.es)}</span><span class="fine">${p.who === 'you' ? 'you said' : escapeHtml(p.who)}</span>
-          <input type="text" data-i="${i}" maxlength="120" value="${escapeHtml(p.note)}" placeholder="What I think it means" aria-label="What I think it means"></li>`).join('')}</ol>`
-          : '<p class="fine">Empty. The caravan camps by the coach road, west of the glade.</p>'}
+        <p class="fine">Lines you heard, in the words they were said. Write what you think each one means; nobody will tell you.</p>
+        ${heard.length ? heard.map((h) => (this.panels.length > 1 ? `<h3 class="pb-lang">${escapeHtml(h.panel.pack.bookTitle)}</h3>` : '') + list(h)).join('')
+          : `<p class="fine">Empty. ${this.panels.map((p) => escapeHtml(p.pack.where)).join(' ')}</p>`}
         <div class="forge-actions"><button class="secondary" id="pbClose">Close</button></div>
       </div>`;
   }

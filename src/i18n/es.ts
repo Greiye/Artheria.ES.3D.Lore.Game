@@ -79,12 +79,17 @@ export const ES: Record<string, string> = {
   'Talk to Candor (lesson on)': 'Hablar con Candor (lección en curso)', 'Fly a sky run': 'Volar una carrera aérea',
   // The people (as the prompt and lists name them)
   'the cook (Spanish)': 'la cocinera (en español)', 'the weaver (Spanish)': 'la tejedora (en español)', 'the muleteer (Spanish)': 'el arriero (en español)',
+  'the tea seller (Japanese)': 'la vendedora de té (en japonés)', 'the potter (Japanese)': 'la alfarera (en japonés)', 'the fisher (Japanese)': 'el pescador (en japonés)',
+  'the fruit seller (Tagalog)': 'la frutera (en tagalo)', 'the fisherman (Tagalog)': 'el pescador (en tagalo)', 'Lola, the grandmother (Tagalog)': 'Lola, la abuela (en tagalo)', 'the child (Tagalog)': 'el niño (en tagalo)',
   'the Shopkeeper': 'el Tendero', 'the smith': 'el herrero', 'the Projectionist': 'el Proyeccionista', 'the wagoner': 'el carretero',
   // Common buttons and words in panels
   'Close': 'Cerrar', 'Back': 'Volver', 'Save': 'Guardar', 'Done': 'Hecho', 'Yes': 'Sí', 'No': 'No', 'OK': 'Vale', 'Next': 'Siguiente', 'Previous': 'Anterior',
   'Leave': 'Salir', 'Buy': 'Comprar', 'Sell': 'Vender', 'Delete': 'Borrar', 'Share': 'Compartir', 'Send': 'Enviar', 'Export': 'Exportar', 'Import': 'Importar',
   'Clear': 'Borrar', 'Undo': 'Deshacer', 'Redo': 'Rehacer', 'Random': 'Al azar', 'Reset': 'Restablecer', 'Talk again': 'Hablar otra vez', 'Pick a reply': 'Elegir respuesta',
-  'Write my reply': 'Escribir mi respuesta', 'Leave the table': 'Dejar la mesa', 'Heads or Tails': 'Cara o cruz',
+  'Write my reply': 'Escribir mi respuesta', 'Every line you got through is in your phrasebook (Journal → Phrasebook).': 'Cada frase que superaste está en tu libro de frases (Diario → Libro de frases).',
+  'Lines you heard, in the words they were said. Write what you think each one means; nobody will tell you.': 'Frases que oíste, tal como se dijeron. Escribe lo que crees que significa cada una; nadie te lo dirá.',
+  'What I think it means': 'Lo que creo que significa', 'you said': 'dijiste', 'Journal · Phrasebook': 'Diario · Libro de frases', 'Hear it again': 'Escuchar otra vez',
+  'Spanish · the caravan': 'Español · la caravana', 'Japanese · the tea house': 'Japonés · la casa de té', 'Tagalog · the market': 'Tagalo · el mercado', 'Leave the table': 'Dejar la mesa', 'Heads or Tails': 'Cara o cruz',
 };
 
 // "{x}" matches any text; a known string inside it is translated too.

@@ -86,7 +86,9 @@ import { MagicMissile } from './missile';
 import type { Fighter } from './fight/engine';
 import type { Level } from './fight/ai';
 import { pushupCardHtml } from './dojo/card';
-import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN } from './spanish/caravan';
+import { buildCaravan, CaravanPanel, Phrasebook, CARAVAN, type CaravanFolk } from './spanish/caravan';
+import { buildTeahouse, JA_PACK, TEAHOUSE } from './langs/japanese';
+import { buildPalengke, TL_PACK, PALENGKE } from './langs/tagalog';
 import './spanish/caravan.css';
 import { WikiPanel, buildWikiLectern } from './wiki';
 import { buildSkillTable, SkillsPanel, SkillsBook, SKILL_TABLE } from './skills/skills';
@@ -2117,6 +2119,8 @@ function mapSights(): Sight[] {
     { x: st.campfire.position.x, z: st.campfire.position.z, icon: '♨', label: 'Camp', note: 'The campfire (write lore, tell stories, play music), the mirror (make your hero), the anvil (forge a weapon) and the sketchbook (draw your banner).' },
     { x: kv.x, z: kv.z, icon: '✊', label: 'Kavik', note: 'Spar with him (best of 3). Drills in the dojo.' },
     { x: CARAVAN.x, z: CARAVAN.z, icon: '⛺', label: 'Caravan', note: 'Travellers who teach you Spanish phrases.' },
+    { x: TEAHOUSE.x, z: TEAHOUSE.z, icon: '🍵', label: 'Tea house', note: 'A tea seller, a potter and a fisher who speak only Japanese.' },   // B23
+    { x: PALENGKE.x, z: PALENGKE.z, icon: '🥭', label: 'Market corner', note: 'A fruit seller, a fisherman, Lola and a child who speak only Tagalog.' },   // B23
     { x: SKILL_TABLE.x, z: SKILL_TABLE.z, icon: '✦', label: 'Practice table', note: 'Skill cards: practise and level up.' },
     { x: GRIND.x, z: GRIND.z, icon: '◎', label: 'Grindstone', note: 'Sharpen your blade.' },
     { x: reelScreen.position.x, z: reelScreen.position.z, icon: '▶', label: 'Cinema', note: 'Watch reels on the town screen.' },
@@ -2549,32 +2553,46 @@ function syncFight(dt: number) {
 }
 
 // ---------- B16: the Spanish caravan by the coach road (never translated; a phrasebook in the Journal) ----------
+// B23 (Mike 2026-11-08): the same kind of talk in Japanese (the tea house) and Tagalog (the market corner).
 const caravanFolk = buildCaravan(world.scene, world.colliders, world.heightAt);
+const teaFolk = buildTeahouse(world.scene, world.colliders, world.heightAt);
+const marketFolk = buildPalengke(world.scene, world.colliders, world.heightAt);
 for (const f of caravanFolk) puppets.set('caravan:' + f.id, figureOf(f.root));
+for (const f of teaFolk) puppets.set('teahouse:' + f.id, figureOf(f.root));
+for (const f of marketFolk) puppets.set('palengke:' + f.id, figureOf(f.root));
 let caravanView: boolean | null = null;
-const caravan = station(new CaravanPanel((t) => {
-  for (const f of caravanFolk) f.root.userData.folk.talking = !!t && f.id === t.id;
-  const f = t && caravanFolk.find((c) => c.id === t.id);
+/** Stand face to face with whoever is talking; the camera looks past your shoulder at their face. */
+const faceFolk = (folk: CaravanFolk[]) => (t: { id: string } | null) => {
+  for (const f of folk) f.root.userData.folk.talking = !!t && f.id === t.id;
+  const f = t && folk.find((c) => c.id === t.id);
   if (!f) return;
-  // Stand in front of them, face to face; the camera looks past your shoulder at their face.
   const at = f.root.position, yaw = Math.atan2(at.x - f.stand.x, at.z - f.stand.z);
   player.spawn(f.stand.clone(), yaw);
   const tall = innerHeight > innerWidth, back = new THREE.Vector3(f.stand.x - at.x, 0, f.stand.z - at.z).normalize();
   const side = new THREE.Vector3(back.z, 0, -back.x);
   rig.setShot(tall ? { pos: at.clone().addScaledVector(back, 3.6).setY(at.y + 2.2), look: at.clone().setY(at.y + 0.6), fov: 50 }
     : { pos: at.clone().addScaledVector(back, 3.4).addScaledVector(side, 0.9).setY(at.y + 1.8), look: at.clone().addScaledVector(side, -1.3).setY(at.y + 1.35), fov: 44 });   // side = camera right: they sit right of the panel
-}, (t) => earn(t.reward, 'a talk in Spanish', 'es:' + t.id), () => { if (caravanView !== null) { player.thirdPerson = caravanView; caravanView = null; } leaveForge(); }, () => character.name));
-function openCaravan(id: string) {
+};
+const talkClosed = () => { if (caravanView !== null) { player.thirdPerson = caravanView; caravanView = null; } leaveForge(); };
+const caravan = station(new CaravanPanel(faceFolk(caravanFolk), (t) => earn(t.reward, 'a talk in Spanish', 'es:' + t.id), talkClosed, () => character.name));
+const teahouse = station(new CaravanPanel(faceFolk(teaFolk), (t) => earn(t.reward, 'a talk in Japanese', 'ja:' + t.id), talkClosed, () => character.name, JA_PACK));
+const palengke = station(new CaravanPanel(faceFolk(marketFolk), (t) => earn(t.reward, 'a talk in Tagalog', 'tl:' + t.id), talkClosed, () => character.name, TL_PACK));
+function openTalk(panel: CaravanPanel, folk: CaravanFolk[], id: string, group: boolean) {
   if (state !== 'play') return;
-  const f = caravanFolk.find((c) => c.id === id);
+  const f = folk.find((c) => c.id === id);
   if (!f) return;
-  groups.mark('npc', id);   // B52
+  if (group) groups.mark('npc', id);   // B52
   enterForge();
   if (caravanView === null) { caravanView = player.thirdPerson; player.thirdPerson = true; }
-  caravan.open(f.talk);
+  panel.open(f.talk);
 }
+const openCaravan = (id: string) => openTalk(caravan, caravanFolk, id, true);
+const openTeahouse = (id: string) => openTalk(teahouse, teaFolk, id, false);
+const openPalengke = (id: string) => openTalk(palengke, marketFolk, id, false);
 for (const f of caravanFolk) interactables.push({ obj: f.hit, verb: () => f.talk.verb, act: () => openCaravan(f.id), when: () => !inDungeon });
-const phrasebook = station(new Phrasebook(caravan, () => leaveForge()));
+for (const f of teaFolk) interactables.push({ obj: f.hit, verb: () => f.talk.verb, act: () => openTeahouse(f.id), when: () => !inDungeon });
+for (const f of marketFolk) interactables.push({ obj: f.hit, verb: () => f.talk.verb, act: () => openPalengke(f.id), when: () => !inDungeon });
+const phrasebook = station(new Phrasebook([caravan, teahouse, palengke], () => leaveForge()));
 // ---------- Multiplayer (Mike 2026-11-04, "Make this game multiplayer!" + "Do it"): friends-only rooms, src/net/ ----------
 // `?net=local` keeps rooms inside this browser (tabs talk over BroadcastChannel): tests, and trying it on one PC.
 const friends = station(new FriendsPanel(() => character.name, () => (urlFlags.get('net') === 'local' ? 'local' : 'p2p'), () => leaveForge()));
@@ -4462,4 +4480,4 @@ const goblinSigns = buildGoblinSigns(library.group, world.colliders, ruinFloor);
 const goblinLife = buildGoblinLife(library.group, world.colliders, ruinFloor);
 const quadPlants = buildQuadPlants(library.group, world.scene, ruinFloor, libraryHoles());
 const magic = buildRareMagic(library.group, ruinFloor, libraryHoles(), floating.stones);   // Mike 2026-11-06: "occasional magic", rare and quiet
-Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, groups, TOWN_WAGON, openWagon, rideWagon, wagonStop, STAIRS_TIME, get stairsLeft() { return descent?.stairsLeft; }, set stairsLeft(n: number | undefined) { if (descent) descent.stairsLeft = n; }, i18n: { getLang, setLang, t }, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
+Object.assign(window, { __gametool: { ruin, ruinFloor, wallBooks, knight, enterFrame, exitFrame, wakeFrame, friends, openFriends, remotes, applyQuality, dm, talkToNatalie, natalieSawCreation, get state() { return state; }, get lookingAt() { return lookingAt; }, get lookingAtVerb() { return lookingAtThing?.verb() ?? null; }, get inputMode() { return inputMode; }, get character() { return character; }, dailyPrompt, dialogue, inventory, crossbow, crossbow2, hands, sword2, torch2, shield, shield2, blockBlow, handButton, thrower, thrower2, Thrower, rockPiles, reader, library, modelsReady, loadedModels, failedModels, animators, puppets, characterForge, weaponForge, forgePreview, openCharacterForge, openWeaponForge, interactables, sword, gear, openGear, cook, recipeBook, openRecipeBook, get sturdy() { return sturdy; }, sketchPad, openSketchbook, lecternDesk, readerDesk, quest, questProps, companion, dog, pets, petPrefs, petsPanel, callPet, casebook, firstDay, folklore, pedlarHit, campfire, openCampfire, telling, get satAtFire() { return satAtFire; }, readRedBook: () => townAct.library(), get stationPose() { return stationPose; }, get waking() { return waking; }, fightMode, openFight, talkToKavik, candorHit, startLesson, get lesson() { return lesson; }, archery, sky, openSky, perch, skyFolk, gesture, figureLight, seeThroughUniforms, outlineUniforms, get charsCulled() { return charsCulled; }, get idleSit() { return idleSit; }, get lastRest() { return lastRest; }, wakeUp, endWake, get stationView() { return stationView; }, weaponDisplay, gallery, refreshGallery, openReader, dungeon, enterDungeon, exitDungeon, quick, openQuick, buildQuick, openDescend, get inDungeon() { return inDungeon; }, delves, get delveRun() { return run; }, killStatue, kills, firstMeet, descendCine, greerRoot, get descent() { return descent; }, record, startDescent, goDown, heroFalls, scrollPicker, applyScrolls, patronGifts, dropLoreBook, applyFlux, get fluxNow() { return fluxNow; }, descentRules: { fluxFor, isCamp }, innWalls, lastWords, innBoards, regions, travel, loadScreen, get travelling() { return travelling; }, natalieRoot, livingMap, openMap, dojo, openDojo, caravan, caravanFolk, openCaravan, teahouse, teaFolk, openTeahouse, palengke, marketFolk, openPalengke, phrasebook, openPhrasebook, skills, openSkills, skillsBook, openSkillsBook, wiki, openWiki, townsfolk, crowd, ambience, nightLights, ceilings, autoQ, forestCards, ROOFED, figureKit: { buildFigure, FigureAnim, faceExpression }, goblins, traits: { rollGoblin, describeGoblin, goblinStats, roll, seedOf, rollTownsfolkLook: (seed: number) => rollTownsfolk(seed).look }, get delveHp() { return delveHp; }, get lastHint() { return lastHint; }, hint, purse, wear, tollBell, coach, get autosaves() { return autosaves; }, townAct, set delveHp(n: number) { delveHp = n; }, spawnGoblins, get stationery() { return stationery; }, setStationery, shop, openShop, smithShop, smithCounter, itemCard, openInventory, earn, cinema, openCinema, get intro() { return intro; }, extras, quitToMenu, get gateOpen() { return gateOpen; }, binds, menuInput, camera, Box3: THREE.Box3, Raycaster: THREE.Raycaster, Vector3: THREE.Vector3, player, rig, book, renderer, world, perf, settings, audio, haptics, torch, lockSupported: () => lockSupported, fighterKit, technique, breathe, techLog, missile, castMissile, learnMissile, lockOn, lockTarget, get duel() { return duel; }, goblinSigns, goblinLife, stairwell, STAIRS, quadPlants, flood, floating, magic, floorLeader, get partyRun() { return partyRun; }, portal: PORTAL, modernFriends, MODERN_FRIENDS, coinTable, COIN_AT, openCoinTable, groups, TOWN_WAGON, openWagon, rideWagon, wagonStop, STAIRS_TIME, get stairsLeft() { return descent?.stairsLeft; }, set stairsLeft(n: number | undefined) { if (descent) descent.stairsLeft = n; }, i18n: { getLang, setLang, t }, morph: { SPEC_V, MORPHS, SLOTS, CATALOG, defaultSpec, validateSpec, randomCharacterSpec, specKey, partCache, PartCache, RIG, assemble, updateLod, disposeCharacter, LOD_DIST, baseBody, outfitCount, specFromRoll } } });
