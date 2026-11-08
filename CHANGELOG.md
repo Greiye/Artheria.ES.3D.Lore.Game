@@ -7,6 +7,13 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 62: B23, language picker and Spanish menus (Mike 2026-11-08, "Run b23")
+- Settings → Gameplay has a Language picker: English or Español. The choice is kept in this browser.
+- In Spanish: the title menu, pause menu, all settings, the controls list, the lore editor, the phone hints and the E prompt ("Hablar con Candor (tiro con arco)"). Panels and toasts follow in the next part.
+- The Spanish caravan is never touched: its lines stay as written whatever the language.
+- Names of people and places stay as they are. Lore, books and NPC talk are still in English.
+- New test: e2e-i18n.
+
 ### v0.16 changelog, part 61: B54, the wagon (Mike 2026-11-06, defaults)
 - A wagon waits on the coach road in Aralon, and another at each far map: Aralon Edge, the beach, Ranlean and the Amethyst. Talk to the wagoner, pick a stop, and you ride there.
 - In multiplayer, friends standing within 10 m of the same wagon stop ride along with you.

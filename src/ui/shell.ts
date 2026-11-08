@@ -74,6 +74,7 @@ export const SHELL_HTML = `
     </nav>
     <section id="gameplaySettings" class="pause-panel side-panel hidden" data-panel="gameplay">
       <h2>Gameplay</h2>
+      <label class="field">Language <select id="langSel"><option value="en" lang="en">English</option><option value="es" lang="es">Español</option></select></label>
       <label class="field">Camera <select id="viewSel"><option value="overhead">Overhead (Dark Cloud 2 style)</option><option value="shoulder">Over the shoulder</option><option value="first">First person</option></select></label>
       <label>Look sensitivity <output id="sensOut"></output><input id="sens" type="range" min="0.2" max="3" step="0.05"></label>
       <label class="check"><input id="invert" type="checkbox"> Invert Y</label>
