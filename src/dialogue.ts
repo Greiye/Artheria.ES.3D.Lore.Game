@@ -57,7 +57,7 @@ export class DialogueBox {
     this.root = document.createElement('div');
     this.root.id = 'dialogue';
     this.root.className = 'hidden';
-    this.root.innerHTML = '<div class="d-portrait" aria-hidden="true"></div><div class="d-name"></div><div class="d-text"></div><div class="d-choices"></div><div class="d-hint">Click, Space or E</div>';
+    this.root.innerHTML = '<div class="d-portrait" aria-hidden="true"></div><div class="d-name"></div><div class="d-text" data-noi18n></div><div class="d-choices" data-noi18n></div><div class="d-hint">Click, Space or E</div>';
     this.nameEl = this.root.querySelector('.d-name')!;
     this.textEl = this.root.querySelector('.d-text')!;
     this.choicesEl = this.root.querySelector('.d-choices')!;

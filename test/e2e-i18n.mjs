@@ -46,6 +46,18 @@ const c1 = await G(() => { const g = window.__gametool; g.openCaravan('cook'); c
 check("The caravan's lines are left alone", c1.line === '¡Hola! ¿Cómo te llamas?' && /^The cook waves a ladle/.test(c1.gesture ?? ''), JSON.stringify(c1));
 await G(() => window.__gametool.caravan.close());
 
+// Panels drawn later follow the language too (part 2): the map, the shop, the casebook.
+await G(() => window.__gametool.openMap());
+await page.waitForTimeout(300);
+const m1 = await G(() => { const g = window.__gametool, el = g.livingMap.el ?? document.body; const txt = el.textContent; g.livingMap.close(); return { map: /El mapa vivo · M/.test(txt), descent: /Escaleras de piedra que bajan desde el suelo de la biblioteca: \d+ pisos de trasgos/.test(txt) }; });
+await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 5000 }).catch(() => {});
+await G(() => window.__gametool.openShop());
+await page.waitForTimeout(300);
+const s1 = await G(() => { const g = window.__gametool, txt = g.shop.el.textContent; g.shop.close(); return { store: /Tienda general/.test(txt), item: /Virote de ballesta × 5/.test(txt) }; });
+await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 5000 }).catch(() => {});
+const n1 = await G(() => ({ t: window.__gametool.i18n.t('Clues · 2 of 7'), stray: window.__gametool.i18n.t('A bag of goblins'), cb: window.__gametool.i18n.t('Casebook of Rowan · J') }));
+check('The map, the shop and counted lines are in Spanish; untranslated English is left whole', m1.map && m1.descent && s1.store && s1.item && n1.t === 'Pistas · 2 de 7' && n1.stray === 'A bag of goblins' && n1.cb === 'Cuaderno de casos de Rowan · J', JSON.stringify({ m1, s1, n1 }));
+
 await G(() => window.__gametool.i18n.setLang('en'));
 await page.waitForTimeout(400);
 const t3 = await G(() => ({ begin: document.querySelector('#begin').textContent, resume: document.querySelector('#resume').textContent, shown: document.querySelector('#promptVerb').textContent, html: document.documentElement.lang }));
