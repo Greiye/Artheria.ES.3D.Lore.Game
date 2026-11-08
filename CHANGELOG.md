@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 64: B23, Spanish for the station panels (Mike 2026-11-08)
+- With Español picked, the panels are in Spanish too: the living map and its places, the casebook and both quest groups, the bag, the General Store, the grindstone, the practice table, the dojo, the recipe and skills books, the sketchbook, the character and weapon forges, the wiki header, Tam's coin table, Play with friends, the campfire, the skyrunner, fight mode, the Quick Dungeon and the descent.
+- Counted lines follow the numbers ("Pistas · 2 de 7"), and an English line with no translation is left whole, never half-translated.
+- Mike chose UI only: lore, books and NPC dialogue stay in English, and dialogue boxes are never touched. Names and the game's own peoples (Owlkin, Drakari…) keep their names.
+- e2e-i18n checks the map, the shop and the counted lines.
+
 ### v0.16 changelog, part 63: B23, people who speak Japanese and Tagalog (Mike 2026-11-08)
 - A tea house south-east of the plaza: a tea seller, a potter and a fisher who speak only Japanese. Each line shows the Japanese with its romaji (a reading in Latin letters) underneath, never a translation. Reply by picking an answer or by writing in kana, kanji or romaji.
 - A market corner next to it: a fruit seller, a fisherman by his outrigger, Lola on her bench and a child with a sipa. They speak only Tagalog.

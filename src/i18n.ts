@@ -5,11 +5,12 @@
 // Never translated: anything inside an element with a lang attribute (the Spanish caravan, and the Japanese and Tagalog
 // speakers, stay in their own language whatever the UI says, per B16) or marked data-noi18n (lore, player text).
 import { ES, ES_PATTERNS } from './i18n/es';
+import { ES_PANELS, ES_PANEL_PATTERNS } from './i18n/es-panels';
 
 export type Lang = 'en' | 'es';
 export const LANGS: { id: Lang; name: string }[] = [{ id: 'en', name: 'English' }, { id: 'es', name: 'Español' }];
 const KEY = 'gametool.lang';
-const DICTS: Record<Exclude<Lang, 'en'>, { words: Record<string, string>; patterns: [string, string][] }> = { es: { words: ES, patterns: ES_PATTERNS } };
+const DICTS: Record<Exclude<Lang, 'en'>, { words: Record<string, string>; patterns: [string, string][] }> = { es: { words: { ...ES, ...ES_PANELS }, patterns: [...ES_PATTERNS, ...ES_PANEL_PATTERNS] } };
 
 let lang: Lang = (() => { try { const l = localStorage.getItem(KEY); return l === 'es' ? 'es' : 'en'; } catch { return 'en'; } })();
 const listeners = new Set<(l: Lang) => void>();
@@ -24,7 +25,8 @@ export function setLang(l: Lang) {
 }
 export const onLang = (f: (l: Lang) => void) => { listeners.add(f); return () => listeners.delete(f); };
 
-// Patterns: "Talk to {x}" style entries, compiled once per language. {x} matches anything; the captured part is
+// Patterns: "Talk to {x}" style entries, compiled once per language. {x} matches anything ({n}, {num}, {total} and
+// {k} match only digits); the captured part is
 // translated again when it is itself a known string (so "Talk to the smith" can become "Hablar con el herrero").
 type Compiled = { re: RegExp; to: string; names: string[] };
 const compiled = new Map<Lang, Compiled[]>();
@@ -33,7 +35,7 @@ function patternsFor(l: Exclude<Lang, 'en'>): Compiled[] {
   if (!c) {
     c = DICTS[l].patterns.map(([from, to]) => {
       const names: string[] = [];
-      const src = from.split(/(\{\w+\})/).map((part) => { const m = /^\{(\w+)\}$/.exec(part); if (m) { names.push(m[1]); return '(.+?)'; } return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('');
+      const src = from.split(/(\{\w+\})/).map((part) => { const m = /^\{(\w+)\}$/.exec(part); if (m) { names.push(m[1]); return /^(n|num|total|k)$/.test(m[1]) ? '(\\d+)' : '(.+?)'; } return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('');
       return { re: new RegExp('^' + src + '$'), to, names };
     });
     compiled.set(l, c);

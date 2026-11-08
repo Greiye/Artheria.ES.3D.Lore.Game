@@ -270,7 +270,7 @@ export class Phrasebook {
         <h2>Phrasebook</h2>
         <p class="fine">Lines you heard, in the words they were said. Write what you think each one means; nobody will tell you.</p>
         ${heard.length ? heard.map((h) => (this.panels.length > 1 ? `<h3 class="pb-lang">${escapeHtml(h.panel.pack.bookTitle)}</h3>` : '') + list(h)).join('')
-          : `<p class="fine">Empty. ${this.panels.map((p) => escapeHtml(p.pack.where)).join(' ')}</p>`}
+          : `<p class="fine"><span>Empty.</span> ${this.panels.map((p) => `<span>${escapeHtml(p.pack.where)}</span>`).join(' ')}</p>`}
         <div class="forge-actions"><button class="secondary" id="pbClose">Close</button></div>
       </div>`;
   }
