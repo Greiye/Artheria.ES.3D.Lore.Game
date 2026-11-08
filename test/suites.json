@@ -120,6 +120,7 @@
     "e2e-quest-groups",
     "e2e-stairs-timer",
     "e2e-wagon",
-    "e2e-i18n"
+    "e2e-i18n",
+    "e2e-langfolk"
   ]
 }

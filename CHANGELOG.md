@@ -7,6 +7,14 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 63: B23, people who speak Japanese and Tagalog (Mike 2026-11-08)
+- A tea house south-east of the plaza: a tea seller, a potter and a fisher who speak only Japanese. Each line shows the Japanese with its romaji (a reading in Latin letters) underneath, never a translation. Reply by picking an answer or by writing in kana, kanji or romaji.
+- A market corner next to it: a fruit seller, a fisherman by his outrigger, Lola on her bench and a child with a sipa. They speak only Tagalog.
+- They work like the Spanish caravan: picture and gesture hints, "listen again", a puzzled answer in their own language when you get it wrong, and 4 or 5 crowns the first time you finish a talk with each person.
+- One phrasebook (Journal → Phrasebook) now keeps a section per language: Spanish, Japanese (with romaji) and Tagalog.
+- Both places are on the map. The Spanish UI never changes their words.
+- New test: e2e-langfolk.
+
 ### v0.16 changelog, part 62: B23, language picker and Spanish menus (Mike 2026-11-08, "Run b23")
 - Settings → Gameplay has a Language picker: English or Español. The choice is kept in this browser.
 - In Spanish: the title menu, pause menu, all settings, the controls list, the lore editor, the phone hints and the E prompt ("Hablar con Candor (tiro con arco)"). Panels and toasts follow in the next part.

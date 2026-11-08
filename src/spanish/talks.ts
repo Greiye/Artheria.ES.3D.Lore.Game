@@ -3,9 +3,11 @@ import type { FigureLook } from '../world/figure';
 // B16: what the caravan says. Spanish only; the English here is stage direction (gesture) for the player's eyes,
 // never a translation. `typed` lists words that make a written reply understood (accents and case don't matter);
 // `wrongTyped` lists words that make it a misunderstanding even so. {name} is the hero's name (B25), or "Viajero".
-export interface Answer { es: string; ok: boolean }
-export interface Line { es: string; cue: string; gesture: string; answers: Answer[]; typed: string[]; wrongTyped?: string[] }
-export interface Talk { id: 'cook' | 'weaver' | 'muleteer'; role: string; pronoun: string; verb: string; look: Partial<FigureLook>; lines: Line[]; farewell: { es: string; cue: string; gesture: string }; reward: number }
+// B23: the same shapes carry the Japanese and Tagalog speakers; `es` is then the line in that language (what is
+// said), and `romaji` a Latin-letter reading of a Japanese line.
+export interface Answer { es: string; ok: boolean; romaji?: string }
+export interface Line { es: string; cue: string; gesture: string; answers: Answer[]; typed: string[]; wrongTyped?: string[]; romaji?: string }
+export interface Talk { id: string; role: string; pronoun: string; verb: string; look: Partial<FigureLook>; lines: Line[]; farewell: { es: string; cue: string; gesture: string; romaji?: string }; reward: number; roleRomaji?: string }
 
 export const TALKS: Talk[] = [
   {

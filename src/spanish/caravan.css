@@ -18,3 +18,10 @@
   .caravan-panel .es-line { font-size: calc(18px * var(--text-k, 1)); padding: 6px 10px; }
   .caravan-panel .es-gesture { margin-bottom: 4px; }
 }
+/* B23: romaji under a Japanese line or reply, and the phrasebook's language headings. */
+.caravan-panel .es-romaji { display: block; font: italic 14px/1.3 Georgia, serif; color: var(--stone); margin: -2px 0 6px 15px; }
+.caravan-panel .es-answers .es-romaji { margin: 2px 0 0; font-size: 12px; opacity: .85; }
+.caravan-panel h2 .es-romaji { display: inline; margin: 0 0 0 8px; font-size: 14px; }
+.caravan-panel[data-lang="ja"] .es-line { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", Georgia, serif; }
+.phrasebook-panel .pb-lang { margin: 10px 0 4px; font-size: 15px; color: #E8C878; }
+.phrasebook-panel .pb-romaji { font-style: italic; color: var(--stone); font-size: 13px; }
