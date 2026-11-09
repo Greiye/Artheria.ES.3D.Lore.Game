@@ -1332,7 +1332,8 @@ const firstDay = new FirstDay(world.scene, {
 function firstDayOn() {
   try { return !navigator.webdriver || localStorage.getItem('gametool.firstdaytest') === 'on'; } catch { return !navigator.webdriver; }
 }
-casebook.extra = () => firstDay.casebookHtml() + groups.html();   // B52/B53: the quest groups under the first day
+casebook.extra = () => firstDay.casebookHtml();
+casebook.tabs = () => groups.html();   // B52/B53: the quest groups under the first day
 groups.onStep = (kind, name, n, total, finished) => {
   if (finished) { earn(GROUP_PURSE, kind === 'npc' ? 'for meeting everyone in Aralon' : 'for using every station', 'group:' + kind); return; }
   toast(kind === 'npc' ? `Met ${name}: ${n} of ${total} people (casebook).` : `${name}: ${n} of ${total} stations used (casebook).`, 2600);

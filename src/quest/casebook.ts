@@ -18,6 +18,8 @@ export class Casebook {
   owner: () => string = () => '';   // B25: the hero's name from the Journal (blank = just "Casebook")
   /** B36: the first-day page (HTML) shown above the clues, and what its buttons do. */
   extra: () => string = () => '';
+  /** More <section><h4> blocks after the case (the quest groups): the panel shows them as tabs. */
+  tabs: () => string = () => '';
   onExtra: (id: string) => void = () => {};
   readonly el: HTMLDivElement;
   private pick: Partial<Record<Axis, string>> = {};
@@ -113,11 +115,14 @@ export class Casebook {
       <div class="forge-panel casebook-panel">
         <div class="eyebrow">${this.owner() ? `Casebook of ${escapeHtml(this.owner())}` : 'Casebook'} · J</div>
         <h2>${escapeHtml(q.title)}</h2>
+        <section><h4>The case</h4><div>
         ${this.extra()}
         <p class="fine">${escapeHtml(q.intro)}</p>
         <h4>Clues · ${s.clues.length} of ${q.clues.length}</h4>
-        <ul class="cb-clues">${clues || '<li class="fine">Nothing yet. Look for things that are out of place (E).</li>'}</ul>
+        <ul class="cb-clues">${clues}</ul>
         ${body}
+        </div></section>
+        ${this.tabs()}
         <div class="forge-actions"><button class="secondary" id="cbClose">Close</button></div>
       </div>`;
     this.renderReading();

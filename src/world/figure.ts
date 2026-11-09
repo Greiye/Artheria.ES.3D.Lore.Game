@@ -320,8 +320,8 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
   const hp = (x: number, y: number, z: number) => new THREE.Vector3(x * hx, HEAD.y + (y - 1.4) * hy, z * hz);
   // An ellipsoid shell around (x, y, z): `top` is how far down it reaches (0.5 = to its middle), `open` the half
   // width of the gap at the front in radians, `tilt` lifts its front edge.
-  const shell = (rx: number, ry: number, rz: number, x: number, y: number, z: number, color: string, top = 0.6, open = 0, tilt = 0) => {
-    const g = new THREE.SphereGeometry(1, 14, 9, Math.PI / 2 + open, Math.PI * 2 - 2 * open, 0, Math.PI * top);
+  const shell = (rx: number, ry: number, rz: number, x: number, y: number, z: number, color: string, top = 0.6, open = 0, tilt = 0, ws = 14, hs = 9) => {
+    const g = new THREE.SphereGeometry(1, ws, hs, Math.PI / 2 + open, Math.PI * 2 - 2 * open, 0, Math.PI * top);
     // Squared off toward a box (a superellipsoid), so it hugs the skull's corners rather than cutting through them.
     if (tilt) g.rotateX(-tilt);
     const pos = g.attributes.position.array as Float32Array;
@@ -395,10 +395,10 @@ export function buildFigure(look: FigureLook, height: number, extras?: (kit: Pro
       fringe(3, 0.04);
       // Newsboy cap with a brim and goggles strapped on (the board's adventurer).
       shell(0.225, 0.17, 0.225, 0, 1.55, -0.01, look.primary, 0.5);
-      shell(0.2, 0.03, 0.12, 0, 1.56, 0.17, look.primary, 0.5, 0, 0.3);                             // brim
+      shell(0.2, 0.03, 0.12, 0, 1.56, 0.17, look.primary, 0.5, 0, 0.3, 8, 5);                             // brim
       lock([[-0.22, 1.56, -0.01], [0.22, 1.56, -0.01]], 0.022, 0.022, trim, 10);                  // band
       for (const s of [-1, 1]) lock([[s * 0.04, 1.63, 0.19], [s * 0.12, 1.63, 0.19]], 0.04, 0.04, '#C9A23A', 8);
-      for (const s of [-1, 1]) shell(0.03, 0.03, 0.012, s * 0.08, 1.63, 0.225, '#9FD0D8', 1);
+      for (const s of [-1, 1]) shell(0.03, 0.03, 0.012, s * 0.08, 1.63, 0.225, '#9FD0D8', 1, 0, 0, 6, 4);   // tiny lenses: few faces (the 5k budget, with the outline hull doubling every face)
     }
   }
   if (look.headpiece) {

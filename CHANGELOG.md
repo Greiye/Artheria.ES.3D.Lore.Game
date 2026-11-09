@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 65: casebook on a phone, lighter caps (Mike 2026-11-09, "Do all")
+- The casebook is three tabs now: The case, Everyone, Stations. On a phone held sideways the text was shrunk to under 5 px to fit both quest groups on one page; each tab now fits at a readable size.
+- The quest lists run in two columns.
+- The newsboy cap's brim and goggle lenses use fewer faces. A tea house or market speaker with that cap was 5,728 triangles against the 5,000 budget; it is now under it.
+- New: `node scripts/shots.mjs <folder>` takes the same set of world views and station panels on desktop, a phone held sideways and a phone held upright, for before and after pairs.
+
 ### v0.16 changelog, part 64: B23, Spanish for the station panels (Mike 2026-11-08)
 - With Español picked, the panels are in Spanish too: the living map and its places, the casebook and both quest groups, the bag, the General Store, the grindstone, the practice table, the dojo, the recipe and skills books, the sketchbook, the character and weapon forges, the wiki header, Tam's coin table, Play with friends, the campfire, the skyrunner, fight mode, the Quick Dungeon and the descent.
 - Counted lines follow the numbers ("Pistas · 2 de 7"), and an English line with no translation is left whole, never half-translated.
