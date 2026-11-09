@@ -25,7 +25,7 @@ export const ES_PANELS: Record<string, string> = {
   "Tam's coin table": 'La mesa de monedas de Tam', 'Heads or tails for crowns: a fair coin at even odds, stakes 1 to 20.': 'Cara o cruz por coronas: moneda justa a la par, apuestas de 1 a 20.',
   'Portal': 'Portal', 'Through to the modern world: a flat where Josh, Jason, Liv and Rev are.': 'Al mundo moderno: un piso donde están Josh, Jason, Liv y Rev.',
   // Casebook and quest groups
-  "Where did Natalie's party go?": '¿Adónde fue el grupo de Natalie?', 'Everyone in Aralon: meet them all': 'Todo Aralon: conócelos a todos', 'Every station: use each once': 'Cada puesto: úsalos una vez',
+  "Where did Natalie's party go?": '¿Adónde fue el grupo de Natalie?', 'The case': 'El caso', 'Everyone': 'Todos', 'Stations': 'Puestos', 'Everyone in Aralon: meet them all': 'Todo Aralon: conócelos a todos', 'Every station: use each once': 'Cada puesto: úsalos una vez',
   'Finish the group for 10 ◎.': 'Completa el grupo por 10 ◎.', 'Finished: 10 ◎ paid.': 'Completado: 10 ◎ pagadas.', 'done': 'hecho',
   '(by the library)': '(junto a la biblioteca)', '(his cart on the green)': '(su carro en el prado)', '(by the dojo)': '(junto al dojo)', '(the archery range)': '(el campo de tiro)',
   '(out in town)': '(por el pueblo)', '(the caravan)': '(la caravana)', '(the shop)': '(la tienda)', '(the smithy counter)': '(el mostrador de la herrería)', '(the coin table by the Inn)': '(la mesa de monedas junto a la posada)',

@@ -65,12 +65,14 @@ export class QuestGroups {
   }
   count(kind: GroupKind) { return kind === 'npc' ? [this.npcs.size, NPCS.length] : [this.stations.size, STATIONS.length]; }
   html(): string {
-    const block = (title: string, kind: GroupKind, items: { id: string; name: string; where?: string }[], set: Set<string>) => {
+    const block = (tab: string, title: string, kind: GroupKind, items: { id: string; name: string; where?: string }[], set: Set<string>) => {
       const done = set.size === items.length;
-      return `<section class="cb-group" data-group="${kind}"><h3>${title} <span class="cb-count">${set.size} of ${items.length}</span>${done ? ' <span class="cb-done">done</span>' : ''}</h3>
+      return `<section class="cb-group" data-group="${kind}"><h4>${tab}</h4><h3>${title} <span class="cb-count">${set.size} of ${items.length}</span>${done ? ' <span class="cb-done">done</span>' : ''}</h3>
         <ul>${items.map((x) => `<li class="${set.has(x.id) ? 'got' : ''}">${set.has(x.id) ? '✓' : '○'} ${x.name}${!set.has(x.id) && x.where ? ` <span class="fine">(${x.where})</span>` : ''}</li>`).join('')}</ul>
         <p class="fine">${done ? `Finished: ${GROUP_PURSE} ◎ paid.` : `Finish the group for ${GROUP_PURSE} ◎.`}</p></section>`;
     };
-    return `<div class="cb-groups">${block('Everyone in Aralon: meet them all', 'npc', NPCS, this.npcs)}${block('Every station: use each once', 'station', STATIONS, this.stations)}</div>`;
+    // Each group is its own <section><h4>: the panel shows them as tabs beside the case (src/ui/fit-panel.ts), so the
+    // casebook fits a phone without shrinking the text.
+    return block('Everyone', 'Everyone in Aralon: meet them all', 'npc', NPCS, this.npcs) + block('Stations', 'Every station: use each once', 'station', STATIONS, this.stations);
   }
 }

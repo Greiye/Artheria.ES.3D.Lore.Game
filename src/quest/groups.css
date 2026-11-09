@@ -1,8 +1,7 @@
 /* B52/B53: the quest groups in the casebook. */
-.cb-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
 .cb-group h3 { margin: 0 0 6px; font-size: 16px; }
 .cb-group .cb-count { font-weight: 400; opacity: .8; font-size: 13px; }
 .cb-group .cb-done { font-size: 12px; padding: 1px 6px; border-radius: 4px; background: #4E6B3A; color: #F4EED8; }
-.cb-group ul { list-style: none; margin: 0; padding: 0; font-size: 13px; columns: 1; }
-.cb-group li { padding: 1px 0; opacity: .75; }
+.cb-group ul { list-style: none; margin: 0; padding: 0; font-size: 13px; columns: 2; column-gap: 16px; }
+.cb-group li { padding: 1px 0; opacity: .75; break-inside: avoid; }
 .cb-group li.got { opacity: 1; font-weight: 600; }
