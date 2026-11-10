@@ -111,6 +111,7 @@ import { Thrower } from './sling';
 import { Shield, BLOCK_ARC, BLOCK_LEAK, buildShield } from './shield';
 import { HeldBook } from './heldBook';
 import { ShopPanel, CROWN } from './shop';
+import { STARTING_CROWNS } from './economy';
 import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
 import { KnightFrame, type Strike } from './mech/frame';
@@ -402,6 +403,7 @@ async function begin() {
   // where they last slept, as before.
   lastRest = save ? (save.rest ?? 'inn') : 'camp';
   if (!save && !campWelcomed()) welcomePending = true;
+  if (!save && !begun && inventory.count(CROWN) < STARTING_CROWNS) inventory.give(CROWN, STARTING_CROWNS - inventory.count(CROWN));   // Mike 2026-11-09: a new game starts with 500
   if (save && !begun) {
     setWorldTime(save.time);
     for (const [id, n] of save.items) if (inventory.count(id) < n) inventory.give(id, n - inventory.count(id));
@@ -1700,7 +1702,7 @@ function newHero(note: string) {
   character = { ...character, name: '', created: false, profession: '' }; saveCharacter(character);
   player.spawn(world.spawn.pos, world.spawn.yaw);
   delveHp = DELVE_HP;
-  if (hasGift(record.delivered, 'purse')) inventory.give(CROWN, 20);
+  inventory.give(CROWN, STARTING_CROWNS + (hasGift(record.delivered, 'purse') ? 20 : 0));   // Mike 2026-11-09: a new hero starts with 500
   toast(note, 6500);
   setTimeout(() => { if (state === 'play') openCharacterForge(); }, 600);
 }

@@ -45,9 +45,10 @@ const label = await page.textContent('#begin');
 check('A v0.16 save still offers Continue', /Continue/.test(label ?? ''), label);
 await page.click('#begin');
 await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 90000 });
-const back = await page.evaluate(() => { const g = window.__gametool; return { x: g.player.pos.x, z: g.player.pos.z, time: g.world.time, lute: g.inventory.count('lute') }; });
+const back = await page.evaluate(() => { const g = window.__gametool; return { x: g.player.pos.x, z: g.player.pos.z, time: g.world.time, lute: g.inventory.count('lute'), crowns: g.inventory.count('crown') }; });
 check('A v0.16 save carries on: the spot, the hour and the bag', Math.abs(back.x - 6) < 0.5 && Math.abs(back.z - 7) < 0.5 && back.time === 'sunset' && back.lute === 1, JSON.stringify(back));
 const pieces = await page.evaluate(() => window.__gametool.extras.portfolio().pieces.map((p) => p.title));
+check('Upgrade 2→3: an old purse is topped up to the starting 500 crowns (Mike 2026-11-09)', back.crowns === 500, JSON.stringify(back));
 check("A v0.16 profile's works are all still there", pieces.includes('Old map of the glade'), JSON.stringify(pieces));
 
 // The backup: one file, all three profiles and the settings, never the GitHub token.
