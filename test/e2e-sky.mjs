@@ -69,8 +69,8 @@ await G(page, () => { window.__gametool.sky.forceFoe = false; window.__gametool.
 const open = await G(page, () => { const g = window.__gametool, s = g.sky; return { state: g.state, open: s.isOpen, seed: s.map.seed, dist: s.map.dist, phase: s.phase, rings: s.map.rings.length, clock: document.querySelector('#skyRun .sk-clock').textContent }; });
 check('A run opens on its own map: 60 s clock, 4 wind rings, A to B 1.6 to 2 km', open.open && open.state === 'forge' && open.seed === 424242 && open.dist >= 1600 && open.dist <= 2000 && open.rings === 4 && open.clock === '60', JSON.stringify(open));
 check('Ready count before the clock runs', open.phase === 'ready');
-await until(page, () => window.__gametool.sky.phase === 'fly', null, 10000);
-await page.waitForTimeout(1500);
+await until(page, () => window.__gametool.sky.phase === 'fly', null, 60000);
+await until(page, () => window.__gametool.sky.time < 59 && window.__gametool.sky.me.speed > 20, null, 30000);   // run time, not wall time
 const fly = await G(page, () => { const s = window.__gametool.sky; return { time: s.time, speed: s.me.speed, y: s.me.pos.y }; });
 check('Go: the clock runs and the glider flies', fly.time < 59.5 && fly.speed > 20, JSON.stringify(fly));
 await page.screenshot({ path: path.join(shots, 'sky-flight.png') });

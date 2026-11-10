@@ -95,7 +95,10 @@ check('v0.06 T2 ambience zones: birdsong in the trees, the fountain, the smithy,
 const forge = zones.find((z) => z.kind === 'forge');
 const heard = () => G(page, () => ({ ...window.__gametool.ambience.heard }));
 await G(page, (f) => { const p = window.__gametool.player; p.pos.set(f.x + 3, 0, f.z + 1); }, forge);
-const h0 = await heard(); await page.waitForTimeout(3500); const h1 = await heard();
+const h0 = await heard();
+// Until a hammer blow is heard (the ambience runs on game time; 3.5 s of clock can be too few frames in CI).
+await page.waitForFunction((n) => (window.__gametool.ambience.heard.forge ?? 0) > n, h0.forge ?? 0, { timeout: 30000 }).catch(() => {});
+const h1 = await heard();
 await G(page, (f) => { const p = window.__gametool.player; p.pos.set(f.x + 40, 0, f.z - 30); }, forge);
 await page.waitForTimeout(600);
 const h2 = await heard(); await page.waitForTimeout(3500); const h3 = await heard();

@@ -3,8 +3,10 @@
 // Usage: node test/e2e-lowpower.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium, devices } from 'playwright-core';
 import path from 'node:path';
+import { serve, OUTSIDE } from './serve.mjs';
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
+const pageUrl = await serve(file);   // http, not file://: saves must survive a reload (test/serve.mjs)
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
@@ -18,8 +20,8 @@ async function open(opts, query = '') {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.route(/^https?:/, (r) => r.abort());
-  await page.goto('file://' + file + query);
+  await page.route(OUTSIDE, (r) => r.abort());
+  await page.goto(pageUrl(query));
   await page.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
   await page.waitForTimeout(400);
   return { ctx, page, errors };
@@ -56,11 +58,13 @@ async function open(opts, query = '') {
     p.yaw = p.bodyYaw = Math.atan2(3, 3) + (away ? Math.PI : 0); p.pitch = 0;
   }, away);
   const heroShown = () => G(page, () => { let any = false; window.__gametool.world.standees.hero.traverse((o) => { if (o.isMesh && o.visible) any = true; }); return any; });
-  await face(false); await page.waitForTimeout(800); await face(false); await page.waitForTimeout(800);
+  // Turn, then wait for the frames that cull or restore (a fixed 0.8 s is not always a frame on a software renderer).
+  const turn = async (away, want) => { for (let i = 0; i < 20; i++) { await face(away); await page.waitForTimeout(400); if (i > 0 && (await heroShown()) === want) break; } };
+  await turn(false, true);
   const near = { shown: await heroShown(), culled: await G(page, () => window.__gametool.charsCulled) };
-  await face(true); await page.waitForTimeout(800); await face(true); await page.waitForTimeout(800);
+  await turn(true, false);
   const away = { shown: await heroShown(), culled: await G(page, () => window.__gametool.charsCulled) };
-  await face(false); await page.waitForTimeout(800); await face(false); await page.waitForTimeout(800);
+  await turn(false, true);
   const back = await heroShown();
   check('Off-screen characters are not drawn or animated, and come back on screen', near.shown && !away.shown && back && away.culled > 0, JSON.stringify({ near, away, back }));
   check('Desktop: no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

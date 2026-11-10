@@ -93,10 +93,13 @@ if (!longOnly) {
   await page.waitForTimeout(800);
   check('F1.1 title screen shows "Click to begin"', await page.isVisible('#begin'));
   await page.screenshot({ path: path.join(shots, '01-title.png') });
-  const t0 = Date.now();
+  // Timed in the page, from the click event to the first frame in play: the harness's own click and polling latency
+  // (over a second on a busy CI machine) is not the game's.
+  await G(page, () => { const g = window.__gametool; document.querySelector('#begin').addEventListener('click', () => { window.__t0 = performance.now(); const tick = () => { if (g.state === 'play') window.__t1 = performance.now(); else requestAnimationFrame(tick); }; tick(); }, { capture: true, once: true }); });
   await page.click('#begin');
-  await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 3000 });
-  check('F1.1 player in world within 3 s of clicking', Date.now() - t0 < 3000, `${Date.now() - t0} ms; pointer lock ${await G(page, () => window.__gametool.lockSupported()) ? 'granted' : 'denied → drag-to-look fallback'}`);
+  await page.waitForFunction(() => window.__t1 !== undefined, null, { timeout: 15000 });
+  const began = await G(page, () => Math.round(window.__t1 - window.__t0));
+  check('F1.1 player in world within 3 s of clicking', began < 3000, `${began} ms; pointer lock ${await G(page, () => window.__gametool.lockSupported()) ? 'granted' : 'denied → drag-to-look fallback'}`);
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(shots, '02-spawn-view.png') });
 

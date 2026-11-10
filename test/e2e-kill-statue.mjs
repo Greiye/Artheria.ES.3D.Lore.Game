@@ -3,8 +3,10 @@
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
+import { serve, OUTSIDE } from './serve.mjs';
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
+const pageUrl = await serve(file);   // http, not file://: saves must survive a reload (test/serve.mjs)
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const results = [];
 const check = (id, ok, detail = '') => { results.push({ id, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${id}${detail ? '  — ' + detail : ''}`); };
@@ -13,9 +15,9 @@ await ctx.addInitScript(() => localStorage.setItem('gametool.character', JSON.st
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-await page.route(/^https?:/, (r) => r.abort());
+await page.route(OUTSIDE, (r) => r.abort());
 const boot = async () => {
-  await page.goto('file://' + file, { timeout: 180000 });
+  await page.goto(pageUrl(), { timeout: 180000 });
   await page.waitForFunction(() => window.__gametool, null, { timeout: 180000 });
   await page.evaluate(() => document.querySelector('#begin').click());
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 180000 });
@@ -58,7 +60,7 @@ const t = await G(() => window.__toasts.join(' | '));
 check('B49 E on the statue reads the plaque: name, count, and your lifetime total', plaque.verb === 'Read the plaque' && /Rowan: 3 goblins in one delve/.test(t) && /in all: 5/.test(t), t);
 // After a reload the statue is still there.
 await boot();
-const s3 = await G(() => ({ figure: !!window.__gametool.killStatue.figure, best: window.__gametool.kills.best?.count }));
+const s3 = await G(() => ({ figure: !!window.__gametool.killStatue.figure, best: window.__gametool.kills.best?.count, stored: (localStorage.getItem('gametool.kills') ?? 'none').slice(0, 40), keys: Object.keys(localStorage).join(',') }));
 check('B49 the statue and record survive a reload', s3.figure && s3.best === 3, JSON.stringify(s3));
 check('B49 no page errors', errors.length === 0, errors.join(' | '));
 

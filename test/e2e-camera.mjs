@@ -47,8 +47,8 @@ await page.waitForTimeout(1500);
 const c2 = await cam(), s2 = await side();
 check('v0.05 one notch in: over the shoulder (close, right of the player)', c2.third && c2.view === 'shoulder' && c2.d < 3 && s2 > 0.3 && await G(page, () => window.__gametool.rig.step === 1), JSON.stringify({ ...c2, side: s2 }));
 await page.keyboard.press('KeyQ');
-await page.waitForTimeout(1500);
-const s3 = await side();
+let s3 = await side();
+for (let i = 0; i < 30 && s3 >= -0.3; i++) { await page.waitForTimeout(500); s3 = await side(); }   // the swap eases over game time
 check('v0.05 Q swaps the shoulder view to the left shoulder', s3 < -0.3 && await G(page, () => window.__gametool.rig.shoulderSide === -1), s3.toFixed(2));
 await page.keyboard.press('KeyQ');
 await page.waitForTimeout(1500);

@@ -30,7 +30,7 @@ for (const [name, opts] of [['PC', { viewport: { width: 1280, height: 720 } }], 
   await begin(page);
   const G = (fn, a) => page.evaluate(fn, a);
   const dogThing = () => window.__gametool.interactables.find((t) => t.obj === window.__gametool.dog.hit);
-  const start = await G(() => { const g = window.__gametool, d = g.dog; let tris = 0; d.root.traverse((o) => { if (o.geometry) tris += o.geometry.index.count / 3; });
+  const start = await G(() => { const g = window.__gametool, d = g.dog; let tris = 0; d.root.traverse((o) => { if (o.geometry) tris += (o.geometry.index ?? o.geometry.attributes.position).count / 3; });
     return { at: [+d.pos.x.toFixed(1), +d.pos.z.toFixed(1)], friend: d.friend, tris, inScene: !!g.world.scene.getObjectByName('pet:dog') }; });
   check(`${name}: the dog waits by the inn, a small low-poly model`, start.inScene && !start.friend && start.tris > 50 && start.tris < 400, JSON.stringify(start));
   const pet = await G((f) => { const g = window.__gametool, t = eval(f)(); const v = t.verb(); g.inventory.take('bread', g.inventory.count('bread')); t.act(); return { v, friend: g.dog.friend }; }, dogThing.toString());

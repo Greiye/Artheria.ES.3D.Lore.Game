@@ -61,7 +61,8 @@ check('Side-on camera, both fighters on one line', cam.dz > 0.9 && Math.abs(cam.
 await G(page, () => { const f = window.__gametool.fightMode.fight; f.a.x = -0.6; f.b.x = 0.6; window.__gametool.fightMode.ai.pad = () => ({ x: 0, up: false, down: false, lp: false, rp: false, lk: false, rk: false }); });
 await page.keyboard.press('KeyW');
 await until(page, () => Math.abs(window.__gametool.fightMode.fight.a.z) > 0.4, null, 20000);
-await page.waitForTimeout(1500);
+// Wait for the swing itself to finish (it eases over game time, which runs slow on a software renderer).
+await until(page, () => { const g = window.__gametool, d = g.camera.getWorldDirection(new g.Vector3()), p = g.player.pos, k = g.world.standees.kavik.position; const lx = k.x - p.x, lz = k.z - p.z; return Math.abs((d.x * lx + d.z * lz) / Math.hypot(lx, lz) / Math.hypot(d.x, d.z)) < 0.3; }, null, 15000);
 const cam2 = await G(page, () => { const g = window.__gametool, d = g.camera.getWorldDirection(new g.Vector3()), p = g.player.pos, k = g.world.standees.kavik.position;
   const lx = k.x - p.x, lz = k.z - p.z, l = Math.hypot(lx, lz); return { z: g.fightMode.fight.a.z, dot: (d.x * lx + d.z * lz) / l / Math.hypot(d.x, d.z) }; });
 check('Tap up sidesteps; the camera swings round, side-on to the fighters', Math.abs(cam2.z) > 0.4 && Math.abs(cam2.dot) < 0.35, JSON.stringify(cam2));

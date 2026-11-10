@@ -141,8 +141,8 @@ const phone = async (w, h) => {
   const c = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
   await c.addInitScript(() => localStorage.setItem('gametool.rotateask', 'on'));
   const pg = await c.newPage();
-  await pg.goto('file://' + file);
-  await pg.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
+  await pg.goto('file://' + file, { timeout: 180000 });
+  await pg.waitForFunction(() => window.__gametool, null, { timeout: 240000 });
   return pg;
 };
 const up = await phone(390, 844);

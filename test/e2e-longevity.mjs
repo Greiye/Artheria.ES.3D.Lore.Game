@@ -5,8 +5,10 @@
 import { chromium } from 'playwright-core';
 import path from 'node:path';
 import fs from 'node:fs';
+import { serve, OUTSIDE } from './serve.mjs';
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
+const pageUrl = await serve(file);   // http, not file://: saves must survive a reload (test/serve.mjs)
 const fixtureText = fs.readFileSync(new URL('./fixtures/profile-v0.16.json', import.meta.url), 'utf8');
 const fixture = JSON.parse(fixtureText);
 const browser = await chromium.launch({
@@ -19,11 +21,11 @@ const ctx = await browser.newContext({ viewport: { width: 960, height: 540 }, ac
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-await page.route(/^https?:/, (r) => r.abort());
+await page.route(OUTSIDE, (r) => r.abort());
 const boot = async () => { await page.waitForFunction(() => window.__gametool, null, { timeout: 90000 }); await page.waitForTimeout(300); };
 
 // An old device: the v0.16 profile is live, another waits in slot 2, and there is no data-version stamp yet.
-await page.goto('file://' + file);
+await page.goto(pageUrl());
 await boot();
 await page.evaluate((d) => {
   localStorage.clear();

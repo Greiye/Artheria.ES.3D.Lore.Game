@@ -34,7 +34,7 @@ async function open(opts = { viewport: { width: 1280, height: 800 } }, pad = fal
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto('file://' + file);
+  await page.goto('file://' + file, { timeout: 180000 });
   // The first page stays open while later ones load; two software-rendered towns share the CPU.
   await page.waitForFunction(() => window.__gametool, null, { timeout: 90000 });
   if (opts.hasTouch) await page.tap('#begin'); else { await page.click('#begin'); await page.mouse.move(5, 5); }

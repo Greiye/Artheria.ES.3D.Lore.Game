@@ -91,7 +91,7 @@ async function open(init) {
   const { ctx, page, errors } = await open(() => localStorage.setItem('gametool.coachtest', 'on'));
   await page.click('#begin');
   await page.waitForFunction(() => window.__gametool.state === 'play');
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => !document.getElementById('coach').classList.contains('hidden'), null, { timeout: 10000 }).catch(() => {});   // the first hint needs a frame or two
   const c = () => G(page, () => { const e = document.getElementById('coach'); return e.classList.contains('hidden') ? '' : e.textContent; });
   const first = await c();
   await page.screenshot({ path: path.join(shots, 'ux-10-coach.png') });

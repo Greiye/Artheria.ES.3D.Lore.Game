@@ -3,8 +3,10 @@
 // Usage: node test/e2e-quest-groups.mjs [path/to/index.html]   (CHROMIUM_PATH as in e2e.mjs)
 import { chromium } from 'playwright-core';
 import path from 'node:path';
+import { serve, OUTSIDE } from './serve.mjs';
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
+const pageUrl = await serve(file);   // http, not file://: saves must survive a reload (test/serve.mjs)
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const results = [];
 const check = (id, ok, detail = '') => { results.push({ id, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${id}${detail ? '  — ' + detail : ''}`); };
@@ -13,8 +15,8 @@ await ctx.addInitScript(() => localStorage.setItem('gametool.character', JSON.st
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-await page.route(/^https?:/, (r) => r.abort());
-await page.goto('file://' + file, { timeout: 180000 });
+await page.route(OUTSIDE, (r) => r.abort());
+await page.goto(pageUrl(), { timeout: 180000 });
 await page.waitForFunction(() => window.__gametool, null, { timeout: 180000 });
 await page.evaluate(() => document.querySelector('#begin').click());
 await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 180000 });
@@ -52,7 +54,7 @@ const fin = await G(() => {
   return { paid: mid - before, again: g.inventory.count('crown') - mid, n: g.groups.count('npc'), saved: JSON.parse(localStorage.getItem('gametool.groups')).npcs.length };
 });
 check('Meeting all 16 pays 10 crowns once; repeats and unknown ids do nothing', fin.paid === 10 && fin.again === 0 && fin.n.join() === '16,16' && fin.saved === 16, JSON.stringify(fin));
-await page.goto('file://' + file, { timeout: 180000 });   // a fresh load (reload() can drop the last storage writes in headless Chromium)
+await page.goto(pageUrl(), { timeout: 180000 });   // a fresh load (reload() can drop the last storage writes in headless Chromium)
 await page.waitForFunction(() => window.__gametool, null, { timeout: 180000 });
 const kept = await G(() => { const g = window.__gametool.groups; return { npc: g.count('npc'), st: g.count('station')}; });
 check('Progress is kept across a reload', kept.npc.join() === '16,16' && kept.st.join() === '1,14', JSON.stringify(kept));
