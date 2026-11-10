@@ -64,7 +64,7 @@ const share = await G(() => {
   c.dispose();
   return r;
 });
-check('Four draw calls a person: body, clothes, face details, shadow', share.calls === 4, JSON.stringify(share));
+check('Five draw calls a person: body, clothes, face details, shadow, ink line', share.calls === 5, JSON.stringify(share));
 check('People dressed alike share every geometry and material; others get their own outfit', share.same && share.other, JSON.stringify(share));
 check('An outfit is freed when its last wearer goes', share.after === 0, JSON.stringify(share));
 

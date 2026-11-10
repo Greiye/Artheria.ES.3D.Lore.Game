@@ -9,6 +9,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { BONES, RIG, HEAD, rigged, blobShadow, figureMaterial, type BoneName, type FigureRig } from '../world/figure';
 import { SLOTS, type CharacterSpec, type Slot } from './spec';
 import { partCache, type PartCache } from './parts';
+import { outlineSkinned, skinnedHull } from '../render/outline';
 
 /** Past this many metres from the eye, the details below are hidden (Mike 2026-11-06). */
 export const LOD_DIST = 20;
@@ -116,6 +117,9 @@ export function assemble(spec: CharacterSpec, cache: PartCache = partCache): THR
     root.add(mesh);
     if (name === 'figure-details') detail.push(mesh);
   }
+  // The ink line (G2), as on every figure: one hull over the body and the clothes, shared by everyone dressed alike.
+  outfit.hull ??= skinnedHull(outfit.clothes ? [baseBody(), outfit.clothes] : [baseBody()]);
+  outlineSkinned(body, outfit.hull);
   root.userData.outfitKey = outfit.key;
   const shadow = new THREE.Mesh(shadowGeometry(), shadowMaterial());
   shadow.name = 'blob-shadow'; shadow.position.y = 0.015; shadow.scale.setScalar(0.3 * U); shadow.raycast = () => {};
@@ -129,7 +133,7 @@ export function assemble(spec: CharacterSpec, cache: PartCache = partCache): THR
 }
 
 // Merged outfits, by look (skin aside): built on first wear, freed when the last wearer is disposed.
-interface Outfit { key: string; clothes: THREE.BufferGeometry | null; detail: THREE.BufferGeometry | null; users: number }
+interface Outfit { key: string; clothes: THREE.BufferGeometry | null; detail: THREE.BufferGeometry | null; hull?: THREE.BufferGeometry | null; users: number }
 const outfits = new Map<string, Outfit>();
 const outfitKey = (s: CharacterSpec) => SLOTS.map((k) => `${s.parts[k].id}${s.parts[k].color}`).join('|');
 function outfitFor(spec: CharacterSpec, cache: PartCache): Outfit {
@@ -181,7 +185,7 @@ export function disposeCharacter(char: THREE.Object3D) {
   char.removeFromParent();
   (char.userData.rig as FigureRig | undefined)?.mesh.skeleton.dispose();
   const o = outfits.get(char.userData.outfitKey as string);
-  if (o && --o.users <= 0) { o.clothes?.dispose(); o.detail?.dispose(); outfits.delete(o.key); }
+  if (o && --o.users <= 0) { o.clothes?.dispose(); o.detail?.dispose(); o.hull?.dispose(); outfits.delete(o.key); }
   char.userData.outfitKey = null;
   char.userData.detail = [];
 }
