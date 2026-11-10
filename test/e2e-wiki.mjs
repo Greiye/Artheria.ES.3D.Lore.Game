@@ -35,7 +35,7 @@ check('Extras → Wiki lists every pulled page, Home first, and names the GitHub
 await page.click('#wiki [data-page="Home"]');
 const home = await G(page, () => ({ h: document.querySelector('#wiki h1').textContent, body: document.querySelector('#wiki .wk-body').textContent, out: [...document.querySelectorAll('#wiki .wk-body a')].map((a) => ({ href: a.href, target: a.target })) }));
 const src = fs.readFileSync('content/wiki/Home.md', 'utf8');
-check('A page renders from the baked-in markdown', home.h === 'Home' && home.body.includes(src.split('\n')[0].trim().replace(/[*_#]/g, '')), JSON.stringify(home).slice(0, 200));
+check('A page renders from the baked-in markdown', home.h === 'Home' && home.body.includes(src.split('\n')[0].replace(/[*_#]/g, '').trim()), JSON.stringify(home).slice(0, 200));
 check('Web links in a page open in a new tab', home.out.every((a) => !/^https?:/.test(a.href) || a.target === '_blank'), JSON.stringify(home.out));
 check('Reading the wiki makes no network request (it is inside the build)', requests.filter((u) => /github|wiki/i.test(u)).length === 0, requests.join(' '));
 await page.screenshot({ path: path.join(shots, 'b21-wiki-menu.png') });
