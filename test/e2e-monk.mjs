@@ -71,14 +71,17 @@ await G(() => document.getElementById('fxLeave').click());
 await until(() => window.__gametool.state === 'play' || window.__gametool.state === 'resume');
 if (await G(() => window.__gametool.state === 'resume')) await page.click('#relockBtn');
 check('a loss costs health and the goblin stays up', await until((i) => window.__gametool.delveHp === 7 && window.__gametool.goblins.alive.length > 0, fi, 5000), String(await G(() => window.__gametool.delveHp)));
-// The pad: LB locks on.
+// The pad: LB locks on. (Health topped up: the goblin that won is still swinging.)
+await G(() => { window.__gametool.delveHp = 10; });
 await page.waitForTimeout(300);
 await place();
 await hold(4, true); const padLock = await until(() => window.__gametool.fightMode.isOpen, null, 5000); await hold(4, false);
 check('LB locks on with a pad', padLock);
 await page.waitForTimeout(400);
-await G(() => document.getElementById('fxQuit').click());
-check('leaving the mat early counts as breaking away', await until(() => !window.__gametool.fightMode.isOpen && window.__gametool.delveHp === 4, null, 5000), String(await G(() => window.__gametool.delveHp)));
+// The goblin that won stays up and keeps swinging in the descent while the pad locks on (on a slow runner long
+// enough to knock the hero out), so measure the cost from the health at the moment of leaving.
+const hpQuit = await G(() => { window.__gametool.delveHp = 10; document.getElementById('fxQuit').click(); return 10; });
+check('leaving the mat early counts as breaking away', await until((h) => !window.__gametool.fightMode.isOpen && window.__gametool.delveHp === h - 3, hpQuit, 5000), String(await G(() => window.__gametool.delveHp)));
 // Kavik's spar is unchanged: best of 3 on the dojo mat.
 await G(() => window.__gametool.exitDungeon());
 await until(() => !window.__gametool.inDungeon);

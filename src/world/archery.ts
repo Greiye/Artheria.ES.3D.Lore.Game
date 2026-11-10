@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeMeshes } from './mergeMeshes';
 // Mike 2026-11-06 ("Add to world. Have him teach Archery. Name him Candor."): Candor's archery range in the east
 // meadow, between the library and the skyrunner perch. Candor (Mike's Painted Archer model, public/models/candor.glb)
 // stands at the shooting line; three straw butts on stands sit 7, 10 and 13 m out, each a little further left.
@@ -23,6 +24,8 @@ export function buildRange(scene: THREE.Scene, solids: THREE.Object3D[], collide
       const m = ring(r as number, c as string); m.rotation.y = -Math.PI / 2; m.position.set(-0.16 - 0.002 * (k + 1), 1.25, 0); g.add(m);
     });
     g.position.set(b.x, heightAt(b.x, b.z), b.z);
+    bale.userData.keep = face.userData.keep = true;   // arrows are tested against these two
+    mergeMeshes(g);
     scene.add(g);
     solids.push(bale, face);
     (colliders as { kind: 'circle'; x: number; z: number; r: number }[]).push({ kind: 'circle', x: b.x, z: b.z, r: 0.65 });

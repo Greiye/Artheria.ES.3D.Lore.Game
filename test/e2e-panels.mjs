@@ -78,7 +78,7 @@ async function run(label, opts) {
       else if (o.over > 1) over.push(`${id} (+${o.over}px)`);
     }
     if (name === 'character forge') {
-      check(`${label}: the Tailor & Barber-Surgeon is split into tabs (Who you are, Secret, Backstory, Body, Barber, Face, Tailor, Outfit, Surgeon)`, r.tabs === 9, String(r.tabs));
+      check(`${label}: the Tailor & Barber-Surgeon is split into tabs (Profession, Who you are, Secret, Backstory, Body, Barber, Face, Tailor, Outfit, Surgeon)`, r.tabs === 10, String(r.tabs));
       const side = r.out[0];
       check(`${label}: panels sit on the right edge`, W <= 600 || (side.right === W && side.left > W / 2), JSON.stringify(side));
       await page.waitForFunction((w) => Math.abs((window.__gametool.camera.view?.enabled ? window.__gametool.camera.view.offsetX : 0) - w) <= 2, W <= 600 ? 0 : side.w, { timeout: 15000 }).catch(() => {});

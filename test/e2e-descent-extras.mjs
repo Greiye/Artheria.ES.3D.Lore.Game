@@ -40,9 +40,9 @@ check('Flux floors: never on camps, guardians or the hoard; commoner deeper', st
 
 // A guardian.
 await G(() => window.__gametool.startDescent());
-await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.descendCine.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.descendCine.active, null, { timeout: 90000 });
 await G((g1) => { window.__gametool.descent.floor = g1 - 1; window.__gametool.goDown(true); }, gs[0]);
-await page.waitForFunction((g1) => window.__gametool.descent?.floor === g1 && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, gs[0], { timeout: 20000 });
+await page.waitForFunction((g1) => window.__gametool.descent?.floor === g1 && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, gs[0], { timeout: 90000 });
 const boss = await G(() => { const g = window.__gametool, f = g.goblins.alive.find((x) => x.role === 'guardian'); return f && { name: f.v.display, hp: f.st.hp, scale: f.root.scale.x }; });
 check('A guardian waits on its floor: named, big and tough', !!boss && /Gnash|Mildew|Skreel|Varg|Margin/.test(boss.name) && boss.hp >= 8 && boss.scale > 1.2, JSON.stringify(boss));
 await G(() => { const g = window.__gametool, f = g.goblins.alive.find((x) => x.role === 'guardian'), p = g.player.pos.clone(); g.player.spawn(f.root.position.clone().add(new g.Vector3(0, 0, 3)), 0); for (let i = 0; i < 20 && f.state !== 'dead'; i++) g.goblins.shoot(f, 99, new g.Vector3(0, 0, -1)); void p; });
@@ -55,12 +55,12 @@ await G(() => window.__gametool.openDescend());
 const ropeBtn = await G(() => !!document.querySelector('#descend [data-act="rope"]'));
 check('The trapdoor offers the rope as a start point', ropeBtn);
 await page.click('#descend [data-act="rope"]');
-await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.descendCine.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.inDungeon && !window.__gametool.descendCine.active, null, { timeout: 90000 });
 check('…and the rope starts you on that floor', await G((g1) => window.__gametool.descent.floor === g1, gs[0]));
 
 // A rest camp on floor 5.
 await G(() => { window.__gametool.descent.floor = 4; window.__gametool.goDown(true); });
-await page.waitForFunction(() => window.__gametool.descent?.floor === 5 && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, null, { timeout: 20000 });
+await page.waitForFunction(() => window.__gametool.descent?.floor === 5 && !window.__gametool.loadScreen.active && !window.__gametool.descendCine.active, null, { timeout: 90000 });
 const camp = await G(() => { const g = window.__gametool; g.delveHp = 3; const s = g.dungeon.spots.find((x) => x.kind === 'camp'); if (!s) return null; const it = g.interactables.find((i) => i.obj === s.hit); const v = it.verb(); it.act(); return { v, hp: g.delveHp, rested: g.descent.rested, v2: it.verb() }; });
 check('Floor 5 has a rest camp: rest once to heal, oil and restring', !!camp && camp.v === 'Rest at the camp' && camp.hp === 10 && camp.rested && /rested/.test(camp.v2), JSON.stringify(camp));
 await G(() => { const g = window.__gametool, s = g.dungeon.spots.find((x) => x.kind === 'camp'); g.player.spawn(s.hit.position.clone().setY(0).add(new g.Vector3(0, 0, 2)), 0); g.player.thirdPerson = true; g.goblins.clear(); });

@@ -105,6 +105,8 @@ export class Player {
   /** Mike 2026-11-05: piloting the knight frame. The figure hides (the pilot is inside), the body is wider and
    *  slower, and Space / Y / the jump button is the frame's ground-slam instead (no jumping, vaulting or sneaking). */
   piloting = false;
+  /** A cinematic that keeps the hero out of frame (B50 first meeting). The camera rig never shows the body while set. */
+  offstage = false;
   pilotJump: (() => void) | null = null;
   get radius() { return this.piloting ? 0.85 : controls.playerRadius; }
 

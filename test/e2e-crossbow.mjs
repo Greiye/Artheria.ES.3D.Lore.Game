@@ -35,7 +35,7 @@ check('F4.1 1 does nothing before Natalie hands over the crossbow', await cb(() 
 await cb(() => { const i = window.__gametool.inventory; i.give('crossbow', 1); i.give('bolt', 10); });
 await page.keyboard.press('Digit1');
 // Wait on game state, not 200 ms of wall clock: the viewmodel shows on the next rendered frame, and software frames are slow.
-const equipped = await page.waitForFunction(() => window.__gametool.crossbow.equipped && window.__gametool.crossbow.viewmodel.visible, null, { timeout: 5000, polling: 100 }).then(() => true, () => false);
+const equipped = await page.waitForFunction(() => window.__gametool.crossbow.equipped && window.__gametool.crossbow.viewmodel.visible, null, { timeout: 20000, polling: 100 }).then(() => true, () => false);
 check('F4.1 1 equips the crossbow (viewmodel shown)', equipped, JSON.stringify(await cb(() => ({ eq: window.__gametool.crossbow.equipped, vis: window.__gametool.crossbow.viewmodel.visible, state: window.__gametool.state }))));
 
 // F4.3 normal reload: R, wait 2 s.
@@ -75,7 +75,8 @@ await page.waitForFunction(() => window.__gametool.crossbow.loaded, null, { time
 await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, 8); p.yaw = Math.PI; p.pitch = 0; });
 await page.waitForTimeout(200);
 await page.mouse.down({ button: 'left' }); await page.mouse.up({ button: 'left' });
-await page.waitForTimeout(250);
+// Until it has visibly dropped or landed (a fixed 250 ms can be a single slow frame).
+await page.waitForFunction(() => { const b = window.__gametool.crossbow.bolts.at(-1); return b && (b.stuck || b.vel.y < -0.5); }, null, { timeout: 8000 }).catch(() => {});
 const fall = await cb(() => { const b = window.__gametool.crossbow.bolts.at(-1); return { vy: b.vel.y, stuck: b.stuck }; });
 check('F4.2 bolts fall under gravity', fall.stuck || fall.vy < -0.5, JSON.stringify(fall));
 

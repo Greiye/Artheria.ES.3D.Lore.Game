@@ -30,7 +30,12 @@ const camYawOff = () => page.evaluate(() => { const g = window.__gametool, d = n
   const cy = Math.atan2(-d.x, -d.z); return Math.atan2(Math.sin(g.player.yaw - cy), Math.cos(g.player.yaw - cy)); });
 async function walk(x, y, ms) {
   await page.evaluate(([x, y]) => { const pl = window.__gametool.player; pl.analog.x = x; pl.analog.y = y; }, [x, y]);
-  await page.waitForTimeout(ms);
+  await simWait(ms);
+}
+// Waits `ms` of game time (perf.simSeconds), not of wall clock: a slow CI machine simulates less than real time.
+async function simWait(ms) {
+  const t0 = await page.evaluate(() => window.__gametool.perf.simSeconds);
+  await page.waitForFunction(([t0, s]) => window.__gametool.perf.simSeconds - t0 >= s, [t0, ms / 1000], { timeout: 90000, polling: 100 }).catch(() => {});
 }
 await page.evaluate(() => { const g = window.__gametool; g.player.thirdPerson = true; g.rig.step = 2; g.rig.zoom = 0.2; });
 
@@ -52,14 +57,14 @@ check('Straight ahead: it settles back to neutral', Math.abs(deg(fwd)) < 2, `${d
 
 await walk(1, 0, 3000);
 await page.evaluate(() => { const g = window.__gametool; g.player.analogLook.x = 0.8; });
-await page.waitForTimeout(1200);
+await simWait(1200);
 const manual = await lead();
 await page.evaluate(() => { window.__gametool.player.analogLook.x = 0; });
 check('Turning the camera yourself eases the lead out', Math.abs(deg(manual)) < 4, `${deg(manual)}°`);
 
 await walk(1, 0, 3000);
 await page.evaluate(() => { window.__gametool.player.thirdPerson = false; });
-await page.waitForTimeout(400);
+await simWait(400);
 const fp = await lead();
 check('First person: no lead', fp === 0, `${deg(fp)}°`);
 await page.evaluate(() => { const g = window.__gametool; g.player.thirdPerson = true; g.settings.cameraLead = 'off'; });

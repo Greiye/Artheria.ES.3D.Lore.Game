@@ -62,6 +62,8 @@ const stepIs = (page, s) => page.waitForFunction((s) => window.__gametool.firstD
   await page.evaluate(() => window.__gametool.openCharacterForge());
   const m = await stepIs(page, 'fire');
   await page.evaluate(() => window.__gametool.characterForge.close());
+  // A brand new hero: Natalie watches the change and says her piece (2026-11-06). Click through it.
+  for (let i = 0; i < 40 && await page.evaluate(() => window.__gametool.state !== 'play'); i++) { await page.keyboard.press('Space'); await page.waitForTimeout(400); }
   await page.waitForFunction(() => window.__gametool.state === 'play', null, { timeout: 20000 });
   check('The Tailor moves on to the campfire, marker at the fire', m && await page.evaluate(() => { const g = window.__gametool, a = g.firstDay.marker.position, b = g.world.stations.campfire.position; return Math.hypot(a.x - b.x, a.z - b.z) < 0.5; }));
   const coins0 = await page.evaluate(() => window.__gametool.purse.crowns);

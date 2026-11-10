@@ -138,7 +138,7 @@ export class CameraRig {
       // (walls count only below 9 m, so the overview can look down over the library's roofless walls).
       // v0.04 fix: if that leaves the camera too close (it would sit in the head and read as first person),
       // crane up in steps until it clears, as a real crane would over a wall.
-      let target = 0;
+      let target = 0, craned = false;
       for (let crane = 0; crane < 6; crane++) {
         offset.set(Math.sin(yaw) * Math.cos(elev), Math.sin(elev), Math.cos(yaw) * Math.cos(elev)).multiplyScalar(dist);
         target = 0;
@@ -148,7 +148,7 @@ export class CameraRig {
           target = t;
         }
         if (target * dist >= Math.min(MIN_CLEAR, dist) || elev >= 1.35) break;
-        elev = Math.min(1.35, elev + 0.22);
+        elev = Math.min(1.35, elev + 0.22); craned = true;
       }
       // v0.06: back right up to a wall in the overhead view even the steepest crane meets it at once; rise almost straight up.
       if (target * dist < Math.min(MIN_CLEAR, dist)) {
@@ -169,7 +169,7 @@ export class CameraRig {
       else {
         this.smoothLook.lerp(this.look, k);
         this.smoothPos.lerp(ideal, k);
-        if (target < 1) this.smoothPos.copy(ideal);   // against a wall: no lag that could clip it
+        if (target < 1 || craned) this.smoothPos.copy(ideal);   // against a wall, or craned over one: no lag that could clip it
       }
       this.basePos.copy(this.smoothPos);
       this.m.lookAt(this.basePos, this.smoothLook, this.up);
@@ -185,7 +185,7 @@ export class CameraRig {
     }
     this.wasThird = p.thirdPerson;
     // The body stays visible while the camera glides into the eyes, and disappears at the end.
-    p.body.visible = !p.piloting && ((p.thirdPerson && !near) || (!p.thirdPerson && this.viewT < 0.8) || this.blend > 0.01 || this.shot !== null);
+    p.body.visible = !p.piloting && !p.offstage && ((p.thirdPerson && !near) || (!p.thirdPerson && this.viewT < 0.8) || this.blend > 0.01 || this.shot !== null);
 
     this.blend = THREE.MathUtils.clamp(this.blend + (this.shot ? dt : -dt) / 0.6, 0, 1);
     const s = this.shot ?? this.lastShot;

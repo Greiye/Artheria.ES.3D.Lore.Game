@@ -535,9 +535,13 @@ export class Goblins {
         }
         continue;
       }
+      // Swept: on a slow frame a sling stone moves over a metre a step and would pass straight through you.
+      const ox = m.position.x, oz = m.position.z;
       m.position.addScaledVector(s.vel, dt);
       m.lookAt(this.tmp.copy(m.position).add(s.vel));
-      if (Math.hypot(P.x - m.position.x, P.z - m.position.z) < 0.4 && m.position.y > 0 && m.position.y < 1.8) { this.w.hurt(s.dmg, s.by, 0, m.position.clone().sub(s.vel)); gone(); continue; }
+      const sx = m.position.x - ox, sz = m.position.z - oz, sl = sx * sx + sz * sz;
+      const k = sl > 0 ? Math.min(1, Math.max(0, ((P.x - ox) * sx + (P.z - oz) * sz) / sl)) : 1;
+      if (Math.hypot(P.x - (ox + sx * k), P.z - (oz + sz * k)) < 0.4 && m.position.y > 0 && m.position.y < 1.8) { this.w.hurt(s.dmg, s.by, 0, m.position.clone().sub(s.vel)); gone(); continue; }
       if (!this.w.walkable(m.position.x, m.position.z) || s.fuse < -2) gone();
     }
   }

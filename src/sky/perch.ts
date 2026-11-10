@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeMeshes } from '../world/mergeMeshes';
 import { buildGlider } from './scene';
 
 // Skyrunner: the launch perch in the meadow east of the library, where a sky run starts. A timber tower with a
@@ -24,6 +25,7 @@ export function buildPerch(): { group: THREE.Group; hit: THREE.Mesh } {
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.2, 5), dark); pole.position.set(1.6, 4.6, 1.6); g.add(pole);
   const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshLambertMaterial({ color: '#7FD8FF', side: THREE.DoubleSide })); flag.position.set(2.05, 5.4, 1.6); g.add(flag);
   g.position.set(PERCH.x, 0, PERCH.z);
+  mergeMeshes(g);   // 37 little boxes become one mesh per material
   const hit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
   hit.position.set(PERCH.x, 1.2, PERCH.z + 1.9); hit.name = 'skyrunner-perch-hit';
   return { group: g, hit };

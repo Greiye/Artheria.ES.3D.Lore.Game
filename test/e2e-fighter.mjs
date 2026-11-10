@@ -30,11 +30,12 @@ await page.waitForTimeout(500);
 check('a Fighter sees the three technique buttons', await until(() => !document.getElementById('techHud').classList.contains('hidden') && [...document.querySelectorAll('#techHud [data-tech]')].filter((b) => getComputedStyle(b).display !== 'none').length === 3));
 
 // Z: the lunge carries you forward.
-await G(() => { const p = window.__gametool.player; p.pos.set(-20, 0, 30); p.yaw = p.bodyYaw = 0; });
+await G(() => { const p = window.__gametool.player; p.pos.set(0, 0, 16); p.yaw = p.bodyYaw = 0; });   // open ground south of the ruins (the old spot by the Cartographer's is boxed in by its yard)
 await page.waitForTimeout(300);
 const z0 = await G(() => window.__gametool.player.pos.z);
 await page.keyboard.press('KeyZ');
-await page.waitForTimeout(600);
+// (wait on the game's own clock: under software rendering a frame can take a quarter second)
+await until(() => { const g = window.__gametool; return g.techLog.length === 1 && !g.player.dashing && g.fighterKit.cd.lunge < 4; }, null, 8000);
 const lunge = await G((z0) => { const g = window.__gametool; return { moved: z0 - g.player.pos.z, cd: g.fighterKit.cd.lunge, log: g.techLog.length }; }, z0);
 check('Z lunges about 2.6 m forward and starts its cooldown', lunge.moved > 2 && lunge.moved < 3.2 && lunge.cd > 2 && lunge.log === 1, JSON.stringify(lunge));
 await page.keyboard.press('KeyZ');

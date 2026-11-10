@@ -176,20 +176,110 @@ export function route(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
     for (let j = 1; j <= k; j++) dense.push(a.clone().lerp(b, j / k));
   }
   dense.pop();   // the door step itself stays where it is
-  clearPath(dense);
-  dense.push(to.clone());
-  return dense;
+  // The door step stays put unless something round stands on it (the grindstone, say): then step off it.
+  const end = to.clone();
+  for (let k = 0, o = nearestRound(end.x, end.z); k < 20 && o && !o.building; k++, o = nearestRound(end.x, end.z)) {
+    const d = Math.hypot(o.dx, o.dz) || 1; end.x += o.dx / d * 0.15; end.z += o.dz / d * 0.15;
+  }
+  // Where the walker stands and the door step are kept as they are; the first and last steps are checked too.
+  const path = [from.clone(), ...dense, end];
+  clearPath(path, true);
+  path.shift();
+  return path;
 
 }
-/** Nudge path points clear of the buildings and the well (in place). */
-export function clearPath(pts: THREE.Vector3[]) {
-  for (const p of pts) {
-    for (let k = 0; k < 40; k++) {
-      const c = clearance(p.x, p.z);
-      if (c.lots >= 0.6 && c.well >= 0.5) break;
-      if (c.well < 0.5) { const dx = p.x - FOUNTAIN.x, dz = p.z - FOUNTAIN.z, d = Math.hypot(dx, dz) || 1; p.x += dx / d * 0.15; p.z += dz / d * 0.15; }
-      else pushFromLots(p, 0.15);
+/** Standing things put on the green after the town was laid out (the kill statue, a table): walkers go round them.
+ *  The game hands over its collider list; only the round, standing-height ones count. */
+type Round = { kind: string; x?: number; z?: number; r?: number; top?: number };
+let rounds: Round[] = [];
+export function setPathObstacles(colliders: Round[]) { rounds = colliders; }
+const PATH_GAP = 0.3;
+// A building's walls are circles over its lot footprint (town.ts footprint()); they bulge a little past the lot.
+// Points near those step out of the lot (pushFromLots), the same way the lot itself pushes, so the two never fight.
+const inBuilding = new WeakMap<Round, boolean>();
+const isBuilding = (k: Round) => { let b = inBuilding.get(k); if (b === undefined) { b = clearance(k.x!, k.z!).lots < -0.2; inBuilding.set(k, b); } return b; };
+function nearestRound(x: number, z: number): { dx: number; dz: number; d: number; building: boolean; k: Round } | null {
+  let best: Round | null = null, bd = PATH_GAP;
+  for (const k of rounds) {
+    if (k.kind !== 'circle' || (k.top !== undefined && k.top < 0.35)) continue;
+    const d = Math.hypot(x - k.x!, z - k.z!) - k.r!;
+    if (d < bd) { best = k; bd = d; }
+  }
+  return best && { dx: x - best.x!, dz: z - best.z!, d: bd, building: isBuilding(best), k: best };
+}
+/** Nudge path points clear of the buildings, the well and anything round standing on the green (in place). */
+export function clearPath(pts: THREE.Vector3[], keepEnds = false) {
+  // Walls and the well: step each point straight off them. Points on a round thing (a lamp post, the kill statue)
+  // are dropped instead: pushed off its centre, the points of a path straight through it would scatter to both
+  // sides and the walker would zigzag across it. The gap is bridged below, round one side.
+  const e = keepEnds ? 1 : 0;
+  for (let i = e; i < pts.length - e; i++) settle(pts[i]);
+  for (let i = pts.length - 1 - e; i >= e; i--) { const o = nearestRound(pts[i].x, pts[i].z); if (pts.length > 1 && o && !o.building) pts.splice(i, 1); }
+  for (let pass = 0; pass < 30; pass++) {
+    let added = false;
+    for (let i = pts.length - 1; i > 0; i--) {
+      const a = pts[i - 1], b = pts[i], m = detour(a, b);
+      if (m) { pts.splice(i, 0, m); added = true; }
     }
+    if (!added) break;
+  }
+}
+const ROUND_CLEAR = PATH_GAP + 0.08;
+// Round things close enough together that no one fits between them are walked round as one: the circle round them all.
+let groups = new WeakMap<Round, Round>(), groupsFor = -1;
+function group(k: Round): Round {
+  if (groupsFor !== rounds.length) { groups = new WeakMap(); groupsFor = rounds.length; }
+  const known = groups.get(k);
+  if (known) return known;
+  const free = rounds.filter((o) => o.kind === 'circle' && !(o.top !== undefined && o.top < 0.35) && !isBuilding(o));
+  const members = [k];
+  for (let i = 0; i < members.length; i++) {
+    const m = members[i];
+    for (const o of free) if (!members.includes(o) && Math.hypot(o.x! - m.x!, o.z! - m.z!) < o.r! + m.r! + 2 * PATH_GAP) members.push(o);
+  }
+  let x = 0, z = 0;
+  for (const m of members) { x += m.x! / members.length; z += m.z! / members.length; }
+  const g: Round = { kind: 'circle', x, z, r: Math.max(...members.map((m) => Math.hypot(m.x! - x, m.z! - z) + m.r!)) };
+  for (const m of members) groups.set(m, g);
+  return g;
+}
+/** If the straight step a to b touches something, a point to go through instead (null when it is clear). */
+function detour(a: THREE.Vector3, b: THREE.Vector3): THREE.Vector3 | null {
+  const len = a.distanceTo(b);
+  if (len < 0.08) return null;
+  let cut: Round | null = null, wall = false;
+  // Points sit 0.6 m off the walls; a step between them may come to 0.3 m (room for a detour by a lamp post at a door).
+  for (let t = 0.05; t < 0.97; t += 0.05) {
+    const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t, o = nearestRound(x, z), c = clearance(x, z);
+    if (o && !o.building) { cut = o.k; break; }
+    if (c.lots < 0.3 || c.well < 0.4 || o) wall = true;
+  }
+  if (cut) {
+    // Round it (or the whole group it stands in: two benches end to end) on the side the step already passes, the
+    // nearest point of the step to its centre; if a wall is there, the other side.
+    cut = group(cut);
+    const dx = b.x - a.x, dz = b.z - a.z, t = THREE.MathUtils.clamp(((cut.x! - a.x) * dx + (cut.z! - a.z) * dz) / (len * len), 0, 1);
+    let ux = a.x + dx * t - cut.x!, uz = a.z + dz * t - cut.z!, n = Math.hypot(ux, uz);
+    if (n < 1e-3) { ux = -dz; uz = dx; n = len; }
+    ux /= n; uz /= n;
+    const at = (s: number) => new THREE.Vector3(cut!.x! + ux * s * (cut!.r! + ROUND_CLEAR), 0, cut!.z! + uz * s * (cut!.r! + ROUND_CLEAR));
+    // Off a cluster (two benches side by side), keep stepping out from whichever one it still touches.
+    const off = (m: THREE.Vector3) => { for (let k = 0, o = nearestRound(m.x, m.z); k < 40 && o && !o.building; k++, o = nearestRound(m.x, m.z)) { const d = Math.hypot(o.dx, o.dz) || 1; m.x += o.dx / d * 0.1; m.z += o.dz / d * 0.1; } return m; };
+    const m = off(at(1)), c = clearance(m.x, m.z);
+    if (c.lots < 0.3 || c.well < 0.4) { const o = off(at(-1)), co = clearance(o.x, o.z); if (co.lots >= c.lots && co.well >= 0.4) return o; }
+    return m;
+  }
+  if (!wall) return null;
+  const m = a.clone().lerp(b, 0.5); settle(m);
+  return m.distanceTo(a) < 0.05 || m.distanceTo(b) < 0.05 ? null : m;
+}
+/** Step a point straight off a wall or the well (out of a lot, away from the well's centre). */
+function settle(p: THREE.Vector3) {
+  for (let k = 0; k < 50; k++) {
+    const c = clearance(p.x, p.z), o = nearestRound(p.x, p.z);
+    if (c.well < 0.5) { const dx = p.x - FOUNTAIN.x, dz = p.z - FOUNTAIN.z, d = Math.hypot(dx, dz) || 1; p.x += dx / d * 0.1; p.z += dz / d * 0.1; }
+    else if (c.lots < 0.6 || o?.building) pushFromLots(p, 0.1);
+    else return;
   }
 }
 /** Step a point out of the nearest building's footprint, through its nearest face. */

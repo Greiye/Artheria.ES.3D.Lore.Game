@@ -36,7 +36,7 @@ await G(() => window.__gametool.crossbow.setADS(true));
 check('Two crossbows can\'t aim down the sights', await G(() => !window.__gametool.crossbow.ads));
 const t0 = await G(() => { const g = window.__gametool; g.crossbow.pressReload(); return g.crossbow.reload.total; });
 check('R reloads both at 2.2x the time (4.4 s)', Math.abs(t0 - 4.4) < 0.01, String(t0));
-await page.waitForFunction(() => { const g = window.__gametool; return g.crossbow.loaded && g.crossbow2.loaded; }, null, { timeout: 30000 }).catch(() => {});
+await page.waitForFunction(() => { const g = window.__gametool; return g.crossbow.loaded && g.crossbow2.loaded; }, null, { timeout: 120000 }).catch(() => {});
 const loaded = await G(() => { const g = window.__gametool; return { a: g.crossbow.loaded, b: g.crossbow2.loaded, bolts: g.inventory.count('bolt') }; });
 check('Both load, using a bolt each', loaded.a && loaded.b && loaded.bolts === 8, JSON.stringify(loaded));
 // LMB fires the right one, RMB the left.

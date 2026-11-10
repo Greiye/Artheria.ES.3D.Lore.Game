@@ -4,8 +4,10 @@
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
+import { serve, OUTSIDE } from './serve.mjs';
 
 const file = path.resolve(process.argv[2] ?? 'dist/index.html');
+const pageUrl = await serve(file);   // http, not file://: saves must survive a reload (test/serve.mjs)
 const shots = path.resolve(process.env.SHOTS_DIR ?? 'test/screenshots');
 fs.mkdirSync(shots, { recursive: true });
 const browser = await chromium.launch({
@@ -22,8 +24,8 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.route(/^https?:/, (r) => r.abort());
-await page.goto('file://' + file);
+await page.route(OUTSIDE, (r) => r.abort());
+await page.goto(pageUrl());
 await ready(page);
 
 // Profile 1: a named hero with a save, plus device settings and a GitHub token.

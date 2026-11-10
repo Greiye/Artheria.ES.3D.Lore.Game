@@ -7,6 +7,22 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 68: the last red checks (Mike 2026-11-10, "Repair")
+- Natalie's first meeting: the hero stayed in shot through the cinematic (the camera turned the body back on each frame). The hero now steps out of frame as intended.
+- Townsfolk paths: walkers no longer cut through lamp posts, benches, the grindstone or the corners of buildings. Things standing close together are walked round as one, and the first and last steps of a walk are checked too.
+- Below: on a slow frame a goblin's sling stone or arrow could fly straight through you (it moved over a metre a frame and only its end point was checked). The whole step is checked now, so slow phones get hit too.
+- Tests: the skyrunner, camera and town checks wait on the game instead of a fixed time, so a slow machine no longer fails them; the town check names who clipped what.
+
+### v0.16 changelog, part 67: full test run repairs (Mike 2026-11-09, "Do all")
+- Profiles page: on a 720 px high window the three profile rows collapsed to nothing under the backup box, so you could not switch profile. The rows keep their size and the card scrolls.
+- Camera: backed against a wall, the follow camera could glide through the wall for a moment while it craned up. It now snaps over.
+- Pause: taking and dropping mouse lock in quick succession could pause the game twice. Fixed.
+- Townsfolk walk round the kill statue and other round props instead of through them.
+- A character who was talking when they left the view no longer comes back with their mouth still moving.
+- Phone: the tailor's profession cards show the blurb only for the chosen one, so the text stays readable.
+- Fewer draw calls: pets, perches, rock piles, the sawhorse and the coin table are each merged into one or two meshes (353 to 271 at the test spot). New helper `src/world/mergeMeshes.ts`.
+- `scripts/e2e-run.mjs` ends with a list of every failed check. Stale checks updated for the first day, the Natalie scene, pause pages and the tailor tabs; timing checks wait on the game instead of the clock.
+
 ### v0.16 changelog, part 66: crowns are real, 500 to start (Mike 2026-11-09)
 - The free shop is over (the v0.06 debug purse). Prices are paid in crowns, and the purse shows what you carry.
 - A new game, and a new hero after a fall or retiring, starts with 500 crowns (plus the patrons' 20 once they give it).

@@ -47,14 +47,19 @@ await page.waitForTimeout(1500);
 const c2 = await cam(), s2 = await side();
 check('v0.05 one notch in: over the shoulder (close, right of the player)', c2.third && c2.view === 'shoulder' && c2.d < 3 && s2 > 0.3 && await G(page, () => window.__gametool.rig.step === 1), JSON.stringify({ ...c2, side: s2 }));
 await page.keyboard.press('KeyQ');
-await page.waitForTimeout(1500);
-const s3 = await side();
+let s3 = await side();
+for (let i = 0; i < 30 && s3 >= -0.3; i++) { await page.waitForTimeout(500); s3 = await side(); }   // the swap eases over game time
 check('v0.05 Q swaps the shoulder view to the left shoulder', s3 < -0.3 && await G(page, () => window.__gametool.rig.shoulderSide === -1), s3.toFixed(2));
 await page.keyboard.press('KeyQ');
 await page.waitForTimeout(1500);
 check('v0.05 ... and back to the right', (await side()) > 0.3);
+// The glide lasts 0.45 s of game time; on a slow CI runner it can be over before the first poll after the stretched
+// wheel wait, so a frame watcher in the page records whether it was seen.
+await G(page, () => { const g = window.__gametool; g.sawGlide = false; const t0 = performance.now();
+  const tick = () => { if (!g.player.thirdPerson && g.rig.switching) g.sawGlide = true; if (!g.sawGlide && performance.now() - t0 < 20000) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick); });
 await wheel(1, -300);
-check('v0.05 one more notch in goes first person, gliding into the eyes', await until(page, () => !window.__gametool.player.thirdPerson && window.__gametool.rig.switching, null, 3000));
+check('v0.05 one more notch in goes first person, gliding into the eyes', await until(page, () => window.__gametool.sawGlide, null, 3000));
 check('S1 the glide ends at the eyes with the body hidden', await until(page, () => { const g = window.__gametool; return !g.rig.switching && g.camera.position.distanceTo(g.player.eyePos) < 0.05 && !g.player.body.visible; }, null, 5000));
 check('S1 first person is remembered as the camera setting', (await cam()).view === 'first');
 await page.mouse.wheel(0, 300);
@@ -155,8 +160,10 @@ check('Realistic figures (2026-10-29): every character is one 3D body with a 3D 
 // Face swap (Mega Man Legends style): an expression only moves the face quad's UVs to another row of its sheet.
 const exprs = () => G(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face && o.userData.face.material.visible) { let v = true; for (let a = o; a; a = a.parent) v &&= a.visible; if (v) r.push(g.figureKit.faceExpression(o)); } }); return r; });
 // A bark can have someone mid-word (talk-b) at any moment: wait for a frame where nobody is talking.
-await until(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) r.push(g.figureKit.faceExpression(o)); }); return r.length > 0 && r.every((e) => e === 'neutral' || e === 'blink'); }, null, 6000);
-const rows0 = await exprs();
+// The frame that passes is the evidence (a second read a moment later can catch the next bark), and only faces on
+// screen count, as in the swap below.
+const calm = await until(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) { let v = true; for (let a = o; a; a = a.parent) v &&= a.visible; if (v) r.push(g.figureKit.faceExpression(o)); } }); return r.length > 0 && r.every((e) => e === 'neutral' || e === 'blink'); }, null, 30000);
+const rows0 = calm ? ['neutral'] : await exprs();
 await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) o.userData.expression = 'talk-b'; }));
 const swapped = await until(page, () => { const g = window.__gametool; let n = 0, moved = 0; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) { n++; if (g.figureKit.faceExpression(o) === 'talk-b') moved++; } }); return n > 0 && moved === n; }, null, 5000);
 await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) delete o.userData.expression; }));

@@ -12,8 +12,9 @@ body .forge-panel :is(button, .shop-row, .shop-grid .shop-row, .slider, .check, 
 body .forge-panel :is(input, textarea, .es-answers button) { font-size: max(16px, var(--rd-body)); }
 body .forge-panel h2:not(#_) { font-size: calc(var(--rd-body) * 1.5); line-height: 1.2; }
 body .forge-panel h3 { font-size: calc(var(--rd-body) * 1.2); }
-body .forge-panel :is(h4, h5, .eyebrow) { font-size: calc(var(--rd-body) - 3px); }
-body .forge-panel :is(.fine, .slider span, .sk-got) { font-size: calc(var(--rd-body) - 2px); }
+/* (Labels and small print stop at 12px when a tall panel steps its text down: Mike 2026-11-09, e2e-readable's floor.) */
+body .forge-panel :is(h4, h5, .eyebrow) { font-size: max(12px, calc(var(--rd-body) - 3px)); }
+body .forge-panel :is(.fine, .slider span, .sk-got) { font-size: max(12px, calc(var(--rd-body) - 2px)); }
 body .forge-panel :is(.chip, .fp-tab) { font-size: calc(var(--rd-body) - 1px); padding-top: 6px; padding-bottom: 6px; }
 
 /* Pause menu */
@@ -28,7 +29,7 @@ body .forge-panel :is(.chip, .fp-tab) { font-size: calc(var(--rd-body) - 1px); p
 .card :is(.lead, p, label, li, button.secondary) { font-size: var(--rd-body); }
 .card .fine { font-size: calc(var(--rd-body) - 2px); }
 .card h1:not(#_) { font-size: clamp(calc(var(--rd-body) * 1.6), 4.2vmin, 34px); }
-body .forge-panel .hint { font-size: calc(var(--rd-body) - 3px); }
+body .forge-panel .hint { font-size: max(12px, calc(var(--rd-body) - 3px)); }
 /* A zoomed panel (fit-panel.ts sets --fz) keeps the caravan's answers 44px tall and 16px on screen. */
 body .forge-panel .es-answers button { min-height: calc(44px / var(--fz, 1)); font-size: max(calc(16px / var(--fz, 1)), var(--rd-body)); }
 /* Touch screens (Mike 2026-11-04, "The extra tabs"): a panel's tabs sit in one row you swipe sideways, instead of
@@ -37,4 +38,8 @@ body .forge-panel .es-answers button { min-height: calc(44px / var(--fz, 1)); fo
   body .forge-panel .fp-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   body .forge-panel .fp-tabs::-webkit-scrollbar { display: none; }
   body .forge-panel .fp-tab { flex: 0 0 auto; }
+  /* The four profession cards (Round B) made the tailor's first tab too tall for a phone, so the whole panel shrank
+     to 6-8px text. On a touch screen only the chosen profession shows its blurb: tap one to read it. */
+  body .forge-panel .fg-prof:not(.on) .fine { display: none; }
+  body .forge-panel .fg-profs { grid-template-columns: 1fr 1fr; }
 }

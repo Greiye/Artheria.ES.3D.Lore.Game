@@ -61,7 +61,8 @@ check('The first-person view moves with the sway', Math.abs(view.off - view.sway
 
 // Walking drains it, and the wander grows.
 await G(() => { window.__gametool.player.analog.y = 1; });
-await page.waitForTimeout(1500);
+// Game time, not wall time: a slow machine steps the simulation less often than 1.5 s of clock suggests.
+await page.waitForFunction(() => window.__gametool.crossbow.stability < 0.3, null, { timeout: 20000 }).catch(() => {});
 const walking = await G(() => window.__gametool.crossbow.stability);
 const shaky = range(await spread(2000));
 await G(() => { window.__gametool.player.analog.y = 0; });
