@@ -1,4 +1,4 @@
-# The full e2e set (test/suites.json), split across four parallel jobs. It's long (~45 min serial on a fast machine)
+# The full e2e set (test/suites.json), split across six parallel jobs. It's long (~45 min serial on a fast machine)
 # and timing-sensitive under software rendering, so it runs nightly, on demand, and on PRs labelled "full-e2e".
 # Every PR still gets the quick smoke test (smoke.yml).
 name: Full e2e
@@ -17,11 +17,11 @@ jobs:
   e2e:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-e2e')
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,4 +31,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright-core install --with-deps chromium
-      - run: node scripts/e2e-run.mjs --shard ${{ matrix.shard }}/4
+      # A shared runner draws the software-rendered game two to three times slower than a desktop: stretch the suites'
+      # waits and timeouts to match (test/slow.mjs), and use six shards so each still finishes well inside the limit.
+      - run: node scripts/e2e-run.mjs --shard ${{ matrix.shard }}/6
+        env:
+          E2E_SLOW: '2.5'

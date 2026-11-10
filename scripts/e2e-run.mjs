@@ -2,6 +2,7 @@
 // Usage: node scripts/e2e-run.mjs [--shard i/n] [--only name,name]
 //   --shard 2/4   runs every 4th suite starting with the 2nd (CI splits the ~45-minute set across parallel jobs)
 //   --only a,b    runs just those suites (file names without test/ and .mjs; the e2e- prefix is optional)
+// E2E_SLOW=<factor> stretches every wait and timeout in the suites (for slow CI machines; see test/slow.mjs).
 // Exit code 1 if any suite fails or times out. Each suite gets SUITE_TIMEOUT_MS (default 15 min).
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -24,7 +25,8 @@ for (const name of suites) {
   console.log(`\n== ${name}`);
   const t0 = Date.now();
   const out = await new Promise((resolve) => {
-    const p = spawn(process.execPath, [file, page], { stdio: ['ignore', 'pipe', 'pipe'] });
+    // E2E_SLOW=2.5 stretches the suites' waits and timeouts for a slow machine (test/slow.mjs).
+    const p = spawn(process.execPath, [...(process.env.E2E_SLOW ? ['--import', './test/slow.mjs'] : []), file, page], { stdio: ['ignore', 'pipe', 'pipe'] });
     let text = '';
     const keep = (d) => { process.stdout.write(d); text += d; };
     p.stdout.on('data', keep); p.stderr.on('data', keep);
