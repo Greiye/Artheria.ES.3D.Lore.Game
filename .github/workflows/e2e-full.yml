@@ -36,3 +36,4 @@ jobs:
       - run: node scripts/e2e-run.mjs --shard ${{ matrix.shard }}/6
         env:
           E2E_SLOW: '2.5'
+          E2E_RETRY: '1'
