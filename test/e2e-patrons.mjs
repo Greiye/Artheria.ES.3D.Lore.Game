@@ -50,10 +50,11 @@ await frames(2);
 const armed = await G(() => window.__gametool.goblins.alive.filter((f) => f.gear).map((f) => ({ gear: f.gear, name: f.v.display, dmg: f.gearDmg, block: f.st.block })));
 const mace = armed.find((a) => a.gear === 'mace');
 check('A goblin a floor away carries it, named for it, and hits harder with it', armed.length === 2 && !!mace && /'s [a-z ]*mace/.test(mace.name) && mace.dmg === 2, JSON.stringify(armed));
-await G(() => { const g = window.__gametool; g.player.thirdPerson = true; const f = g.goblins.alive.find((x) => x.gear); g.player.spawn(f.root.position.clone().add(new g.Vector3(0, 0, 3)), 0); });
+// Keep a handle on the mace carrier, and keep the hero standing on a slow runner, so the kill below finds it.
+await G(() => { const g = window.__gametool; g.player.thirdPerson = true; g.delveHp = 10; const f = g.goblins.alive.find((x) => x.gear === 'mace'); window.__maceGob = f; g.player.spawn(f.root.position.clone().add(new g.Vector3(0, 0, 3)), 0); });
 await frames(4);
 await page.screenshot({ path: path.join(shots, 'patrons-armed-goblin.png') });
-const won = await G(() => { const g = window.__gametool, f = g.goblins.alive.find((x) => x.gear === 'mace'); for (let i = 0; i < 30 && f.state !== 'dead'; i++) g.goblins.shoot(f, 99, new g.Vector3(0, 0, -1)); return { mace: g.inventory.count('mace'), lost: g.record.lostGear.map((x) => x.item), toast: document.getElementById('toast').textContent }; });
+const won = await G(() => { const g = window.__gametool, f = window.__maceGob; g.delveHp = 10; for (let i = 0; i < 30 && f.state !== 'dead'; i++) g.goblins.shoot(f, 99, new g.Vector3(0, 0, -1)); return { mace: g.inventory.count('mace'), lost: g.record.lostGear.map((x) => x.item), toast: document.getElementById('toast').textContent }; });
 check('Beat it and the mace is yours; it leaves the lost list', won.mace === 1 && !won.lost.includes('mace') && won.lost.length === 1 && /back from the goblin/.test(won.toast), JSON.stringify(won));
 await G(() => window.__gametool.exitDungeon());
 await frames(2);
