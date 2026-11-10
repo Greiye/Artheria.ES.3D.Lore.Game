@@ -115,6 +115,7 @@ import { CinemaPanel } from './cinema';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS, type TownId } from './world/town';
 import { KnightFrame, type Strike } from './mech/frame';
 import { pixelTexture } from './tex/pixel';
+import { mergeMeshes } from './world/mergeMeshes';
 import { CoinTable } from './coinflip';   // B55
 import { QuestGroups, GROUP_PURSE } from './quest/groups';   // B52/B53
 import { Regions, REGIONS, TOWN_EXITS, MODERN_FRIENDS, WAGON_STOPS, buildWagon, signpost, signBoard, swirlTexture, type RegionId, type Side } from './world/regions';
@@ -130,7 +131,7 @@ import { DmView, type Place } from './dm/dm';
 import { watchPanels, setPanelTab } from './ui/fit-panel';
 import { riverClear } from './world/river';
 import { plantForestCards } from './world/treeCards';
-import { Townsfolk } from './world/townsfolk';
+import { Townsfolk, setPathObstacles } from './world/townsfolk';
 import { NightLights } from './world/nightlights';
 import { Ambience } from './ambience';
 import { Intro } from './intro';
@@ -375,9 +376,15 @@ function requestLock(): Promise<boolean> {
   });
 }
 
+// Only a lock this handler saw taken can be "released by the browser". Drawing the crossbow and putting it away
+// at once takes and drops the lock before either event is delivered, so two events arrive that both read
+// "unlocked": the second used to open the pause menu (found by e2e-camera, 2026-11-09).
+let sawLock = false;
 document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement === canvas) return;
-  if (expectUnlock) { expectUnlock = false; return; }
+  if (document.pointerLockElement === canvas) { sawLock = true; return; }
+  const was = sawLock, expected = expectUnlock;
+  sawLock = false; expectUnlock = false;
+  if (!was || expected) return;
   if (state === 'play') { pauseFrom = 'play'; setState('pause'); }   // F2 Esc: browser released the pointer -> pause menu
 });
 
@@ -754,6 +761,7 @@ for (const [id, o] of Object.entries(world.standees)) puppets.set(id, figureOf(o
 puppets.set('player', figureOf(player.body.children[0]));
 // v0.06 T1/T4: townsfolk and the cinema band walk, spar, trade, chat and play on the procedural rig.
 const townsfolk = new Townsfolk(world.scene);
+setPathObstacles(world.colliders);   // walkers go round whatever stands on the green (the kill statue)
 townsfolk.setCount(isLowPreset(settings.preset) ? 'low' : 'full');
 // Town style 1: the background crowd, small pixel sprites in 8 directions (the 3D townsfolk and NPCs stay).
 const crowd = new Crowd(world.scene);
@@ -1490,6 +1498,7 @@ const COIN_AT = (() => {
   const sign = signBoard('Heads or Tails · 1:1', 1.1, 0.3); sign.position.set(0, 1.25, 0); g.add(sign);
   const pole = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), wood); pole.position.set(0, 1.0, 0); g.add(pole);
   const hit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.7; hit.name = 'coin-hit'; g.add(hit);
+  mergeMeshes(g);
   world.scene.add(g);
   world.colliders.push({ kind: 'circle', x: at.x, z: at.z, r: 0.6 });
   return { group: g, hit, at };
@@ -2990,6 +2999,7 @@ const rockPiles: THREE.Object3D[] = [];
     for (let i = 0; i < 7; i++) { const r = new THREE.Mesh(geo, mat); const a = i * 2.4 + k; r.position.set(Math.cos(a) * 0.18 * (i % 3), 0.08 + (i > 4 ? 0.12 : 0), Math.sin(a) * 0.18 * (i % 3)); r.rotation.set(a, a * 1.3, 0); r.scale.setScalar(0.8 + (i % 3) * 0.2); r.castShadow = true; pile.add(r); }
     pile.position.set(x, 0, z);
     const hit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.9), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.3; hit.name = 'rock-pile'; pile.add(hit);
+    mergeMeshes(pile);
     pile.traverse((o) => { if (o !== hit) (o as THREE.Mesh).raycast = () => {}; });
     world.scene.add(pile); rockPiles.push(hit);
     interactables.push({ obj: hit, verb: () => 'Gather rocks', act: () => { inventory.give('rock', 5); haptics.play('pickup'); gesture('pickup'); toast('Five good throwing stones.', 1600); }, when: () => !inDungeon });

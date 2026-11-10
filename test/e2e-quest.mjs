@@ -60,7 +60,7 @@ await page.keyboard.press('KeyE');
 await until(page, () => window.__gametool.state === 'dialogue');
 await toN2();
 const choices = await G(page, () => [...document.querySelectorAll('#dialogue .d-choice span')].map((s) => s.textContent));
-check('B2 talking again keeps her three choices and adds the companion ones', choices.length === 7 && choices[0] === 'Is it dangerous?' && choices.includes('Come with me.') && choices.includes('What is under the library?'), JSON.stringify(choices));
+check('B2 talking again keeps her three choices and adds the companion ones (and the camp, Mike 2026-11-06)', choices.length === 8 && choices.includes('Why is the camp here?') && choices[0] === 'Is it dangerous?' && choices.includes('Come with me.') && choices.includes('What is under the library?'), JSON.stringify(choices));
 check('A3 with a crossbow in the bag there is no "borrow the Archer\'s crossbow" choice', !choices.some((c) => /borrow/.test(c)), JSON.stringify(choices));
 await page.keyboard.press(`Digit${choices.indexOf('Come with me.') + 1}`);
 await page.waitForTimeout(150);

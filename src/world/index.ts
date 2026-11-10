@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeMeshes } from './mergeMeshes';
 import { pixelTexture, pixelArtTexture, rng, type TexName } from '../tex/pixel';
 import { Batch } from './batch';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -417,7 +418,7 @@ export function buildWorld(): World {
     const beam = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.1), wood); beam.position.y = 0.68; g.add(beam);
     const plank = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.04, 0.24), new THREE.MeshLambertMaterial({ color: '#C8955A' })); plank.position.set(0.15, 0.74, 0); plank.rotation.y = 0.12; g.add(plank);
     for (let i = 0; i < 3; i++) { const cut = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.12), wood); cut.position.set(-0.3 + i * 0.35, 0.02, 0.6 + (i % 2) * 0.15); cut.rotation.y = i; g.add(cut); }
-    g.position.set(x, 0, z); g.rotation.y = -0.4; scene.add(g);
+    g.position.set(x, 0, z); g.rotation.y = -0.4; mergeMeshes(g); scene.add(g);
     colliders.push({ kind: 'circle', x, z, r: 0.7 });
   }
   // Mike 2026-11-06: Candor the archer (Mike's Painted Archer model) teaches archery at his range in the east meadow.

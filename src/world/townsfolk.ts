@@ -181,16 +181,42 @@ export function route(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
   return dense;
 
 }
-/** Nudge path points clear of the buildings and the well (in place). */
+/** Standing things put on the green after the town was laid out (the kill statue, a table): walkers go round them.
+ *  The game hands over its collider list; only the round, standing-height ones count. */
+type Round = { kind: string; x?: number; z?: number; r?: number; top?: number };
+let rounds: Round[] = [];
+export function setPathObstacles(colliders: Round[]) { rounds = colliders; }
+const PATH_GAP = 0.3;
+function nearestRound(x: number, z: number): { dx: number; dz: number; d: number } | null {
+  let best: { dx: number; dz: number; d: number } | null = null;
+  for (const k of rounds) {
+    if (k.kind !== 'circle' || (k.top !== undefined && k.top < 0.35)) continue;
+    const dx = x - k.x!, dz = z - k.z!, d = Math.hypot(dx, dz) - k.r!;
+    if (d < PATH_GAP && (!best || d < best.d)) best = { dx, dz, d };
+  }
+  return best;
+}
+/** Nudge path points clear of the buildings, the well and anything round standing on the green (in place). */
 export function clearPath(pts: THREE.Vector3[]) {
-  for (const p of pts) {
+  // Which way the path runs at each point (before any nudging): a point is pushed off a round thing sideways to
+  // the path, never along it, or a path straight through the middle would just open a gap and walk through.
+  const side = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b.x - a.x, dz = b.z - a.z, n = Math.hypot(dx, dz) || 1; return { x: -dz / n, z: dx / n }; });
+  let lastSign = 0;
+  pts.forEach((p, i) => {
+    let sign = 0;
     for (let k = 0; k < 40; k++) {
-      const c = clearance(p.x, p.z);
-      if (c.lots >= 0.6 && c.well >= 0.5) break;
-      if (c.well < 0.5) { const dx = p.x - FOUNTAIN.x, dz = p.z - FOUNTAIN.z, d = Math.hypot(dx, dz) || 1; p.x += dx / d * 0.15; p.z += dz / d * 0.15; }
+      const c = clearance(p.x, p.z), o = nearestRound(p.x, p.z);
+      if (c.lots >= 0.6 && c.well >= 0.5 && !o) break;
+      if (o && c.lots >= 0.6 && c.well >= 0.5) {
+        // Keep to the side the points before this one took, so the path bends one way round.
+        if (!sign) sign = lastSign || (o.dx * side[i].x + o.dz * side[i].z >= 0 ? 1 : -1);
+        p.x += side[i].x * sign * 0.15; p.z += side[i].z * sign * 0.15;
+      }
+      else if (c.well < 0.5) { const dx = p.x - FOUNTAIN.x, dz = p.z - FOUNTAIN.z, d = Math.hypot(dx, dz) || 1; p.x += dx / d * 0.15; p.z += dz / d * 0.15; }
       else pushFromLots(p, 0.15);
     }
-  }
+    lastSign = sign;
+  });
 }
 /** Step a point out of the nearest building's footprint, through its nearest face. */
 function pushFromLots(p: THREE.Vector3, step: number) {

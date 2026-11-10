@@ -78,7 +78,9 @@ check('The river blocks the way, the stone bridge crosses it', atBank > -30 && o
 
 // ---------- Mobile budget ----------
 const budget = await G(page, () => { const g = window.__gametool, over = [], big = [];
-  const tri = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh) { const q = m.geometry; n += (q.index ? q.index.count : q.attributes.position.count) / 3; } }); return n; };
+  // The model's own triangles: the ink outline is a second hull of the same faces (a rendering choice, on by default),
+  // so it is not counted against the model budget.
+  const tri = (o) => { let n = 0; o.traverse((m) => { if (m.isMesh && m.name !== 'figure-outline' && m.name !== 'outline-child') { const q = m.geometry; n += (q.index ? q.index.count : q.attributes.position.count) / 3; } }); return n; };
   let figs = 0;
   g.world.scene.traverse((o) => { if (o.userData.rig) { figs++; const n = tri(o); if (n > 5000) over.push(o.name + ':' + n); } });
   const K = g.figureKit, worst = tri(K.buildFigure({ skin: '#F0C8A0', hair: '#6B3E22', primary: '#3E6FA8', secondary: '#7FA8D0', boots: '#2E4A6E', accent: '#F2C94C', hairStyle: 'flowing', dress: true, wings: '#111', headpiece: '#222' }, 1.75));

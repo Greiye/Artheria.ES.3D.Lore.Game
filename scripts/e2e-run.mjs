@@ -32,10 +32,15 @@ for (const name of suites) {
     p.on('close', (code) => { clearTimeout(kill); resolve({ code, text }); });
   });
   const line = /(\d+\/\d+ checks passed)/.exec(out.text)?.[1] ?? (out.text.includes('[timed out]') ? 'timed out' : 'no summary');
-  results.push({ name, ok: out.code === 0, line, s: ((Date.now() - t0) / 1000).toFixed(0) });
+  // What failed, for the summary: the FAIL lines, or the last error lines when the suite died before its own summary.
+  const plain = out.text.replace(/\x1b\[[0-9;]*m/g, '');
+  let why = plain.split('\n').filter((l) => /^FAIL\b/.test(l)).map((l) => l.slice(0, 400));
+  if (out.code !== 0 && !why.length) why = plain.split('\n').filter((l) => /Error|Timeout|timed out|at .*test\//.test(l)).slice(-4).map((l) => l.trim().slice(0, 300));
+  results.push({ name, ok: out.code === 0, line, why, s: ((Date.now() - t0) / 1000).toFixed(0) });
 }
 console.log('\n== Summary');
 for (const r of results) console.log(`${r.ok ? 'ok  ' : 'FAIL'}  ${r.name}  ${r.line}${r.s ? `  (${r.s} s)` : ''}`);
 const bad = results.filter((r) => !r.ok);
+if (bad.length) { console.log('\n== Failures'); for (const r of bad) { console.log(r.name); for (const w of r.why ?? []) console.log('    ' + w); } }
 console.log(`${results.length - bad.length}/${results.length} suites passed`);
 process.exit(bad.length ? 1 : 0);

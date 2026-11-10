@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeMeshes } from '../world/mergeMeshes';
 import type { Collider } from '../world/index';
 import { storeSet } from '../store';
 
@@ -240,6 +241,9 @@ export class Pet {
 
   constructor(readonly id: PetId, scene: THREE.Scene, home: THREE.Vector3, homeYaw: number, private colliders: Collider[], private bounds: () => number, readonly prefs: PetPrefs) {
     const d = (BUILD[id] ?? (() => buildDog(id)))();
+    // Each moving part (body, head, tail, a leg) becomes one mesh: a pet was 30 to 60 draw calls, now under ten.
+    const groups: THREE.Object3D[] = []; d.root.traverse((o) => { if (!(o as THREE.Mesh).isMesh) groups.push(o); });
+    for (const g of groups) mergeMeshes(g, { deep: false, name: 'pet-part' });
     this.base = d.parts.body.position.y;
     this.root = d.root; this.parts = d.parts;
     const at = prefs.stayAt[id];

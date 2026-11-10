@@ -124,9 +124,10 @@ async function open(opts, init) {
 
   // Read button near the book.
   await atLibrary(page, 8);
-  const farRead = await page.isVisible('.t-read');
+  const doorRead = async () => (await page.isVisible('.t-read')) && /Library/.test(await page.textContent('.t-read'));   // (a pet nearby has its own button)
+  const farRead = await doorRead();
   await atLibrary(page);
-  const nearRead = await page.isVisible('.t-read');
+  const nearRead = await doorRead();
   check('Touch: Read button appears only when aimed at the library door', !farRead && nearRead);
   await page.screenshot({ path: path.join(shots, 'm2-phone-read-button.png') });
   await page.tap('.t-read');
