@@ -104,9 +104,13 @@ export function outlineChild(m: THREE.Mesh): THREE.Mesh | null {
   return o;
 }
 
-/** Outline a skinned character: a hull bound to the same skeleton, beside the body. */
-export function outlineSkinned(body: THREE.SkinnedMesh): THREE.SkinnedMesh | null {
-  const hull = hullGeometry([body.geometry], ['position', 'skinIndex', 'skinWeight']);
+/** A skinned hull over several pieces on one skeleton (B57: an assembled person's body and outfit), to share. */
+export function skinnedHull(geos: THREE.BufferGeometry[]): THREE.BufferGeometry | null { return hullGeometry(geos, ['position', 'skinIndex', 'skinWeight']); }
+
+/** Outline a skinned character: a hull bound to the same skeleton, beside the body. `shared` is a prebuilt hull
+ *  (skinnedHull) that several characters use; it is never disposed here. */
+export function outlineSkinned(body: THREE.SkinnedMesh, shared?: THREE.BufferGeometry | null): THREE.SkinnedMesh | null {
+  const hull = shared ?? hullGeometry([body.geometry], ['position', 'skinIndex', 'skinWeight']);
   if (!hull) return null;
   const o = new THREE.SkinnedMesh(hull, outlineMaterial());
   o.name = 'figure-outline'; o.raycast = noRaycast; o.frustumCulled = body.frustumCulled;

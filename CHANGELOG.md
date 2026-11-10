@@ -7,6 +7,12 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 66: crowns are real, 500 to start (Mike 2026-11-09)
+- The free shop is over (the v0.06 debug purse). Prices are paid in crowns, and the purse shows what you carry.
+- A new game, and a new hero after a fall or retiring, starts with 500 crowns (plus the patrons' 20 once they give it).
+- Saves from before keep their bag; a purse under 500 is topped up to 500 when the game loads (data version 3).
+- The townsfolk built from the morph parts (B57) have their ink outline again: one shared hull per outfit.
+
 ### v0.16 changelog, part 65: casebook on a phone, lighter caps (Mike 2026-11-09, "Do all")
 - The casebook is three tabs now: The case, Everyone, Stations. On a phone held sideways the text was shrunk to under 5 px to fit both quest groups on one page; each tab now fits at a readable size.
 - The quest lists run in two columns.

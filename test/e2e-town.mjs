@@ -92,7 +92,8 @@ const talk = await until(page, () => window.__gametool.lookingAtVerb === 'Trade 
 await page.keyboard.press('KeyE');
 const shopOpen = await until(page, () => window.__gametool.shop.isOpen && window.__gametool.state === 'forge', null, 6000);
 check('v0.04 shopkeeper: E at the counter opens the General Store', talk && shopOpen);
-const broke = await G(page, () => window.__gametool.shop.buy(0));
+const broke = await G(page, () => { const g = window.__gametool, c0 = g.inventory.count('crown'), ok = g.shop.buy(0); return ok && g.inventory.count('crown') < c0; });
+const afterFirst = await G(page, () => window.__gametool.inventory.count('crown'));
 await G(page, () => { const g = window.__gametool; g.inventory.give('trinket', 1); g.shop.render(); });
 await page.locator('#shop .fp-tab', { hasText: 'Sell' }).click();   // Mike 2026-11-04: the store is tabbed
 await page.click('[data-sell="trinket"]');
@@ -100,9 +101,9 @@ const afterSell = await G(page, () => ({ crowns: window.__gametool.inventory.cou
 await page.locator('#shop .fp-tab', { hasText: 'Gear' }).click();
 await page.click('[data-buy="0"]');
 const afterBuy = await G(page, () => ({ crowns: window.__gametool.inventory.count('crown'), bolts: window.__gametool.inventory.count('bolt') }));
-// v0.06 E1: DEBUG_UNLIMITED_CROWNS is on, so buying is free (the purse shows ∞) while selling and earning still pay.
+// Mike 2026-11-09: prices are real (a new game starts with 500 crowns): buying spends, selling and earning pay.
 const purseText = await G(page, () => document.querySelector('#shop .shop-purse').textContent);
-check('v0.04/v0.06 E1 shop: unlimited crowns (◎ ∞) buy without spending; sell a curio for 10, buy 5 bolts', broke && /∞/.test(purseText) && afterSell.crowns === 10 && afterSell.trinket === 0 && afterBuy.crowns === 10 && afterBuy.bolts >= 5, JSON.stringify({ broke, purseText, afterSell, afterBuy }));
+check('v0.04 shop: buying spends crowns; sell a curio for 10, buy 5 bolts; the purse shows the count', broke && afterSell.crowns === afterFirst + 10 && afterSell.trinket === 0 && afterBuy.crowns < afterSell.crowns && afterBuy.bolts >= 5 && (purseText ?? '').includes(String(afterBuy.crowns)), JSON.stringify({ broke, purseText, afterFirst, afterSell, afterBuy }));
 await page.click('[data-act="close"]');
 await until(page, () => window.__gametool.state === 'play');
 

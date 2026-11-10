@@ -81,7 +81,7 @@ async function open(init) {
   await page.click('#newGame');
   await until(page, () => window.__gametool.state === 'play', null, 4000);
   const fresh2 = await G(page, () => { const g = window.__gametool, s = g.world.spawn.pos; return { d: Math.hypot(g.player.pos.x - s.x, g.player.pos.z - s.z), crowns: g.inventory.count('crown'), save: !!localStorage.getItem('gametool.save') }; });
-  check('New game asks twice, then starts over (spawn, empty purse, no save)', /again/.test(armed.t) && armed.s === 'title' && fresh2.d < 1 && fresh2.crowns === 0 && !fresh2.save, JSON.stringify({ armed, fresh2 }));
+  check('New game asks twice, then starts over (spawn, the starting 500 crowns, no save)', /again/.test(armed.t) && armed.s === 'title' && fresh2.d < 1 && fresh2.crowns === 500 && !fresh2.save, JSON.stringify({ armed, fresh2 }));
   check('Flow: no console/page errors', errors.length === 0, errors.join(' | '));
   await ctx.close();
 }
