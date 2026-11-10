@@ -37,6 +37,8 @@ await page.mouse.move(5, 5);
 
 // ---------- M8 controller label ----------
 const label = () => G(page, () => { const e = document.querySelector('#padStatus'); return { t: e.textContent, shown: getComputedStyle(e).display !== 'none' }; });
+// Let the boot settle first (a loaded runner draws its first frames slowly): "within a second" is from the plug.
+await frames(page, 10);
 const l0 = await label();
 await G(page, () => { window.__plugged = true; });
 const plugged = await until(page, () => document.querySelector('#padStatus').textContent === 'Controller connected', null, 1500);
