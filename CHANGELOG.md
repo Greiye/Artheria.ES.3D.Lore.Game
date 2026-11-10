@@ -10,6 +10,7 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 ### v0.16 changelog, part 68: the last red checks (Mike 2026-11-10, "Repair")
 - Natalie's first meeting: the hero stayed in shot through the cinematic (the camera turned the body back on each frame). The hero now steps out of frame as intended.
 - Townsfolk paths: walkers no longer cut through lamp posts, benches, the grindstone or the corners of buildings. Things standing close together are walked round as one, and the first and last steps of a walk are checked too.
+- Below: on a slow frame a goblin's sling stone or arrow could fly straight through you (it moved over a metre a frame and only its end point was checked). The whole step is checked now, so slow phones get hit too.
 - Tests: the skyrunner, camera and town checks wait on the game instead of a fixed time, so a slow machine no longer fails them; the town check names who clipped what.
 
 ### v0.16 changelog, part 67: full test run repairs (Mike 2026-11-09, "Do all")
