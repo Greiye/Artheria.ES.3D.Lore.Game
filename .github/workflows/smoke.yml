@@ -24,7 +24,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright-core install --with-deps chromium
-      - run: node test/e2e-boot.mjs dist/index.html
-      - run: node test/e2e-town.mjs dist/index.html
-      - run: node test/e2e-menus.mjs dist/index.html
-      - run: node test/e2e-multiplayer.mjs dist/index.html
+      # Same runner as the nightly set, so the suites get the CI stretch (test/slow.mjs) and one retry.
+      - run: node scripts/e2e-run.mjs --only boot,town,menus,multiplayer
+        env:
+          E2E_SLOW: '2.5'
+          E2E_RETRY: '1'
