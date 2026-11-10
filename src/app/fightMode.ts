@@ -70,8 +70,10 @@ export function setupFightMode(deps: FightModeDeps) {
     deps.enterForge();
     fightView = deps.player.thirdPerson; deps.player.thirdPerson = true;
     kavikWas = { x: kavikRoot.position.x, y: kavikRoot.position.y, z: kavikRoot.position.z, ry: kavikRoot.rotation.y };
+    fightMode.monk = deps.monkM.isMonk();   // B58: a Monk fights Kavik from the deck
     fightMode.open();
   }
+  fightMode.onLearn = (name) => deps.toast(`You learned ${name}. Meditate on the dojo mat to put it in your deck.`, 4200);
   fightMode.onClose = () => {
     if (deps.monkM.duel) { deps.endDuel(); return; }
     if (kavikWas) { kavikRoot.position.set(kavikWas.x, kavikWas.y, kavikWas.z); kavikRoot.rotation.y = kavikWas.ry; kavikWas = null; }

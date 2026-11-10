@@ -41,6 +41,7 @@ export function setupMonk(deps: MonkDeps) {
     deps.enterForge();
     deps.player.thirdPerson = true;
     const lvl: Level = f.st.leader || f.role === 'guardian' || (deps.goblins.floor ?? 1) >= 10 ? 'fair' : 'easy';
+    deps.fightMode.monk = false;   // B58: the deck is for the Kavik spar for now; goblin duels stay as they were
     deps.fightMode.open({ name: f.v.display, hp: Math.round(THREE.MathUtils.clamp(f.hp * 8, 30, 100)), level: lvl });
     haptics.play('tap');
   }
@@ -101,7 +102,7 @@ export function setupMonk(deps: MonkDeps) {
   function fightInput(f: Fighter): AnimInput {
     const m = f.move;
     let k = 0;
-    if (m) k = f.t < m.startup ? (f.t / m.startup) * 0.5 : f.t < m.startup + m.active ? 0.5 : 0.5 + ((f.t - m.startup - m.active) / m.recovery) * 0.5;
+    if (m) k = f.t < m.startup ? (Math.max(0, f.t) / m.startup) * 0.5 : f.t < m.startup + m.active ? 0.5 : 0.5 + ((f.t - m.startup - m.active) / m.recovery) * 0.5;
     const thrower = !!f.holding;
     return {
       speed: f.state === 'walk' || f.state === 'guard' ? Math.hypot(f.vx, f.vz) : f.state === 'step' ? 2.4 : 0,
@@ -125,6 +126,13 @@ export function setupMonk(deps: MonkDeps) {
     deps.fightFx.visible = true;
     deps.sparkT -= dt; deps.spark.visible = deps.sparkT > 0;
     if (deps.spark.visible) { deps.spark.scale.setScalar(1 + (0.2 - deps.sparkT) * 6); deps.sparkMat.opacity = Math.min(1, deps.sparkT * 8); }
+    // B58: a charged move glows at the fighter's chest through its wind-up, so it can be read and answered.
+    const ch = a.charged && a.phase === 'startup' ? a : b.charged && b.phase === 'startup' ? b : null;
+    if (ch && !deps.spark.visible) {
+      const w = deps.ringPt(ch.x + ch.face.x * 0.3, ch.z + ch.face.z * 0.3);
+      deps.spark.position.set(w.x, deps.RING.y + ch.y + 1.15, w.z); deps.spark.visible = true;
+      deps.spark.scale.setScalar(0.8 + Math.sin(performance.now() / 40) * 0.25); deps.sparkMat.color.set('#FF9A3A'); deps.sparkMat.opacity = 0.85;
+    }
     // Side-on to the line between the fighters, from the side the screen's right says: it swings round as they circle.
     const mx = (pa.x + pb.x) / 2, mz = (pa.z + pb.z) / 2, gap = F.dist(), up = Math.max(a.y, b.y) * 0.6;   // follow a jump up
     const rx = -F.right.x, rz = F.right.z, back = (duel ? 3.6 : 4.8) + gap * 0.45;   // the screen's right in the world; the camera sits behind it (closer below: corridors)
