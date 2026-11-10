@@ -44,6 +44,9 @@ await frames(page, 6); await page.waitForTimeout(300);
 await page.screenshot({ path: path.join(shots, 'ux-4-fingerpost-smoke.png') });
 
 // The purse.
+// A new game starts with 500 crowns since PR #169: spend them all first, so the empty purse can be seen.
+await G(page, () => { const inv = window.__gametool.inventory; inv.take('crown', inv.count('crown')); });
+await page.waitForTimeout(300);
 const p0 = await G(page, () => ({ v: window.__gametool.purse.model.visible, c: window.__gametool.purse.crowns }));
 await G(page, () => window.__gametool.earn(8, 'test'));
 await page.waitForTimeout(500);
