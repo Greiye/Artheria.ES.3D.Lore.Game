@@ -65,15 +65,16 @@ await page.keyboard.up('KeyW');
 await page.waitForTimeout(600);
 const onTop = await pos();
 check('v0.04 jump, vault and mantle up the fallen rocks to the 3.5 m lookout', top >= 3.4 && onTop.y >= 3.4, JSON.stringify({ top, onTop, climb }));
-check('v0.04 standing on the rock top: grounded, not falling through', !(await G(page, () => window.__gametool.player.airborne)));
+// Wait on the landing itself, not a fixed time: the software renderer in CI draws only a few frames a second.
+check('v0.04 standing on the rock top: grounded, not falling through', !!(await until(page, () => !window.__gametool.player.airborne && window.__gametool.player.pos.y >= 3.4, null, 5000)));
 
 // ---------- torch ----------
 await place(0, 9, 0);
 await page.keyboard.press('KeyT');
-const lit = await until(page, () => window.__gametool.torch.lit && window.__gametool.torch.light.intensity > 4, null, 2000);
+const lit = await until(page, () => window.__gametool.torch.lit && window.__gametool.torch.light.intensity > 4, null, 8000);
 const quickShown = await page.isVisible('#quick');
 await page.keyboard.press('KeyT');
-const out = await until(page, () => !window.__gametool.torch.lit && window.__gametool.torch.light.intensity === 0, null, 2000);
+const out = await until(page, () => !window.__gametool.torch.lit && window.__gametool.torch.light.intensity === 0, null, 8000);
 check('v0.04 T lights the torch (a warm light) and puts it out; the quick-swap line shows', lit && out && quickShown);
 // Controller: D-pad down held 0.4 s.
 const btn = (i, on) => G(page, ([i, on]) => { window.__pad.buttons[i].pressed = on; window.__pad.buttons[i].value = on ? 1 : 0; }, [i, on]);

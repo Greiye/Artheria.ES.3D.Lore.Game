@@ -155,8 +155,10 @@ check('Realistic figures (2026-10-29): every character is one 3D body with a 3D 
 // Face swap (Mega Man Legends style): an expression only moves the face quad's UVs to another row of its sheet.
 const exprs = () => G(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face && o.userData.face.material.visible) { let v = true; for (let a = o; a; a = a.parent) v &&= a.visible; if (v) r.push(g.figureKit.faceExpression(o)); } }); return r; });
 // A bark can have someone mid-word (talk-b) at any moment: wait for a frame where nobody is talking.
-await until(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) r.push(g.figureKit.faceExpression(o)); }); return r.length > 0 && r.every((e) => e === 'neutral' || e === 'blink'); }, null, 6000);
-const rows0 = await exprs();
+// The frame that passes is the evidence (a second read a moment later can catch the next bark), and only faces on
+// screen count, as in the swap below.
+const calm = await until(page, () => { const g = window.__gametool, r = []; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) { let v = true; for (let a = o; a; a = a.parent) v &&= a.visible; if (v) r.push(g.figureKit.faceExpression(o)); } }); return r.length > 0 && r.every((e) => e === 'neutral' || e === 'blink'); }, null, 30000);
+const rows0 = calm ? ['neutral'] : await exprs();
 await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) o.userData.expression = 'talk-b'; }));
 const swapped = await until(page, () => { const g = window.__gametool; let n = 0, moved = 0; g.world.scene.traverse((o) => { if (o.userData.face?.material.visible) { n++; if (g.figureKit.faceExpression(o) === 'talk-b') moved++; } }); return n > 0 && moved === n; }, null, 5000);
 await G(page, () => window.__gametool.world.scene.traverse((o) => { if (o.userData.look) delete o.userData.expression; }));

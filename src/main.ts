@@ -863,12 +863,12 @@ function animate(dt: number) {
       let ms = cullMeshes.get(p.root);
       if (!ms) { ms = []; p.root.traverse((o) => { if ((o as THREE.Mesh).isMesh && o.visible) ms!.push(o); }); cullMeshes.set(p.root, ms); }
       if (ms.length && ms[0].visible !== show) for (const m of ms) m.visible = show;
-      if (!show) { charsCulled++; continue; }
+      if (!show) { charsCulled++; p.root.userData.talking = false; continue; }   // no stale moving mouth when they come back into view
     }
     const remote = id.startsWith('net:') ? remotes.get(id.slice(4)) : undefined;
     const input = id === 'player' ? (player.body.visible ? mine : null) : remote ? (remote.away || remote.far || remote.place !== placeNow() ? null : remote.input)
       : fighting && id === 'kavik' ? fightInput(fightMode.fight.b) : npcInput(id, p.root);
-    if (!input) continue;
+    if (!input) { p.root.userData.talking = false; continue; }
     if (id !== 'player' && !remote && p.fig && state === 'play' && !input.talking && !input.pose) {   // B34: hello as you come near (npcPos: npcInput's)
       const d = Math.hypot(player.pos.x - npcPos.x, player.pos.z - npcPos.z);
       if (d < 4.5 && clock.elapsedTime - (waved.get(id) ?? -1e9) > 60) { waved.set(id, clock.elapsedTime); p.fig.play('wave'); }

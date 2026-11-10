@@ -7,6 +7,16 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 66: full test run repairs (Mike 2026-11-09, "Do all")
+- Profiles page: on a 720 px high window the three profile rows collapsed to nothing under the backup box, so you could not switch profile. The rows keep their size and the card scrolls.
+- Camera: backed against a wall, the follow camera could glide through the wall for a moment while it craned up. It now snaps over.
+- Pause: taking and dropping mouse lock in quick succession could pause the game twice. Fixed.
+- Townsfolk walk round the kill statue and other round props instead of through them.
+- A character who was talking when they left the view no longer comes back with their mouth still moving.
+- Phone: the tailor's profession cards show the blurb only for the chosen one, so the text stays readable.
+- Fewer draw calls: pets, perches, rock piles, the sawhorse and the coin table are each merged into one or two meshes (353 to 271 at the test spot). New helper `src/world/mergeMeshes.ts`.
+- `scripts/e2e-run.mjs` ends with a list of every failed check. Stale checks updated for the first day, the Natalie scene, pause pages and the tailor tabs; timing checks wait on the game instead of the clock.
+
 ### v0.16 changelog, part 65: casebook on a phone, lighter caps (Mike 2026-11-09, "Do all")
 - The casebook is three tabs now: The case, Everyone, Stations. On a phone held sideways the text was shrunk to under 5 px to fit both quest groups on one page; each tab now fits at a readable size.
 - The quest lists run in two columns.
