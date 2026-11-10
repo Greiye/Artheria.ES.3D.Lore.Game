@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ColliderGrid } from '../physics/colliderGrid';
 import { LEAN } from '../lean';
 import { controls } from '../controls';
 import type { Collider } from '../world';
@@ -71,7 +72,8 @@ export class CameraRig {
   ceiling: (x: number, z: number) => number = () => Infinity;
 
   // The perspective is saved with the settings (settings.view); main.ts sets the step at Begin.
-  constructor(private camera: THREE.PerspectiveCamera, private player: Player, private colliders: Collider[], public bounds: number, private baseFov: () => number) {}
+  private grid: ColliderGrid;   // the colliders by place, for the boom's many point tests (src/physics/colliderGrid.ts)
+  constructor(private camera: THREE.PerspectiveCamera, private player: Player, colliders: Collider[], public bounds: number, private baseFov: () => number) { this.grid = new ColliderGrid(colliders); }
 
   private nearestStep(z: number): number { return z < 0.35 ? 1 : OVERHEAD; }
   /** Swap the shoulder view to the other shoulder (eases across). */
@@ -110,6 +112,7 @@ export class CameraRig {
   // Run once per frame, after the simulation steps.
   update(dt: number) {
     const p = this.player;
+    this.grid.sync();
     let near = false;   // follow camera pulled in so close it would sit inside the player's own head
     this.baseQ.setFromEuler(new THREE.Euler(p.pitch, p.yaw, p.thirdPerson ? 0 : -p.lean.side * LEAN.roll, 'YXZ'));   // B41: the view tilts with a lean
     if (!p.thirdPerson) {
@@ -243,7 +246,7 @@ export class CameraRig {
   private blocked(x: number, z: number, pad: number, y = 0, boundsOnly = false): boolean {
     if (Math.abs(x) > this.bounds - pad || Math.abs(z) > this.bounds - pad) return true;
     if (boundsOnly) return false;
-    for (const c of this.colliders) {
+    for (const c of this.grid.at(x, z)) {
       if (c.top !== undefined && y > c.top + 0.3) continue;   // above a rock or low wall: clear
       if (c.kind === 'circle') { if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return true; }
       else if (x > c.minX - pad && x < c.maxX + pad && z > c.minZ - pad && z < c.maxZ + pad) return true;
