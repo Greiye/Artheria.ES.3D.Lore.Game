@@ -62,8 +62,10 @@ const c1 = await G(() => { const m = window.__gametool.missile; return { n: m.bo
 const lit = await G(async () => { let best = 0; for (let i = 0; i < 60 && best < 1; i++) { best = Math.max(best, window.__gametool.missile.light.intensity); await new Promise((r) => requestAnimationFrame(r)); } return best; });
 await page.screenshot({ path: 'test/screenshots/mage-cast.png' });
 check('Z casts a bolt that carries a light, and the spell cools', c1.n === 1 && c1.cd > 0.6 && c1.inScene && lit > 1, JSON.stringify({ ...c1, lit }));
+// The light check above can outlast the real cooldown on a slow machine: put the spell mid-cooldown, then try.
+const before = await G(() => { const m = window.__gametool.missile; m.cd = Math.max(m.cd, 0.5); return m.bolts.length; });
 await page.keyboard.press('KeyZ');
-check('…no second bolt while it cools', await G(() => window.__gametool.missile.bolts.length <= 1));
+check('…no second bolt while it cools', await G((n) => window.__gametool.missile.bolts.length <= n, before));
 check('the bolt fades out by itself', await until(() => window.__gametool.missile.bolts.length === 0 && window.__gametool.missile.light.intensity === 0, null, 6000));
 
 // In the descent: aimed a little wide of a goblin, it bends in and hits.

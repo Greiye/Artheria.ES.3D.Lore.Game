@@ -75,7 +75,8 @@ await page.waitForFunction(() => window.__gametool.crossbow.loaded, null, { time
 await cb(() => { const p = window.__gametool.player; p.pos.set(0, 0, 8); p.yaw = Math.PI; p.pitch = 0; });
 await page.waitForTimeout(200);
 await page.mouse.down({ button: 'left' }); await page.mouse.up({ button: 'left' });
-await page.waitForTimeout(250);
+// Until it has visibly dropped or landed (a fixed 250 ms can be a single slow frame).
+await page.waitForFunction(() => { const b = window.__gametool.crossbow.bolts.at(-1); return b && (b.stuck || b.vel.y < -0.5); }, null, { timeout: 8000 }).catch(() => {});
 const fall = await cb(() => { const b = window.__gametool.crossbow.bolts.at(-1); return { vy: b.vel.y, stuck: b.stuck }; });
 check('F4.2 bolts fall under gravity', fall.stuck || fall.vy < -0.5, JSON.stringify(fall));
 
