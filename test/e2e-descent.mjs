@@ -71,8 +71,9 @@ await page.fill('#lwText', 'Tell them the stairs moved.');
 await page.screenshot({ path: path.join(shots, 'descent-last-words.png') });
 await page.click('#lastWords [data-act="write"]');
 await frames(3);
+// Since PR #169 a new hero starts with 500 crowns: the fallen one's purse is gone, the new one's is full.
 const after = await G(() => { const g = window.__gametool; return { tally: JSON.parse(localStorage.getItem('gametool.tally') || '[]'), crowns: g.inventory.count('crown'), sword: g.inventory.count('sword'), inD: g.inDungeon, heroes: g.record.heroes, seen: JSON.parse(localStorage.getItem('gametool.seen') || '[]').length }; });
-check('Death: last words, then the hero is gone (bag, crowns, the carried book); the tally keeps the name and words', /has fallen/.test(lw) && /Grub the Test Goblin/.test(lw) && after.tally.length === 1 && after.tally[0].words === 'Tell them the stairs moved.' && after.tally[0].by === 'Grub the Test Goblin' && after.crowns === 0 && after.sword === 0 && !after.inD && after.heroes === 2 && after.seen === seen0 + 1, JSON.stringify(after));
+check('Death: last words, then the hero is gone (bag, crowns, the carried book); the tally keeps the name and words', /has fallen/.test(lw) && /Grub the Test Goblin/.test(lw) && after.tally.length === 1 && after.tally[0].words === 'Tell them the stairs moved.' && after.tally[0].by === 'Grub the Test Goblin' && after.crowns === 500 && after.sword === 0 && !after.inD && after.heroes === 2 && after.seen === seen0 + 1, JSON.stringify(after));
 await page.waitForFunction(() => window.__gametool.state === 'forge', null, { timeout: 8000 }).catch(() => {});
 check('…and the mirror opens for a new hero', await G(() => window.__gametool.state === 'forge'));
 await G(() => window.__gametool.characterForge.close?.());
