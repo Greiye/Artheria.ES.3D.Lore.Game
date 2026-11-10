@@ -4,6 +4,7 @@
 // Shots use bolts from the inventory; E on a stuck bolt picks it back up (F4.4).
 // PLACEHOLDER: box crossbow + box bolts (A6) until a .glb exists.
 import * as THREE from 'three';
+import { flightStep, flightSlices } from './physics/projectile';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
 import { buildCrossbowModel, loadWeapon, type WeaponCosmetic } from './forge/weapon';
@@ -16,7 +17,7 @@ const JAM_SECONDS = 3;
 // F4.3 the 15% "perfect" window, as a fraction of the 2 s bar: 0.3–0.6 s in, so a perfect press finishes the
 // reload at 0.5 s (or at once, if pressed after 0.5 s). See docs/assumptions.md.
 export const ZONE = { start: 0.15, end: 0.30 };
-const GRAVITY = 9.8;
+const BOLT_FLIGHT = { gravity: 1, reach: 0.2, ground: 0.02 };
 const BOLT_GEO = new THREE.BoxGeometry(0.02, 0.02, 0.4);
 const BOLT_MAT = new THREE.MeshLambertMaterial({ color: 0xD9D8CC });
 const ADS_FOV_DROP = 15;              // F4.1
@@ -73,6 +74,7 @@ export class Crossbow {
   onChange: () => void = () => undefined;
   /** Living targets (goblins): the nearest one a bolt's step passes through, and what a hit does (false = turned aside). */
   targets: ((from: THREE.Vector3, dir: THREE.Vector3, len: number) => { dist: number; hit: (damage: number, dir: THREE.Vector3) => boolean } | null) | null = null;
+  private aimAt = new THREE.Vector3();
 
   constructor(private scene: THREE.Scene, private camera: THREE.PerspectiveCamera, private player: Player,
     private inventory: Inventory, private solids: THREE.Object3D[], private baseFov: () => number) {
@@ -190,28 +192,25 @@ export class Crossbow {
       if (this.reload.t >= this.reload.total) this.finishReload();
     }
     // F4.2 projectiles: integrate, then sweep the segment against solids and the ground.
+    const world = { solids: this.solids, terrain: (x: number, z: number) => this.player.terrain(x, z), foes: this.targets };
     for (const b of [...this.bolts]) {
       b.age += dt;
       if (b.stuck) { if (b.age > STICK_SECONDS) this.removeBolt(b); continue; }
-      const from = b.mesh.position.clone();
-      b.vel.y -= GRAVITY * dt;
-      const step = b.vel.clone().multiplyScalar(dt);
-      const len = step.length();
-      this.ray.set(from, step.clone().normalize()); this.ray.far = len + 0.2;
-      const hit = this.ray.intersectObjects(this.solids, false)[0];
-      const dir = step.clone().normalize(), foe = this.targets?.(from, dir, len + 0.2);
-      if (foe && (!hit || foe.dist < hit.distance)) {
-        // Into a goblin: the bolt is spent (it comes back with the goblin's loot); turned aside, it drops.
-        if (foe.hit(b.damage, dir)) { this.removeBolt(b); continue; }
-        b.mesh.position.copy(from).addScaledVector(dir, foe.dist); b.mesh.position.y = this.player.terrain(b.mesh.position.x, b.mesh.position.z) + 0.02; b.stuck = true; b.age = 0; continue;
-      }
-      if (hit) { b.mesh.position.copy(hit.point).addScaledVector(step.normalize(), -0.12); b.stuck = true; b.age = 0; continue; }
-      const to = from.add(step);
-      const gy = this.player.terrain(to.x, to.z);   // the ground, bumps and hills included
-      if (to.y <= gy + 0.02) { to.y = gy + 0.02; b.mesh.position.copy(to); b.stuck = true; b.age = 0; continue; }
+      const pos = b.mesh.position;
+      flightSlices(dt, (h) => {
+        const r = flightStep(pos, b.vel, h, world, BOLT_FLIGHT);
+        if (r.kind === 'fly') return;
+        if (r.kind === 'foe') {
+          // Into a goblin: the bolt is spent (it comes back with the goblin's loot); turned aside, it drops.
+          if (r.foe.hit(b.damage, r.dir)) { this.removeBolt(b); return false; }
+          pos.copy(r.from).addScaledVector(r.dir, r.foe.dist); pos.y = this.player.terrain(pos.x, pos.z) + 0.02;
+        } else if (r.kind === 'solid') pos.copy(r.point).addScaledVector(r.dir, -0.12);
+        b.stuck = true; b.age = 0;
+        return false;
+      });
+      if (b.stuck || !this.bolts.includes(b)) continue;
       if (b.age > 6) { this.removeBolt(b); continue; }   // flew off the map
-      b.mesh.position.copy(to);
-      b.mesh.lookAt(to.clone().add(b.vel));
+      b.mesh.lookAt(this.aimAt.copy(pos).add(b.vel));
     }
     this.updateSway(dt);
     // F4.1 ADS: lerp the FOV down 15°; viewmodel visible only in first person with the crossbow in hand.
