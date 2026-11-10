@@ -77,11 +77,14 @@ await page.screenshot({ path: path.join(shots, 'sky-flight.png') });
 
 // Real keys: W dives, D banks right.
 const y0 = await G(page, () => window.__gametool.sky.me.forward(new window.__gametool.Vector3()).y);
-await page.keyboard.down('KeyW'); await page.waitForTimeout(500); await page.keyboard.up('KeyW');
+// Each key is held until the plane answers (at most 2 s of wall time), not for a fixed time: with E2E_SLOW stretching
+// fixed waits, a 500 ms dive became 1.25 s and flew the glider into the ground before the bank check.
+const hold = async (key, fn, arg) => { await page.keyboard.down(key); await until(page, fn, arg, 2000); await page.keyboard.up(key); };
+await hold('KeyW', (y0) => window.__gametool.sky.me.forward(new window.__gametool.Vector3()).y < y0 - 0.15, y0);
 const y1 = await G(page, () => window.__gametool.sky.me.forward(new window.__gametool.Vector3()).y);
 check('W pushes the nose down', y1 < y0 - 0.1, `${y0.toFixed(2)} -> ${y1.toFixed(2)}`);
-await page.keyboard.down('KeyS'); await page.waitForTimeout(500); await page.keyboard.up('KeyS');
-await page.keyboard.down('KeyD'); await page.waitForTimeout(400); await page.keyboard.up('KeyD');
+await hold('KeyS', (y0) => window.__gametool.sky.me.forward(new window.__gametool.Vector3()).y >= y0, y0);
+await hold('KeyD', () => window.__gametool.sky.me.bank() > 0.4);
 const bank = await G(page, () => window.__gametool.sky.me.bank());
 check('D banks right', bank > 0.3, bank.toFixed(2));
 await page.waitForTimeout(1500);
@@ -173,13 +176,14 @@ await G(page, () => { const s = window.__gametool.sky; s.start(s.map.seed); });
 await until(page, () => window.__gametool.sky.phase === 'fly', null, 10000);
 await G(page, () => { window.__gametool.sky.flown = 9.9; });
 await until(page, () => !!window.__gametool.sky.foe, null, 5000);
-const downed = await G(page, async () => {
-  const s = window.__gametool.sky, V = window.__gametool.Vector3;
+await G(page, () => {
+  const s = window.__gametool.sky;
   s.me.pos.y = 300; s.ai.ctl = () => ({ pitch: 0, roll: 0, throttle: 0.5, fire: false, surge: false });
   for (let i = 0; i < 5; i++) s.hit(s.me);
-  await new Promise((ok) => setTimeout(ok, 2500));
-  return { end: s.end, hp: s.me.hp };
 });
+// The run ends 1.2 s of game time after the last hit; wait on the game, not the wall clock (a loaded runner draws slowly).
+await until(page, () => window.__gametool.sky.phase === 'done', null, 10000);
+const downed = await G(page, () => ({ end: window.__gametool.sky.end, hp: window.__gametool.sky.me.hp }));
 check('Five hits and you are shot down', downed.end === 'downed' && downed.hp === 0, JSON.stringify(downed));
 
 // Esc leaves: back at the foot of the perch, playing.

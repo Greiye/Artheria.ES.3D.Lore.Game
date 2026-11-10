@@ -85,7 +85,9 @@ await G(() => { const g = window.__gametool; if (g.scrollPicker.isOpen) g.scroll
 await page.waitForFunction(() => !document.getElementById('lastWords').classList.contains('hidden'), null, { timeout: 8000 });
 await page.click('#lastWords [data-act="skip"]');
 await frames(3);
-check('A new hero starts with the patrons\' purse (20 crowns)', await G(() => window.__gametool.inventory.count('crown') === 20), String(crowns0));
+// Since crowns became real (PR #169) a new hero starts with 500, and the patrons' purse adds its 20 on top.
+const crowns1 = await G(() => window.__gametool.inventory.count('crown'));
+check('A new hero starts with 500 crowns plus the patrons\' purse (20)', crowns1 === 520, `${crowns0} before the fall, ${crowns1} after`);
 check('No page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 await browser.close();

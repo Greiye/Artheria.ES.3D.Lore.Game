@@ -7,6 +7,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 68: the last red checks (Mike 2026-11-10, "Repair")
+- Natalie's first meeting: the hero stayed in shot through the cinematic (the camera turned the body back on each frame). The hero now steps out of frame as intended.
+- Townsfolk paths: walkers no longer cut through lamp posts, benches, the grindstone or the corners of buildings. Things standing close together are walked round as one, and the first and last steps of a walk are checked too.
+- Tests: the skyrunner, camera and town checks wait on the game instead of a fixed time, so a slow machine no longer fails them; the town check names who clipped what.
+
 ### v0.16 changelog, part 67: full test run repairs (Mike 2026-11-09, "Do all")
 - Profiles page: on a 720 px high window the three profile rows collapsed to nothing under the backup box, so you could not switch profile. The rows keep their size and the card scrolls.
 - Camera: backed against a wall, the follow camera could glide through the wall for a moment while it craned up. It now snaps over.

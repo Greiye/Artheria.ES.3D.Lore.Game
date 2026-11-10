@@ -49,7 +49,10 @@ const speedAt = async (cap) => {
   return Math.hypot(b.x - a.x, b.z - a.z) / (b.t - a.t);
 };
 const s30 = await speedAt(30), sInf = await speedAt(0);
-await G(page, () => { const g = window.__gametool; g.world.colliders.push(...g.parked); g.parked = null; g.settings.fpsCap = 0; });
+// Walkers plan their paths round the same collider list, so a walker that set off while it was parked would walk
+// through the kill statue on that leg: with the colliders back, every walker plans again from where it stands.
+await G(page, () => { const g = window.__gametool; g.world.colliders.push(...g.parked); g.parked = null; g.settings.fpsCap = 0;
+  for (const [f, b] of g.townsfolk.brains) if (f.role === 'walker') { b.i = b.route.length; b.wait = 0; } });
 check('v0.06 W4 movement speed is the same capped at 30 and uncapped', Math.abs(s30 - sInf) / sInf < 0.05, `${s30.toFixed(2)} vs ${sInf.toFixed(2)} m/s`);
 
 // ---------- T1 townsfolk ----------
@@ -68,15 +71,21 @@ for (let i = 0; i < 16; i++) {
       if (!f.active || f.role === 'band') continue;
       const p = f.root.position, c = g.townsfolk.clearance(p.x, p.z);
       out.lots = Math.min(out.lots, c.lots); out.well = Math.min(out.well, c.well);
-      for (const k of g.world.colliders) if (k.kind === 'circle' && !(k.top !== undefined && k.top < 0.35)) out.col = Math.min(out.col, Math.hypot(p.x - k.x, p.z - k.z) - k.r);
+      for (const k of g.world.colliders) if (k.kind === 'circle' && !(k.top !== undefined && k.top < 0.35)) {
+        const d = Math.hypot(p.x - k.x, p.z - k.z) - k.r;
+        if (d < out.col) { out.col = d; out.who = `${f.role} ${f.id} at ${p.x.toFixed(1)},${p.z.toFixed(1)} by circle ${k.x.toFixed(1)},${k.z.toFixed(1)} r ${k.r}`; }
+      }
     }
     return out;
   });
-  worst = { lots: Math.min(worst.lots, w.lots), well: Math.min(worst.well, w.well), col: Math.min(worst.col, w.col) };
+  worst = { lots: Math.min(worst.lots, w.lots), well: Math.min(worst.well, w.well), col: Math.min(worst.col, w.col), who: w.col < worst.col ? w.who : worst.who };
 }
-const last = await G(page, () => window.__gametool.townsfolk.folk.filter((f) => f.role === 'walker').map((f) => [f.root.position.x, f.root.position.z]));
-moved = first.filter((p, i) => Math.hypot(p[0] - last[i][0], p[1] - last[i][1]) > 2).length;
-check('v0.06 T1 walkers walk between buildings', moved >= 2, `${moved} of ${first.length} moved > 2 m in 8 s`);
+// Walkers stand 3-7 s at each door, so on a slow machine 8 s can catch most of them waiting: keep looking (up to
+// 30 s more, in game time terms a few doors) until two have walked off.
+const movedNow = () => G(page, (first) => window.__gametool.townsfolk.folk.filter((f) => f.role === 'walker').filter((f, i) => Math.hypot(f.root.position.x - first[i][0], f.root.position.z - first[i][1]) > 2).length, first);
+moved = await movedNow();
+for (let i = 0; i < 60 && moved < 2; i++) { await page.waitForTimeout(500); moved = await movedNow(); }
+check('v0.06 T1 walkers walk between buildings', moved >= 2, `${moved} of ${first.length} moved > 2 m`);
 check('v0.06 T1 nobody clips a building, the well or a lamp post', worst.lots > 0 && worst.well > 0.2 && worst.col > 0.1, JSON.stringify(worst));
 const acts = await G(page, () => { const f = window.__gametool.townsfolk.folk; return { spar: f.filter((x) => x.role === 'sparring').map((x) => x.pose), walking: f.filter((x) => x.role === 'walker').some((x) => x.speed > 0) }; });
 let talkers = new Set();

@@ -53,8 +53,13 @@ check('v0.05 Q swaps the shoulder view to the left shoulder', s3 < -0.3 && await
 await page.keyboard.press('KeyQ');
 await page.waitForTimeout(1500);
 check('v0.05 ... and back to the right', (await side()) > 0.3);
+// The glide lasts 0.45 s of game time; on a slow CI runner it can be over before the first poll after the stretched
+// wheel wait, so a frame watcher in the page records whether it was seen.
+await G(page, () => { const g = window.__gametool; g.sawGlide = false; const t0 = performance.now();
+  const tick = () => { if (!g.player.thirdPerson && g.rig.switching) g.sawGlide = true; if (!g.sawGlide && performance.now() - t0 < 20000) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick); });
 await wheel(1, -300);
-check('v0.05 one more notch in goes first person, gliding into the eyes', await until(page, () => !window.__gametool.player.thirdPerson && window.__gametool.rig.switching, null, 3000));
+check('v0.05 one more notch in goes first person, gliding into the eyes', await until(page, () => window.__gametool.sawGlide, null, 3000));
 check('S1 the glide ends at the eyes with the body hidden', await until(page, () => { const g = window.__gametool; return !g.rig.switching && g.camera.position.distanceTo(g.player.eyePos) < 0.05 && !g.player.body.visible; }, null, 5000));
 check('S1 first person is remembered as the camera setting', (await cam()).view === 'first');
 await page.mouse.wheel(0, 300);

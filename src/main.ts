@@ -3202,9 +3202,9 @@ function talkToNatalie() {
     const keep = { gp: g.position.clone(), gy: g.rotation.y, ny: n.rotation.y, body: player.body.visible };
     g.position.set(spot.x, g.position.y, spot.z); g.rotation.y = Math.atan2(feet.x - spot.x, feet.z - spot.z);
     n.rotation.y = Math.atan2(spot.x - feet.x, spot.z - feet.z);
-    player.body.visible = false;
+    player.body.visible = false; player.offstage = true;
     firstMeet.play(feet, spot, () => {
-      g.position.copy(keep.gp); g.rotation.y = keep.gy; n.rotation.y = keep.ny; player.body.visible = keep.body;
+      g.position.copy(keep.gp); g.rotation.y = keep.gy; n.rotation.y = keep.ny; player.offstage = false; player.body.visible = keep.body;
       talkTo('natalie', world.natalieTarget.position, natalieScript as DialogueScript);
     });
     return;

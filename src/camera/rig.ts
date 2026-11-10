@@ -185,7 +185,7 @@ export class CameraRig {
     }
     this.wasThird = p.thirdPerson;
     // The body stays visible while the camera glides into the eyes, and disappears at the end.
-    p.body.visible = !p.piloting && ((p.thirdPerson && !near) || (!p.thirdPerson && this.viewT < 0.8) || this.blend > 0.01 || this.shot !== null);
+    p.body.visible = !p.piloting && !p.offstage && ((p.thirdPerson && !near) || (!p.thirdPerson && this.viewT < 0.8) || this.blend > 0.01 || this.shot !== null);
 
     this.blend = THREE.MathUtils.clamp(this.blend + (this.shot ? dt : -dt) / 0.6, 0, 1);
     const s = this.shot ?? this.lastShot;
