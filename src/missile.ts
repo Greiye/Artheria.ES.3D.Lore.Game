@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { flightStep, flightSlices } from './physics/projectile';
+
+const MISSILE_FLIGHT = { gravity: 0, reach: 0.1, ground: 0.03 };
 // Mike 2026-11-06 (Round B, B4): a Mage learns magic missile from Magister Greer. A small bolt of pale light flies
 // where you look, bends a little toward the nearest goblin ahead and lights the walls as it goes. One light is shared by
 // every bolt (the newest carries it), added to the scene once the spell is learned so other heroes pay nothing for it.
@@ -28,11 +31,11 @@ export class MagicMissile {
   readonly light = new THREE.PointLight(MISSILE.light.color, 0, MISSILE.light.distance, MISSILE.light.decay);
   /** Goblins: the nearest one a step passes through, and what a hit does. */
   targets: ((from: THREE.Vector3, dir: THREE.Vector3, len: number) => Target) | null = null;
+  private at = new THREE.Vector3();
   /** Where the living foes stand (for the gentle homing). */
   foes: () => THREE.Vector3[] = () => [];
   /** Hits so far (tests and the casebook). */
   hits = 0;
-  private ray = new THREE.Raycaster();
   private lit = false;
 
   constructor(private scene: THREE.Scene, private solids: THREE.Object3D[], private terrain: (x: number, z: number) => number) {
@@ -61,27 +64,24 @@ export class MagicMissile {
 
   update(dt: number) {
     this.cd = Math.max(0, this.cd - dt);
+    const world = { solids: this.solids, terrain: this.terrain, foes: this.targets };
     for (const b of [...this.bolts]) {
       if (b.fade > 0) {   // spent: a short flare as it winks out
         b.fade -= dt; b.mesh.scale.setScalar(1 + (0.25 - Math.max(0, b.fade)) * 6);
         if (b.fade <= 0) this.remove(b);
         continue;
       }
-      this.home(b, dt);
-      const from = b.mesh.position.clone(), step = b.vel.clone().multiplyScalar(dt), len = step.length(), dir = step.clone().normalize();
-      this.ray.set(from, dir); this.ray.far = len + 0.1;
-      const wall = this.ray.intersectObjects(this.solids, false)[0];
-      const foe = this.targets?.(from, dir, len + 0.1) ?? null;
-      if (foe && (!wall || foe.dist < wall.distance)) {
-        b.mesh.position.addScaledVector(dir, foe.dist);
-        if (foe.hit(MISSILE.damage, dir)) this.hits++;
-        b.fade = 0.25; continue;
-      }
-      if (wall) { b.mesh.position.copy(wall.point).addScaledVector(dir, -0.1); b.fade = 0.25; continue; }
-      b.mesh.position.add(step);
-      b.travelled += len;
-      const p = b.mesh.position;
-      if (p.y <= this.terrain(p.x, p.z) + 0.03 || b.travelled > MISSILE.range) { b.fade = 0.25; continue; }
+      const pos = b.mesh.position;
+      flightSlices(dt, (h) => {
+        this.home(b, h);
+        const before = this.at.copy(pos), r = flightStep(pos, b.vel, h, world, MISSILE_FLIGHT);
+        if (r.kind === 'foe') { pos.addScaledVector(r.dir, r.foe.dist); if (r.foe.hit(MISSILE.damage, r.dir)) this.hits++; }
+        else if (r.kind === 'solid') pos.copy(r.point).addScaledVector(r.dir, -0.1);
+        else { b.travelled += before.distanceTo(pos); if (r.kind === 'fly' && b.travelled <= MISSILE.range) return; }
+        b.fade = 0.25;
+        return false;
+      });
+      if (b.fade > 0) continue;
       b.mesh.rotation.y += dt * 9; b.mesh.rotation.x += dt * 5;
     }
     // The newest bolt carries the light; it flickers a little and dims as the bolt winks out.

@@ -36,7 +36,7 @@ const GESTURE_TIME: Record<Gesture, number> = { wave: 1.6, pickup: 0.9, hit: 0.6
 const FIDGETS: Gesture[] = ['look', 'stretch', 'shift'];
 // v0.06 S1 station poses: sit (campfire), smith (anvil), mirror (tailor), write (desk / scriptorium), kneel (bedroll).
 // v0.06 T4: the cinema band plays: fiddle, drum and pipe.
-export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe' | 'wake' | 'wakeroll' | 'sitground';
+export type Pose = 'stance' | 'punch' | 'hang' | 'plank' | 'pushup' | 'read' | 'sit' | 'smith' | 'mirror' | 'write' | 'kneel' | 'fiddle' | 'drum' | 'pipe' | 'wake' | 'wakeroll' | 'sitground' | 'meditate';
 
 const WALK = 2.5, RUN = 5;
 // B33 (Mike 2026-11-03): poses update every frame, smooth. (Restyle S2f had stepped them at 12 fps for a
@@ -336,6 +336,13 @@ export class FigureAnim {
       B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.47 * H, k);
       set('spine', -0.2, Math.sin(pt * 0.4) * 0.08); set('head', 0.1, Math.sin(pt * 0.4 + 0.5) * 0.35);
       set('armN', 0.55, 0, -0.25); set('armP', 0.55, 0, 0.25); set('foreN', -0.1); set('foreP', -0.1);
+    } else if (this.pose === 'meditate') {
+      // B58: cross-legged on the dojo mat, back straight, hands on the knees, a slow breath.
+      const br = Math.sin(pt * 0.9);
+      set('thighN', -1.4, 0, -0.85); set('thighP', -1.4, 0, 0.85); set('shinN', 2.3); set('shinP', 2.3);
+      B.hips.position.y = L(B.hips.position.y, this.rest.hips.y - 0.5 * H + br * 0.006, k);
+      set('spine', -0.04 - br * 0.03); set('head', 0.12 + br * 0.02);
+      set('armN', -0.5, 0, -0.28); set('armP', -0.5, 0, 0.28); set('foreN', -0.85); set('foreP', -0.85);
     } else if (this.pose === 'plank') {
       B.root.rotation.x = (Math.PI / 2 - 0.12) * k; B.root.position.y = 0.2 * H * k;
       set('thighN', 0); set('thighP', 0); set('shinN', 0); set('shinP', 0); set('spine', Math.sin(t * 2) * 0.015);

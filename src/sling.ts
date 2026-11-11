@@ -4,12 +4,13 @@
 // reload bar: the next rock is in the pouch. A whirled shot outranges a throw and, fully wound, hits about as hard
 // as a bolt. Thrown and slung rocks fly with gravity, hit goblins, and lie where they land to be picked up again.
 import * as THREE from 'three';
+import { flightStep, flightSlices } from './physics/projectile';
 import type { Inventory } from './inventory';
 import type { Player } from './player';
 
 export type ThrowKind = 'rock' | 'sling';
 const SPIN_MAX = 1.2;   // seconds to whirl a sling to full
-const GRAVITY = 9.8;
+const ROCK_FLIGHT = { gravity: 1, reach: 0.1, ground: 0.04 };
 const ROCK_GEO = new THREE.IcosahedronGeometry(0.045, 0);
 const ROCK_MAT = new THREE.MeshLambertMaterial({ color: '#8C8780' });
 const STICK_SECONDS = 25;
@@ -121,32 +122,26 @@ export class Thrower {
 
   /** Flight for every rock (call once a frame, from one of the pair). */
   static fly(dt: number, solids: THREE.Object3D[], terrain: (x: number, z: number) => number, targets: ThrowTargets | null) {
-    const ray = new THREE.Raycaster();
+    const world = { solids, terrain, foes: targets };
     for (const r of [...Thrower.rocks]) {
       r.age += dt;
       if (r.landed) { if (r.age > STICK_SECONDS) { r.mesh.removeFromParent(); Thrower.rocks.splice(Thrower.rocks.indexOf(r), 1); } continue; }
-      const from = r.mesh.position.clone();
-      r.vel.y -= GRAVITY * dt;
-      const step = r.vel.clone().multiplyScalar(dt), len = step.length(), dir = step.clone().normalize();
-      const foe = targets?.(from, dir, len + 0.1);
-      ray.set(from, dir); ray.far = len + 0.1;
-      const hit = ray.intersectObjects(solids, false)[0];
-      if (foe && (!hit || foe.dist < hit.distance)) {
-        foe.hit(r.damage, dir);
-        r.mesh.position.copy(from).addScaledVector(dir, foe.dist);
-        r.vel.set(-dir.x * 1.5, 1, -dir.z * 1.5);   // it bounces off
-        continue;
-      }
-      if (hit) {   // a wall or the ground: a slow rock settles there, a fast one bounces back weakly
-        r.mesh.position.copy(hit.point).addScaledVector(dir, -0.06);
-        if (r.vel.length() < 4 || dir.y < -0.5) { r.landed = true; r.age = 0; continue; }
-        r.vel.set(-r.vel.x * 0.2, 0, -r.vel.z * 0.2);
-        continue;
-      }
-      const to = from.add(step), gy = terrain(to.x, to.z);
-      if (to.y <= gy + 0.04) { to.y = gy + 0.04; r.landed = true; r.age = 0; }
-      if (r.age > 6) { r.mesh.removeFromParent(); Thrower.rocks.splice(Thrower.rocks.indexOf(r), 1); continue; }
-      r.mesh.position.copy(to);
+      const pos = r.mesh.position;
+      flightSlices(dt, (h) => {
+        const f = flightStep(pos, r.vel, h, world, ROCK_FLIGHT);
+        if (f.kind === 'fly') return;
+        if (f.kind === 'foe') {
+          f.foe.hit(r.damage, f.dir);
+          pos.copy(f.from).addScaledVector(f.dir, f.foe.dist);
+          r.vel.set(-f.dir.x * 1.5, 1, -f.dir.z * 1.5);   // it bounces off
+        } else if (f.kind === 'solid') {   // a wall or the ground: a slow rock settles there, a fast one bounces back weakly
+          pos.copy(f.point).addScaledVector(f.dir, -0.06);
+          if (r.vel.length() < 4 || f.dir.y < -0.5) { r.landed = true; r.age = 0; }
+          else r.vel.set(-r.vel.x * 0.2, 0, -r.vel.z * 0.2);
+        } else { r.landed = true; r.age = 0; }
+        return false;   // one event a frame, as before
+      });
+      if (!r.landed && r.age > 6) { r.mesh.removeFromParent(); Thrower.rocks.splice(Thrower.rocks.indexOf(r), 1); }
     }
   }
 

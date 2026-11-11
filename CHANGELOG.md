@@ -7,13 +7,16 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
-### v0.16 changelog, part 68: the last red checks (Mike 2026-11-10, "Repair")
-- Natalie's first meeting: the hero stayed in shot through the cinematic (the camera turned the body back on each frame). The hero now steps out of frame as intended.
-- Townsfolk paths: walkers no longer cut through lamp posts, benches, the grindstone or the corners of buildings. Things standing close together are walked round as one, and the first and last steps of a walk are checked too.
-- Below: on a slow frame a goblin's sling stone or arrow could fly straight through you (it moved over a metre a frame and only its end point was checked). The whole step is checked now, so slow phones get hit too.
-- Tests: the skyrunner, camera and town checks wait on the game instead of a fixed time, so a slow machine no longer fails them; the town check names who clipped what.
+### v0.16 changelog, part 71: B58, the Monk's combat deck (Mike 2026-11-09, "Do all")
+- Monks build their own combos. You stand in one of four stances (Front Left, Front Right, Back Left, Back Right); each limb button throws the move your deck holds for that stance, every move ends in a stance, and the next press reads that stance's slots. 4 stances x 4 limbs = 16 slots. A string is four hits at most, then it must recover.
+- Hold a limb through the wind-up to charge the move: slower, harder, and it breaks a guard (it glows while it winds up). Tap back just as a hit lands to parry: the attacker reels and you get stamina back; a parry at nothing costs stamina.
+- Stamina for every fighter and every profession, shown as a thin bar under each health bar. Attacks and sidesteps spend it and it returns after half a second's rest. Out of stamina, moves come out four frames slower and the next blocked hit breaks your guard (the bar flashes). Kavik backs off behind his guard when his is low and comes for you when yours is gone.
+- Moves are learned from foes: block or parry one of Kavik's moves three times and it joins your library, with a toast. You start with 8 of the 22; Kavik now throws the rest of his list and longer strings so every move can be met.
+- The dojo has a meditation mat. A Monk sits on it (cross-legged, breathing, the camera swinging slowly round) to edit up to three named decks in a panel on the right: each move shows wind-up, damage, reach, height, stamina, end stance and tags, and the panel lists the strings the deck produces. "Show it" has a pale copy of you stand beside the mat and perform the string.
+- Saved per profile as `gametool.monkdeck`, so it is in profile files and the full backup. A save from before the deck opens with the starter deck and a damaged one is mended (no data version bump needed: nothing old changes shape). Each move's data carries an `anim` key and a `credit`, so a clip recorded from a friend can replace it later.
+- For now the deck is for the spar with Kavik; goblin duels and the other professions' spars play as before, apart from stamina. Not built yet (waiting on three answers in the proposal): free movement and dodge, guard on a held button, the behind-the-shoulder camera, and fights against up to three foes. The panel is in English only.
+- New suite e2e-monk-deck (33 checks).
 
-### v0.16 changelog, part 67: full test run repairs (Mike 2026-11-09, "Do all")
 - Profiles page: on a 720 px high window the three profile rows collapsed to nothing under the backup box, so you could not switch profile. The rows keep their size and the card scrolls.
 - Camera: backed against a wall, the follow camera could glide through the wall for a moment while it craned up. It now snaps over.
 - Pause: taking and dropping mouse lock in quick succession could pause the game twice. Fixed.
@@ -23,6 +26,21 @@ Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26
 - Fewer draw calls: pets, perches, rock piles, the sawhorse and the coin table are each merged into one or two meshes (353 to 271 at the test spot). New helper `src/world/mergeMeshes.ts`.
 - `scripts/e2e-run.mjs` ends with a list of every failed check. Stale checks updated for the first day, the Natalie scene, pause pages and the tailor tabs; timing checks wait on the game instead of the clock.
 
+### v0.16 changelog, part 70: physics foundation (Mike 2026-11-09, "Do all")
+- Crossbow bolts, sling rocks and the Mage's missile fly through one shared step (`src/physics/projectile.ts`) at a fixed 120 steps a second, so a slow frame can no longer carry a shot through a goblin or a thin wall, and all three fall and hit the same way on every device.
+- The follow camera finds nearby walls through a grid of the town's 577 colliders (`src/physics/colliderGrid.ts`) instead of testing every one: about 0.25 ms a frame down to 0.02 ms. Checked against the old scan on 200,000 points with no difference.
+- The player's own collision step was measured at 0.04 ms a frame and left alone.
+
+### v0.16 changelog, part 69: main.ts split (Mike 2026-11-09, "Do all")
+- `src/main.ts` goes from 4,494 lines to under 1,900. Thirty-one sections moved to their own files under `src/app/` (portal and travel, exits, wagon, multiplayer, speakers, talk, views, town stations, the descent flow, the knight frame, pets, cooking, campfire, the monk, mage and fighter techniques, and others) plus `src/ui/settingsMenu.ts`. Each takes what it needs from main.ts through one `deps` object. No behaviour change.
+
+### v0.16 changelog, part 68: the last red checks (Mike 2026-11-10, "Repair")
+- Natalie's first meeting: the hero stayed in shot through the cinematic (the camera turned the body back on each frame). The hero now steps out of frame as intended.
+- Townsfolk paths: walkers no longer cut through lamp posts, benches, the grindstone or the corners of buildings. Things standing close together are walked round as one, and the first and last steps of a walk are checked too.
+- Below: on a slow frame a goblin's sling stone or arrow could fly straight through you (it moved over a metre a frame and only its end point was checked). The whole step is checked now, so slow phones get hit too.
+- Tests: the skyrunner, camera and town checks wait on the game instead of a fixed time, so a slow machine no longer fails them; the town check names who clipped what.
+
+### v0.16 changelog, part 67: full test run repairs (Mike 2026-11-09, "Do all")
 ### v0.16 changelog, part 66: crowns are real, 500 to start (Mike 2026-11-09)
 - The free shop is over (the v0.06 debug purse). Prices are paid in crowns, and the purse shows what you carry.
 - A new game, and a new hero after a fall or retiring, starts with 500 crowns (plus the patrons' 20 once they give it).

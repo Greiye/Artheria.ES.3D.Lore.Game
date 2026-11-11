@@ -122,7 +122,10 @@ const shotRes = await G(page, () => new Promise((done) => {
   g.player.yaw = Math.atan2(-(p.x - e.x), -(p.z - e.z)); g.player.pitch = Math.atan2(f.st.height * 0.6 - e.y, Math.hypot(p.x - e.x, p.z - e.z));
   g.goblins.list[0].st.speed = 0;
   // B44: a held, steady aim (no wander), so the shot goes where it's pointed.
-  requestAnimationFrame(() => { cb.stability = 1; cb.sway.yaw = cb.sway.pitch = 0; cb.fire(); setTimeout(() => done({ hp0, hp1: f.hp, c0 }), 400); });
+  requestAnimationFrame(() => { cb.stability = 1; cb.sway.yaw = cb.sway.pitch = 0; cb.fire();
+    // Poll for the hit rather than sample at a fixed 400 ms: a browser-side timer is not stretched by E2E_SLOW, and a slow runner can still have the bolt in flight.
+    const t0 = performance.now(), poll = () => (f.hp < hp0 || performance.now() - t0 > 4000 ? done({ hp0, hp1: f.hp, c0 }) : setTimeout(poll, 20));
+    poll(); });
 }));
 await sim(page, 0.5);
 const killed = await G(page, ({ c0 }) => { const g = window.__gametool, f = g.goblins.list[0], d = new g.Vector3(0, 0, 1); let n = 0; while (f.state !== 'dead' && n < 20) { g.goblins.shoot(f, 1, d.set(-Math.sin(f.root.rotation.y), 0, -Math.cos(f.root.rotation.y))); n++; } return { dead: f.state === 'dead', n, crowns: g.inventory.count('crown') - c0 }; }, shotRes);
