@@ -62,7 +62,8 @@ await until(page, () => window.__gametool.gear.stroke >= 1);
 check('A stroke held too steep is called out', await G(page, () => /too steep/.test(window.__gametool.gear.note)), await G(page, () => window.__gametool.gear.note));
 await page.screenshot({ path: path.join(shots, 'b17-sharpen.png') });
 // Seven strokes held in the band, ticked at 60 fps (the test machine renders too slowly to steer by frames).
-await G(page, () => { const g = window.__gametool.gear; for (let i = 0; i < 2000 && g.job === 'sharpen'; i++) { g.angle = 17.5; g.holding = i % 2 === 0; g.update(1 / 60); } });
+// The blade's hand drift is random (gear.ts update adds Math.random()); pin it to zero for this loop so the strokes are the same every run.
+await G(page, () => { const g = window.__gametool.gear, rnd = Math.random; Math.random = () => 0.5; try { for (let i = 0; i < 2000 && g.job === 'sharpen'; i++) { g.angle = 17.5; g.holding = i % 2 === 0; g.update(1 / 60); } } finally { Math.random = rnd; } });
 const sharp = await G(page, () => { const g = window.__gametool; return { good: g.gear.good, sharp: +g.gear.st.sharp.toFixed(2), k: +g.sword.sharpness.toFixed(2), done: !!g.gear.st.done.sharpen, edge: g.sword.held.getObjectByName('edge').visible }; });
 check('Clean strokes in the band bring the edge back (keen, full damage, bright edge)', sharp.good >= 5 && sharp.sharp === 1 && sharp.k === 1 && sharp.done && sharp.edge, JSON.stringify(sharp));
 
