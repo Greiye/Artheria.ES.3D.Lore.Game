@@ -67,7 +67,11 @@ const optIn = () => { localStorage.setItem('gametool.rotateask', 'on'); localSto
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(shots, 'iphone-3-play.png') });
   // The address bar shrinking the page: the canvas follows the visual viewport.
-  await page.setViewportSize({ width: landscape.viewport.width, height: landscape.viewport.height - 50 });
+  // Diagnostic: CI reports this step as an Error with no message; log what it really threw before failing the suite.
+  await page.setViewportSize({ width: landscape.viewport.width, height: landscape.viewport.height - 50 }).catch((e) => {
+    console.error('setViewportSize failed:', e?.name, '|', e?.message, '|', String(e?.stack ?? '').split('\n').slice(0, 4).join(' / '));
+    throw e;
+  });
   await page.waitForTimeout(300);
   const canvasH = await G(page, () => document.querySelector('#app canvas').clientHeight);
   check('The canvas follows the visible area when the address bar takes room', canvasH === landscape.viewport.height - 50, String(canvasH));
