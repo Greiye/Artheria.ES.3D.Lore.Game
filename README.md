@@ -65,6 +65,7 @@ On touch screens, the left thumb is a joystick and the right thumb drags to look
 ## Content
 
 - **Lore:** `content/lore/*.md`. Templates are in `content/templates/`, and shelving is in `content/shelves.json`. Edit on github.com and commit; the site rebuilds in 1–2 minutes. A bad file fails the build with a plain message, and the live site keeps the last good version.
+- **Creatures:** `content/creatures/*.md`, one page per people, beast, monster or person, written and read by the TTRPG Session Tool's Creature Designer (template `content/templates/creature.md`, notes in `content/creatures/README.md`). The library build does not read this folder.
 - **Quest text:** `content/quest/`. Roll tables are in `content/rolltables/`.
 - **Models:** put `public/models/<slot>.glb` in the repo and it replaces that slot's placeholder:
   - slots: `natalie`, `hero`, `kavik`, `pedlar`, `stagecoach`, `witch`, `sword` and `player`;

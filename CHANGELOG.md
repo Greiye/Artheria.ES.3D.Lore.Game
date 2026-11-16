@@ -2,6 +2,11 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
+## Creature pages (Mike 2026-11-16)
+
+- New folder `content/creatures/`: one Markdown page per people, beast, monster or named person, written and read by the Creature Designer in the TTRPG Session Tool. The library build does not read it, so these pages never block a deploy.
+- New template `content/templates/creature.md` and a first page, `goblin.md`, from *Farm Beasts* and the Bestiary.
+
 ## Live builds 0.03 to 0.16 (each round deploys to GitHub Pages; roadmap 0.03 onward + Artheria lore pass)
 
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
