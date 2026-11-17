@@ -1,4 +1,5 @@
-import { Fight, IDLE_PAD, MOVES, STEP, type Fighter, type HitEvent, type Pad } from './engine';
+import { Fight, IDLE_PAD, LIMBS, MOVES, STAMINA, STANCES, STEP, type Fighter, type HitEvent, type Pad } from './engine';
+import { activeDeck, loadDecks, saveDecks, witness, type DeckSave } from './deck';
 import { KavikAI, type Level } from './ai';
 import { storeSet } from '../store';
 import './fight.css';
@@ -40,12 +41,17 @@ export class FightMode {
   duel: { name: string; hp: number; level: Level } | null = null;
   /** Seconds the fight holds still after a hit lands (set by the game, for weight). */
   hitStop = 0;
+  /** B58: set by the game before the fight opens: true for a Monk, who fights from the deck and learns moves. */
+  monk = false;
+  decks: DeckSave | null = null;
+  /** B58: a move was learned (the game toasts it). */
+  onLearn: (name: string) => void = () => {};
   private acc = 0;
   private held = new Set<string>();
   private pressed = new Set<string>();
   private stick = { id: -1, x0: 0, y0: 0, x: 0, y: 0 };
   /** The gamepad as last read: stick, held buttons, and the buttons down last poll (for presses). */
-  private gp = { x: 0, y: 0, up: false, down: false, prev: [] as boolean[] };
+  private gp = { x: 0, y: 0, up: false, down: false, prev: [] as boolean[], held: [] as boolean[] };
 
   constructor() {
     this.el = document.createElement('div');
@@ -53,9 +59,9 @@ export class FightMode {
     this.el.className = 'hidden';
     this.el.innerHTML = `
       <div class="fx-top">
-        <div class="fx-side"><span class="fx-name">You</span><div class="fx-bar"><i class="fx-hp" data-who="a"></i></div><span class="fx-pips" data-who="a"></span></div>
+        <div class="fx-side"><span class="fx-name">You <span class="fx-stance" aria-label="Stance"><i></i><i></i><i></i><i></i></span><small class="fx-stance-name"></small></span><div class="fx-bar"><i class="fx-hp" data-who="a"></i></div><div class="fx-bar fx-stam"><i class="fx-st" data-who="a"></i></div><span class="fx-pips" data-who="a"></span></div>
         <div class="fx-clock">60</div>
-        <div class="fx-side fx-right"><span class="fx-name">Kavik <small class="fx-level"></small></span><div class="fx-bar"><i class="fx-hp" data-who="b"></i></div><span class="fx-pips" data-who="b"></span></div>
+        <div class="fx-side fx-right"><span class="fx-name">Kavik <small class="fx-level"></small></span><div class="fx-bar"><i class="fx-hp" data-who="b"></i></div><div class="fx-bar fx-stam"><i class="fx-st" data-who="b"></i></div><span class="fx-pips" data-who="b"></span></div>
       </div>
       <div class="fx-banner" aria-live="polite"></div>
       <div class="fx-result hidden" role="dialog" aria-label="Match result">
@@ -64,6 +70,7 @@ export class FightMode {
       </div>
       <p class="fx-help fx-help-pad only-pad">Move <b>stick</b> (hold back to block, down-back low, tap up / down to sidestep) · hands <b>X Y</b> · feet <b>A B</b> · throw <b>LB</b> · <b>Start</b> leaves</p>
       <p class="fx-help fx-help-keys">Move <b>A D</b> (hold back to block) · tap <b>W S</b> to sidestep, hold to hop / crouch · hands <b>U I</b> · feet <b>J K</b> · throw <b>U+I</b> or <b>O</b> · <b>Esc</b> leaves</p>
+      <p class="fx-help fx-help-monk">Your deck: each limb throws the move for your stance · <b>hold</b> a limb to charge it (breaks a guard) · <b>tap back</b> as a hit lands to parry</p>
       <div class="fx-stick" aria-hidden="true"><div class="fx-knob"></div></div>
       <div class="fx-pad">
         <button class="fx-b fx-throw" data-b="throw">Throw</button>
@@ -108,6 +115,8 @@ export class FightMode {
     this.isOpen = true;
     this.duel = duel;
     this.el.classList.toggle('duel', !!duel);
+    this.el.classList.toggle('monk', this.monk);
+    this.decks = this.monk ? loadDecks() : null;
     this.el.classList.remove('hidden');
     document.body.classList.add('fighting');
     this.start();
@@ -117,13 +126,14 @@ export class FightMode {
     this.isOpen = false;
     this.el.classList.add('hidden');
     document.body.classList.remove('fighting');
-    this.held.clear(); this.pressed.clear(); this.gp.x = this.gp.y = 0; this.gp.up = this.gp.down = false;
+    this.held.clear(); this.pressed.clear(); this.gp.held = []; this.gp.x = this.gp.y = 0; this.gp.up = this.gp.down = false;
     this.onClose();
   }
   /** A new best-of-3 against Kavik at the level the save says. */
   start() {
     this.fight = new Fight();
-    this.fight.onHit = (e) => this.onHit(e);
+    this.fight.onHit = (e) => { this.learn(e); this.onHit(e); };
+    if (this.decks) this.fight.a.deck = activeDeck(this.decks);
     const d = this.duel;
     if (d) { this.fight.needed = 1; this.fight.bName = d.name; this.fight.bMax = d.hp; }
     this.fight.startRound();
@@ -137,6 +147,14 @@ export class FightMode {
     this.gp.prev = this.padButtons();   // the A press that opened the fight isn't a kick
   }
 
+  /** B58: a Monk who blocks or parries a foe's move three times learns it. */
+  private learn(e: HitEvent) {
+    if (!this.decks || e.on !== this.fight.a || !e.blocked || e.outcome === 'break') return;
+    const m = witness(this.decks, e.move.id);
+    saveDecks(this.decks);
+    if (m) this.onLearn(m.name);
+  }
+
   private padButtons(): boolean[] {
     const p = [...(navigator.getGamepads?.() ?? [])].find((g) => !!g && g.connected);
     return p ? p.buttons.map((b) => b.pressed || b.value > 0.5) : [];
@@ -145,6 +163,7 @@ export class FightMode {
   private pollPad() {
     const now = this.padButtons(), prev = this.gp.prev, hit = (i: number) => !!now[i] && !prev[i];
     this.gp.prev = now;
+    this.gp.held = now;
     const p = [...(navigator.getGamepads?.() ?? [])].find((g) => !!g && g.connected);
     if (!p) { this.gp.x = this.gp.y = 0; this.gp.up = this.gp.down = false; return; }
     if (this.result) {
@@ -177,10 +196,18 @@ export class FightMode {
       up: this.pressed.has('up') || h.has('up') || sy < -0.55 || g.up, down: this.pressed.has('down') || h.has('down') || sy > 0.55 || g.down,
       lp: this.pressed.has('lp') || this.pressed.has('throw'), rp: this.pressed.has('rp') || this.pressed.has('throw'),
       lk: this.pressed.has('lk'), rk: this.pressed.has('rk'),
+      hold: this.holding(),
     };
     p.x = Math.max(-1, Math.min(1, p.x));
     this.pressed.clear();
     return p;
+  }
+
+  /** B58: the limbs held down now, on keys, touch or the pad (hold to charge). */
+  private holding(): Pad['hold'] {
+    const h = this.held, g = this.gp.held, PADB = { lp: 2, rp: 3, lk: 0, rk: 1 } as const, out: NonNullable<Pad['hold']> = {};
+    for (const l of LIMBS) out[l] = h.has(l) || !!g[PADB[l]];
+    return out;
   }
 
   /** Run the fight for `dt` seconds of real time (fixed 60 Hz steps) and redraw the screen. */
@@ -196,7 +223,7 @@ export class FightMode {
       this.fight.step(p, this.ai.pad(this.fight));
       // A press counts once; a tap of up / down (down and up again inside one frame) counts for one step.
       const h = this.held, sy = this.stick.y, g = this.gp;
-      p = { ...p, lp: false, rp: false, lk: false, rk: false, up: h.has('up') || sy < -0.55 || g.up, down: h.has('down') || sy > 0.55 || g.down };
+      p = { ...p, lp: false, rp: false, lk: false, rk: false, hold: this.holding(), up: h.has('up') || sy < -0.55 || g.up, down: h.has('down') || sy > 0.55 || g.down };
       if (this.fight.phase === 'matchEnd' && !this.result) this.finish();
     }
     this.draw();
@@ -232,6 +259,16 @@ export class FightMode {
     const f = this.fight, q = <T extends Element>(s: string) => this.el.querySelector<T & HTMLElement>(s)!;
     const bar = (who: 'a' | 'b', x: Fighter) => { q<HTMLElement>(`.fx-hp[data-who="${who}"]`).style.width = (who === 'b' ? (x.hp / f.bMax) * 100 : x.hp) + '%'; };
     bar('a', f.a); bar('b', f.b);
+    // B58: stamina under each health bar (it flashes when empty), and the Monk's stance.
+    for (const [who, x] of [['a', f.a], ['b', f.b]] as const) {
+      const st = q<HTMLElement>(`.fx-st[data-who="${who}"]`);
+      st.style.width = (x.stamina / STAMINA.max) * 100 + '%';
+      st.parentElement!.classList.toggle('empty', x.stamina <= 0);
+    }
+    if (this.monk) {
+      this.el.querySelectorAll('.fx-stance i').forEach((d, i) => d.classList.toggle('on', i === f.a.stance));
+      const n = q('.fx-stance-name'); if (n.textContent !== STANCES[f.a.stance]) n.textContent = STANCES[f.a.stance];
+    }
     q('.fx-pips[data-who="a"]').textContent = '●'.repeat(f.wins[0]) + '○'.repeat(Math.max(0, f.needed - f.wins[0]));
     q('.fx-pips[data-who="b"]').textContent = '●'.repeat(f.wins[1]) + '○'.repeat(Math.max(0, f.needed - f.wins[1]));
     q('.fx-clock').textContent = String(Math.ceil(f.time));

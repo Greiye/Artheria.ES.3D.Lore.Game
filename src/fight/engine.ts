@@ -8,12 +8,17 @@
 // PR 2 (same day): the fight moves in 3D on the mat. Tap up or down to sidestep around the other fighter: straight
 // (linear) moves then miss, while round kicks and sweeps track and still hit. The line between the fighters turns as
 // they circle, and the screen's right turns with it (the camera follows), so the stick always means toward / away.
+// B58 (Mike 2026-11-08): every fighter has stamina (attacks and sidesteps spend it; out of it, moves come out slower
+// and a guard breaks). A fighter with a deck (the Monk) stands in one of four stances: each limb button throws the
+// move the deck holds for that stance, every move ends in a stance, and the next press reads that stance's slots, so
+// a combo is a path through the stances. A deck fighter can hold a limb to charge the move (slower, harder, breaks
+// a guard) and can parry by tapping back just as a hit lands.
 // No drawing here. Timing is in frames at a fixed 60 Hz. Positions are in metres on the mat (x along it, z across).
 
 export type Limb = 'lp' | 'rp' | 'lk' | 'rk';
 export const LIMBS: Limb[] = ['lp', 'rp', 'lk', 'rk'];
 /** One fighter's controls this step: the stick (x, up, down held) and the limb buttons (presses). */
-export interface Pad { x: number; up: boolean; down: boolean; lp: boolean; rp: boolean; lk: boolean; rk: boolean }
+export interface Pad { x: number; up: boolean; down: boolean; lp: boolean; rp: boolean; lk: boolean; rk: boolean; /** Limbs held down now (B58: hold to charge). */ hold?: Partial<Record<Limb, boolean>> }
 export const IDLE_PAD: Pad = { x: 0, up: false, down: false, lp: false, rp: false, lk: false, rk: false };
 
 export type HitLevel = 'high' | 'mid' | 'low' | 'throw';
@@ -34,6 +39,8 @@ export interface Move {
   air?: boolean;                  // a jumping attack
   track?: boolean;                // a round move: hits someone sidestepping it (straight moves miss them)
   next?: Partial<Record<Limb, string>>;   // string follow-ups: press this limb during the move
+  anim?: string;                  // B58: the clip that plays for it, kept apart from the frame data so a recorded clip can replace it
+  credit?: string;                // B58: who the clip was recorded from
 }
 // Our own moves (names and frame data). Kavik uses the same list.
 export const MOVES: Record<string, Move> = {
@@ -77,6 +84,26 @@ const COMMANDS: Record<string, string> = {
 };
 // Round moves track a sidestep.
 for (const id of ['jab3', 'shin2', 'wheel', 'hook', 'heel', 'sweep', 'longsweep', 'throw']) MOVES[id].track = true;
+
+// B58 stances. Where a move leaves you comes from the limb and how it turns the body: a hand leaves that side
+// leading in front, a kick leaves it behind, and a round move turns you the other way.
+export type Stance = 0 | 1 | 2 | 3;
+export const STANCES = ['Front Left', 'Front Right', 'Back Left', 'Back Right'] as const;
+export function endStance(m: Move, from: Stance = 0): Stance {
+  if (m.limb === 'throw') return from;
+  const right = m.limb === 'rp' || m.limb === 'rk', kick = m.limb === 'lk' || m.limb === 'rk';
+  return ((kick !== !!m.track ? 2 : 0) + (right ? 1 : 0)) as Stance;
+}
+/** A deck: for each stance, the move each limb throws (lp, rp, lk, rk); null leaves the plain command. */
+export type Deck = (string | null)[][];
+/** Moves a deck can hold: everything thrown from the ground with one limb. */
+export const deckable = (m: Move) => m.limb !== 'throw' && !m.air;
+export const STAMINA = { max: 100, light: 8, heavy: 15, charged: 22, step: 6, parryMiss: 10, parryGain: 15, rest: 30, regen: 30, slow: 4 };
+export const staminaCost = (m: Move) => (m.dmg >= 12 || m.level === 'throw' ? STAMINA.heavy : STAMINA.light);
+const CHAIN_MAX = 4, CHAIN_REST = 16;   // hits in one deck string, then frames it must recover before the next
+const CHARGE_AT = 8, CHARGE_EXTRA = 12, CHARGE_DMG = 1.4;   // held this many frames into the wind-up: longer wind-up, harder hit
+const PARRY = 6;           // frames after back goes down in which a hit is parried
+const PARRY_STUN = 34, BREAK_STUN = 22;
 export function command(dir: '' | 'f' | 'b' | 'd' | 'u', limb: Limb): Move { return MOVES[COMMANDS[dir + limb]]; }
 
 export const STAGE = { half: 3.4, depth: 2.0 };   // walls at x = ±half and z = ±depth
@@ -122,6 +149,14 @@ export class Fighter {
   holding: Fighter | null = null;
   /** Frames up / down have been held (taps sidestep), and the sidestep's way across: +1 into the screen, -1 out. */
   upT = 0; downT = 0; sideDir = 0;
+  /** B58: stamina, and the frames since it was last spent (it comes back after a rest). */
+  stamina = STAMINA.max; calm = 0;
+  /** B58: the stance stood in, the deck read from it (null: the plain commands), and the hits in the string so far. */
+  stance: Stance = 0; deck: Deck | null = null; chain = 0;
+  /** B58: the current move is charged; frames back has been held (a parry is a fresh tap). */
+  charged = false; backT = 0;
+  /** B58: frames before the next move may start (the forced rest after a full string). */
+  lock = 0;
   constructor(readonly name: string, x: number, facing: 1 | -1) { this.x = x; this.face = { x: facing, z: 0 }; this.aim = { ...this.face }; }
   get grounded() { return this.y <= 0 && this.vy <= 0; }
   /** Which part of the current move: startup, active or recovery (null when not in a move). */
@@ -135,12 +170,12 @@ export class Fighter {
       || (!!this.move?.crouch && this.phase !== 'recovery') || this.state === 'down';
   }
   reset(x: number, facing: 1 | -1) {
-    Object.assign(this, { x, z: 0, y: 0, vx: 0, vz: 0, vy: 0, face: { x: facing, z: 0 }, aim: { x: facing, z: 0 }, hp: MAX_HP, state: 'idle', move: null, t: 0, stun: 0, juggles: 0, hitThisMove: false, buf: [], counter: false, wallHit: false, blockLow: false, holding: null, upT: 0, downT: 0, sideDir: 0 });
+    Object.assign(this, { x, z: 0, y: 0, vx: 0, vz: 0, vy: 0, face: { x: facing, z: 0 }, aim: { x: facing, z: 0 }, hp: MAX_HP, state: 'idle', move: null, t: 0, stun: 0, juggles: 0, hitThisMove: false, buf: [], counter: false, wallHit: false, blockLow: false, holding: null, upT: 0, downT: 0, sideDir: 0, stamina: STAMINA.max, calm: 0, stance: 0, chain: 0, charged: false, backT: 0, lock: 0 });
   }
 }
 
 export type Phase = 'intro' | 'fight' | 'roundEnd' | 'matchEnd';
-export type Outcome = 'hit' | 'block' | 'counter' | 'throw' | 'break' | 'splat';
+export type Outcome = 'hit' | 'block' | 'counter' | 'throw' | 'break' | 'splat' | 'parry' | 'guardbreak';
 export interface HitEvent { by: Fighter; on: Fighter; move: Move; blocked: boolean; outcome: Outcome }
 
 export class Fight {
@@ -190,6 +225,7 @@ export class Fight {
       this.time = Math.max(0, this.time - F);
     }
     this.press(this.a, pa); this.press(this.b, pb);
+    this.rest(this.a); this.rest(this.b);
     this.control(this.a, this.b, pa); this.control(this.b, this.a, pb);
     this.physics(this.a); this.physics(this.b);
     this.push();
@@ -230,7 +266,19 @@ export class Fight {
     for (const l of LIMBS) if (p[l]) f.buf.push({ limb: l, age: 0 });
   }
 
+  /** Stamina comes back after a moment without spending any. */
+  private rest(f: Fighter) {
+    if (++f.calm > STAMINA.rest && !f.move && f.state !== 'step') f.stamina = Math.min(STAMINA.max, f.stamina + STAMINA.regen * F);
+  }
+  private spend(f: Fighter, n: number) { f.stamina = Math.max(0, f.stamina - n); f.calm = 0; }
+
   private control(f: Fighter, o: Fighter, p: Pad) {
+    // B58: how long back has been held (a parry is a fresh tap of it); a tap let go with nothing parried costs stamina.
+    if (f.deck) {
+      const tw = this.toward(f), heldBack = p.x * (tw.x * this.right.x + tw.z * this.right.z) < -0.4;
+      if (!heldBack && f.backT > 0 && f.backT <= PARRY && f.state === 'guard') this.spend(f, STAMINA.parryMiss);
+      f.backT = heldBack ? f.backT + 1 : 0;
+    }
     // Taps of up or down (released quickly) sidestep; count how long each is held.
     const upTap = !p.up && f.upT > 0 && f.upT <= TAP, downTap = !p.down && f.downT > 0 && f.downT <= TAP;
     f.upT = p.up ? f.upT + 1 : 0; f.downT = p.down ? f.downT + 1 : 0;
@@ -260,13 +308,18 @@ export class Fight {
       const other = m.limb === 'lp' ? 'rp' : 'lp';
       if ((m.id === 'jab' || m.id === 'straight') && f.t <= THROW_WINDOW && f.buf.some((b) => b.limb === other)) { f.buf = []; return this.start(f, MOVES.throw); }
       if (m.track && f.t <= m.startup) { f.aim = u; f.face = u; }   // a round move turns to follow
-      if (m.lunge && f.t <= m.startup) { f.x += (m.lunge / m.startup) * f.aim.x; f.z += (m.lunge / m.startup) * f.aim.z; }
+      // B58: still holding the limb part-way through the wind-up charges it: a longer wind-up, a harder hit that breaks a guard.
+      if (f.deck && !f.charged && f.t === CHARGE_AT && m.limb !== 'throw' && f.t < m.startup && p.hold?.[m.limb]) { f.charged = true; f.t -= CHARGE_EXTRA; this.spend(f, STAMINA.charged - staminaCost(m)); }
+      if (m.lunge && f.t > 0 && f.t <= m.startup) { f.x += (m.lunge / m.startup) * f.aim.x; f.z += (m.lunge / m.startup) * f.aim.z; }
       // Strings: the next button, pressed any time in the move, goes once this one has had its active frames.
-      if (m.next && f.t >= m.startup + m.active && f.t <= m.startup + m.active + 14) {
-        const nb = f.buf.find((b) => m.next![b.limb]);
-        if (nb) { f.buf = []; f.face = u; return this.start(f, MOVES[m.next[nb.limb]!]); }
+      if (f.t >= m.startup + m.active && f.t <= m.startup + m.active + 14) {
+        // B58: a deck fighter's next move comes from the deck, read in the stance this move ends in (four hits at most).
+        const fromDeck = (l: Limb) => (f.deck && f.chain < CHAIN_MAX ? f.deck[f.stance]?.[LIMBS.indexOf(l)] ?? null : null);
+        const nb = f.buf.find((b) => fromDeck(b.limb) || (!(f.deck && f.chain >= CHAIN_MAX) && m.next?.[b.limb]));
+        if (nb) { const id = fromDeck(nb.limb) ?? m.next![nb.limb]!; f.buf = []; f.face = u; f.chain++; return this.start(f, MOVES[id]); }
       }
       if (f.t < m.startup + m.active + m.recovery) return;
+      if (f.deck && f.chain >= CHAIN_MAX) { f.lock = CHAIN_REST; f.buf = []; }   // B58: a full string must recover
       f.move = null; f.state = f.grounded ? 'idle' : 'air';
     }
     if (!f.grounded) {
@@ -279,14 +332,18 @@ export class Fight {
     // Both hands together (or nearly) throw.
     const hands = f.buf.filter((b) => b.limb === 'lp' || b.limb === 'rp');
     if (hands.some((b) => b.limb === 'lp') && hands.some((b) => b.limb === 'rp') && hands.every((b) => b.age <= THROW_WINDOW)) { f.buf = []; return this.start(f, MOVES.throw); }
+    if (f.lock > 0) { f.lock--; f.buf = []; }
     const b = f.buf[0];
     if (b) {
       const dir = p.down ? 'd' : p.up ? 'u' : fwd ? 'f' : back ? 'b' : '';
       if (dir === 'u') return this.hop(f, p);   // the press stays buffered: a jumping attack once in the air
       f.buf = f.buf.filter((x) => x !== b);
-      return this.start(f, command(dir, b.limb));
+      f.chain = 1;
+      // B58: a deck fighter's limb throws what the deck holds for the stance; the stick only moves and defends.
+      const slot = f.deck?.[f.stance]?.[LIMBS.indexOf(b.limb)];
+      return this.start(f, slot && MOVES[slot] ? MOVES[slot] : command(dir, b.limb));
     }
-    if (upTap || downTap) { f.state = 'step'; f.t = 0; f.sideDir = upTap ? 1 : -1; return this.orbit(f, o); }
+    if (upTap || downTap) { f.state = 'step'; f.t = 0; f.sideDir = upTap ? 1 : -1; this.spend(f, STAMINA.step); return this.orbit(f, o); }
     if (p.up && f.upT > TAP) return this.hop(f, p);
     if (p.down) { f.state = back ? 'lowguard' : 'crouch'; f.vx = f.vz = 0; return; }
     if (back) { f.vx = -u.x * BACK; f.vz = -u.z * BACK; f.state = 'guard'; return; }
@@ -306,7 +363,13 @@ export class Fight {
     const s = Math.abs(p.x) > 0.4 ? Math.sign(p.x) * 2.2 : 0;
     f.vx = this.right.x * s; f.vz = this.right.z * s;
   }
-  private start(f: Fighter, m: Move) { f.move = m; f.t = 0; f.state = 'move'; f.hitThisMove = false; f.aim = { ...f.face }; if (f.grounded) f.vx = f.vz = 0; }
+  private start(f: Fighter, m: Move) {
+    // B58: out of stamina, every move comes out a few frames slower. Then the move takes its share.
+    f.move = m; f.t = f.stamina <= 0 ? -STAMINA.slow : 0; f.state = 'move'; f.hitThisMove = false; f.charged = false; f.aim = { ...f.face };
+    this.spend(f, staminaCost(m));
+    f.stance = endStance(m, f.stance);
+    if (f.grounded) f.vx = f.vz = 0;
+  }
 
   private physics(f: Fighter) {
     if (f.holding || f.state === 'thrown') return;
@@ -368,11 +431,21 @@ export class Fight {
     f.hitThisMove = true;
     const standing = o.state === 'guard' || (o.state === 'block' && !o.blockLow);
     const crouching = o.state === 'lowguard' || (o.state === 'block' && o.blockLow);
-    const blocked = o.grounded && (m.level === 'low' ? crouching : standing);
-    this.land(f, o, m, blocked);
+    const guarded = o.grounded && (m.level === 'low' ? crouching : standing);
+    // B58: a fresh tap of back just as it lands parries: the attacker reels and the parry gives stamina back.
+    if (guarded && o.deck && o.state !== 'block' && o.backT > 0 && o.backT <= PARRY) {
+      f.move = null; f.state = 'stun'; f.stun = PARRY_STUN; f.charged = false; o.backT = PARRY + 1;
+      o.stamina = Math.min(STAMINA.max, o.stamina + STAMINA.parryGain);
+      const ev: HitEvent = { by: f, on: o, move: m, blocked: true, outcome: 'parry' };
+      this.events.push(ev); this.onHit?.(ev);
+      return;
+    }
+    // B58: a charged move breaks a guard, and so does any hit on a guard with no stamina behind it.
+    const broke = guarded && (f.charged || o.stamina <= 0);
+    this.land(f, o, m, guarded && !broke, broke);
   }
   /** A hit or a block. Stun comes from the move's frame advantage: at -10 on block the blocker can punish. */
-  private land(f: Fighter, o: Fighter, m: Move, blocked: boolean): void {
+  private land(f: Fighter, o: Fighter, m: Move, blocked: boolean, broke = false): void {
     const left = m.startup + m.active + m.recovery - f.t;   // the attacker's frames still to go
     const away = unit(o.x - f.x, o.z - f.z);
     const shove = (k: number) => { o.vx = away.x * k; o.vz = away.z * k; };
@@ -384,7 +457,7 @@ export class Fight {
       const counter = (!!o.move && o.phase === 'startup') || o.state === 'step';   // caught starting a move or a sidestep
       const air = o.state === 'juggle' || !o.grounded;
       const scale = air ? Math.max(0.35, 0.8 ** o.juggles) : 1;
-      o.hp = Math.max(0, o.hp - Math.round(m.dmg * scale * (counter ? 1.2 : 1)));
+      o.hp = Math.max(0, o.hp - Math.round(m.dmg * scale * (counter ? 1.2 : 1) * (f.charged ? CHARGE_DMG : 1) * (broke && !f.charged ? 0.5 : 1)));
       o.move = null; o.counter = counter; o.blockLow = false; o.wallHit = !!m.wall;
       if (air || m.launch) {
         // Launched, or hit again in the air: pop up, each hit a little lower.
@@ -394,9 +467,10 @@ export class Fight {
       } else if (m.knock) {
         o.state = 'juggle'; o.juggles = 5; o.vy = 3.4; o.y = 0.02; shove(m.wall ? 4.2 : 2.6);
       } else {
-        o.state = 'stun'; o.stun = Math.max(1, left + m.hit + (counter ? 8 : 0)); shove(m.wall ? 3.4 : 1.8);
+        o.state = 'stun'; o.stun = Math.max(1, left + m.hit + (counter ? 8 : 0), broke ? left + BREAK_STUN : 0); shove(m.wall ? 3.4 : 1.8);
       }
-      outcome = counter ? 'counter' : 'hit';
+      outcome = broke ? 'guardbreak' : counter ? 'counter' : 'hit';
+      if (broke && o.stamina <= 0) o.stamina = 20;   // the guard broke once; it has something behind it again
     }
     const ev: HitEvent = { by: f, on: o, move: m, blocked, outcome };
     this.events.push(ev); this.onHit?.(ev);

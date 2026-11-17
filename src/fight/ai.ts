@@ -25,7 +25,11 @@ type Plan = { dir: '' | 'f' | 'b' | 'd'; limb: Limb } | 'throw';
 const POKES: [Plan, number][] = [
   [{ dir: '', limb: 'lp' }, 3], [{ dir: '', limb: 'lk' }, 2], [{ dir: 'f', limb: 'lp' }, 2], [{ dir: 'b', limb: 'lk' }, 1],
   [{ dir: 'd', limb: 'lk' }, 2], [{ dir: 'f', limb: 'lk' }, 1], [{ dir: '', limb: 'rk' }, 1], [{ dir: 'f', limb: 'rk' }, 1], ['throw', 1],
+  // B58: the rest of his list, so a Monk can meet (and learn) every move.
+  [{ dir: '', limb: 'rp' }, 1], [{ dir: 'b', limb: 'rp' }, 1], [{ dir: 'd', limb: 'rk' }, 1], [{ dir: 'd', limb: 'rp' }, 1],
 ];
+// The strings he knows, by the move he opened with: the buttons that follow.
+const STRINGS: Record<string, Limb[][]> = { lp: [['rp'], ['rp', 'rk'], ['rp', 'lk']], lk: [['rk']], rp: [['lp']], flk: [['lk'], ['lk', 'rp']] };
 
 export class KavikAI {
   state: 'approach' | 'poke' | 'block' | 'punish' | 'antiair' | 'back' | 'rest' | 'step' | 'track' = 'approach';
@@ -35,7 +39,8 @@ export class KavikAI {
   private starts: number[] = [];       // when he saw your attacks begin (for reads)
   private prev: Seen | null = null;
   private lowGuard = false;
-  private follow: Limb | null = null;  // the next button of a string he's in
+  private follow: Limb[] = [];         // the next buttons of a string he's in
+  private followFor: unknown = null;   // the move the next button waits on
   constructor(public level: Level, private rnd: () => number = Math.random) {}
 
   /** Kavik's buttons for this step. */
@@ -56,8 +61,8 @@ export class KavikAI {
     const toward = Math.sign(dx * fight.right.x + dz * fight.right.z) || 1;
     this.t -= 1 / 60;
     // Strings: press the next button once the first one is out.
-    if (me.move && this.follow) { if (me.phase !== 'startup') { p[this.follow] = true; this.follow = null; } return p; }
-    if (me.state === 'stun' || me.state === 'juggle' || me.state === 'down' || me.state === 'splat' || me.move) { this.follow = null; return p; }
+    if (me.move && this.follow.length) { if (me.phase !== 'startup' && this.followFor !== me.move) { this.followFor = me.move; p[this.follow.shift()!] = true; } return p; }
+    if (me.state === 'stun' || me.state === 'juggle' || me.state === 'down' || me.state === 'splat' || me.move) { this.follow = []; this.followFor = null; return p; }
     // Blocking: if what he blocked left you open, punish it.
     if (me.state === 'block') {
       if (you.move && s.unsafe && this.rnd() < T.punish * 0.25) this.go('punish', 0.05);
@@ -74,6 +79,9 @@ export class KavikAI {
     else if (seenStart && dist < 2 && this.rnd() < T.block) { this.lowGuard = s.lowMove && this.rnd() < T.lowRead / T.block + 0.2; this.go('block', 0.4); }
     else if (seenRecover && dist < 1.6 && this.rnd() < T.punish) this.go('punish', 0.05);
     if (this.state === 'approach' && dist < 1.4 && this.starts.length >= 3 && this.rnd() < T.read * 0.1) { this.lowGuard = false; this.go('block', 0.5); }
+    // B58 stamina: nearly out, he backs off behind his guard; when you run dry in reach, he comes for you.
+    if (me.stamina < 18 && this.state !== 'back' && this.state !== 'block') this.go('back', 0.9);
+    else if (you.stamina <= 0 && dist < 1.8 && this.state === 'approach' && this.rnd() < T.punish * 0.2) this.go('punish', 0.05);
     switch (this.state) {
       case 'approach':
         if (dist > 1.25) { p.x = toward; if (dist < 2.6 && this.rnd() < T.circle) this.go('step', 0.05); }
@@ -85,7 +93,7 @@ export class KavikAI {
           : s.guarding && s.low && this.rnd() < 0.5 ? { dir: 'f', limb: 'lk' }   // a mid opens a low guard
           : pick(POKES, this.rnd);
         this.act(p, plan, toward);
-        if (plan !== 'throw' && plan.dir === '' && this.level === 'fair' && this.rnd() < 0.4) this.follow = plan.limb === 'lp' ? 'rp' : plan.limb === 'lk' ? 'rk' : null;
+        if (plan !== 'throw' && this.level === 'fair' && this.rnd() < 0.4) { const ss = STRINGS[plan.dir + plan.limb]; this.follow = ss ? [...ss[Math.floor(this.rnd() * ss.length)]] : []; this.followFor = null; }
         this.go('rest', T.rest[0] + this.rnd() * (T.rest[1] - T.rest[0]));   // the opening he leaves
         break;
       }
@@ -96,7 +104,7 @@ export class KavikAI {
       case 'antiair': this.act(p, { dir: 'f', limb: 'rp' }, toward); this.go('rest', T.rest[0]); break;
       case 'punish':
         if (dist > 1.3) p.x = toward;
-        else { const close = dist < 0.9; this.act(p, close ? { dir: '', limb: 'lp' } : { dir: 'f', limb: 'rp' }, toward); this.follow = close ? 'rp' : null; this.go('rest', T.rest[0]); }
+        else { const close = dist < 0.9; this.act(p, close ? { dir: '', limb: 'lp' } : { dir: 'f', limb: 'rp' }, toward); this.follow = close ? ['rp'] : []; this.followFor = null; this.go('rest', T.rest[0]); }
         break;
       case 'step':   // one tap of up or down: a sidestep
         if (this.rnd() < 0.5) p.up = true; else p.down = true;

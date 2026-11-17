@@ -121,6 +121,7 @@
     "e2e-stairs-timer",
     "e2e-wagon",
     "e2e-i18n",
-    "e2e-langfolk"
+    "e2e-langfolk",
+    "e2e-monk-deck"
   ]
 }

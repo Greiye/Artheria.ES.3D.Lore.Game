@@ -29,3 +29,15 @@
 body[data-input="touch"] #fight .fx-pad { display: grid; }
 body[data-input="touch"] #fight .fx-help { display: none; }
 body[data-input="pad"] #fight .fx-help-keys { display: none; }
+/* B58: stamina under each health bar, the Monk's stance (four dots: front left, front right, back left, back right). */
+#fight .fx-stam { height: 6px; border-color: rgba(164,200,232,.5); }
+#fight .fx-st { display: block; height: 100%; background: linear-gradient(#BFE3F5, #6FA8C8); }
+#fight .fx-stam.empty { animation: fx-empty .35s steps(2) infinite; }
+@keyframes fx-empty { 50% { background: rgba(200,60,40,.8); } }
+#fight .fx-stance, #fight .fx-stance-name, #fight .fx-help-monk { display: none; }
+#fight.monk .fx-stance { display: inline-grid; grid-template-columns: 7px 7px; gap: 2px; vertical-align: middle; margin-left: 6px; }
+#fight .fx-stance i { width: 7px; height: 7px; border-radius: 50%; background: rgba(243,230,200,.3); }
+#fight .fx-stance i.on { background: #E8C878; box-shadow: 0 0 5px #E8C878; }
+#fight.monk .fx-stance-name { display: inline; margin-left: 6px; font-weight: 400; opacity: .85; font-size: 12px; }
+#fight.monk .fx-help-monk { display: block; bottom: calc(28px + env(safe-area-inset-bottom)); }
+body[data-input="touch"] #fight.monk .fx-help-monk { display: none; }

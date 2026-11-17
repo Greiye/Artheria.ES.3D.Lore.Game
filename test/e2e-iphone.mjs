@@ -67,7 +67,10 @@ const optIn = () => { localStorage.setItem('gametool.rotateask', 'on'); localSto
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(shots, 'iphone-3-play.png') });
   // The address bar shrinking the page: the canvas follows the visual viewport.
-  await page.setViewportSize({ width: landscape.viewport.width, height: landscape.viewport.height - 50 });
+  // CI's Chromium refuses Browser.setWindowBounds ("restore it to normal state first") because its window is maximized, so
+  // resize the page itself through CDP: the same metrics the iPhone 13 profile uses, minus the address bar.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: landscape.viewport.width, height: landscape.viewport.height - 50, deviceScaleFactor: iphone.deviceScaleFactor, mobile: true });
   await page.waitForTimeout(300);
   const canvasH = await G(page, () => document.querySelector('#app canvas').clientHeight);
   check('The canvas follows the visible area when the address bar takes room', canvasH === landscape.viewport.height - 50, String(canvasH));
