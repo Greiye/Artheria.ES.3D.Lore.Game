@@ -2,6 +2,10 @@
 
 Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSION`.
 
+## Table pages (Mike 2026-11-19)
+
+- New folder `content/table/` for lore pushed from the TTRPG Session Tool's Lore tab (NPCs, places, items from play). The tool also pulls `content/lore/` and `content/artifacts/` into its Lore tab, read only. The library build does not read `content/table/`.
+
 ## Creature pages (Mike 2026-11-16)
 
 - New folder `content/creatures/`: one Markdown page per people, beast, monster or named person, written and read by the Creature Designer in the TTRPG Session Tool. The library build does not read it, so these pages never block a deploy.
