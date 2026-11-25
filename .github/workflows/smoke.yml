@@ -23,6 +23,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm run test:unit
       - run: npm run build
       - run: npx playwright-core install --with-deps chromium
       # Same runner as the nightly set, so the suites get the CI stretch (test/slow.mjs) and one retry.
