@@ -15,6 +15,7 @@ import { type Layout } from '../dungeon/gen';
 import { haptics } from '../input/haptics';
 import { Thrower } from '../sling';
 import { CROWN } from '../shop';
+import { STARTING_CROWNS } from '../economy';
 import { FLOORS, band, BAND_NOTE, hpMul, dmgBonus, maxFoesFor, newDescent, saveRecord, addFallen, addSurvivor, isCamp, fluxFor, FLUX_NOTE, GUARDIAN_NAMES, carryOff, GIFTS, hasGift, type Descent, type Flux } from '../delve/descent';
 import { ScrollPicker, offerScrolls, type ScrollSlot } from '../delve/scrolls';
 import { DescentCine } from '../cinematic/descend';
@@ -214,7 +215,7 @@ export function setupDescentFlow(deps: DescentFlowDeps) {
     deps.character = { ...deps.character, name: '', created: false, profession: '' }; saveCharacter(deps.character);
     deps.player.spawn(deps.world.spawn.pos, deps.world.spawn.yaw);
     deps.rolledGoblinsM.delveHp = deps.DELVE_HP;
-    if (hasGift(deps.record.delivered, 'purse')) deps.inventory.give(CROWN, 20);
+    deps.inventory.give(CROWN, STARTING_CROWNS + (hasGift(deps.record.delivered, 'purse') ? 20 : 0));   // Mike 2026-11-09: a new hero starts with 500
     deps.toast(note, 6500);
     setTimeout(() => { if (deps.state === 'play') deps.openCharacterForge(); }, 600);
   }

@@ -76,6 +76,7 @@ import { Thrower } from './sling';
 import { Shield, BLOCK_ARC, BLOCK_LEAK } from './shield';
 import { HeldBook } from './heldBook';
 import { CROWN } from './shop';
+import { STARTING_CROWNS } from './economy';
 import { TOWN_NAMES, GATE, FOUNTAIN, TOWN_LOTS } from './world/town';
 import { QuestGroups } from './quest/groups';   // B52/B53
 import { Regions, MODERN_FRIENDS } from './world/regions';
@@ -379,6 +380,7 @@ async function begin() {
   // where they last slept, as before.
   lastRest = save ? (save.rest ?? 'inn') : 'camp';
   if (!save && !campWelcomed()) welcomePending = true;
+  if (!save && !begun && inventory.count(CROWN) < STARTING_CROWNS) inventory.give(CROWN, STARTING_CROWNS - inventory.count(CROWN));   // Mike 2026-11-09: a new game starts with 500
   if (save && !begun) {
     setWorldTime(save.time);
     for (const [id, n] of save.items) if (inventory.count(id) < n) inventory.give(id, n - inventory.count(id));

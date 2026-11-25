@@ -108,9 +108,9 @@ export function setupTalk(deps: TalkDeps) {
       const keep = { gp: g.position.clone(), gy: g.rotation.y, ny: n.rotation.y, body: deps.player.body.visible };
       g.position.set(spot.x, g.position.y, spot.z); g.rotation.y = Math.atan2(feet.x - spot.x, feet.z - spot.z);
       n.rotation.y = Math.atan2(spot.x - feet.x, spot.z - feet.z);
-      deps.player.body.visible = false;
+      deps.player.body.visible = false; deps.player.offstage = true;
       firstMeet.play(feet, spot, () => {
-        g.position.copy(keep.gp); g.rotation.y = keep.gy; n.rotation.y = keep.ny; deps.player.body.visible = keep.body;
+        g.position.copy(keep.gp); g.rotation.y = keep.gy; n.rotation.y = keep.ny; deps.player.offstage = false; deps.player.body.visible = keep.body;
         talkTo('natalie', deps.world.natalieTarget.position, natalieScript as DialogueScript);
       });
       return;

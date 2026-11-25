@@ -16,6 +16,10 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 69: main.ts split and a shared projectile step (Mike 2026-11-25, refactor survey item 1)
+- No change to play. `src/main.ts` goes from 4,496 to 1,881 lines: the settings menu moves to `src/ui/settingsMenu.ts`, and travel, exits, wagon, multiplayer, speakers, talk, views, town stations, the descent flow, the knight frame, pets, cooking and the other feature sections move to `src/app/` (30 files).
+- `src/physics/projectile.ts`: the crossbow bolt, sling stone and magic missile share one swept projectile step. `src/physics/colliderGrid.ts`: the camera looks up nearby colliders from a grid instead of the whole list.
+
 ### v0.16 changelog, part 68: the last red checks (Mike 2026-11-10, "Repair")
 - Natalie's first meeting: the hero stayed in shot through the cinematic (the camera turned the body back on each frame). The hero now steps out of frame as intended.
 - Townsfolk paths: walkers no longer cut through lamp posts, benches, the grindstone or the corners of buildings. Things standing close together are walked round as one, and the first and last steps of a walk are checked too.
