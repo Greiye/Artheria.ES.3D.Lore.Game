@@ -35,3 +35,12 @@ Artheria is a closed mana system: 100 points of aether circulate, never gained o
 
 ## True Names
 Speaking a demon's true name counters its spells. A pact can bind the demon as much as the warlock.
+
+<!-- full-entries -->
+## Full entries
+
+The complete text from *Tales of Artheria*.
+
+- [[Fragments of Magic (Hard System)|Fragments-of-Magic-Hard-System]]
+- [[Odd, Unusual Forms and Systems of Magic|Odd-Unusual-Forms-and-Systems-of-Magic]]
+- [[Magic, Expanded|Magic-Expanded]]

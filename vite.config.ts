@@ -103,6 +103,13 @@ const PORTRAIT_EXT = /\.(webp|png|jpe?g)$/i;
 const portraitFiles = () => (fs.existsSync(PORTRAIT_DIR) ? fs.readdirSync(PORTRAIT_DIR).filter((f) => PORTRAIT_EXT.test(f)).sort() : []);
 const portraits = () => shipDir('portraits', PORTRAIT_DIR, 'portraits', PORTRAIT_EXT, (f) => (f.endsWith('.webp') ? 'image/webp' : f.endsWith('.png') ? 'image/png' : 'image/jpeg'));
 
+// Wiki images: scripts/pull-wiki.mjs saves the pictures the wiki pages embed into content/wiki/images/. They ship
+// beside the page (dist/wiki-images/) and the list is baked in, so the reader never asks for a missing image or GitHub.
+const WIKI_IMG_DIR = 'content/wiki/images';
+const WIKI_IMG_EXT = /\.(webp|png|jpe?g|gif)$/i;
+const wikiImageFiles = () => (fs.existsSync(WIKI_IMG_DIR) ? fs.readdirSync(WIKI_IMG_DIR).filter((f) => WIKI_IMG_EXT.test(f)).sort() : []);
+const wikiImages = () => shipDir('wiki-images', WIKI_IMG_DIR, 'wiki-images', WIKI_IMG_EXT, (f) => (f.endsWith('.webp') ? 'image/webp' : f.endsWith('.png') ? 'image/png' : f.endsWith('.gif') ? 'image/gif' : 'image/jpeg'));
+
 // B26: the camera push-up counter's pose model (MediaPipe Pose Lite, Apache-2.0). Library + WebAssembly come from the
 // pinned @mediapipe/tasks-vision package, the model from assets/pose/. ~15 MB, fetched only when the camera is turned on.
 const MP_DIR = 'node_modules/@mediapipe/tasks-vision';
@@ -147,7 +154,7 @@ if (!GAME_VERSION || !PKG_VERSION.startsWith(GAME_VERSION + '.')) {
 
 export default defineConfig({
   base: './',
-  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits(), aboutPage(), ...pose()],
+  plugins: [viteSingleFile(), loreWatch(), buildStamp(), cinema(), evolution(), portraits(), wikiImages(), aboutPage(), ...pose()],
   server: { host: true }, // also reachable from a phone on the same Wi-Fi for testing
   build: { assetsInlineLimit: 100_000_000, chunkSizeWarningLimit: 2000 },
   // .glb slots that actually exist in public/models (so the game never requests a missing file).
@@ -156,6 +163,7 @@ export default defineConfig({
     __CINEMA__: JSON.stringify(cinemaClips()),
     __EVOLUTION__: JSON.stringify(evolutionShots()),
     __WIKI__: JSON.stringify(wikiPages()),
+    __WIKI_IMAGES__: JSON.stringify(wikiImageFiles()),
     __PORTRAITS__: JSON.stringify(portraitFiles()),
     __MODEL_IDS__: JSON.stringify(fs.existsSync('public/models') ? fs.readdirSync('public/models').filter((f) => f.endsWith('.glb')).map((f) => f.slice(0, -4)) : []),
   },

@@ -19,6 +19,8 @@ The lore lives in books that can only be found in the **Ruined Library**. **Nata
 | [[Gods and Faiths]] | The pantheon, the churches, the Patron |
 | [[Magic]] | Where magic comes from, how it looks, how strong it gets |
 | [[Heroes and Villains]] | The people of the tales |
+| [[Tales and Campaigns]] | Journals and session logs: Follower of the First, Veilo, Kazka and Raq, the Caerne's March |
+| [[Chronology]] | Every era in order, from the First World to today |
 | [[Bestiary and Artifacts]] | Monsters, dragons, relics |
 | [[Sources]] | Who tells the tales, and why they disagree |
 | [[Lore in the Game]] | How the lore shows up in play |

@@ -42,3 +42,16 @@
 The House of Basalt is dissolved. St. Gabriel purified Ein and became a Cardinal. Malachi retired, and his daughter Natalie began writing *Tales of Artheria*. The Possessor Demon is back, and wolves multiply. Senland is razed. The Infernling–Orc War displaces both peoples.
 
 **Still unresolved:** Belial's town-taking weapon; the Noctavel artifact in the Ruined Library; dying portals that still spark; who Kavik and Kazka's patron really is; the Seed of Thithonus; the Chalice in Aevelon.
+
+<!-- full-entries -->
+## Full entries
+
+The complete text from *Tales of Artheria*.
+
+- [[History and Lore|History-and-Lore]]
+- [[The First Pact|The-First-Pact]]
+- [[The Promise that Shattered the World|The-Promise-that-Shattered-the-World]]
+- [[The Scale of Amethyst Peak|The-Scale-of-Amethyst-Peak]]
+- [[The Ephemerals of Nepenthe|The-Ephemerals-of-Nepenthe]]
+- [[Kingdom Lore: The Red Kingdoms and the Azul Empire|Kingdom-Lore-The-Red-Kingdoms-and-the-Azul-Empire]]
+- [[Chronology|Chronology]]

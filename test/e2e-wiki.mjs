@@ -37,8 +37,20 @@ const home = await G(page, () => ({ h: document.querySelector('#wiki h1').textCo
 const src = fs.readFileSync('content/wiki/Home.md', 'utf8');
 check('A page renders from the baked-in markdown', home.h === 'Home' && home.body.includes(src.split('\n')[0].replace(/[*_#]/g, '').trim()), JSON.stringify(home).slice(0, 200));
 check('Web links in a page open in a new tab', home.out.every((a) => !/^https?:/.test(a.href) || a.target === '_blank'), JSON.stringify(home.out));
-check('Reading the wiki makes no network request (it is inside the build)', requests.filter((u) => /github|wiki/i.test(u)).length === 0, requests.join(' '));
 await page.screenshot({ path: path.join(shots, 'b21-wiki-menu.png') });
+
+// Images: a page that embeds pictures shows the copies shipped beside the build (dist/wiki-images/), not GitHub's.
+const imgFiles = fs.existsSync('content/wiki/images') ? fs.readdirSync('content/wiki/images') : [];
+const withImg = pages.find((f) => imgFiles.some((i) => fs.readFileSync(`content/wiki/${f}`, 'utf8').includes(i)));
+if (withImg) {
+  await page.click('#wkIndex');
+  await page.click(`#wiki [data-page="${withImg.slice(0, -3)}"]`);
+  await page.waitForFunction(() => [...document.querySelectorAll('#wiki .wk-body img')].every((i) => i.complete), null, { timeout: 10000 }).catch(() => {});
+  const im = await G(page, () => ({ imgs: [...document.querySelectorAll('#wiki .wk-body img')].map((i) => ({ src: i.getAttribute('src'), w: i.naturalWidth, shown: i.getBoundingClientRect().width })), missing: document.querySelectorAll('#wiki .wk-body .missing-img').length }));
+  check(`Wiki images show from the build (${withImg})`, im.imgs.length > 0 && im.missing === 0 && im.imgs.every((i) => /^wiki-images\//.test(i.src) && i.w > 0 && i.shown > 0), JSON.stringify(im).slice(0, 300));
+  await page.screenshot({ path: path.join(shots, 'b21-wiki-images.png') });
+} else check('Wiki images show from the build (no page embeds one yet)', true);
+check('Reading the wiki makes no network request (it is inside the build)', requests.filter((u) => /github|wiki/i.test(u)).length === 0, requests.join(' '));
 await page.keyboard.press('Escape');
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);

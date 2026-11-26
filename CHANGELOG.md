@@ -16,6 +16,11 @@ Per §0 rule 3 of the Video Gametool Project spec. One entry per shipped `VERSIO
 One merged entry for the roadmap work. The corner label shows the current build version (`VERSION` 0.16,
 Mike 2026-10-28; batch B 2026-10-31; batch C 2026-11-01; batch D 2026-11-01; B26 2026-11-02). Spec doc v0.06.
 
+### v0.16 changelog, part 71: pictures in the wiki (Mike 2026-11-26)
+- The wiki shows its pictures. `npm run wiki` also saves the images the pages embed (from the project's own GitHub account, e.g. the Artheria Lore Repo) into `content/wiki/images/`, and they ship beside the page as `wiki-images/`. Reading the wiki still never calls GitHub; a picture that isn't in the build stays a text placeholder.
+- A page no longer shows its title twice (the card's banner and the page's own first heading).
+- The wiki snapshot now holds the full *Tales of Artheria* pages (70 pages) and the first five Aralon pictures.
+
 ### v0.16 changelog, part 70: unit tests for the pure logic (Mike 2026-11-25, refactor survey item 5)
 - No change to play. 27 fast unit tests (vitest, under a second) in `test/unit/`: save migrations and the 500 crowns start (`src/migrate.ts`, `src/economy.ts`), the descent's numbers (bands, camps, guardians, flux, gifts, lost gear), and seeds and roll tables (the same seed always gives the same dungeon floor, goblin and townsperson; every room is reachable from the entrance).
 - `npm run test:unit`; the smoke check runs them first on every pull request.

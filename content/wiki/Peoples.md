@@ -45,3 +45,20 @@ Peoples who came through the portals opened by the Promise that Shattered the Wo
 - **Spirits.** Beings of pure mana; ancestors of every race.
 
 > ⚖ **Sources disagree.** The elves declared giants extinct to mark their victory. King Breitling, Titankin, and a Frost Giant guarding a vault argue otherwise. Pallasite reports count ~50 changelings alive.
+
+<!-- full-entries -->
+## Full entries
+
+The complete text from *Tales of Artheria*.
+
+- [[Races Overview|Races-Overview]]
+- [[Elves|Elves]]
+- [[Beastmen|Beastmen]]
+- [[Halflings|Halflings]]
+- [[Humans|Humans]]
+- [[Infernlings|Infernlings]]
+- [[Orcs|Orcs]]
+- [[Other Races|Other-Races]]
+- [[The Elves, Expanded|The-Elves-Expanded]]
+- [[Infernlings, Expanded|Infernlings-Expanded]]
+- [[Emberkin|Emberkin]]

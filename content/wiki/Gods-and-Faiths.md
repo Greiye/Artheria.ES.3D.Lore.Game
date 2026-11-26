@@ -28,3 +28,11 @@ Some gods are willed into existence. Each rules a creature type.
 
 ## The Patron
 A shapeshifting spirit from a realm of agony, summoned by **the Scholar** to save humanity in the Human–Orc War. The pact cursed the Scholar's bloodline, released a swarm of demons, and left two portals open. What became of the Patron is unknown. Its warlocks include the Scholar, **Kavik Zamir**, and later **Kazka**.
+
+<!-- full-entries -->
+## Full entries
+
+The complete text from *Tales of Artheria*.
+
+- [[The Church of the First|The-Church-of-the-First]]
+- [[The Powerful Gods|The-Powerful-Gods]]

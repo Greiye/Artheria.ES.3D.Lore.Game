@@ -26,3 +26,12 @@
 - **The Sacred Flame.** An unending fire of the Church of the First.
 - **Pyroveil.** Emberkin cloth that reflects body heat.
 - **Orcish Sword** (vibrates near elves) and **Elven Ring** (wakes the soul of an object), found in a dryad's ruin.
+
+<!-- full-entries -->
+## Full entries
+
+The complete text from *Tales of Artheria*.
+
+- [[Monsters and Creatures|Monsters-and-Creatures]]
+- [[Unique Creatures|Unique-Creatures]]
+- [[Mystical Artifacts|Mystical-Artifacts]]

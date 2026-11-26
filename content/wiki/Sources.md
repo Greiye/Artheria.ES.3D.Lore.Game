@@ -24,3 +24,10 @@ The lore is told by in-world narrators who don't agree. Where they clash, pages 
 | Derby | Ex-Azulan medic | Brilliant, unstable |
 | Lay of Kavik's Band | A Ranlean ballad | Tragic |
 | Travellers' journals | Argo, Eli, Yoshua, St. Gabriel, and others | First-hand but biased |
+
+<!-- full-entries -->
+## Full entries
+
+The complete text from *Tales of Artheria*.
+
+- [[Names and Variants|Names-and-Variants]]

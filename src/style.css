@@ -546,6 +546,8 @@ body[data-lefty][data-input="touch"] #status { left: auto; right: calc(16px + en
 #wiki .wk-card { width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
 #wiki .wk-body { font-size: calc(16px * var(--text-k, 1)); line-height: 1.55; }
 #wiki .wk-body a, #wiki .wk-src a { color: #E8C878; }
+#wiki .wk-body figure { margin: .6em 0 1em; }
+#wiki .wk-body img { display: block; max-width: 100%; height: auto; border-radius: 6px; }
 #wiki .wk-index { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 #wiki .wk-index button { width: 100%; text-align: left; min-height: 44px; }
 #wiki .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }

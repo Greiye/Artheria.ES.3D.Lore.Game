@@ -39,3 +39,11 @@ A medieval mercenary band, told by its own members: **Yarl** (captain), **Herald
 
 ## Groups
 **Adventurer's Guild**, **Pallasite** (formerly the Azure Concord), **Jagged Edge Knights**, **Paladin-Barbarians**, **the Arresters**, **the Azul Empire** and **the Red Kingdoms**.
+
+<!-- full-entries -->
+## Full entries
+
+The complete text from *Tales of Artheria*.
+
+- [[Kazka Zamir: The Infernling Hero|Kazka-Zamir-The-Infernling-Hero]]
+- [[Heroes and Villains Roster|Heroes-and-Villains-Roster]]

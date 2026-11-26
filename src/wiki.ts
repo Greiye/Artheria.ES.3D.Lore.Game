@@ -5,12 +5,21 @@ import { escapeHtml } from './submit';
 
 // B21 (Mike 2026-10-31): the GitHub wiki inside the game. scripts/pull-wiki.mjs pulls it at build time into
 // content/wiki/ and the build bakes the pages in (__WIKI__), so it reads offline and never calls GitHub while you
-// play. Read it at the reading room lectern in the Ruined Library, or from Extras → Wiki on the main menu.
+// play (its images ship beside the page too). Read it at the reading room lectern in the Ruined Library, or from Extras → Wiki on the main menu.
 // Wiki links ([[Page]], [[Text|Page]], [text](Page)) stay inside; web links open in a new tab.
 interface WikiPage { slug: string; title: string; md: string }
 declare const __WIKI__: WikiPage[];
 const WIKI_PAGES: WikiPage[] = typeof __WIKI__ === 'undefined' ? [] : __WIKI__;
 export const WIKI_URL = 'https://github.com/Greiye/Artheria.ES.3D.Lore.Game/wiki';
+
+// Images the pages embed (![alt](url) pointing at the lore repo, or a bare file name) are pulled with the wiki into
+// content/wiki/images/ and ship as wiki-images/<file>. Matched by file name; anything not shipped stays a placeholder.
+declare const __WIKI_IMAGES__: string[];
+const WIKI_IMAGES: string[] = typeof __WIKI_IMAGES__ === 'undefined' ? [] : __WIKI_IMAGES__;
+export function resolveWikiImage(src: string): string | null {
+  const file = decodeURIComponent(src.split(/[?#]/)[0].split('/').pop() ?? '');
+  return file && WIKI_IMAGES.includes(file) ? `wiki-images/${encodeURIComponent(file)}` : null;
+}
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, '-').replace(/\.md$/, '');
 const findPage = (name: string) => WIKI_PAGES.find((p) => norm(p.slug) === norm(name) || norm(p.title) === norm(name));
@@ -24,7 +33,7 @@ function renderWiki(md: string): HTMLElement[] {
     .replace(/\[\[([^\]]+)\]\]/g, (_m, a: string) => token(a, a))
     .replace(/(?<!!)\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, t: string, u: string) => token(t, u))
     .replace(/<!--[\s\S]*?-->/g, '');
-  const els = renderMarkdown(src, () => null);
+  const els = renderMarkdown(src, resolveWikiImage);
   for (const el of els) el.innerHTML = el.innerHTML.replace(/\u0001(\d+)\u0001/g, (_m, n: string) => {
     const l = links[Number(n)];
     if (/^https?:\/\//i.test(l.to)) return `<a href="${escapeHtml(l.to)}" target="_blank" rel="noopener">${escapeHtml(l.text)}</a>`;
@@ -72,7 +81,11 @@ export class WikiPanel {
         ${WIKI_PAGES.length ? `<ul class="wk-index">${WIKI_PAGES.map((p) => `<li><button class="secondary" data-page="${escapeHtml(p.slug)}">${escapeHtml(p.title)}</button></li>`).join('')}</ul>` : '<p class="fine">No pages yet.</p>'}${foot}</div>`;
     } else {
       this.el.innerHTML = `<div class="card wk-card">${head}<h1>${escapeHtml(this.page.title)}</h1><div class="wk-body"></div>${foot}</div>`;
-      this.el.querySelector('.wk-body')!.append(...renderWiki(this.page.md));
+      // The card already shows the title; skip a first "# Title" heading that only repeats it.
+      const bare = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const title = bare(this.page.title);
+      const md = this.page.md.replace(/^﻿?\s*#\s+(.+?)\s*(\r?\n|$)/, (m, h: string) => (bare(h) === title ? '' : m));
+      this.el.querySelector('.wk-body')!.append(...renderWiki(md));
     }
     this.el.querySelector<HTMLElement>('.wk-card')?.scrollTo?.(0, 0);
   }
